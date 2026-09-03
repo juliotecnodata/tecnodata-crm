@@ -1,0 +1,9 @@
+RewriteEngine On
+DirectoryIndex index.php
+
+# Bloqueia arquivos sensíveis
+<FilesMatch "\.(sql|log|ini|env|md)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes
