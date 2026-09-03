@@ -12,8 +12,10 @@ $u=Auth::user();
 
 $month=(string)($_GET['month']??date('Y-m'));
 if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
-$view=in_array(($_GET['view']??'open'),['open','all','settled'],true)?(string)$_GET['view']:'open';
-$signal=in_array(($_GET['signal']??'all'),['all','mine','attended','agreement','promise','unattended'],true)?(string)$_GET['signal']:'all';
+$viewRaw=(string)($_GET['view']??'open');
+$signalRaw=(string)($_GET['signal']??'all');
+$view=in_array($viewRaw,['open','all','settled'],true)?$viewRaw:'open';
+$signal=in_array($signalRaw,['all','mine','attended','agreement','promise','unattended'],true)?$signalRaw:'all';
 
 $summary=CollectionService::portfolioSummary();
 $work=CollectionService::monthForUser((int)$u['id'],$month);

@@ -15,12 +15,15 @@ $start=max(0,(int)($_GET['start']??0));
 $length=(int)($_GET['length']??25);if($length<10)$length=10;if($length>100)$length=100;
 $search=trim((string)($_GET['search']['value']??''));
 
-$view=in_array(($_GET['view']??'open'),['open','all','settled'],true)?(string)$_GET['view']:'open';
-$signal=in_array(($_GET['signal']??'all'),['all','mine','attended','agreement','promise','unattended'],true)?(string)$_GET['signal']:'all';
+$viewRaw=(string)($_GET['view']??'open');
+$signalRaw=(string)($_GET['signal']??'all');
+$view=in_array($viewRaw,['open','all','settled'],true)?$viewRaw:'open';
+$signal=in_array($signalRaw,['all','mine','attended','agreement','promise','unattended'],true)?$signalRaw:'all';
 $month=(string)($_GET['month']??date('Y-m'));if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
 $monthStart=$month.'-01';$monthNext=date('Y-m-d',strtotime($monthStart.' +1 month'));
 $seller=trim((string)($_GET['seller']??''));$uf=strtoupper(trim((string)($_GET['uf']??'')));
 
+try {
 $paramsBase=[$monthStart,$monthNext,(int)$u['id'],$monthStart,$monthNext,$monthStart,$monthNext,$monthStart,$monthNext];
 
 $baseSql="SELECT
@@ -133,3 +136,14 @@ foreach($rows as $r){
 }
 
 echo json_encode(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+} catch (Throwable $e) {
+    http_response_code(500);
+    error_log('[CRM collection-table] '.$e->getMessage());
+    echo json_encode([
+        'draw'=>$draw,
+        'recordsTotal'=>0,
+        'recordsFiltered'=>0,
+        'data'=>[],
+        'error'=>'Falha ao carregar a carteira de cobrança. Verifique se o upgrade V6.5 foi executado.'
+    ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+}
