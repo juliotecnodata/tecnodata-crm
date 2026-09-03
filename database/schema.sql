@@ -93,7 +93,9 @@ CREATE TABLE IF NOT EXISTS financial_movements (
  INDEX idx_fin_due(due_date),
  INDEX idx_fin_status(status),
  INDEX idx_fin_account(account_omie_code),
- INDEX idx_fin_seen(last_seen_run_id)
+ INDEX idx_fin_seen(last_seen_run_id),
+ INDEX idx_fin_collection(account_omie_code,status,client_omie_code),
+ INDEX idx_fin_client_status_account(client_omie_code,status,account_omie_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS client_metrics (
@@ -246,7 +248,10 @@ CREATE TABLE IF NOT EXISTS collection_actions (
  FOREIGN KEY(user_id) REFERENCES users(id),
  INDEX idx_collection_seller_date(seller_omie_code,created_at),
  INDEX idx_collection_client(client_id),
- INDEX idx_collection_type_date(action_type,created_at)
+ INDEX idx_collection_type_date(action_type,created_at),
+ INDEX idx_collection_client_deleted_date(client_id,deleted_at,created_at),
+ INDEX idx_collection_user_deleted_date(user_id,deleted_at,created_at,client_id),
+ INDEX idx_collection_result_deleted_date(result,deleted_at,created_at,client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS collection_user_goals (

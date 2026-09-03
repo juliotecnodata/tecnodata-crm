@@ -201,13 +201,15 @@ final class CollectionService {
         $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
         $stats=DB::fetch("SELECT COALESCE(SUM(CASE WHEN action_type='payment' THEN amount ELSE 0 END),0) recovered,
             COUNT(DISTINCT client_id) worked, COUNT(*) actions,
-            COUNT(DISTINCT CASE WHEN result='acordo' THEN client_id END) agreements
+            COUNT(DISTINCT CASE WHEN result='acordo' THEN client_id END) agreements,
+            COUNT(DISTINCT CASE WHEN result='promessa' THEN client_id END) promises
             FROM collection_actions WHERE user_id=? AND deleted_at IS NULL AND created_at>=? AND created_at<?",
             [$userId,$start,$next])??[];
         $amountGoal=(float)($goal['amount_goal']??0);$contactGoal=(int)($goal['contact_goal']??0);
         $recovered=(float)($stats['recovered']??0);$worked=(int)($stats['worked']??0);
         return ['amount_goal'=>$amountGoal,'contact_goal'=>$contactGoal,'recovered'=>$recovered,'worked'=>$worked,
             'actions'=>(int)($stats['actions']??0),'agreements'=>(int)($stats['agreements']??0),
+            'promises'=>(int)($stats['promises']??0),
             'amount_missing'=>max(0,$amountGoal-$recovered),
             'amount_percent'=>$amountGoal?$recovered/$amountGoal*100:0,
             'contact_percent'=>$contactGoal?$worked/$contactGoal*100:0];
@@ -221,16 +223,25 @@ final class CollectionService {
     }
 
     public static function portfolioSummary(): array {
-        $clients=DB::all("SELECT c.id,c.omie_code FROM clients c WHERE EXISTS(
-            SELECT 1 FROM financial_movements fm INNER JOIN financial_accounts fa
-              ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
-            WHERE fm.client_omie_code=c.omie_code AND UPPER(fm.status) IN('ATRASADO','PAGTO_PARCIAL'))");
-        $total=0;$open=0;$settled=0;
-        foreach($clients as $c){
-            $d=self::debtState((int)$c['id'],(string)$c['omie_code']);
-            $total+=$d['effective_debt'];
-            if($d['effective_debt']>0.009)$open++;else$settled++;
-        }
-        return ['clients'=>count($clients),'open_clients'=>$open,'settled_local'=>$settled,'amount'=>$total];
+        $r=DB::fetch("SELECT COUNT(*) clients,
+            SUM(effective_debt>0.009) open_clients,
+            SUM(effective_debt<=0.009) settled_local,
+            COALESCE(SUM(effective_debt),0) amount
+          FROM (
+            SELECT c.id,GREATEST(0,COALESCE(SUM(fm.amount),0)-COALESCE(adj.pending_received,0)) effective_debt
+            FROM clients c
+            INNER JOIN financial_movements fm ON fm.client_omie_code=c.omie_code
+              AND fm.status IN('ATRASADO','PAGTO_PARCIAL')
+            INNER JOIN financial_accounts fa ON fa.omie_code=fm.account_omie_code
+              AND fa.selected=1 AND fa.active=1
+            LEFT JOIN collection_client_adjustments adj ON adj.client_id=c.id
+            GROUP BY c.id,adj.pending_received
+          ) x")??[];
+        return [
+            'clients'=>(int)($r['clients']??0),
+            'open_clients'=>(int)($r['open_clients']??0),
+            'settled_local'=>(int)($r['settled_local']??0),
+            'amount'=>(float)($r['amount']??0)
+        ];
     }
 }

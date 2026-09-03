@@ -57,3 +57,14 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 .signal-stack{display:flex;flex-wrap:wrap;gap:5px}.signal-badge{display:inline-flex;align-items:center;gap:4px;border-radius:8px;padding:4px 7px;font-size:9px;font-weight:800;white-space:nowrap}.signal-attended{background:#ecfdf3;color:#067647}.signal-agreement{background:#f4f7df;color:#596b00}.signal-muted{background:#f2f4f7;color:#667085}
 .activity-edit-link{width:27px;height:27px;border:1px solid var(--line);border-radius:8px;display:inline-grid;place-items:center;color:var(--muted);font-size:9px;flex:0 0 auto}.activity-edit-link:hover{color:var(--ink);background:#f8f9fa}.activity-tail{display:flex;align-items:center;gap:8px}
 @media(max-width:1000px){.management-goal{grid-template-columns:1fr 1fr}.management-goal>div:nth-child(3){border-left:0;border-top:1px solid var(--line)}.management-goal>div:nth-child(4){border-top:1px solid var(--line)}}@media(max-width:600px){.management-goal{grid-template-columns:1fr}.management-goal>div{border-left:0;border-top:1px solid var(--line)}.management-goal>div:first-child{border-top:0}}
+
+/* V6.5 — cobrança server-side */
+.collection-filter-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.segmented-control button{border:0;background:transparent;padding:7px 12px;border-radius:8px;color:var(--muted);font-size:11px;font-weight:700}
+.segmented-control button.active{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.collection-filter-grid{display:grid;grid-template-columns:minmax(180px,1.4fr) 170px minmax(180px,1fr) 110px auto;gap:12px;align-items:end;padding:16px 18px}
+.collection-filter-grid>div{min-width:0}.collection-filter-actions{display:flex;align-items:end}.collection-filter-actions .btn{height:42px;white-space:nowrap}
+.signal-mine{background:#eff4ff;color:#175cd3}.signal-promise{background:#fffaeb;color:#b54708}
+#collectionTable_processing.dt-processing{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 18px;box-shadow:none}
+@media(max-width:1100px){.collection-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.collection-filter-actions{grid-column:1/-1}}
+@media(max-width:650px){.collection-filter-head{align-items:flex-start;flex-direction:column}.collection-filter-grid{grid-template-columns:1fr}.collection-filter-actions{grid-column:auto}.collection-filter-actions .btn{width:100%}}

@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const orderColumn=Number(table.dataset.orderColumn ?? 0);
     const pageLength=Number(table.dataset.pageLength ?? 25);
     const entity=table.dataset.entity || 'registros';
-    new DataTable(table,{
+    const serverSide=table.dataset.serverSide==='1';
+    const options={
       pageLength,
       lengthMenu:[10,25,50,100],
       order:[[orderColumn,'desc']],
@@ -20,9 +21,41 @@ document.addEventListener('DOMContentLoaded',()=>{
         search:'Buscar',searchPlaceholder:`Buscar ${entity}...`,lengthMenu:'_MENU_ por página',
         info:'_START_–_END_ de _TOTAL_',infoEmpty:'Nenhum registro',infoFiltered:'(filtrado de _MAX_)',
         zeroRecords:'Nenhum resultado encontrado',emptyTable:'Nenhum dado disponível',
-        paginate:{first:'Primeira',last:'Última',next:'Próxima',previous:'Anterior'}
+        paginate:{first:'Primeira',last:'Última',next:'Próxima',previous:'Anterior'},
+        processing:'Carregando...'
       }
-    });
+    };
+    if(serverSide){
+      options.processing=true;
+      options.serverSide=true;
+      options.searchDelay=350;
+      options.ajax={
+        url:table.dataset.ajax,
+        data:d=>{
+          d.view=document.querySelector('#collectionView .active')?.dataset.value||'open';
+          d.signal=document.getElementById('collectionSignal')?.value||'all';
+          d.month=document.getElementById('collectionMonth')?.value||'';
+          d.seller=document.getElementById('collectionSeller')?.value||'';
+          d.uf=document.getElementById('collectionUf')?.value||'';
+        }
+      };
+    }
+    const dt=new DataTable(table,options);
+    if(table.id==='collectionTable'){
+      const reload=()=>dt.ajax.reload(null,true);
+      ['collectionSignal','collectionMonth','collectionSeller','collectionUf'].forEach(id=>document.getElementById(id)?.addEventListener('change',reload));
+      document.querySelectorAll('#collectionView button').forEach(btn=>btn.addEventListener('click',()=>{
+        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');reload();
+      }));
+      document.getElementById('showMyWork')?.addEventListener('click',()=>{
+        const s=document.getElementById('collectionSignal');if(s)s.value='mine';reload();
+      });
+      document.getElementById('collectionClear')?.addEventListener('click',()=>{
+        const s=document.getElementById('collectionSignal'),m=document.getElementById('collectionMonth'),v=document.getElementById('collectionSeller'),uf=document.getElementById('collectionUf');
+        if(s)s.value='all';if(m)m.value=new Date().toISOString().slice(0,7);if(v)v.value='';if(uf)uf.value='';
+        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.toggle('active',b.dataset.value==='open'));reload();
+      });
+    }
   });
 
   const role=document.querySelector('select[name="role"]');
