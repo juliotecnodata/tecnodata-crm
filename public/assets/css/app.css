@@ -68,3 +68,9 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 #collectionTable_processing.dt-processing{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 18px;box-shadow:none}
 @media(max-width:1100px){.collection-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.collection-filter-actions{grid-column:1/-1}}
 @media(max-width:650px){.collection-filter-head{align-items:flex-start;flex-direction:column}.collection-filter-grid{grid-template-columns:1fr}.collection-filter-actions{grid-column:auto}.collection-filter-actions .btn{width:100%}}
+
+/* V6.6 — histórico e filtros operacionais da cobrança */
+.collection-actions-filters{grid-template-columns:180px minmax(220px,1fr) minmax(220px,1fr) auto}
+.collection-actions-table td:nth-child(2){min-width:240px}.collection-actions-table td:nth-child(7){min-width:260px;white-space:normal}
+@media(max-width:900px){.collection-actions-filters{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.collection-actions-filters{grid-template-columns:1fr}}

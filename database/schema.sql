@@ -251,7 +251,10 @@ CREATE TABLE IF NOT EXISTS collection_actions (
  INDEX idx_collection_type_date(action_type,created_at),
  INDEX idx_collection_client_deleted_date(client_id,deleted_at,created_at),
  INDEX idx_collection_user_deleted_date(user_id,deleted_at,created_at,client_id),
- INDEX idx_collection_result_deleted_date(result,deleted_at,created_at,client_id)
+ INDEX idx_collection_result_deleted_date(result,deleted_at,created_at,client_id),
+ INDEX idx_collection_client_result_date(client_id,deleted_at,result,created_at),
+ INDEX idx_collection_client_user_date(client_id,deleted_at,user_id,created_at),
+ INDEX idx_collection_client_latest(client_id,deleted_at,id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS collection_user_goals (

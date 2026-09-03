@@ -37,10 +37,23 @@ document.addEventListener('DOMContentLoaded',()=>{
           d.month=document.getElementById('collectionMonth')?.value||'';
           d.seller=document.getElementById('collectionSeller')?.value||'';
           d.uf=document.getElementById('collectionUf')?.value||'';
+          if(table.id==='collectionActionsTable'){
+            d.month=document.getElementById('actionMonth')?.value||'';
+            d.result=document.getElementById('actionResult')?.value||'';
+            d.user_id=document.getElementById('actionUser')?.value||'0';
+          }
         }
       };
     }
     const dt=new DataTable(table,options);
+    if(table.id==='collectionActionsTable'){
+      const reloadActions=()=>dt.ajax.reload(null,true);
+      ['actionMonth','actionResult','actionUser'].forEach(id=>document.getElementById(id)?.addEventListener('change',reloadActions));
+      document.getElementById('actionClear')?.addEventListener('click',()=>{
+        const m=document.getElementById('actionMonth'),r=document.getElementById('actionResult');
+        if(m)m.value=new Date().toISOString().slice(0,7);if(r)r.value='';reloadActions();
+      });
+    }
     if(table.id==='collectionTable'){
       const reload=()=>dt.ajax.reload(null,true);
       ['collectionSignal','collectionMonth','collectionSeller','collectionUf'].forEach(id=>document.getElementById(id)?.addEventListener('change',reload));
