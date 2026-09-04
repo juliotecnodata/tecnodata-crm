@@ -691,3 +691,27 @@ body{background:#F6F8F9;color:#14232B}
 .result-inline>span:first-child{border-left:0;padding-left:0}
 @media(max-width:1000px){.result-focus{grid-template-columns:repeat(2,minmax(0,1fr))}.result-focus-main{grid-column:1/-1}}
 @media(max-width:650px){.result-focus,.result-next,.result-inline{grid-template-columns:1fr}.result-focus-main{grid-column:auto}.result-inline>span{border-left:0;border-top:1px solid var(--line);padding:10px 0}.result-inline>span:first-child{border-top:0}}
+
+
+/* V7.0 — filtros de cobrança progressivos */
+.collection-toolbar{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+.collection-quick-filters{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.collection-quick-filters a{padding:7px 10px;border-radius:8px;font-size:10px;font-weight:750;color:var(--muted);white-space:nowrap}
+.collection-quick-filters a:hover,.collection-quick-filters a.active{background:#EAF5FB;color:#006CA9}
+.collection-search-filters{display:grid;grid-template-columns:minmax(180px,260px) minmax(180px,280px) auto 1fr;gap:9px;align-items:end}
+.collection-search-filters>.btn{height:40px}
+.collection-more-filters{grid-column:4;align-self:end;position:relative}
+.collection-more-filters>summary{height:40px;display:flex;align-items:center;justify-content:flex-end;cursor:pointer;font-size:10px;font-weight:750;color:var(--muted);list-style:none}
+.collection-more-filters>summary::-webkit-details-marker{display:none}
+.collection-more-grid{position:absolute;right:0;top:46px;z-index:35;width:min(760px,85vw);background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;align-items:end}
+.collection-more-grid>.btn{height:40px}
+@media(max-width:900px){
+ .collection-search-filters{grid-template-columns:1fr 1fr}
+ .collection-search-filters>.btn{grid-column:auto}
+ .collection-more-filters{grid-column:1/-1}
+ .collection-more-filters>summary{justify-content:flex-start}
+ .collection-more-grid{position:static;width:100%;margin-top:8px;grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){
+ .collection-search-filters,.collection-more-grid{grid-template-columns:1fr}
+}
