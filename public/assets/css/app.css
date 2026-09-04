@@ -134,3 +134,15 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
  body.sidebar-collapsed .td-sidebar{width:268px}
  body.sidebar-collapsed .td-main{margin-left:0}
 }
+
+
+/* V6.9 — Gestão mensal de carteiras */
+.management-note{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.management-note>i{color:var(--lime-dark);margin-top:3px}.management-note>div{display:flex;flex-direction:column;gap:3px}.management-note strong{font-size:12px}.management-note span{font-size:11px;color:var(--muted)}
+.portfolio-filter-grid{display:grid;grid-template-columns:130px minmax(190px,1.2fr) minmax(170px,1fr) minmax(160px,1fr) minmax(170px,1fr) auto;gap:12px;align-items:end;padding:16px 18px}
+.portfolio-filter-actions .btn{height:42px}
+.portfolio-assignment-bar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(240px,320px) auto auto;gap:10px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.portfolio-assignment-copy{display:flex;flex-direction:column;gap:2px}.portfolio-assignment-copy strong{font-size:12px}.portfolio-assignment-copy span{font-size:10px;color:var(--muted)}
+.portfolio-table td{white-space:nowrap}.portfolio-table td:nth-child(2){min-width:250px;white-space:normal}.portfolio-table td:nth-child(3){min-width:130px}
+@media(max-width:1200px){.portfolio-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-assignment-bar{grid-template-columns:1fr 1fr}.portfolio-assignment-copy{grid-column:1/-1}}
+@media(max-width:700px){.portfolio-filter-grid{grid-template-columns:1fr}.portfolio-assignment-bar{grid-template-columns:1fr}.portfolio-assignment-copy{grid-column:auto}.portfolio-assignment-bar .btn{width:100%}}
