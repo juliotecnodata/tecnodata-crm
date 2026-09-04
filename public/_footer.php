@@ -12,7 +12,7 @@
    <a href="<?=APP_URL?>/vendedores.php"><i class="fa-solid fa-user-tie"></i><span>Vendedores</span></a>
    <a href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i><span>Omie</span></a>
  <?php else:?>
-   <a href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Início</span></a>
+   <a href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Hoje</span></a>
    <a href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-address-book"></i><span><?=$sellerMode==='collection'?'Cobrança':'Carteira'?></span></a>
    <?php if(Tecnodata\CRM\Core\Auth::can('supervisor')):?><a href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-users-gear"></i><span>Clientes</span></a><?php else:?><a href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a><?php endif;?>
    <a href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
