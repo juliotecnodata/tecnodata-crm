@@ -38,11 +38,15 @@ include '_layout.php';?>
  </div>
 </div>
 
-<div class="stat-grid stat-grid-4 mb-4">
- <div class="stat-card"><span>Em cobrança</span><strong><?=number_format($summary['open_clients'],0,',','.')?></strong><small>clientes com saldo pendente</small></div>
- <div class="stat-card"><span>Saldo a recuperar</span><strong><?=money($summary['amount'])?></strong><small>já considerando recebimentos locais</small></div>
- <div class="stat-card"><span>Pagamento parcial</span><strong><?=number_format($summary['partial_clients']??0,0,',','.')?></strong><small><?=money($summary['partial_paid']??0)?> já recebido na Omie</small></div>
- <div class="stat-card"><span>Recuperado por mim</span><strong><?=money($work['recovered'])?></strong><small><?=$work['worked']?> clientes trabalhados • <?=number_format($work['amount_percent'],1,',','.')?>% da meta</small></div>
+<div class="collection-workbench mb-4">
+ <div class="collection-workbench-main">
+  <span>SALDO ATUAL DA CARTEIRA</span>
+  <strong><?=money($summary['amount'])?></strong>
+  <small><?=number_format($summary['open_clients'],0,',','.')?> clientes com saldo pendente nas contas selecionadas</small>
+ </div>
+ <div class="collection-workbench-card is-warning"><span>Pagamento parcial</span><strong><?=number_format($summary['partial_clients']??0,0,',','.')?></strong><small><?=money($summary['partial_paid']??0)?> já recebido na Omie</small></div>
+ <div class="collection-workbench-card is-success"><span>Meu recuperado</span><strong><?=money($work['recovered'])?></strong><small><?=number_format($work['amount_percent'],1,',','.')?>% da meta do mês</small></div>
+ <div class="collection-workbench-card is-info"><span>Clientes trabalhados</span><strong><?=$work['worked']?></strong><small><?=$work['agreements']?> acordo(s) • <?=$work['promises']?> promessa(s)</small></div>
 </div>
 
 <div class="panel-card mb-3">
