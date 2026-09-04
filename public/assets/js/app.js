@@ -93,8 +93,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         dt.ajax.reload(null,true);
       };
 
-      ['portfolioUf','portfolioTag','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource']
-        .forEach(id=>document.getElementById(id)?.addEventListener('change',reloadClients));
+      document.getElementById('portfolioApply')?.addEventListener('click',()=>{
+        const status=document.getElementById('portfolioFilterStatus');
+        if(status)status.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Aplicando filtros...';
+        selected.clear();
+        if(selectPage)selectPage.checked=false;
+        updateSelection();
+        dt.ajax.reload(()=>{
+          if(status)status.innerHTML='<i class="fa-solid fa-check"></i> Filtros aplicados. A tabela abaixo mostra somente os clientes que correspondem aos critérios selecionados.';
+        },true);
+      });
 
       document.getElementById('portfolioMonth')?.addEventListener('change',e=>{
         location.href='?month='+encodeURIComponent(e.target.value);
@@ -172,7 +180,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     if(table.id==='collectionActionsTable'){
       const reloadActions=()=>dt.ajax.reload(null,true);
-      ['actionMonth','actionResult','actionUser'].forEach(id=>document.getElementById(id)?.addEventListener('change',reloadActions));
+      document.getElementById('actionApply')?.addEventListener('click',reloadActions);
       document.getElementById('actionClear')?.addEventListener('click',()=>{
         const m=document.getElementById('actionMonth'),r=document.getElementById('actionResult');
         if(m)m.value=new Date().toISOString().slice(0,7);
@@ -183,7 +191,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     if(table.id==='collectionTable'){
       const reload=()=>dt.ajax.reload(null,true);
-      ['collectionSignal','collectionMonth','collectionSeller','collectionUf'].forEach(id=>document.getElementById(id)?.addEventListener('change',reload));
+      document.getElementById('collectionApply')?.addEventListener('click',reload);
       document.querySelectorAll('#collectionView button').forEach(btn=>btn.addEventListener('click',()=>{
         document.querySelectorAll('#collectionView button').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
