@@ -53,20 +53,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       options.ajax={
         url:table.dataset.ajax,
         data:d=>{
-          if(table.id==='collectionTable'){
-            d.view=document.querySelector('#collectionView .active')?.dataset.value||'open';
-            d.signal=document.getElementById('collectionSignal')?.value||'all';
-            d.month=document.getElementById('collectionMonth')?.value||'';
-            d.seller=document.getElementById('collectionSeller')?.value||'';
-            d.account=document.getElementById('collectionAccount')?.value||'';
-            d.financial=document.getElementById('collectionFinancial')?.value||'all';
-            d.uf=document.getElementById('collectionUf')?.value||'';
-          }
-          if(table.id==='collectionActionsTable'){
-            d.month=document.getElementById('actionMonth')?.value||'';
-            d.result=document.getElementById('actionResult')?.value||'';
-            d.user_id=document.getElementById('actionUser')?.value||'0';
-          }
+
           if(table.id==='clientsManagementTable'){
             d.month=document.getElementById('portfolioMonth')?.value||'';
             d.uf=document.getElementById('portfolioUf')?.value||'';
@@ -181,28 +168,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       document.getElementById('portfolioAssignFiltered')?.addEventListener('click',()=>assign('filtered'));
     }
 
-    if(table.id==='collectionActionsTable'){
-      const reloadActions=()=>dt.ajax.reload(null,true);
-      document.getElementById('actionApply')?.addEventListener('click',reloadActions);
-      document.getElementById('actionClear')?.addEventListener('click',()=>{
-        const m=document.getElementById('actionMonth'),r=document.getElementById('actionResult');
-        if(m)m.value=new Date().toISOString().slice(0,7);
-        if(r)r.value='';
-        reloadActions();
-      });
-    }
-
-    if(table.id==='collectionTable'){
-      const reload=()=>dt.ajax.reload(null,true);
-      document.getElementById('collectionApply')?.addEventListener('click',reload);
-      document.querySelectorAll('#collectionView button').forEach(btn=>btn.addEventListener('click',()=>{
-        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        reload();
-      }));
-      document.getElementById('showMyWork')?.addEventListener('click',()=>{
-        const s=document.getElementById('collectionSignal');if(s)s.value='mine';reload();
-      });
+  });
       document.getElementById('collectionClear')?.addEventListener('click',()=>{
         const s=document.getElementById('collectionSignal'),m=document.getElementById('collectionMonth'),v=document.getElementById('collectionSeller'),a=document.getElementById('collectionAccount'),f=document.getElementById('collectionFinancial'),uf=document.getElementById('collectionUf');
         if(s)s.value='all';
