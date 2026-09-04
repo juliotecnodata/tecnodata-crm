@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS financial_movements (
  due_date DATE NULL,
  payment_date DATE NULL,
  amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+ original_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+ paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
  status VARCHAR(60) NULL,
  seller_omie_code VARCHAR(80) NULL,
  account_omie_code VARCHAR(80) NULL,
