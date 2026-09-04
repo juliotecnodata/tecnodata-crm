@@ -67,6 +67,8 @@ final class SyncService {
                       phone=VALUES(phone),email=VALUES(email),document=VALUES(document),raw_json=VALUES(raw_json),updated_at=NOW()",
                 [$code,$name,$r['razao_social']??null,$uf,$r['cidade']??null,$phone,$r['email']??null,$r['cnpj_cpf']??null,
                  json_encode($r,JSON_UNESCAPED_UNICODE)]);
+            $clientId=(int)(DB::fetch("SELECT id FROM clients WHERE omie_code=?",[$code])['id']??0);
+            if($clientId>0)$this->syncClientTags($clientId,$r);
             $n++;
         }
         return $n;
@@ -176,6 +178,42 @@ final class SyncService {
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())",
                 [$c['id'],$seller,$first['order_date']??null,$last['order_date']??null,$days,$interval,count($orders12),$rev12,$ticket,$open,$overdue,$maxDelay,$status]);
         }
+    }
+
+    private function syncClientTags(int $clientId,array $payload): void {
+        $tags=$this->extractClientTags($payload);
+        DB::exec("DELETE FROM client_tags WHERE client_id=?",[$clientId]);
+        foreach($tags as $tag){
+            DB::exec("INSERT IGNORE INTO client_tags(client_id,tag,created_at) VALUES(?,?,NOW())",[$clientId,$tag]);
+        }
+    }
+
+    private function extractClientTags(array $payload): array {
+        $out=[];
+        $sources=[];
+        foreach(['tags','tag','tags_cliente','clientes_tags'] as $key){
+            if(array_key_exists($key,$payload))$sources[]=$payload[$key];
+        }
+        $walk=function($value) use (&$walk,&$out): void {
+            if(is_string($value)){
+                $value=trim($value);
+                if($value!=='')$out[mb_strtolower($value)]=$value;
+                return;
+            }
+            if(!is_array($value))return;
+            foreach($value as $k=>$v){
+                $key=mb_strtolower((string)$k);
+                if(in_array($key,['tag','ctag','nome','descricao','nome_tag'],true) && is_scalar($v)){
+                    $tag=trim((string)$v);
+                    if($tag!=='')$out[mb_strtolower($tag)]=$tag;
+                }elseif(is_array($v)){
+                    $walk($v);
+                }
+            }
+        };
+        foreach($sources as $source)$walk($source);
+        ksort($out,SORT_NATURAL|SORT_FLAG_CASE);
+        return array_values($out);
     }
 
     private function normalizeDate(?string $d): ?string {
