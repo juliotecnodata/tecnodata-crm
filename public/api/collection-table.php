@@ -38,14 +38,17 @@ $userId=(int)$u['id'];
 
 try{
     $pdo=DB::conn();
+    $dbName=(string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+    $hasFinSeller=(bool)DB::fetch("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='financial_movements' AND COLUMN_NAME='seller_omie_code' LIMIT 1",[$dbName]);
+    $finSellerExpr=$hasFinSeller?"fm.seller_omie_code":"NULL";
     $qStart=$pdo->quote($monthStart);
     $qNext=$pdo->quote($monthNext);
 
     $debtJoin="LEFT JOIN (
         SELECT fm.client_omie_code,
                SUM(fm.amount) omie_debt,
-               COUNT(DISTINCT NULLIF(fm.seller_omie_code,'')) debt_seller_count,
-               MAX(NULLIF(fm.seller_omie_code,'')) debt_seller_code
+               COUNT(DISTINCT NULLIF($finSellerExpr,'')) debt_seller_count,
+               MAX(NULLIF($finSellerExpr,'')) debt_seller_code
         FROM financial_movements fm
         INNER JOIN financial_accounts fa
           ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
@@ -85,14 +88,18 @@ try{
     }
 
     if($seller!==''){
-        $where[]="EXISTS(
-            SELECT 1 FROM financial_movements fs
-            INNER JOIN financial_accounts fas ON fas.omie_code=fs.account_omie_code AND fas.selected=1 AND fas.active=1
-            WHERE fs.client_omie_code=c.omie_code
-              AND fs.status IN('ATRASADO','PAGTO_PARCIAL')
-              AND fs.seller_omie_code=?
-        )";
-        $params[]=$seller;
+        if(!$hasFinSeller){
+            $where[]="1=0";
+        }else{
+            $where[]="EXISTS(
+                SELECT 1 FROM financial_movements fs
+                INNER JOIN financial_accounts fas ON fas.omie_code=fs.account_omie_code AND fas.selected=1 AND fas.active=1
+                WHERE fs.client_omie_code=c.omie_code
+                  AND fs.status IN('ATRASADO','PAGTO_PARCIAL')
+                  AND fs.seller_omie_code=?
+            )";
+            $params[]=$seller;
+        }
     }
     if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
 
