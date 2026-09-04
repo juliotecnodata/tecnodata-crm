@@ -23,7 +23,7 @@ if($kind==='sales'){
                  WHERE ca.id=? AND ca.deleted_at IS NULL",[$id]);
 }
 if(!$row){http_response_code(404);exit('Atendimento não encontrado.');}
-$can=(int)$row['user_id']===(int)$u['id']||Auth::can('supervisor','admin');
+$can=(int)$row['user_id']===(int)$u['id']||(int)($row['assigned_user_id']??0)===(int)$u['id']||Auth::can('supervisor','admin');
 if(!$can){http_response_code(403);exit('Sem permissão.');}
 $back=$kind==='sales'?'cliente.php?id='.(int)$row['client_id']:'cobranca-cliente.php?id='.(int)$row['client_id'];
 $err='';
