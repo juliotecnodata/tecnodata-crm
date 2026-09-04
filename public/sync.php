@@ -37,7 +37,7 @@ include '_layout.php';
    <div class="d-flex gap-3">
     <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:42px;height:42px;background:#eef1f3"><i class="fa-solid <?=e($m['icon'])?>"></i></div>
     <div><h2 class="h6 mb-1"><?=e($m['label'])?></h2><div class="small text-secondary" id="state-<?=$key?>"><?=e($s['status'])?></div>
-    <?php if($key==='financial'):?><div class="small text-secondary mt-1">Conta selecionada • somente atrasados e parciais • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Mês anterior + atual • depois incremental</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Base separada • mês anterior + atual • depois incremental</div><?php endif;?></div>
+    <?php if($key==='financial'):?><div class="small text-secondary mt-1">Conta selecionada • somente atrasados e parciais • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?></div>
    </div>
    <div class="small text-secondary" id="count-<?=$key?>"><?=number_format((int)$s['processed'],0,',','.')?></div>
   </div>
@@ -98,9 +98,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     const message=b.dataset.module==='financial'
       ? 'Recomeçar o financeiro do zero? Os movimentos importados serão recriados usando somente os últimos 3 anos.'
       : (b.dataset.module==='services'
-        ? 'Recomeçar os serviços do zero? A tabela de Ordens de Serviço será recriada para o mês anterior e o atual; os pedidos de produtos não serão alterados.'
+        ? 'Reiniciar a sincronização de serviços? O histórico local não será apagado; o CRM consultará novamente somente ontem e hoje e fará atualização/inclusão.'
         : (b.dataset.module==='orders'
-        ? 'Recomeçar os pedidos do zero? Serão mantidos somente o mês anterior e o atual; os serviços não serão alterados.'
+        ? 'Reiniciar a sincronização de pedidos? O histórico local não será apagado; o CRM consultará novamente somente ontem e hoje e fará atualização/inclusão.'
         : 'Recomeçar este módulo desde a primeira página? Os dados já gravados não serão apagados, apenas atualizados novamente.'));
     if(confirm(message))
       startSync(b.dataset.module,true);

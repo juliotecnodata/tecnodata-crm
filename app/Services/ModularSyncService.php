@@ -68,13 +68,8 @@ final class ModularSyncService {
                 DB::exec("DELETE FROM financial_movements");
                 DB::exec("UPDATE client_metrics SET open_amount=0,overdue_amount=0,max_overdue_days=0,updated_at=NOW()");
             }
-            if($module==='orders') DB::exec("DELETE FROM orders");
-            if($module==='services') DB::exec("DELETE FROM service_orders");
+            // Pedidos e serviços usam upsert. Reiniciar o módulo nunca apaga o histórico local.
         }
-
-        $commercialStart=(string)($GLOBALS['config']['sync']['commercial_history_start']??date('Y-m-01',strtotime('first day of last month')));
-        if($module==='orders') DB::exec("DELETE FROM orders WHERE order_date IS NULL OR order_date<?",[$commercialStart]);
-        if($module==='services') DB::exec("DELETE FROM service_orders WHERE inclusion_date IS NULL OR inclusion_date<?",[$commercialStart]);
 
         $state = DB::fetch("SELECT * FROM sync_states WHERE module_key=?",[$module]);
         if (!$state) {
@@ -199,15 +194,13 @@ final class ModularSyncService {
 
     private function stepOrders(array $state): array {
         $page=max(1,(int)$state['current_page']+1);
-        $windowStart=(string)($GLOBALS['config']['sync']['commercial_history_start']??date('Y-m-01',strtotime('first day of last month')));
-        $incremental=!empty($state['last_success_at']);
-        $startDate=$incremental?date('Y-m-d',strtotime((string)$state['last_success_at'].' -3 days')):$windowStart;
-        if($startDate<$windowStart)$startDate=$windowStart;
-        $start=date('d/m/Y',strtotime($startDate));
+        $incremental=true;
+        $start=date('d/m/Y',strtotime('-1 day'));
+        $end=date('d/m/Y');
         $data=$this->omie->call('pedidos','ListarPedidos',[
             'pagina'=>$page,'registros_por_pagina'=>$this->pageSize,
-            'filtrar_por_data_de'=>$start,'filtrar_por_data_ate'=>date('d/m/Y'),
-            'filtrar_apenas_inclusao'=>$incremental?'N':'S','apenas_resumo'=>'N'
+            'filtrar_por_data_de'=>$start,'filtrar_por_data_ate'=>$end,
+            'filtrar_apenas_inclusao'=>'N','apenas_resumo'=>'N'
         ]);
         $items=$this->pick($data,['pedido_venda_produto','pedidos','lista_pedidos']);
         foreach($items as $r){
@@ -232,21 +225,19 @@ final class ModularSyncService {
                       order_date=VALUES(order_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
                 [$orderCode,$client,$seller,$date,$total,$status,json_encode($r,JSON_UNESCAPED_UNICODE)]);
         }
-        return $this->advancePage('orders',$state,$data,count($items),$page)+['incremental'=>$incremental,'from'=>$start];
+        return $this->advancePage('orders',$state,$data,count($items),$page)+['incremental'=>true,'from'=>$start,'to'=>$end,'mode'=>'yesterday_today'];
     }
 
     private function stepServices(array $state): array {
         $page=max(1,(int)$state['current_page']+1);
-        $windowStart=(string)($GLOBALS['config']['sync']['commercial_history_start']??date('Y-m-01',strtotime('first day of last month')));
-        $incremental=!empty($state['last_success_at']);
-        $startDate=$incremental?date('Y-m-d',strtotime((string)$state['last_success_at'].' -3 days')):$windowStart;
-        if($startDate<$windowStart)$startDate=$windowStart;
-        $start=date('d/m/Y',strtotime($startDate));
+        $incremental=true;
+        $start=date('d/m/Y',strtotime('-1 day'));
+        $end=date('d/m/Y');
         $servicePageSize=max(100,min(500,(int)($GLOBALS['config']['sync']['service_page_size']??500)));
         $data=$this->omie->call('ordens_servico','ListarOS',[
             'pagina'=>$page,'registros_por_pagina'=>$servicePageSize,
-            'filtrar_por_data_de'=>$start,'filtrar_por_data_ate'=>date('d/m/Y'),
-            'filtrar_apenas_inclusao'=>$incremental?'N':'S'
+            'filtrar_por_data_de'=>$start,'filtrar_por_data_ate'=>$end,
+            'filtrar_apenas_inclusao'=>'N'
         ]);
         $items=$this->pick($data,['osCadastro']);
         foreach($items as $r){
@@ -272,7 +263,7 @@ final class ModularSyncService {
                  $this->normalizeDate($info['dDtInc']??null),(float)($cab['nValorTotal']??0),$status,(string)($cab['cEtapa']??''),
                  implode(' • ',$descriptions),(string)($additional['cNumPedido']??$cab['cCodIntOS']??''),json_encode($r,JSON_UNESCAPED_UNICODE)]);
         }
-        return $this->advancePage('services',$state,$data,count($items),$page)+['incremental'=>$incremental,'from'=>$start];
+        return $this->advancePage('services',$state,$data,count($items),$page)+['incremental'=>true,'from'=>$start,'to'=>$end,'mode'=>'yesterday_today'];
     }
 
     private function stepFinancial(array $state,int $runId): array {
