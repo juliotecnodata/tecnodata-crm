@@ -114,11 +114,12 @@ final class SyncService {
                 $pay=$this->normalizeDate($r['dDtPagamento']??$r['data_pagamento']??null);
                 $amount=(float)($r['nValorTitulo']??$r['nValorMovimento']??$r['valor_documento']??0);
                 $status=(string)($r['cStatus']??$r['status']??'');
-                DB::exec("INSERT INTO financial_movements (omie_code,client_omie_code,due_date,payment_date,amount,status,raw_json,updated_at)
-                          VALUES (?,?,?,?,?,?,?,NOW())
+                $seller=$this->extractFinancialSellerCode($r);
+                DB::exec("INSERT INTO financial_movements (omie_code,client_omie_code,due_date,payment_date,amount,status,seller_omie_code,raw_json,updated_at)
+                          VALUES (?,?,?,?,?,?,?,?,NOW())
                           ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),due_date=VALUES(due_date),payment_date=VALUES(payment_date),
-                          amount=VALUES(amount),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
-                    [$code,$client,$due,$pay,$amount,$status,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+                          amount=VALUES(amount),status=VALUES(status),seller_omie_code=VALUES(seller_omie_code),raw_json=VALUES(raw_json),updated_at=NOW()",
+                    [$code,$client,$due,$pay,$amount,$status,$seller,json_encode($r,JSON_UNESCAPED_UNICODE)]);
                 $n++;
             }
             $pages=(int)($data['nTotPaginas']??$data['total_de_paginas']??$page);
@@ -214,6 +215,19 @@ final class SyncService {
         foreach($sources as $source)$walk($source);
         ksort($out,SORT_NATURAL|SORT_FLAG_CASE);
         return array_values($out);
+    }
+
+    private function extractFinancialSellerCode(array $payload): ?string {
+        foreach(['nCodVendedor','codigo_vendedor','codigo_vendedor_omie','nCodigoVendedor','codVendedor','vendedor_omie_code'] as $key){
+            if(isset($payload[$key]) && trim((string)$payload[$key])!=='') return trim((string)$payload[$key]);
+        }
+        foreach(['detalhes','cabecalho','dadosTitulo','titulo','origem'] as $group){
+            if(!isset($payload[$group]) || !is_array($payload[$group])) continue;
+            foreach(['nCodVendedor','codigo_vendedor','codigo_vendedor_omie','nCodigoVendedor','codVendedor','vendedor_omie_code'] as $key){
+                if(isset($payload[$group][$key]) && trim((string)$payload[$group][$key])!=='') return trim((string)$payload[$group][$key]);
+            }
+        }
+        return null;
     }
 
     private function normalizeDate(?string $d): ?string {
