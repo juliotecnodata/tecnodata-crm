@@ -191,6 +191,8 @@ final class ModularSyncService {
                       ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),uf=VALUES(uf),city=VALUES(city),
                       phone=VALUES(phone),email=VALUES(email),document=VALUES(document),raw_json=VALUES(raw_json),updated_at=NOW()",
                 [$code,$name,$r['razao_social']??null,$uf,$r['cidade']??null,$phone,$r['email']??null,$r['cnpj_cpf']??null,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+            $client=DB::fetch("SELECT id FROM clients WHERE omie_code=?",[$code]);
+            if($client)$this->syncClientTags((int)$client['id'],$r);
         }
         return $this->advancePage('clients',$state,$data,count($items),$page);
     }
@@ -422,6 +424,26 @@ final class ModularSyncService {
                  open_amount=VALUES(open_amount),overdue_amount=VALUES(overdue_amount),max_overdue_days=VALUES(max_overdue_days),
                  commercial_status=VALUES(commercial_status),updated_at=NOW()",
             [$c['id'],$seller,$first['order_date']??null,$last['order_date']??null,$days,$interval,count($orders12),$rev12,$ticket,$open,$overdue,$maxDelay,$status]);
+    }
+
+    private function syncClientTags(int $clientId,array $payload): void {
+        $tags=$payload['tags']??$payload['tag']??$payload['tags_cliente']??[];
+        if(!is_array($tags))$tags=[$tags];
+        $normalized=[];
+        foreach($tags as $item){
+            $value='';
+            if(is_string($item)||is_numeric($item))$value=trim((string)$item);
+            elseif(is_array($item)){
+                foreach(['tag','nome','descricao','cTag','label'] as $key){
+                    if(isset($item[$key])&&trim((string)$item[$key])!==''){$value=trim((string)$item[$key]);break;}
+                }
+            }
+            if($value!=='')$normalized[mb_strtolower($value)]=$value;
+        }
+        DB::exec("DELETE FROM client_tags WHERE client_id=?",[$clientId]);
+        foreach($normalized as $value){
+            DB::exec("INSERT IGNORE INTO client_tags(client_id,tag,created_at) VALUES(?,?,NOW())",[$clientId,$value]);
+        }
     }
 
     private function advancePage(string $module,array $state,array $data,int $count,int $page,array $extraTotalKeys=[]): array {
