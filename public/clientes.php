@@ -75,7 +75,7 @@ include '_layout.php';?>
 <input type="hidden" id="portfolioFinance" value="<?=e($financeFilter)?>">
 <div class="panel-card"><div class="table-responsive data-table-wrap">
 <table class="table modern-table data-table portfolio-table mb-0" id="clientsManagementTable"
- data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php?<?=e(http_build_query(['month'=>$month,'uf'=>$uf,'tag'=>$tag,'seller'=>$sellerFilter,'status'=>$statusFilter,'finance'=>$financeFilter]))?>" data-entity="clientes" data-page-length="25" data-order-column="1">
+ data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php?<?=e(http_build_query(['month'=>$month,'uf'=>$uf,'tag'=>$tag,'seller'=>$sellerFilter,'status'=>$statusFilter,'finance'=>$financeFilter]))?>" data-entity="clientes" data-page-length="25" data-order-column="1" data-order-dir="asc">
 <thead><tr>
  <th class="no-sort"><input class="form-check-input" type="checkbox" id="portfolioSelectPage"></th>
  <th>Cliente</th><th>Localidade</th><th>Tags</th><th>Carteira do mês</th>
