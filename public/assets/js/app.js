@@ -169,19 +169,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
   });
-      document.getElementById('collectionClear')?.addEventListener('click',()=>{
-        const s=document.getElementById('collectionSignal'),m=document.getElementById('collectionMonth'),v=document.getElementById('collectionSeller'),a=document.getElementById('collectionAccount'),f=document.getElementById('collectionFinancial'),uf=document.getElementById('collectionUf');
-        if(s)s.value='all';
-        if(m)m.value=new Date().toISOString().slice(0,7);
-        if(v)v.value='';
-        if(a)a.value='';
-        if(f)f.value='all';
-        if(uf)uf.value='';
-        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.toggle('active',b.dataset.value==='open'));
-        reload();
-      });
-    }
-  });
 
   const role=document.querySelector('select[name="role"]');
   const seller=document.querySelector('select[name="seller_omie_code"]');
