@@ -343,3 +343,73 @@ CREATE TABLE IF NOT EXISTS order_stage_catalog (
  active TINYINT(1) NOT NULL DEFAULT 1,
  updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS products (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ omie_code VARCHAR(80) NOT NULL,
+ integration_code VARCHAR(120) NULL,
+ internal_code VARCHAR(120) NULL,
+ description VARCHAR(255) NOT NULL,
+ unit VARCHAR(20) NULL,
+ ncm VARCHAR(30) NULL,
+ cfop VARCHAR(30) NULL,
+ unit_price DECIMAL(15,4) NOT NULL DEFAULT 0,
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL,
+ UNIQUE KEY uq_products_omie(omie_code),
+ INDEX idx_products_description(description),
+ INDEX idx_products_internal_code(internal_code),
+ INDEX idx_products_active(active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sales_categories (
+ code VARCHAR(80) PRIMARY KEY,
+ description VARCHAR(255) NOT NULL,
+ nature VARCHAR(80) NULL,
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL,
+ INDEX idx_sales_categories_active(active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sales_order_settings (
+ id TINYINT UNSIGNED PRIMARY KEY,
+ default_stage_code VARCHAR(10) NULL,
+ default_category_code VARCHAR(80) NULL,
+ default_account_code VARCHAR(80) NULL,
+ installment_code VARCHAR(30) NULL,
+ consumer_final CHAR(1) NOT NULL DEFAULT 'S',
+ send_email CHAR(1) NOT NULL DEFAULT 'N',
+ freight_mode VARCHAR(10) NOT NULL DEFAULT '9',
+ updated_by INT UNSIGNED NULL,
+ updated_at DATETIME NOT NULL,
+ FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS order_creation_logs (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ integration_code VARCHAR(120) NOT NULL,
+ omie_order_code VARCHAR(80) NULL,
+ omie_order_number VARCHAR(80) NULL,
+ client_id BIGINT UNSIGNED NOT NULL,
+ seller_omie_code VARCHAR(80) NULL,
+ created_by INT UNSIGNED NOT NULL,
+ total DECIMAL(15,2) NOT NULL DEFAULT 0,
+ status ENUM('success','error') NOT NULL,
+ request_json JSON NULL,
+ response_json JSON NULL,
+ error_message TEXT NULL,
+ created_at DATETIME NOT NULL,
+ UNIQUE KEY uq_order_creation_integration(integration_code),
+ INDEX idx_order_creation_user_date(created_by,created_at),
+ INDEX idx_order_creation_client_date(client_id,created_at),
+ FOREIGN KEY(client_id) REFERENCES clients(id),
+ FOREIGN KEY(created_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO sales_order_settings
+ (id,installment_code,consumer_final,send_email,freight_mode,updated_at)
+ VALUES(1,'999','S','N','9',NOW())
+ ON DUPLICATE KEY UPDATE id=id;
