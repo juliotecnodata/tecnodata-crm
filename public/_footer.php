@@ -2,19 +2,19 @@
 </main>
 <nav class="mobile-nav">
  <?php if(Tecnodata\CRM\Core\Auth::can('collector')):?>
-   <a href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
-   <a href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
-   <a href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a>
+   <a href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Carteira</span></a>
    <a href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a>
- <?php elseif(Tecnodata\CRM\Core\Auth::can('admin')):?>
-   <a href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-chart-pie"></i><span>Gestão</span></a>
-   <a href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-address-book"></i><span>Clientes</span></a>
-   <a href="<?=APP_URL?>/vendedores.php"><i class="fa-solid fa-user-tie"></i><span>Vendedores</span></a>
-   <a href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i><span>Omie</span></a>
+   <a href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Histórico</span></a>
+   <a href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
+ <?php elseif(Tecnodata\CRM\Core\Auth::can('admin','supervisor')):?>
+   <a href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-gauge-high"></i><span>Painel</span></a>
+   <a href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+   <a class="mobile-nav-primary" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-plus"></i><span>Pedido</span></a>
+   <a href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
  <?php else:?>
-   <a href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Hoje</span></a>
-   <a href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-address-book"></i><span><?=$sellerMode==='collection'?'Cobrança':'Carteira'?></span></a>
-   <?php if(Tecnodata\CRM\Core\Auth::can('supervisor')):?><a href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-users-gear"></i><span>Clientes</span></a><?php else:?><a href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a><?php endif;?>
+   <a href="<?=APP_URL?>/index.php"><i class="fa-solid fa-bolt"></i><span>Hoje</span></a>
+   <a href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+   <?php if($navHasSales):?><a class="mobile-nav-primary" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-plus"></i><span>Pedido</span></a><?php else:?><a href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a><?php endif;?>
    <a href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
  <?php endif;?>
 </nav>
