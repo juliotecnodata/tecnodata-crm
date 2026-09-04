@@ -49,36 +49,38 @@ include '_layout.php';?>
  <div class="collection-workbench-card is-info"><span>Clientes trabalhados</span><strong><?=$work['worked']?></strong><small><?=$work['agreements']?> acordo(s) • <?=$work['promises']?> promessa(s)</small></div>
 </div>
 
-<div class="panel-card mb-3">
- <div class="collection-filter-head">
-  <div class="segmented-control" id="collectionView">
-   <a href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['view'=>'open'])))?>" class="<?=$view==='open'?'active':''?>">Pendentes</a>
-   <a href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['view'=>'all'])))?>" class="<?=$view==='all'?'active':''?>">Todos</a>
-   <a href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['view'=>'settled'])))?>" class="<?=$view==='settled'?'active':''?>">Quitados</a>
-  </div>
-  <div class="small text-secondary"><i class="fa-solid fa-database me-1"></i>Dados locais • nenhuma consulta ao Omie ao filtrar</div>
+<div class="collection-toolbar mb-3">
+ <div class="collection-quick-filters">
+  <a class="<?=$view==='open'&&$signal==='all'&&$financialFilter==='all'?'active':''?>" href="<?=APP_URL?>/cobranca.php?view=open">Pendentes</a>
+  <a class="<?=$financialFilter==='partial'?'active':''?>" href="<?=APP_URL?>/cobranca.php?view=open&financial=partial">Parciais</a>
+  <a class="<?=$signal==='agreement'?'active':''?>" href="<?=APP_URL?>/cobranca.php?view=all&signal=agreement&month=<?=e($month)?>">Acordos</a>
+  <a class="<?=$signal==='paid_agreement'?'active':''?>" href="<?=APP_URL?>/cobranca.php?view=all&signal=paid_agreement&month=<?=e($month)?>">Acordos pagos</a>
+  <a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/cobranca.php?view=settled">Quitados</a>
  </div>
- <form class="collection-filter-grid" method="get" action="<?=APP_URL?>/cobranca.php">
+
+ <form method="get" action="<?=APP_URL?>/cobranca.php" class="collection-search-filters">
   <input type="hidden" name="view" value="<?=e($view)?>">
   <div><label class="form-label">Atendimento</label><select class="form-select" name="signal">
    <option value="all" <?=$signal==='all'?'selected':''?>>Todos</option>
-   <option value="mine" <?=$signal==='mine'?'selected':''?>>Meus atendimentos / atribuídos a mim</option>
-   <option value="attended" <?=$signal==='attended'?'selected':''?>>Atendidos por qualquer pessoa</option>
-   <option value="agreement" <?=$signal==='agreement'?'selected':''?>>Acordo fechado</option>
-   <option value="paid_agreement" <?=$signal==='paid_agreement'?'selected':''?>>Acordo pago</option>
-   <option value="payment" <?=$signal==='payment'?'selected':''?>>Pagamento recebido</option>
-   <option value="promise" <?=$signal==='promise'?'selected':''?>>Promessa de pagamento</option>
-   <option value="unattended" <?=$signal==='unattended'?'selected':''?>>Sem atendimento no período</option>
+   <option value="mine" <?=$signal==='mine'?'selected':''?>>Meus / atribuídos a mim</option>
+   <option value="unattended" <?=$signal==='unattended'?'selected':''?>>Não trabalhados</option>
+   <option value="promise" <?=$signal==='promise'?'selected':''?>>Promessas</option>
+   <option value="agreement" <?=$signal==='agreement'?'selected':''?>>Acordos</option>
+   <option value="paid_agreement" <?=$signal==='paid_agreement'?'selected':''?>>Acordos pagos</option>
+   <option value="payment" <?=$signal==='payment'?'selected':''?>>Pagamentos</option>
   </select></div>
-  <div><label class="form-label">Período do atendimento</label><input class="form-control" name="month" type="month" value="<?=e($month)?>"></div>
-  <div><label class="form-label">Vendedor da dívida</label><select class="form-select" name="seller"><option value="">Todos</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=$sellerFilter===(string)$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select></div>
-  <div><label class="form-label">Conta corrente</label><select class="form-select" name="account"><option value="">Todas</option><?php foreach($accounts as $a):?><option value="<?=e($a['omie_code'])?>" <?=$accountFilter===(string)$a['omie_code']?'selected':''?>><?=e($a['name'])?></option><?php endforeach;?></select></div>
-  <div><label class="form-label">Situação financeira</label><select class="form-select" name="financial"><option value="all" <?=$financialFilter==='all'?'selected':''?>>Todas</option><option value="overdue" <?=$financialFilter==='overdue'?'selected':''?>>Vencido</option><option value="partial" <?=$financialFilter==='partial'?'selected':''?>>Pagamento parcial</option></select></div>
-  <div><label class="form-label">UF</label><select class="form-select" name="uf"><option value="">Todas</option><?php foreach($ufs as $row):?><option value="<?=e($row['uf'])?>" <?=$ufFilter===(string)$row['uf']?'selected':''?>><?=e($row['uf'])?></option><?php endforeach;?></select></div>
-  <div class="collection-filter-actions">
-   <button class="btn btn-dark" type="submit"><i class="fa-solid fa-filter"></i>Filtrar</button>
-   <a class="btn btn-outline-secondary" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-rotate-left"></i>Limpar</a>
-  </div>
+  <div><label class="form-label">Conta</label><select class="form-select" name="account"><option value="">Todas</option><?php foreach($accounts as $a):?><option value="<?=e($a['omie_code'])?>" <?=$accountFilter===(string)$a['omie_code']?'selected':''?>><?=e($a['name'])?></option><?php endforeach;?></select></div>
+  <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar</button>
+  <details class="collection-more-filters" <?=($sellerFilter!==''||$ufFilter!==''||$financialFilter!=='all'||$month!==date('Y-m'))?'open':''?>>
+   <summary>Mais filtros</summary>
+   <div class="collection-more-grid">
+    <div><label class="form-label">Período</label><input class="form-control" name="month" type="month" value="<?=e($month)?>"></div>
+    <div><label class="form-label">Vendedor da dívida</label><select class="form-select" name="seller"><option value="">Todos</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=$sellerFilter===(string)$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select></div>
+    <div><label class="form-label">Financeiro</label><select class="form-select" name="financial"><option value="all" <?=$financialFilter==='all'?'selected':''?>>Todos</option><option value="overdue" <?=$financialFilter==='overdue'?'selected':''?>>Vencido</option><option value="partial" <?=$financialFilter==='partial'?'selected':''?>>Pagamento parcial</option></select></div>
+    <div><label class="form-label">UF</label><select class="form-select" name="uf"><option value="">Todas</option><?php foreach($ufs as $row):?><option value="<?=e($row['uf'])?>" <?=$ufFilter===(string)$row['uf']?'selected':''?>><?=e($row['uf'])?></option><?php endforeach;?></select></div>
+    <a class="btn btn-outline-secondary" href="<?=APP_URL?>/cobranca.php">Limpar filtros</a>
+   </div>
+  </details>
  </form>
 </div>
 
