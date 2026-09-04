@@ -12,6 +12,6 @@ if($q!==''){
  $where.=" AND (description LIKE ? OR internal_code LIKE ? OR integration_code LIKE ? OR omie_code LIKE ?)";
  $like='%'.$q.'%';$params=[$like,$like,$like,$like];
 }
-$rows=DB::all("SELECT id,omie_code,internal_code,description,unit,unit_price,ncm,cfop
+$rows=DB::all("SELECT id,omie_code,internal_code,description,unit,unit_price,stock_qty,ncm,cfop
               FROM products WHERE $where ORDER BY description LIMIT 30",$params);
 echo json_encode(['items'=>$rows],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
