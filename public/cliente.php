@@ -34,7 +34,7 @@ include '_layout.php';?>
 <?php if($msg):?><div class="alert alert-success"><?=$msg?></div><?php endif;?>
 <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
 <div><div class="kicker"><?=e($c['omie_code'])?> • <?=e($c['uf'])?></div><h1 class="h3 mb-1"><?=e($c['name'])?></h1><div class="text-secondary"><?=e($c['seller_name']??'Sem vendedor')?><?=($c['phone']?' • '.$c['phone']:'')?></div></div>
-<div class="quick-actions d-flex gap-2 align-items-start"><?php if($c['phone']):?><a class="btn btn-outline-secondary" href="tel:<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-solid fa-phone me-2"></i>Ligar</a><a class="btn btn-outline-secondary" target="_blank" href="https://wa.me/55<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-brands fa-whatsapp me-2"></i>WhatsApp</a><?php endif;?></div>
+<div class="quick-actions d-flex gap-2 align-items-start"><?php if($hasSales):?><a class="btn btn-primary" href="<?=APP_URL?>/pedido-novo.php?client_id=<?=$c['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?><?php if($c['phone']):?><a class="btn btn-outline-secondary" href="tel:<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-solid fa-phone"></i>Ligar</a><a class="btn btn-outline-secondary" target="_blank" href="https://wa.me/55<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-brands fa-whatsapp"></i>WhatsApp</a><?php endif;?></div>
 </div>
 <div class="client-intelligence-grid mb-4">
 <div class="client-intelligence-card"><span>Momento de compra</span><strong><span class="cycle-chip cycle-<?=e($cycle['tone'])?>"><?=e($cycle['label'])?></span></strong><small><?=e($cycle['hint'])?></small></div>
