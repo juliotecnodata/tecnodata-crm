@@ -245,3 +245,12 @@ body{background:#F6F8F9;color:#14232B}
 
 .sidebar-status strong{color:#fff}
 .topbar-title strong,.page-heading h1,.panel-header h2{color:#14232B}
+
+
+/* V6.15 — pedidos por etapas Omie */
+.stage-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.stage-summary-card{border:1px solid var(--line);background:#fff;border-radius:10px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;box-shadow:none}
+.stage-summary-card:hover{border-color:#007FC7;background:#F7FBFD}
+.stage-summary-card>span{font-size:9px;font-weight:800;color:#007FC7;text-transform:uppercase}
+.stage-summary-card>strong{font-size:12px;color:var(--ink)}
+.stage-summary-card>small{font-size:9px;color:var(--muted)}
