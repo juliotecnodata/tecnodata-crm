@@ -28,29 +28,29 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
 <div class="td-shell">
 <aside class="td-sidebar">
  <div class="sidebar-head">
- <a class="td-brand" href="<?=APP_URL?>/index.php"><span class="brand-mark">T</span><span class="brand-copy"><strong>Tecnodata</strong><small>Revenue workspace</small></span></a>
+ <a class="td-brand" href="<?=APP_URL?>/index.php"><span class="brand-mark">T</span><span class="brand-copy"><strong>Tecnodata</strong><small>CRM Comercial</small></span></a>
  <button class="sidebar-collapse" type="button" id="sidebarCollapse" aria-label="Recolher menu" title="Recolher menu"><i class="fa-solid fa-chevron-left"></i></button>
  </div>
  <nav class="td-nav">
   <?php if($isCollector):?>
    <div class="nav-label">TRABALHO</div>
-   <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Meu resultado</span></a>
+   <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
    <a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
    <a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a>
    <a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a>
   <?php elseif(!$isAdmin):?>
    <div class="nav-label">TRABALHO</div>
-   <a class="<?=navActive('index.php')?>" href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Visão geral</span></a>
-   <a class="<?=navActive('carteira.php','cliente.php')?>" href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-address-book"></i><span><?=$sellerMode==='collection'?'Carteira de cobrança':'Minha carteira'?></span></a>
-   <?php if($navHasSales):?><a class="<?=navActive('agenda.php')?>" href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a><?php endif;?>
+   <a class="<?=navActive('index.php')?>" href="<?=APP_URL?>/index.php"><i class="fa-solid fa-bolt"></i><span>Hoje</span></a>
+   <a class="<?=navActive('carteira.php','cliente.php')?>" href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-layer-group"></i><span><?=$sellerMode==='collection'?'Carteira de cobrança':'Carteira'?></span></a>
+   <?php if($navHasSales):?><a class="<?=navActive('agenda.php')?>" href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a><?php endif;?>
    <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Meu resultado</span></a>
    <?php if(Auth::can('supervisor')):?><a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a><a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a><a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a><?php endif;?>
    <?php if($navHasSales):?><a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a><a class="<?=navActive('servicos.php')?>" href="<?=APP_URL?>/servicos.php"><i class="fa-solid fa-graduation-cap"></i><span>Serviços</span></a><?php endif;?>
   <?php endif;?>
 
   <?php if(Auth::can('supervisor','admin')):?>
-   <div class="nav-label">GESTÃO</div>
-   <a class="<?=navActive('gestao.php')?>" href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-chart-pie"></i><span>Visão de gestão</span></a>
+   <div class="nav-label">OPERAÇÃO</div>
+   <a class="<?=navActive('gestao.php')?>" href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-chart-pie"></i><span>Painel de gestão</span></a>
    <a class="<?=navActive('clientes.php')?>" href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-address-book"></i><span>Clientes</span></a>
    <a class="<?=navActive('vendedores.php','vendedor.php')?>" href="<?=APP_URL?>/vendedores.php"><i class="fa-solid fa-user-tie"></i><span>Vendedores</span></a>
    <a class="<?=navActive('equipe.php')?>" href="<?=APP_URL?>/equipe.php"><i class="fa-solid fa-users"></i><span>Equipe</span></a>
@@ -64,7 +64,7 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
   <?php endif;?>
 
   <?php if($isAdmin):?>
-   <div class="nav-label">ADMINISTRAÇÃO</div>
+   <div class="nav-label">SISTEMA</div>
    <a class="<?=navActive('sync.php')?>" href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização Omie</span></a>
    <a class="<?=navActive('usuarios.php')?>" href="<?=APP_URL?>/usuarios.php"><i class="fa-solid fa-user-shield"></i><span>Usuários</span></a>
   <?php endif;?>
@@ -73,7 +73,7 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
 </aside>
 <main class="td-main">
  <header class="td-topbar">
-  <div class="topbar-title"><button class="sidebar-toggle" type="button" aria-label="Abrir menu"><i class="fa-solid fa-bars"></i></button><div><small>TECNODATA CRM</small><strong><?=e($pageLabels[$current]??'Workspace')?></strong></div></div>
+  <div class="topbar-title"><button class="sidebar-toggle" type="button" aria-label="Abrir menu"><i class="fa-solid fa-bars"></i></button><div><small>TECNODATA • CRM</small><strong><?=e($pageLabels[$current]??'Workspace')?></strong></div></div>
   <div class="topbar-actions">
    <div class="sync-chip"><i class="fa-solid fa-cloud-arrow-down"></i><span><?=$sync?'Dados locais atualizados':'Sincronização pendente'?></span></div>
    <div class="notification-wrap">
