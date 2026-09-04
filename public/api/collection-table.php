@@ -84,7 +84,7 @@ try{
 
     $periodExists="EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.created_at>=$qStart AND ca.created_at<$qNext)";
     if($signal==='mine'){
-        $where[]="EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.user_id=$userId AND ca.deleted_at IS NULL AND ca.created_at>=$qStart AND ca.created_at<$qNext)";
+        $where[]="EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND (ca.user_id=$userId OR ca.assigned_user_id=$userId) AND ca.deleted_at IS NULL AND ca.created_at>=$qStart AND ca.created_at<$qNext)";
     }elseif($signal==='attended'){
         $where[]=$periodExists;
     }elseif($signal==='agreement'){
@@ -94,8 +94,12 @@ try{
     }elseif($signal==='payment'){
         $where[]="EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='pagamento' AND ca.created_at>=$qStart AND ca.created_at<$qNext)";
     }elseif($signal==='paid_agreement'){
-        $where[]="EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='acordo' AND ca.created_at>=$qStart AND ca.created_at<$qNext)
-                  AND EXISTS(SELECT 1 FROM collection_actions cp WHERE cp.client_id=c.id AND cp.deleted_at IS NULL AND cp.result='pagamento' AND cp.created_at>=$qStart AND cp.created_at<$qNext)";
+        $where[]="EXISTS(
+            SELECT 1 FROM collection_actions ag
+            WHERE ag.client_id=c.id AND ag.deleted_at IS NULL AND ag.result='acordo'
+              AND ag.created_at>=$qStart AND ag.created_at<$qNext
+              AND EXISTS(SELECT 1 FROM collection_actions pg WHERE pg.client_id=c.id AND pg.deleted_at IS NULL AND pg.result='pagamento' AND pg.created_at>=ag.created_at)
+        )";
     }elseif($signal==='unattended'){
         $where[]="NOT $periodExists";
     }
@@ -149,7 +153,7 @@ try{
         $effective effective_debt,
         la.id last_action_id,la.created_at last_contact,la.result last_result,lu.name last_user_name,
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.created_at>=$qStart AND ca.created_at<$qNext) attended_period,
-        EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.user_id=$userId AND ca.deleted_at IS NULL AND ca.created_at>=$qStart AND ca.created_at<$qNext) mine_period,
+        EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND (ca.user_id=$userId OR ca.assigned_user_id=$userId) AND ca.deleted_at IS NULL AND ca.created_at>=$qStart AND ca.created_at<$qNext) mine_period,
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='acordo' AND ca.created_at>=$qStart AND ca.created_at<$qNext) agreement_period,
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='promessa' AND ca.created_at>=$qStart AND ca.created_at<$qNext) promise_period,
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='pagamento' AND ca.created_at>=$qStart AND ca.created_at<$qNext) payment_period,
