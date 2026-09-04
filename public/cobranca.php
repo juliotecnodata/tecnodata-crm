@@ -60,7 +60,7 @@ include '_layout.php';?>
   <div><label class="form-label">Período do atendimento</label><input class="form-control" id="collectionMonth" type="month" value="<?=e($month)?>"></div>
   <div><label class="form-label">Vendedor</label><select class="form-select" id="collectionSeller"><option value="">Todos</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>"><?=e($s['name'])?></option><?php endforeach;?></select></div>
   <div><label class="form-label">UF</label><select class="form-select" id="collectionUf"><option value="">Todas</option><?php foreach($ufs as $row):?><option value="<?=e($row['uf'])?>"><?=e($row['uf'])?></option><?php endforeach;?></select></div>
-  <div class="collection-filter-actions"><button class="btn btn-outline-secondary" type="button" id="collectionClear"><i class="fa-solid fa-rotate-left"></i>Limpar filtros</button></div>
+  <div class="collection-filter-actions"><button class="btn btn-dark" type="button" id="collectionApply"><i class="fa-solid fa-filter"></i>Filtrar</button><button class="btn btn-outline-secondary" type="button" id="collectionClear"><i class="fa-solid fa-rotate-left"></i>Limpar filtros</button></div>
  </div>
 </div>
 
