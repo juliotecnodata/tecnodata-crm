@@ -72,9 +72,9 @@ include '_layout.php';?>
          data-ajax="<?=APP_URL?>/api/collection-table.php"
          data-entity="clientes"
          data-page-length="25"
-         data-order-column="8">
+         data-order-column="9">
    <thead><tr>
-    <th>Cliente</th><th>Vendedor da dívida</th><th>UF</th><th>Última compra</th><th>Dias</th>
+    <th>Cliente</th><th>Vendedor da dívida</th><th>Conta corrente</th><th>UF</th><th>Última compra</th><th>Dias</th>
     <th>Financeiro</th><th class="text-end">Valor devido</th><th>Sinalização</th>
     <th>Último contato</th><th class="no-sort"></th>
    </tr></thead><tbody></tbody>
