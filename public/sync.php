@@ -37,7 +37,7 @@ include '_layout.php';
    <div class="d-flex gap-3">
     <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:42px;height:42px;background:#eef1f3"><i class="fa-solid <?=e($m['icon'])?>"></i></div>
     <div><h2 class="h6 mb-1"><?=e($m['label'])?></h2><div class="small text-secondary" id="state-<?=$key?>"><?=e($s['status'])?></div>
-    <?php if($key==='financial'):?><div class="small text-secondary mt-1">Conta selecionada • somente atrasados e parciais • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Ontem + hoje • atualiza/inclui pedidos • sincroniza também as mudanças de etapa</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?></div>
+    <?php if($key==='financial'):?><div class="small text-secondary mt-1">Contas selecionadas • atrasados + pagamentos parciais • saldo aberto real • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Ontem + hoje • atualiza/inclui pedidos • sincroniza também as mudanças de etapa</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?></div>
    </div>
    <div class="small text-secondary" id="count-<?=$key?>"><?=number_format((int)$s['processed'],0,',','.')?></div>
   </div>
@@ -49,7 +49,11 @@ include '_layout.php';
   <?php if($s['last_error']):?><div class="small text-danger mt-2"><?=e($s['last_error'])?></div><?php endif;?>
   <div class="d-flex gap-2 mt-3">
    <button class="btn btn-dark btn-sm sync-start" data-module="<?=$key?>"><i class="fa-solid fa-play me-1"></i>Iniciar / retomar</button>
-   <button class="btn btn-outline-secondary btn-sm sync-reset" data-module="<?=$key?>" title="Recomeçar este módulo do zero"><i class="fa-solid fa-rotate-left"></i></button>
+   <?php if($key==='financial'):?>
+   <button class="btn btn-outline-secondary btn-sm sync-reset" data-module="<?=$key?>" title="Reconstruir financeiro com segurança"><i class="fa-solid fa-broom me-1"></i>Limpar e reconstruir</button>
+   <?php else:?>
+   <button class="btn btn-outline-secondary btn-sm sync-reset" data-module="<?=$key?>" title="Recomeçar este módulo"><i class="fa-solid fa-rotate-left"></i></button>
+   <?php endif;?>
   </div>
  </div></div>
 </div>
@@ -96,7 +100,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.sync-start').forEach(b=>b.addEventListener('click',()=>startSync(b.dataset.module,false)));
   document.querySelectorAll('.sync-reset').forEach(b=>b.addEventListener('click',()=>{
     const message=b.dataset.module==='financial'
-      ? 'Recomeçar o financeiro do zero? Os movimentos importados serão recriados usando somente os últimos 3 anos.'
+      ? 'Reconstruir o financeiro? A carteira atual será mantida durante a consulta. Ao concluir 100%, o CRM removerá títulos que não existem mais e atualizará atrasados e pagamentos parciais com o saldo real da Omie.'
       : (b.dataset.module==='services'
         ? 'Reiniciar a sincronização de serviços? O histórico local não será apagado; o CRM consultará novamente somente ontem e hoje e fará atualização/inclusão.'
         : (b.dataset.module==='orders'
