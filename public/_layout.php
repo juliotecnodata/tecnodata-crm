@@ -23,7 +23,7 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/3.0.3/css/dataTables.dataTables.min.css" rel="stylesheet">
-<link href="<?=APP_URL?>/assets/css/app.css" rel="stylesheet">
+<link href="<?=APP_URL?>/assets/css/app.css?v=<?=rawurlencode((string)@filemtime(APP_ROOT.'/public/assets/css/app.css'))?>" rel="stylesheet">
 </head><body>
 <div class="td-shell">
 <aside class="td-sidebar">
