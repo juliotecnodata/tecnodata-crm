@@ -744,3 +744,8 @@ body{background:#F6F8F9;color:#14232B}
 .purchase-history-list small{font-size:8px;color:var(--muted);margin-top:2px}
 @media(max-width:850px){.client-snapshot{grid-template-columns:1fr 1fr}.client-work-head{align-items:flex-start;flex-direction:column}.client-work-actions{width:100%}.client-work-actions .btn{flex:1}}
 @media(max-width:560px){.client-snapshot{grid-template-columns:1fr}.sales-channel-grid{grid-template-columns:1fr 1fr}.client-finance-warning{grid-template-columns:auto 1fr}.client-finance-warning .btn{grid-column:2}}
+
+.order-default-rule{display:flex;align-items:flex-start;gap:8px;padding:10px 11px;background:#F7FBFD;border:1px solid #D7E8F1;border-radius:10px;color:#47616D}
+.order-default-rule i{color:#007FC7;margin-top:2px}
+.order-default-rule span{font-size:9px;line-height:1.45}
+.order-item-row input[readonly]{background:#F7F9FA;color:#475467;cursor:not-allowed}
