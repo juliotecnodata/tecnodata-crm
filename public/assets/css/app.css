@@ -1,8 +1,14 @@
 :root{
- --ink:#121B25;--ink-2:#1B2733;--muted:#667085;--subtle:#98A2B3;--line:#E4E7EC;
- --canvas:#F6F7F8;--surface:#FFFFFF;--lime:#BDD630;--lime-dark:#6C7B00;--lime-soft:#F5F8DF;
- --blue:#175CD3;--blue-soft:#EFF4FF;--red:#B42318;--red-soft:#FEF3F2;--amber:#B54708;--amber-soft:#FFFAEB;
- --green:#067647;--green-soft:#ECFDF3;--sidebar:#121B25;--sidebar-hover:#1B2733;--sidebar-active:#24313D;
+ --brand-yellow:#FECC00;--brand-green:#009657;--brand-blue:#007FC7;--brand-lime:#BDD136;--brand-orange:#EA5127;
+ --ink:#14232B;--ink-2:#1D3039;--muted:#667085;--subtle:#98A2B3;--line:#E4E9EC;
+ --canvas:#F6F8F9;--surface:#FFFFFF;
+ --lime:#BDD136;--lime-dark:#68750F;--lime-soft:#F6F9E8;
+ --blue:#007FC7;--blue-soft:#EAF5FB;
+ --red:#EA5127;--red-soft:#FDF0EC;
+ --amber:#A97800;--amber-soft:#FFF8D6;
+ --green:#009657;--green-soft:#EAF7F1;
+ --yellow:#FECC00;--yellow-soft:#FFF8D6;
+ --sidebar:#14232B;--sidebar-hover:#1D3039;--sidebar-active:#253B45;
  --radius:10px;--shadow:none
 }
 *{box-sizing:border-box}html{background:var(--canvas)}body{margin:0;background:var(--canvas);color:var(--ink);font-family:"Manrope","Segoe UI",sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}a{text-decoration:none;color:inherit}h1,h2,h3,h4,h5,h6{letter-spacing:-.025em;color:var(--ink)}
@@ -172,3 +178,70 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 .table-sub{display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:500;line-height:1.35}
 @media(max-width:1300px){.portfolio-filters-form{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-filter-actions{grid-column:1/-1}}
 @media(max-width:700px){.portfolio-filters-form{grid-template-columns:1fr}.portfolio-filter-actions{grid-column:auto}.portfolio-filter-actions .btn{flex:1}.portfolio-assignment-bar{border-left-width:1px}}
+
+
+/* V6.13 — paleta oficial Grupo Tecnodata
+   #FECC00 amarelo | #009657 verde | #007FC7 azul | #BDD136 lima | #EA5127 laranja */
+body{background:#F6F8F9;color:#14232B}
+.td-sidebar{background:#14232B}
+.sidebar-collapse{border-color:#35505C;color:#B9C6CC}
+.sidebar-collapse:hover{background:#1D3039;border-color:#456571;color:#fff}
+.td-nav a{color:#AAB8BE}
+.td-nav a:hover{background:#1D3039;color:#fff}
+.td-nav a.active{background:#253B45;border-left-color:#BDD136}
+.td-nav a.active i{color:#BDD136}
+.brand-mark{background:#BDD136;color:#14232B}
+.sidebar-status{background:#1D3039;border-color:#35505C}
+.pulse-dot{background:#009657}
+.nav-label{color:#6F8790}
+.td-topbar{background:rgba(255,255,255,.96);border-bottom-color:#E4E9EC}
+.sync-chip i{color:#009657}
+.eyebrow,.panel-header span,.kicker{color:#007FC7}
+.back-link:hover{color:#007FC7}
+
+.btn-primary,.btn-dark{background:#007FC7;border-color:#007FC7;color:#fff}
+.btn-primary:hover,.btn-dark:hover{background:#006BA8;border-color:#006BA8}
+.btn-outline-secondary:hover{border-color:#007FC7;color:#007FC7;background:#F7FBFD}
+.form-control:focus,.form-select:focus{border-color:#007FC7;box-shadow:0 0 0 3px rgba(0,127,199,.12)}
+.form-check-input:checked{background-color:#007FC7;border-color:#007FC7}
+
+.badge-soft,.client-tag{background:#F6F9E8;color:#68750F}
+.status-paid,.badge-success,.is-active{background:#EAF7F1;color:#009657}
+.status-overdue,.alert-danger{background:#FDF0EC;color:#C83F1D}
+.status-partial,.promise-chip{background:#FFF8D6;color:#8B6700}
+.signal-attended{background:#EAF7F1;color:#007B49}
+.signal-agreement{background:#F6F9E8;color:#68750F}
+.signal-promise{background:#EAF5FB;color:#006CA9}
+.signal-mine{background:#EAF5FB;color:#006CA9}
+
+.activity-icon{background:#EAF5FB;color:#007FC7}
+.activity-icon.type-payment{background:#EAF7F1;color:#009657}
+.activity-icon.type-promise{background:#FFF8D6;color:#8B6700}
+.alert-permission-icon{background:#F6F9E8;color:#68750F}
+.notification-panel-foot button{color:#007FC7}
+.notification-item.is-late .notification-item-icon{background:#FDF0EC;color:#EA5127}
+.notification-count{background:#EA5127}
+
+.mini-progress span,.td-progress>span{background:#BDD136}
+.timeline-item:before{background:#BDD136}
+.account-option:hover,.account-option.selected{border-color:#BDD136;background:#FBFCEB}
+.portfolio-assignment-bar{border-left-color:#BDD136}
+.management-note>i,.filter-result-strip i{color:#007FC7}
+
+.stat-card{position:relative;overflow:hidden}
+.stat-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#E4E9EC}
+.stat-card:nth-child(5n+1):before{background:#007FC7}
+.stat-card:nth-child(5n+2):before{background:#009657}
+.stat-card:nth-child(5n+3):before{background:#BDD136}
+.stat-card:nth-child(5n+4):before{background:#FECC00}
+.stat-card:nth-child(5n+5):before{background:#EA5127}
+
+.dt-container .dt-paging .dt-paging-button.current{background:#007FC7!important;color:#fff!important}
+.table-hover>tbody>tr:hover>*,.modern-table tbody tr:hover{background:#F8FBFC}
+.segmented-control a.active,.segmented-control button.active{border-color:#D7E8F1}
+.segmented-control a.active{color:#007FC7}
+.collection-hero{border-left-color:#EA5127}
+.collection-hero.is-settled{border-left-color:#009657}
+
+.sidebar-status strong{color:#fff}
+.topbar-title strong,.page-heading h1,.panel-header h2{color:#14232B}
