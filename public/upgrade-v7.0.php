@@ -19,6 +19,7 @@ try{
   ncm VARCHAR(30) NULL,
   cfop VARCHAR(30) NULL,
   unit_price DECIMAL(15,4) NOT NULL DEFAULT 0,
+  stock_qty DECIMAL(15,4) NULL,
   active TINYINT(1) NOT NULL DEFAULT 1,
   raw_json JSON NULL,
   updated_at DATETIME NOT NULL,
@@ -27,6 +28,10 @@ try{
   INDEX idx_products_internal_code(internal_code),
   INDEX idx_products_active(active)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+ $dbName=(string)DB::conn()->query('SELECT DATABASE()')->fetchColumn();
+ $hasStock=DB::fetch("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='products' AND COLUMN_NAME='stock_qty' LIMIT 1",[$dbName]);
+ if(!$hasStock)DB::conn()->exec("ALTER TABLE products ADD COLUMN stock_qty DECIMAL(15,4) NULL AFTER unit_price");
 
  DB::conn()->exec("CREATE TABLE IF NOT EXISTS sales_categories (
   code VARCHAR(80) PRIMARY KEY,
