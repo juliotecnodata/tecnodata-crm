@@ -23,7 +23,7 @@ $row=DB::fetch("SELECT ca.*,c.name client_name,c.omie_code,c.uf,c.phone,
  WHERE ca.id=? AND ca.deleted_at IS NULL",[$id]);
 
 if(!$row){http_response_code(404);exit('Atendimento não encontrado.');}
-$canManage=(int)$row['user_id']===(int)$u['id']||Auth::can('supervisor','admin');
+$canManage=(int)$row['user_id']===(int)$u['id']||(int)($row['assigned_user_id']??0)===(int)$u['id']||Auth::can('supervisor','admin');
 
 $labels=['falou'=>'Falou com o cliente','nao_atendeu'=>'Não atendeu','sem_previsao'=>'Sem previsão','promessa'=>'Promessa de pagamento','acordo'=>'Acordo realizado','pagamento'=>'Pagamento recebido'];
 $channels=['ligacao'=>'Ligação','whatsapp'=>'WhatsApp','email'=>'E-mail','outro'=>'Outro'];
