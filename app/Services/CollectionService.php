@@ -22,6 +22,16 @@ final class CollectionService {
         return ['omie_debt'=>$omie,'pending_received'=>$pending,'effective_debt'=>$effective,'status'=>$status,'adjustment'=>$adj];
     }
 
+    public static function debtSellerCode(string $clientCode): ?string {
+        $r=DB::fetch("SELECT COUNT(DISTINCT NULLIF(fm.seller_omie_code,'')) sellers,
+                             MAX(NULLIF(fm.seller_omie_code,'')) seller_code
+                      FROM financial_movements fm
+                      INNER JOIN financial_accounts fa ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
+                      WHERE fm.client_omie_code=?
+                        AND UPPER(fm.status) IN('ATRASADO','PAGTO_PARCIAL')",[$clientCode]);
+        return (int)($r['sellers']??0)===1 ? (string)$r['seller_code'] : null;
+    }
+
     private static function audit(int $id,string $operation,int $userId,?array $before,?array $after): void {
         DB::exec("INSERT INTO interaction_audit(entity_type,entity_id,operation,user_id,before_json,after_json,created_at)
                   VALUES('collection_action',?,?,?,?,?,NOW())",
@@ -48,6 +58,7 @@ final class CollectionService {
         if(!$client)throw new \RuntimeException('Cliente não encontrado.');
 
         $before=self::debtState($clientId,(string)$client['omie_code']);
+        $debtSeller=self::debtSellerCode((string)$client['omie_code']);
         $actionType=in_array($actionType,['contact','promise','agreement','payment'],true)?$actionType:'contact';
         $channel=in_array($channel,['ligacao','whatsapp','email','outro'],true)?$channel:'ligacao';
         $allowedResults=['falou','nao_atendeu','promessa','acordo','pagamento','sem_previsao'];
@@ -63,8 +74,8 @@ final class CollectionService {
         try{
             DB::exec("INSERT INTO collection_actions
               (seller_omie_code,client_id,user_id,action_type,channel,result,amount,pending_amount,debt_before,debt_after,promised_for,notes,created_at)
-              VALUES(NULL,?,?,?,?,?,?,?,?,?,?,?,NOW())",
-              [$clientId,$userId,$actionType,$channel,$result,$amount,$pendingAmount,$before['effective_debt'],$afterAmount,$promisedFor,$notes]);
+              VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NOW())",
+              [$debtSeller,$clientId,$userId,$actionType,$channel,$result,$amount,$pendingAmount,$before['effective_debt'],$afterAmount,$promisedFor,$notes]);
             $id=(int)$pdo->lastInsertId();
 
             DB::exec("UPDATE tasks SET status='done',completed_at=NOW()
