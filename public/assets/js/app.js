@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm))e.preventDefault();}));
 
   const sidebarButton=document.querySelector('.sidebar-toggle');
-  if(sidebarButton){sidebarButton.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));}
+  if(sidebarButton) sidebarButton.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));
 
   const sidebarCollapse=document.getElementById('sidebarCollapse');
   const applySidebarState=()=>{
@@ -16,20 +16,21 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   applySidebarState();
   sidebarCollapse?.addEventListener('click',()=>{
-    const collapsed=!document.body.classList.contains('sidebar-collapsed');
-    localStorage.setItem('tdcrm-sidebar-collapsed',collapsed?'1':'0');
+    localStorage.setItem('tdcrm-sidebar-collapsed',document.body.classList.contains('sidebar-collapsed')?'0':'1');
     applySidebarState();
   });
   window.addEventListener('resize',applySidebarState);
 
   document.querySelectorAll('table.data-table').forEach(table=>{
     if(typeof DataTable==='undefined') return;
+
     const noSort=[];
     table.querySelectorAll('thead th').forEach((th,i)=>{if(th.classList.contains('no-sort'))noSort.push(i);});
     const orderColumn=Number(table.dataset.orderColumn ?? 0);
     const pageLength=Number(table.dataset.pageLength ?? 25);
     const entity=table.dataset.entity || 'registros';
     const serverSide=table.dataset.serverSide==='1';
+
     const options={
       pageLength,
       lengthMenu:[10,25,50,100],
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         processing:'Carregando...'
       }
     };
+
     if(serverSide){
       options.processing=true;
       options.serverSide=true;
@@ -50,51 +52,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       options.ajax={
         url:table.dataset.ajax,
         data:d=>{
-          d.view=document.querySelector('#collectionView .active')?.dataset.value||'open';
-          d.signal=document.getElementById('collectionSignal')?.value||'all';
-          d.month=document.getElementById('collectionMonth')?.value||'';
-          d.seller=document.getElementById('collectionSeller')?.value||'';
-          d.uf=document.getElementById('collectionUf')?.value||'';
-          if(table.id==='clientsManagementTable'){
-      const selected=new Set();
-      const reloadClients=()=>{selected.clear();document.getElementById('portfolioSelectPage')?.removeAttribute('checked');dt.ajax.reload(null,true);};
-      const updateSelection=()=>{
-        document.getElementById('portfolioSelectionInfo').textContent=selected.size?selected.size+' cliente(s) selecionado(s).':'Selecione clientes ou aplique a distribuição ao filtro atual.';
-      };
-      ['portfolioUf','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource'].forEach(id=>document.getElementById(id)?.addEventListener('change',reloadClients));
-      document.getElementById('portfolioMonth')?.addEventListener('change',e=>{location.href='?month='+encodeURIComponent(e.target.value);});
-      document.getElementById('portfolioClear')?.addEventListener('click',()=>{
-        ['portfolioUf','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-        reloadClients();
-      });
-      table.addEventListener('change',e=>{
-        if(e.target.classList.contains('portfolio-row-check')){
-          const id=Number(e.target.value);if(e.target.checked)selected.add(id);else selected.delete(id);updateSelection();
-        }
-      });
-      document.getElementById('portfolioSelectPage')?.addEventListener('change',e=>{
-        table.querySelectorAll('.portfolio-row-check').forEach(ch=>{ch.checked=e.target.checked;const id=Number(ch.value);if(e.target.checked)selected.add(id);else selected.delete(id);});updateSelection();
-      });
-      const assign=async mode=>{
-        const seller=document.getElementById('portfolioAssignSeller')?.value||'';
-        if(!seller){alert('Escolha o vendedor ou a ação desejada.');return;}
-        if(mode==='selected'&&!selected.size){alert('Selecione ao menos um cliente.');return;}
-        const label=document.getElementById('portfolioAssignSeller')?.selectedOptions?.[0]?.textContent||'a opção escolhida';
-        const msg=mode==='selected'?'Aplicar '+label+' a '+selected.size+' cliente(s)?':'Aplicar '+label+' a TODOS os clientes do filtro atual?';
-        if(!confirm(msg))return;
-        const payload={_token:window.TDCRM_CONFIG.csrf,mode,seller,month:document.getElementById('portfolioMonth')?.value||'',ids:[...selected],filters:{
-          uf:document.getElementById('portfolioUf')?.value||'',seller:document.getElementById('portfolioSellerFilter')?.value||'',
-          status:document.getElementById('portfolioStatus')?.value||'',finance:document.getElementById('portfolioFinance')?.value||'',
-          source:document.getElementById('portfolioSource')?.value||'',search:dt.search()||''
-        }};
-        const r=await fetch(window.TDCRM_CONFIG.baseUrl+'/api/client-portfolio-assign.php',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
-        const data=await r.json();if(!r.ok||!data.ok){alert(data.error||'Falha ao distribuir carteira.');return;}
-        alert(data.message||'Carteira atualizada.');reloadClients();
-      };
-      document.getElementById('portfolioAssignSelected')?.addEventListener('click',()=>assign('selected'));
-      document.getElementById('portfolioAssignFiltered')?.addEventListener('click',()=>assign('filtered'));
-    }
-    if(table.id==='collectionActionsTable'){
+          if(table.id==='collectionTable'){
+            d.view=document.querySelector('#collectionView .active')?.dataset.value||'open';
+            d.signal=document.getElementById('collectionSignal')?.value||'all';
+            d.month=document.getElementById('collectionMonth')?.value||'';
+            d.seller=document.getElementById('collectionSeller')?.value||'';
+            d.uf=document.getElementById('collectionUf')?.value||'';
+          }
+          if(table.id==='collectionActionsTable'){
             d.month=document.getElementById('actionMonth')?.value||'';
             d.result=document.getElementById('actionResult')?.value||'';
             d.user_id=document.getElementById('actionUser')?.value||'0';
@@ -102,6 +67,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           if(table.id==='clientsManagementTable'){
             d.month=document.getElementById('portfolioMonth')?.value||'';
             d.uf=document.getElementById('portfolioUf')?.value||'';
+            d.tag=document.getElementById('portfolioTag')?.value||'';
             d.seller=document.getElementById('portfolioSellerFilter')?.value||'';
             d.status=document.getElementById('portfolioStatus')?.value||'';
             d.finance=document.getElementById('portfolioFinance')?.value||'';
@@ -110,28 +76,130 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       };
     }
+
     const dt=new DataTable(table,options);
+
+    if(table.id==='clientsManagementTable'){
+      const selected=new Set();
+      const selectPage=document.getElementById('portfolioSelectPage');
+      const updateSelection=()=>{
+        const info=document.getElementById('portfolioSelectionInfo');
+        if(info) info.textContent=selected.size?selected.size+' cliente(s) selecionado(s).':'Selecione clientes ou aplique a distribuição ao filtro atual.';
+      };
+      const reloadClients=()=>{
+        selected.clear();
+        if(selectPage) selectPage.checked=false;
+        updateSelection();
+        dt.ajax.reload(null,true);
+      };
+
+      ['portfolioUf','portfolioTag','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource']
+        .forEach(id=>document.getElementById(id)?.addEventListener('change',reloadClients));
+
+      document.getElementById('portfolioMonth')?.addEventListener('change',e=>{
+        location.href='?month='+encodeURIComponent(e.target.value);
+      });
+
+      document.getElementById('portfolioClear')?.addEventListener('click',()=>{
+        ['portfolioUf','portfolioTag','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource']
+          .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+        reloadClients();
+      });
+
+      table.addEventListener('change',e=>{
+        if(e.target.classList.contains('portfolio-row-check')){
+          const id=Number(e.target.value);
+          if(e.target.checked) selected.add(id); else selected.delete(id);
+          updateSelection();
+        }
+      });
+
+      selectPage?.addEventListener('change',e=>{
+        table.querySelectorAll('.portfolio-row-check').forEach(ch=>{
+          ch.checked=e.target.checked;
+          const id=Number(ch.value);
+          if(e.target.checked) selected.add(id); else selected.delete(id);
+        });
+        updateSelection();
+      });
+
+      const assign=async mode=>{
+        const assignSelect=document.getElementById('portfolioAssignSeller');
+        const seller=assignSelect?.value||'';
+        if(!seller){alert('Escolha o vendedor ou a ação desejada.');return;}
+        if(mode==='selected'&&!selected.size){alert('Selecione ao menos um cliente.');return;}
+        const label=assignSelect?.selectedOptions?.[0]?.textContent||'a opção escolhida';
+        const msg=mode==='selected'
+          ?'Aplicar '+label+' a '+selected.size+' cliente(s)?'
+          :'Aplicar '+label+' a TODOS os clientes do filtro atual?';
+        if(!confirm(msg))return;
+
+        const payload={
+          _token:window.TDCRM_CONFIG.csrf,
+          mode,seller,
+          month:document.getElementById('portfolioMonth')?.value||'',
+          ids:[...selected],
+          filters:{
+            uf:document.getElementById('portfolioUf')?.value||'',
+            tag:document.getElementById('portfolioTag')?.value||'',
+            seller:document.getElementById('portfolioSellerFilter')?.value||'',
+            status:document.getElementById('portfolioStatus')?.value||'',
+            finance:document.getElementById('portfolioFinance')?.value||'',
+            source:document.getElementById('portfolioSource')?.value||'',
+            search:dt.search()||''
+          }
+        };
+
+        try{
+          const r=await fetch(window.TDCRM_CONFIG.baseUrl+'/api/client-portfolio-assign.php',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Accept':'application/json'},
+            credentials:'same-origin',
+            body:JSON.stringify(payload)
+          });
+          const data=await r.json();
+          if(!r.ok||!data.ok){alert(data.error||'Falha ao distribuir carteira.');return;}
+          alert(data.message||'Carteira atualizada.');
+          reloadClients();
+        }catch(e){
+          alert('Falha de comunicação ao distribuir a carteira.');
+        }
+      };
+
+      document.getElementById('portfolioAssignSelected')?.addEventListener('click',()=>assign('selected'));
+      document.getElementById('portfolioAssignFiltered')?.addEventListener('click',()=>assign('filtered'));
+    }
+
     if(table.id==='collectionActionsTable'){
       const reloadActions=()=>dt.ajax.reload(null,true);
       ['actionMonth','actionResult','actionUser'].forEach(id=>document.getElementById(id)?.addEventListener('change',reloadActions));
       document.getElementById('actionClear')?.addEventListener('click',()=>{
         const m=document.getElementById('actionMonth'),r=document.getElementById('actionResult');
-        if(m)m.value=new Date().toISOString().slice(0,7);if(r)r.value='';reloadActions();
+        if(m)m.value=new Date().toISOString().slice(0,7);
+        if(r)r.value='';
+        reloadActions();
       });
     }
+
     if(table.id==='collectionTable'){
       const reload=()=>dt.ajax.reload(null,true);
       ['collectionSignal','collectionMonth','collectionSeller','collectionUf'].forEach(id=>document.getElementById(id)?.addEventListener('change',reload));
       document.querySelectorAll('#collectionView button').forEach(btn=>btn.addEventListener('click',()=>{
-        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');reload();
+        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        reload();
       }));
       document.getElementById('showMyWork')?.addEventListener('click',()=>{
         const s=document.getElementById('collectionSignal');if(s)s.value='mine';reload();
       });
       document.getElementById('collectionClear')?.addEventListener('click',()=>{
         const s=document.getElementById('collectionSignal'),m=document.getElementById('collectionMonth'),v=document.getElementById('collectionSeller'),uf=document.getElementById('collectionUf');
-        if(s)s.value='all';if(m)m.value=new Date().toISOString().slice(0,7);if(v)v.value='';if(uf)uf.value='';
-        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.toggle('active',b.dataset.value==='open'));reload();
+        if(s)s.value='all';
+        if(m)m.value=new Date().toISOString().slice(0,7);
+        if(v)v.value='';
+        if(uf)uf.value='';
+        document.querySelectorAll('#collectionView button').forEach(b=>b.classList.toggle('active',b.dataset.value==='open'));
+        reload();
       });
     }
   });
@@ -139,11 +207,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   const role=document.querySelector('select[name="role"]');
   const seller=document.querySelector('select[name="seller_omie_code"]');
   if(role&&seller){
-    const update=()=>{const enabled=role.value==='seller';seller.disabled=!enabled;if(!enabled)seller.value='';seller.closest('.mb-3')?.classList.toggle('opacity-50',!enabled);};
-    role.addEventListener('change',update);update();
+    const update=()=>{
+      const enabled=role.value==='seller';
+      seller.disabled=!enabled;
+      if(!enabled)seller.value='';
+      seller.closest('.mb-3')?.classList.toggle('opacity-50',!enabled);
+    };
+    role.addEventListener('change',update);
+    update();
   }
 });
-
 
 /* V6.3 — Central de alertas */
 (() => {
