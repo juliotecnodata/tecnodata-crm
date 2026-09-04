@@ -91,8 +91,15 @@ final class SalesOrderService {
             if(!$product)throw new RuntimeException('Um dos produtos selecionados não é válido.');
 
             $qty=(float)str_replace(',','.',(string)($item['quantity']??0));
-            $price=(float)str_replace(',','.',(string)($item['unit_price']??$product['unit_price']));
-            $discount=(float)str_replace(',','.',(string)($item['discount']??0));
+            // Vendedor usa preço-base e desconto zero definidos pela empresa.
+            // Supervisor/Admin podem ajustar no pedido quando necessário.
+            if($forcedSellerCode!==null){
+                $price=(float)$product['unit_price'];
+                $discount=0.0;
+            }else{
+                $price=(float)str_replace(',','.',(string)($item['unit_price']??$product['unit_price']));
+                $discount=(float)str_replace(',','.',(string)($item['discount']??0));
+            }
             if($qty<=0)throw new RuntimeException('Quantidade inválida para '.$product['description'].'.');
             if($price<0)throw new RuntimeException('Preço inválido para '.$product['description'].'.');
             if($discount<0)$discount=0;
