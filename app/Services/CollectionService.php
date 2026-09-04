@@ -76,9 +76,9 @@ final class CollectionService {
         $pdo=DB::conn();$pdo->beginTransaction();
         try{
             DB::exec("INSERT INTO collection_actions
-              (seller_omie_code,client_id,user_id,action_type,channel,result,amount,pending_amount,debt_before,debt_after,promised_for,notes,created_at)
-              VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NOW())",
-              [$debtSeller,$clientId,$userId,$actionType,$channel,$result,$amount,$pendingAmount,$before['effective_debt'],$afterAmount,$promisedFor,$notes]);
+              (seller_omie_code,client_id,user_id,assigned_user_id,assigned_at,assigned_by,action_type,channel,result,amount,pending_amount,debt_before,debt_after,promised_for,notes,created_at)
+              VALUES(?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,NOW())",
+              [$debtSeller,$clientId,$userId,$userId,$userId,$actionType,$channel,$result,$amount,$pendingAmount,$before['effective_debt'],$afterAmount,$promisedFor,$notes]);
             $id=(int)$pdo->lastInsertId();
 
             DB::exec("UPDATE tasks SET status='done',completed_at=NOW()
@@ -114,7 +114,7 @@ final class CollectionService {
         return self::debtState($clientId,(string)$client['omie_code']);
     }
 
-    public static function updateAction(int $id,int $userId,string $channel,string $result,float $amount,?string $promisedFor,string $notes): array {
+    public static function updateAction(int $id,int $userId,string $channel,string $result,float $amount,?string $promisedFor,string $notes,?int $assignedUserId=null): array {
         $row=DB::fetch("SELECT ca.*,c.omie_code FROM collection_actions ca JOIN clients c ON c.id=ca.client_id
                        WHERE ca.id=? AND ca.deleted_at IS NULL",[$id]);
         if(!$row)throw new \RuntimeException('Cobrança não encontrada.');
@@ -143,11 +143,23 @@ final class CollectionService {
         $newTotalPending=max(0,$state['pending_received']-$oldPending+$newPending);
         $newDebt=max(0,$state['omie_debt']-$newTotalPending);
 
+        $currentAssigned=(int)($row['assigned_user_id']??$row['user_id']);
+        $targetAssigned=$currentAssigned;
+        if($assignedUserId!==null && $assignedUserId>0 && Auth::can('supervisor','admin')){
+            $validAssignee=DB::fetch("SELECT id FROM users WHERE id=? AND active=1 AND role IN('collector','supervisor','admin')",[$assignedUserId]);
+            if(!$validAssignee)throw new \RuntimeException('Responsável de cobrança inválido ou inativo.');
+            $targetAssigned=(int)$validAssignee['id'];
+        }
+
         $pdo=DB::conn();$pdo->beginTransaction();
         try{
             DB::exec("UPDATE collection_actions SET action_type=?,channel=?,result=?,amount=?,pending_amount=?,
-                      debt_after=?,promised_for=?,notes=?,updated_at=NOW(),updated_by=? WHERE id=?",
-                [$newType,$channel,$result,$amount,$newPending,$newDebt,$promisedFor,$notes,$userId,$id]);
+                      debt_after=?,promised_for=?,notes=?,assigned_user_id=?,
+                      assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),
+                      assigned_by=IF(COALESCE(assigned_user_id,0)<>?,?,assigned_by),
+                      updated_at=NOW(),updated_by=? WHERE id=?",
+                [$newType,$channel,$result,$amount,$newPending,$newDebt,$promisedFor,$notes,
+                 $targetAssigned,$targetAssigned,$userId,$userId,$id]);
             self::setAdjustmentPending((int)$row['client_id'],$newTotalPending,$state['omie_debt']);
             $after=DB::fetch("SELECT * FROM collection_actions WHERE id=?",[$id]);
             self::audit($id,'update',$userId,$row,$after);
