@@ -58,6 +58,8 @@ document.addEventListener('DOMContentLoaded',()=>{
             d.signal=document.getElementById('collectionSignal')?.value||'all';
             d.month=document.getElementById('collectionMonth')?.value||'';
             d.seller=document.getElementById('collectionSeller')?.value||'';
+            d.account=document.getElementById('collectionAccount')?.value||'';
+            d.financial=document.getElementById('collectionFinancial')?.value||'all';
             d.uf=document.getElementById('collectionUf')?.value||'';
           }
           if(table.id==='collectionActionsTable'){
@@ -202,10 +204,12 @@ document.addEventListener('DOMContentLoaded',()=>{
         const s=document.getElementById('collectionSignal');if(s)s.value='mine';reload();
       });
       document.getElementById('collectionClear')?.addEventListener('click',()=>{
-        const s=document.getElementById('collectionSignal'),m=document.getElementById('collectionMonth'),v=document.getElementById('collectionSeller'),uf=document.getElementById('collectionUf');
+        const s=document.getElementById('collectionSignal'),m=document.getElementById('collectionMonth'),v=document.getElementById('collectionSeller'),a=document.getElementById('collectionAccount'),f=document.getElementById('collectionFinancial'),uf=document.getElementById('collectionUf');
         if(s)s.value='all';
         if(m)m.value=new Date().toISOString().slice(0,7);
         if(v)v.value='';
+        if(a)a.value='';
+        if(f)f.value='all';
         if(uf)uf.value='';
         document.querySelectorAll('#collectionView button').forEach(b=>b.classList.toggle('active',b.dataset.value==='open'));
         reload();
