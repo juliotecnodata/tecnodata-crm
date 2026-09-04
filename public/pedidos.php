@@ -74,7 +74,7 @@ include '_layout.php';
   <h1>Pedidos por etapa</h1>
   <p>O Omie organiza o Pedido de Venda pelas etapas do processo de faturamento. Esta tela usa a etapa real do pedido, com a descrição configurada no Omie.</p>
  </div>
- <?php if(Auth::can('admin')):?><a class="btn btn-secondary" href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i>Atualizar pedidos</a><?php endif;?>
+ <div class="d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php if(Auth::can('admin')):?><a class="btn btn-secondary" href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i>Atualizar</a><?php endif;?></div>
 </div>
 
 <form class="toolbar-card orders-toolbar mb-4" method="get">
