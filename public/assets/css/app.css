@@ -617,3 +617,28 @@ body{background:#F6F8F9;color:#14232B}
  .order-selected-client{grid-template-columns:auto 1fr}
  .order-selected-client>.status-pill{grid-column:2;width:max-content}
 }
+
+
+/* V7.0 — resumos compactos */
+.compact-page-stats{display:flex;gap:8px;align-items:center}
+.compact-page-stats>span{min-width:86px;padding:9px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;text-align:right}
+.compact-page-stats strong{font-size:16px}
+.compact-page-stats small{font-size:8px;color:var(--muted);text-transform:uppercase}
+.compact-page-stats>span.is-alert{border-color:#F1D68A;background:#FFFDF4}
+
+.order-list-summary{display:flex;align-items:center;gap:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:0 14px;min-height:62px}
+.order-list-summary>span{display:flex;flex-direction:column;justify-content:center;padding:0 18px;border-left:1px solid var(--line);min-height:38px}
+.order-list-summary>span:first-child{border-left:0;padding-left:0}
+.order-list-summary small{font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:750}
+.order-list-summary strong{font-size:14px;margin-top:2px}
+.order-stage-filter-inline{margin-left:auto!important;min-width:220px}
+.order-stage-filter-inline .form-select{min-height:34px;margin-top:3px}
+
+@media(max-width:700px){
+ .compact-page-stats{width:100%}
+ .compact-page-stats>span{flex:1;text-align:left}
+ .order-list-summary{display:grid;grid-template-columns:1fr 1fr;padding:10px}
+ .order-list-summary>span,.order-list-summary>span:first-child{padding:8px;border-left:0;border-top:1px solid var(--line)}
+ .order-list-summary>span:nth-child(-n+2){border-top:0}
+ .order-stage-filter-inline{margin-left:0!important;min-width:0;grid-column:1/-1}
+}
