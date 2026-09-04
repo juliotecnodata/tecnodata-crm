@@ -13,7 +13,7 @@ $sync=DB::fetch("SELECT * FROM sync_runs WHERE status='success' ORDER BY id DESC
 $current=basename($_SERVER['PHP_SELF']);
 function navActive(string ...$files):string{global $current;return in_array($current,$files,true)?'active':'';}
 $roleLabels=['seller'=>'Vendedor','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Administrador'];
-$pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'=>'Agenda','resultado.php'=>'Meu resultado','pedidos.php'=>'Pedidos','servicos.php'=>'Serviços','equipe.php'=>'Equipe','metas.php'=>'Metas','vendedores.php'=>'Vendedores','vendedor.php'=>'Vendedor','configuracoes.php'=>'Configurações','sync.php'=>'Sincronização','usuarios.php'=>'Usuários','cobranca.php'=>'Cobrança','cobranca-cliente.php'=>'Atendimento de cobrança','cobranca-atendimento.php'=>'Detalhe do atendimento','cobranca-agenda.php'=>'Agenda de cobrança','cobranca-atendimentos.php'=>'Atendimentos de cobrança','cobranca-equipe.php'=>'Desempenho da cobrança','alertas.php'=>'Alertas','gestao.php'=>'Visão de gestão','atendimento-editar.php'=>'Editar atendimento','clientes.php'=>'Clientes'];
+$pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'=>'Agenda','resultado.php'=>'Meu resultado','pedidos.php'=>'Pedidos','pedido-novo.php'=>'Novo pedido','servicos.php'=>'Serviços','equipe.php'=>'Equipe','metas.php'=>'Metas','vendedores.php'=>'Vendedores','vendedor.php'=>'Vendedor','configuracoes.php'=>'Configurações','sync.php'=>'Sincronização','usuarios.php'=>'Usuários','cobranca.php'=>'Cobrança','cobranca-cliente.php'=>'Atendimento de cobrança','cobranca-atendimento.php'=>'Detalhe do atendimento','cobranca-agenda.php'=>'Agenda de cobrança','cobranca-atendimentos.php'=>'Atendimentos de cobrança','cobranca-equipe.php'=>'Desempenho da cobrança','alertas.php'=>'Alertas','gestao.php'=>'Visão de gestão','atendimento-editar.php'=>'Editar atendimento','clientes.php'=>'Clientes'];
 ?>
 <!doctype html><html lang="pt-br"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -33,40 +33,40 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
  </div>
  <nav class="td-nav">
   <?php if($isCollector):?>
-   <div class="nav-label">TRABALHO</div>
+   <div class="nav-label">COBRANÇA</div>
+   <a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Carteira</span></a>
+   <a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a>
+   <a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Histórico</span></a>
    <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
-   <a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
-   <a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a>
-   <a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a>
-  <?php elseif(!$isAdmin):?>
-   <div class="nav-label">TRABALHO</div>
+
+  <?php elseif(($u['role']??'')==='seller'):?>
+   <div class="nav-label">COMERCIAL</div>
    <a class="<?=navActive('index.php')?>" href="<?=APP_URL?>/index.php"><i class="fa-solid fa-bolt"></i><span>Hoje</span></a>
-   <a class="<?=navActive('carteira.php','cliente.php')?>" href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-layer-group"></i><span><?=$sellerMode==='collection'?'Carteira de cobrança':'Carteira'?></span></a>
-   <?php if($navHasSales):?><a class="<?=navActive('agenda.php')?>" href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a><?php endif;?>
-   <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Meu resultado</span></a>
-   <?php if(Auth::can('supervisor')):?><a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a><a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a><a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a><?php endif;?>
-   <?php if($navHasSales):?><a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a><a class="<?=navActive('servicos.php')?>" href="<?=APP_URL?>/servicos.php"><i class="fa-solid fa-graduation-cap"></i><span>Serviços</span></a><?php endif;?>
-  <?php endif;?>
-
-  <?php if(Auth::can('supervisor','admin')):?>
-   <div class="nav-label">OPERAÇÃO</div>
-   <a class="<?=navActive('gestao.php')?>" href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-chart-pie"></i><span>Painel de gestão</span></a>
-   <a class="<?=navActive('clientes.php')?>" href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-address-book"></i><span>Clientes</span></a>
-   <a class="<?=navActive('vendedores.php','vendedor.php')?>" href="<?=APP_URL?>/vendedores.php"><i class="fa-solid fa-user-tie"></i><span>Vendedores</span></a>
-   <a class="<?=navActive('equipe.php')?>" href="<?=APP_URL?>/equipe.php"><i class="fa-solid fa-users"></i><span>Equipe</span></a>
-   <a class="<?=navActive('metas.php')?>" href="<?=APP_URL?>/metas.php"><i class="fa-solid fa-bullseye"></i><span>Metas do mês</span></a>
-   <?php if($isAdmin):?>
+   <a class="<?=navActive('carteira.php','cliente.php')?>" href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+   <?php if($navHasSales):?>
+    <a class="<?=navActive('pedido-novo.php')?>" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
     <a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a>
-    <a class="<?=navActive('servicos.php')?>" href="<?=APP_URL?>/servicos.php"><i class="fa-solid fa-graduation-cap"></i><span>Serviços</span></a>
-    <a class="<?=navActive('cobranca.php','cobranca-atendimentos.php','cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
    <?php endif;?>
-   <a class="<?=navActive('configuracoes.php')?>" href="<?=APP_URL?>/configuracoes.php"><i class="fa-solid fa-sliders"></i><span>Configurações</span></a>
-  <?php endif;?>
+   <a class="<?=navActive('agenda.php')?>" href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a>
+   <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Resultado</span></a>
 
-  <?php if($isAdmin):?>
+  <?php else:?>
+   <div class="nav-label">OPERAÇÃO</div>
+   <a class="<?=navActive('gestao.php')?>" href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-gauge-high"></i><span>Painel</span></a>
+   <a class="<?=navActive('clientes.php','cliente.php')?>" href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+   <a class="<?=navActive('pedido-novo.php')?>" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
+   <a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a>
+   <a class="<?=navActive('cobranca.php','cobranca-cliente.php','cobranca-atendimentos.php','cobranca-atendimento.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
+   <a class="<?=navActive('equipe.php','vendedores.php','vendedor.php','cobranca-equipe.php')?>" href="<?=APP_URL?>/equipe.php"><i class="fa-solid fa-users-gear"></i><span>Equipe</span></a>
+   <a class="<?=navActive('metas.php')?>" href="<?=APP_URL?>/metas.php"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a>
+   <a class="<?=navActive('servicos.php')?>" href="<?=APP_URL?>/servicos.php"><i class="fa-solid fa-graduation-cap"></i><span>Serviços</span></a>
+
    <div class="nav-label">SISTEMA</div>
-   <a class="<?=navActive('sync.php')?>" href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização Omie</span></a>
-   <a class="<?=navActive('usuarios.php')?>" href="<?=APP_URL?>/usuarios.php"><i class="fa-solid fa-user-shield"></i><span>Usuários</span></a>
+   <a class="<?=navActive('configuracoes.php')?>" href="<?=APP_URL?>/configuracoes.php"><i class="fa-solid fa-sliders"></i><span>Configurações</span></a>
+   <?php if($isAdmin):?>
+    <a class="<?=navActive('sync.php')?>" href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização</span></a>
+    <a class="<?=navActive('usuarios.php')?>" href="<?=APP_URL?>/usuarios.php"><i class="fa-solid fa-user-shield"></i><span>Usuários</span></a>
+   <?php endif;?>
   <?php endif;?>
  </nav>
  <div class="sidebar-status"><span class="pulse-dot"></span><div><strong>Base local ativa</strong><small><?=$sync?'Atualizada em '.date('d/m',strtotime($sync['finished_at'])).' às '.date('H:i',strtotime($sync['finished_at'])):'Aguardando sincronização'?></small></div></div>
