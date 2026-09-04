@@ -52,6 +52,7 @@ try{
    if($uf!==''){$sql.=' AND c.uf=?';$p[]=$uf;}
    if($tag!==''){$sql.=' AND EXISTS(SELECT 1 FROM client_tags ct WHERE ct.client_id=c.id AND ct.tag=?)';$p[]=$tag;}
    if($sellerFilter==='__unassigned__')$sql.=" AND $effective IS NULL";
+   elseif($sellerFilter==='__assigned__')$sql.=" AND $effective IS NOT NULL";
    elseif($sellerFilter!==''){$sql.=" AND $effective=?";$p[]=$sellerFilter;}
    if(in_array($status,['normal','attention','reactivate'],true)){$sql.=' AND m.commercial_status=?';$p[]=$status;}
    if($finance==='overdue')$sql.=' AND COALESCE(m.overdue_amount,0)>0';
