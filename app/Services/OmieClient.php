@@ -13,7 +13,11 @@ final class OmieClient {
     }
 
     public function call(string $endpointKey, string $call, array $param): array {
-        $url = $this->cfg['endpoints'][$endpointKey] ?? null;
+        $fallbackEndpoints = [
+            'pedido_etapas' => 'https://app.omie.com.br/api/v1/produtos/pedidoetapas/',
+            'etapas_faturamento' => 'https://app.omie.com.br/api/v1/produtos/etapafat/',
+        ];
+        $url = $this->cfg['endpoints'][$endpointKey] ?? $fallbackEndpoints[$endpointKey] ?? null;
         if (!$url) throw new RuntimeException("Endpoint Omie inválido: {$endpointKey}");
 
         $payload = [
