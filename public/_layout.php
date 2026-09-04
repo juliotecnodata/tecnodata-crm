@@ -13,7 +13,7 @@ $sync=DB::fetch("SELECT * FROM sync_runs WHERE status='success' ORDER BY id DESC
 $current=basename($_SERVER['PHP_SELF']);
 function navActive(string ...$files):string{global $current;return in_array($current,$files,true)?'active':'';}
 $roleLabels=['seller'=>'Vendedor','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Administrador'];
-$pageLabels=['index.php'=>'Hoje','carteira.php'=>'Carteira','agenda.php'=>'Agenda','resultado.php'=>'Resultado','pedidos.php'=>'Pedidos','pedido-novo.php'=>'Novo pedido','servicos.php'=>'Serviços','equipe.php'=>'Equipe','metas.php'=>'Metas','vendedores.php'=>'Vendedores','vendedor.php'=>'Vendedor','configuracoes.php'=>'Configurações','sync.php'=>'Sincronização','usuarios.php'=>'Usuários','cobranca.php'=>'Cobrança','cobranca-cliente.php'=>'Atendimento de cobrança','cobranca-atendimento.php'=>'Detalhe do atendimento','cobranca-agenda.php'=>'Agenda de cobrança','cobranca-atendimentos.php'=>'Atendimentos de cobrança','cobranca-equipe.php'=>'Desempenho da cobrança','alertas.php'=>'Alertas','gestao.php'=>'Painel','atendimento-editar.php'=>'Editar atendimento','clientes.php'=>'Clientes'];
+$pageLabels=['index.php'=>'Hoje','carteira.php'=>'Carteira','agenda.php'=>'Agenda','resultado.php'=>'Resultado','pedidos.php'=>'Pedidos','pedido-novo.php'=>'Novo pedido','diagnostico-pedidos.php'=>'Diagnóstico de pedidos','servicos.php'=>'Serviços','equipe.php'=>'Equipe','metas.php'=>'Metas','vendedores.php'=>'Vendedores','vendedor.php'=>'Vendedor','configuracoes.php'=>'Configurações','sync.php'=>'Sincronização','usuarios.php'=>'Usuários','cobranca.php'=>'Cobrança','cobranca-cliente.php'=>'Atendimento de cobrança','cobranca-atendimento.php'=>'Detalhe do atendimento','cobranca-agenda.php'=>'Agenda de cobrança','cobranca-atendimentos.php'=>'Atendimentos de cobrança','cobranca-equipe.php'=>'Desempenho da cobrança','alertas.php'=>'Alertas','gestao.php'=>'Painel','atendimento-editar.php'=>'Editar atendimento','clientes.php'=>'Clientes'];
 ?>
 <!doctype html><html lang="pt-br"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -65,6 +65,7 @@ $pageLabels=['index.php'=>'Hoje','carteira.php'=>'Carteira','agenda.php'=>'Agend
    <a class="<?=navActive('configuracoes.php')?>" href="<?=APP_URL?>/configuracoes.php"><i class="fa-solid fa-sliders"></i><span>Configurações</span></a>
    <?php if($isAdmin):?>
     <a class="<?=navActive('sync.php')?>" href="<?=APP_URL?>/sync.php"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização</span></a>
+    <a class="<?=navActive('diagnostico-pedidos.php')?>" href="<?=APP_URL?>/diagnostico-pedidos.php"><i class="fa-solid fa-stethoscope"></i><span>Diagnóstico pedidos</span></a>
     <a class="<?=navActive('usuarios.php')?>" href="<?=APP_URL?>/usuarios.php"><i class="fa-solid fa-user-shield"></i><span>Usuários</span></a>
    <?php endif;?>
   <?php endif;?>

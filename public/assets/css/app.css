@@ -749,3 +749,11 @@ body{background:#F6F8F9;color:#14232B}
 .order-default-rule i{color:#007FC7;margin-top:2px}
 .order-default-rule span{font-size:9px;line-height:1.45}
 .order-item-row input[readonly]{background:#F7F9FA;color:#475467;cursor:not-allowed}
+
+/* V7.2 — diagnóstico de integração */
+.diag-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.diag-row{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.diag-row>i{margin-top:2px}.diag-row>div{display:flex;flex-direction:column}
+.diag-row strong{font-size:10px}.diag-row small{font-size:9px;color:var(--muted);margin-top:2px;word-break:break-word}
+.diag-row.is-ok>i{color:#009657}.diag-row.is-error{border-color:#F2C7BC;background:#FFF9F7}.diag-row.is-error>i{color:#EA5127}
+@media(max-width:700px){.diag-grid{grid-template-columns:1fr}}

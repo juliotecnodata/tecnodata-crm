@@ -219,7 +219,7 @@ final class ModularSyncService {
             'pagina'=>$page,
             'registros_por_pagina'=>$this->pageSize,
             'apenas_importado_api'=>'N',
-            'filtrar_apenas_tipo'=>'P',
+            'filtrar_apenas_omiepdv'=>'N',
             'exibir_caracteristicas'=>'N',
             'exibir_tabelas_preco'=>'N',
             'exibir_kit'=>'N',
@@ -267,7 +267,7 @@ final class ModularSyncService {
     private function stepPaymentTerms(array $state): array {
         $page=max(1,(int)$state['current_page']+1);
         $data=$this->omie->call('sales_payment_terms','ListarFormasPagVendas',[
-            'pagina'=>$page,'registros_por_pagina'=>$this->pageSize,'ordenar_por'=>'CODIGO','ordem_decrescente'=>'N'
+            'pagina'=>$page,'registros_por_pagina'=>$this->pageSize
         ]);
         $items=$this->pick($data,['cadastros']);
         foreach($items as $r){

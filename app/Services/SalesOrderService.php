@@ -193,7 +193,8 @@ final class SalesOrderService {
             ];
             if($discount>0){$prod['tipo_desconto']='V';$prod['valor_desconto']=$discount;}
             if(!empty($product['ncm']))$prod['ncm']=(string)$product['ncm'];
-            if(!empty($product['cfop']))$prod['cfop']=(string)$product['cfop'];
+            // CFOP não é enviado fixo pelo cadastro local. O Cenário Fiscal da Omie
+            // deve determinar a operação correta para o cliente/UF do pedido.
 
             $detail=['ide'=>['codigo_item_integracao'=>(string)$line],'produto'=>$prod];
             if($stockLocation!==''){
@@ -219,7 +220,7 @@ final class SalesOrderService {
             'enviar_email'=>(string)$settings['send_email'],
             'codVend'=>is_numeric($sellerCode)?(int)$sellerCode:$sellerCode,
         ];
-        if(!empty($client['email']))$additional['utilizar_emails']=(string)$client['email'];
+        if((string)$settings['send_email']==='S'&&!empty($client['email']))$additional['utilizar_emails']=(string)$client['email'];
         if($paymentMethod!=='')$additional['meio_pagamento']=$paymentMethod;
         if($documentType!=='')$additional['tipo_documento']=$documentType;
 

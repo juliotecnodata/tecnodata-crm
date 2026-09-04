@@ -38,7 +38,7 @@ include '_layout.php';
     <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:42px;height:42px;background:#eef1f3"><i class="fa-solid <?=e($m['icon'])?>"></i></div>
     <div><h2 class="h6 mb-1"><?=e($m['label'])?></h2><div class="small text-secondary" id="state-<?=$key?>"><?=e($s['status'])?></div>
     <?php if($key==='financial'):?><div class="small text-secondary mt-1">Contas selecionadas • atrasados + pagamentos parciais • saldo aberto real • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Ontem + hoje • atualiza/inclui pedidos • sincroniza também as mudanças de etapa</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?>
-    <?php if($key==='products'):?><div class="small text-secondary mt-1">Catálogo local usado para criar novos pedidos</div><?php endif;?>
+    <?php if($key==='products'):?><div class="small text-secondary mt-1">Catálogo de produtos Omie • consulta oficial ListarProdutos</div><?php endif;?>
     <?php if($key==='categories'):?><div class="small text-secondary mt-1">Categorias de receita usadas no pedido Omie</div><?php endif;?></div>
    </div>
    <div class="small text-secondary" id="count-<?=$key?>"><?=number_format((int)$s['processed'],0,',','.')?></div>
