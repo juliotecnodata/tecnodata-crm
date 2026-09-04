@@ -12,13 +12,15 @@ $filter=$_GET['status']??'active';
 $where=$filter==='all'?'1=1':($filter==='inactive'?'s.active=0':'s.active=1');
 $sellers=DB::all("SELECT s.*,
  (SELECT u.name FROM users u WHERE u.seller_omie_code=s.omie_code AND u.active=1 ORDER BY u.id LIMIT 1) user_name,
- (SELECT COUNT(*) FROM client_metrics cm WHERE cm.seller_omie_code=s.omie_code) portfolio_count
- FROM sellers s WHERE {$where} ORDER BY s.active DESC,s.name");
+ (SELECT COUNT(*) FROM client_metrics cm
+   LEFT JOIN client_portfolio_assignments pa ON pa.client_id=cm.client_id AND pa.month_ref=?
+   WHERE (CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE cm.seller_omie_code END)=s.omie_code) portfolio_count
+ FROM sellers s WHERE {$where} ORDER BY s.active DESC,s.name",[$month]);
 $counts=DB::fetch("SELECT COUNT(*) total,SUM(active=1) active_count,SUM(active=0) inactive_count,SUM(is_virtual=1) virtual_count FROM sellers")??[];
 include '_layout.php';?>
 <div class="page-heading">
- <div><div class="eyebrow">GESTÃO COMERCIAL</div><h1>Vendedores</h1><p>Perfis, metas, carteira e operação de cobrança em um só lugar.</p></div>
- <a class="btn btn-primary" href="<?=APP_URL?>/configuracoes.php"><i class="fa-solid fa-sliders"></i> Configurar financeiro</a>
+ <div><div class="eyebrow">GESTÃO COMERCIAL</div><h1>Vendedores</h1><p>Perfis, metas e tamanho da carteira do mês. A distribuição de clientes é administrada na tela Clientes.</p></div>
+ <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="<?=APP_URL?>/clientes.php?month=<?=e($month)?>"><i class="fa-solid fa-address-book"></i>Gerenciar carteiras</a><a class="btn btn-primary" href="<?=APP_URL?>/configuracoes.php"><i class="fa-solid fa-sliders"></i>Configurar financeiro</a></div>
 </div>
 <div class="stat-grid stat-grid-4 mb-4">
  <div class="stat-card"><span>Total</span><strong><?=number_format((int)($counts['total']??0),0,',','.')?></strong><small>sincronizados da Omie</small></div>
