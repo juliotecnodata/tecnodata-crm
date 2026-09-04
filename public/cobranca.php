@@ -20,6 +20,7 @@ $signal=in_array($signalRaw,['all','mine','attended','agreement','promise','unat
 $summary=CollectionService::portfolioSummary();
 $work=CollectionService::monthForUser((int)$u['id'],$month);
 $sellers=DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name");
+$accounts=DB::all("SELECT omie_code,name FROM financial_accounts WHERE selected=1 AND active=1 ORDER BY name");
 $ufs=DB::all("SELECT DISTINCT uf FROM clients WHERE uf IS NOT NULL AND uf<>'' ORDER BY uf");
 
 include '_layout.php';?>
@@ -35,8 +36,8 @@ include '_layout.php';?>
 <div class="stat-grid stat-grid-4 mb-4">
  <div class="stat-card"><span>Em cobrança</span><strong><?=number_format($summary['open_clients'],0,',','.')?></strong><small>clientes com saldo pendente</small></div>
  <div class="stat-card"><span>Saldo a recuperar</span><strong><?=money($summary['amount'])?></strong><small>já considerando recebimentos locais</small></div>
- <div class="stat-card"><span>Meus atendimentos</span><strong><?=$work['worked']?></strong><small><?=$work['agreements']?> acordos • <?=$work['promises']?> promessas</small></div>
- <div class="stat-card"><span>Recuperado por mim</span><strong><?=money($work['recovered'])?></strong><small><?=number_format($work['amount_percent'],1,',','.')?>% da minha meta no mês</small></div>
+ <div class="stat-card"><span>Pagamento parcial</span><strong><?=number_format($summary['partial_clients']??0,0,',','.')?></strong><small><?=money($summary['partial_paid']??0)?> já recebido na Omie</small></div>
+ <div class="stat-card"><span>Recuperado por mim</span><strong><?=money($work['recovered'])?></strong><small><?=$work['worked']?> clientes trabalhados • <?=number_format($work['amount_percent'],1,',','.')?>% da meta</small></div>
 </div>
 
 <div class="panel-card mb-3">
@@ -59,6 +60,8 @@ include '_layout.php';?>
   </select></div>
   <div><label class="form-label">Período do atendimento</label><input class="form-control" id="collectionMonth" type="month" value="<?=e($month)?>"></div>
   <div><label class="form-label">Vendedor da dívida</label><select class="form-select" id="collectionSeller"><option value="">Todos</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>"><?=e($s['name'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Conta corrente</label><select class="form-select" id="collectionAccount"><option value="">Todas</option><?php foreach($accounts as $a):?><option value="<?=e($a['omie_code'])?>"><?=e($a['name'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Situação financeira</label><select class="form-select" id="collectionFinancial"><option value="all">Todas</option><option value="overdue">Vencido</option><option value="partial">Pagamento parcial</option></select></div>
   <div><label class="form-label">UF</label><select class="form-select" id="collectionUf"><option value="">Todas</option><?php foreach($ufs as $row):?><option value="<?=e($row['uf'])?>"><?=e($row['uf'])?></option><?php endforeach;?></select></div>
   <div class="collection-filter-actions"><button class="btn btn-dark" type="button" id="collectionApply"><i class="fa-solid fa-filter"></i>Filtrar</button><button class="btn btn-outline-secondary" type="button" id="collectionClear"><i class="fa-solid fa-rotate-left"></i>Limpar filtros</button></div>
  </div>
@@ -74,7 +77,7 @@ include '_layout.php';?>
          data-page-length="25"
          data-order-column="9">
    <thead><tr>
-    <th>Cliente</th><th>Vendedor da dívida</th><th>Conta corrente</th><th>UF</th><th>Última compra</th><th>Dias</th>
+    <th>Cliente</th><th>Vendedor da dívida</th><th>Conta corrente</th><th>UF</th><th>Última compra</th><th>Atraso</th>
     <th>Financeiro</th><th class="text-end">Valor devido</th><th>Sinalização</th>
     <th>Último contato</th><th class="no-sort"></th>
    </tr></thead><tbody></tbody>
