@@ -212,8 +212,9 @@ try{
             if($paymentInfo)$label.='<small class="table-sub">'.e($paymentInfo[0]??'').' • '.e($paymentInfo[1]??'').'</small>';
             $signals[]='<span class="signal-detail">'.$label.'</span>';
         }
-        if((int)$r['agreement_paid']===1){
-            array_unshift($signals,'<span class="signal-badge signal-paid-agreement"><i class="fa-solid fa-check-double"></i>Acordo pago</span>');
+        if((int)$r['agreement_paid']===1 || ($settled && (int)$r['agreement_exists']===1)){
+            $paidLabel=(int)$r['agreement_paid']===1?'Acordo pago':'Acordo quitado na Omie';
+            array_unshift($signals,'<span class="signal-badge signal-paid-agreement"><i class="fa-solid fa-check-double"></i>'.$paidLabel.'</span>');
         }elseif((int)$r['promise_period']===1){
             $signals[]='<span class="signal-badge signal-promise"><i class="fa-regular fa-calendar-check"></i>Promessa</span>';
         }
