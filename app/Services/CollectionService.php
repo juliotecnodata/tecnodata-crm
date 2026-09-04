@@ -240,9 +240,14 @@ final class CollectionService {
         $r=DB::fetch("SELECT COUNT(*) clients,
             SUM(effective_debt>0.009) open_clients,
             SUM(effective_debt<=0.009) settled_local,
+            SUM(partial_titles>0) partial_clients,
+            COALESCE(SUM(partial_paid),0) partial_paid,
             COALESCE(SUM(effective_debt),0) amount
           FROM (
-            SELECT c.id,GREATEST(0,COALESCE(SUM(fm.amount),0)-COALESCE(adj.pending_received,0)) effective_debt
+            SELECT c.id,
+                   GREATEST(0,COALESCE(SUM(fm.amount),0)-COALESCE(adj.pending_received,0)) effective_debt,
+                   SUM(fm.status='PAGTO_PARCIAL') partial_titles,
+                   COALESCE(SUM(CASE WHEN fm.status='PAGTO_PARCIAL' THEN fm.paid_amount ELSE 0 END),0) partial_paid
             FROM clients c
             INNER JOIN financial_movements fm ON fm.client_omie_code=c.omie_code
               AND fm.status IN('ATRASADO','PAGTO_PARCIAL')
@@ -255,6 +260,8 @@ final class CollectionService {
             'clients'=>(int)($r['clients']??0),
             'open_clients'=>(int)($r['open_clients']??0),
             'settled_local'=>(int)($r['settled_local']??0),
+            'partial_clients'=>(int)($r['partial_clients']??0),
+            'partial_paid'=>(float)($r['partial_paid']??0),
             'amount'=>(float)($r['amount']??0)
         ];
     }
