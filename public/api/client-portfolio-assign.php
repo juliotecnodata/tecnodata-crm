@@ -56,7 +56,8 @@ try{
    elseif($sellerFilter!==''){$sql.=" AND $effective=?";$p[]=$sellerFilter;}
    if(in_array($status,['normal','attention','reactivate'],true)){$sql.=' AND m.commercial_status=?';$p[]=$status;}
    if($finance==='overdue')$sql.=' AND COALESCE(m.overdue_amount,0)>0';
-   elseif($finance==='clear')$sql.=' AND COALESCE(m.overdue_amount,0)<=0';
+   elseif($finance==='open')$sql.=' AND COALESCE(m.open_amount,0)>0 AND COALESCE(m.overdue_amount,0)<=0';
+   elseif($finance==='clear')$sql.=' AND COALESCE(m.open_amount,0)<=0 AND COALESCE(m.overdue_amount,0)<=0';
    if($source==='month')$sql.=' AND pa.id IS NOT NULL';
    elseif($source==='omie')$sql.=' AND pa.id IS NULL';
    if($search!==''){
