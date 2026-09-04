@@ -10,7 +10,7 @@ final class GoalService {
         $hasSales=self::hasSales($mode);$hasCollection=self::hasCollection($mode);
         $goal=$active?DB::fetch("SELECT * FROM seller_goals WHERE seller_omie_code=? AND month_ref=?",[$sellerCode,$month]):null;
         $start=$month.'-01'; $end=date('Y-m-t',strtotime($start));
-        $orders=$active&&$hasSales?DB::all("SELECT total,status,raw_json FROM orders WHERE seller_omie_code=? AND order_date BETWEEN ? AND ?",[$sellerCode,$start,$end]):[];
+        $orders=$active&&$hasSales?DB::all("SELECT total,status,stage_code,stage_name,raw_json FROM orders WHERE seller_omie_code=? AND order_date BETWEEN ? AND ?",[$sellerCode,$start,$end]):[];
         $productRealized=0;
         foreach($orders as $o) if(self::isOrderCounted($o)) $productRealized+=(float)$o['total'];
         $services=$active&&$hasSales?DB::all("SELECT total,status,stage_code FROM service_orders WHERE seller_omie_code=? AND inclusion_date BETWEEN ? AND ?",[$sellerCode,$start,$end]):[];
@@ -37,7 +37,7 @@ final class GoalService {
     public static function generalMonth(string $month): array {
         $g=DB::fetch("SELECT * FROM monthly_goals WHERE month_ref=?",[$month]);
         $start=$month.'-01'; $end=date('Y-m-t',strtotime($start));
-        $orders=DB::all("SELECT o.total,o.status,o.raw_json FROM orders o INNER JOIN sellers s ON s.omie_code=o.seller_omie_code AND s.active=1 AND s.goal_mode IN('sales','sales_collection') WHERE o.order_date BETWEEN ? AND ?",[$start,$end]);
+        $orders=DB::all("SELECT o.total,o.status,o.stage_code,o.stage_name,o.raw_json FROM orders o INNER JOIN sellers s ON s.omie_code=o.seller_omie_code AND s.active=1 AND s.goal_mode IN('sales','sales_collection') WHERE o.order_date BETWEEN ? AND ?",[$start,$end]);
         $productRealized=0;
         foreach($orders as $o) if(self::isOrderCounted($o)) $productRealized+=(float)$o['total'];
         $services=DB::all("SELECT so.total,so.status,so.stage_code FROM service_orders so INNER JOIN sellers s ON s.omie_code=so.seller_omie_code AND s.active=1 AND s.goal_mode IN('sales','sales_collection') WHERE so.inclusion_date BETWEEN ? AND ?",[$start,$end]);
@@ -89,16 +89,18 @@ final class GoalService {
     }
 
     public static function orderStageCode(array $order): string {
+        $stored=trim((string)($order['stage_code']??''));
+        if($stored!=='')return str_pad($stored,2,'0',STR_PAD_LEFT);
         $raw=is_array($order['raw_json']??null)?$order['raw_json']:json_decode((string)($order['raw_json']??''),true);
-        if(!is_array($raw))return '';$code=(string)($raw['cabecalho']['etapa']??'');
+        if(!is_array($raw))return '';
+        $code=(string)($raw['cabecalho']['etapa']??'');
         return $code===''?'':str_pad($code,2,'0',STR_PAD_LEFT);
     }
 
     public static function isOrderCounted(array $order): bool {
-        $ignored=array_map('mb_strtoupper',$GLOBALS['config']['omie']['ignored_order_statuses']??[]);
-        if(in_array(mb_strtoupper((string)($order['status']??'')),$ignored,true))return false;
-        $budgetStages=array_map(fn($code)=>str_pad((string)$code,2,'0',STR_PAD_LEFT),$GLOBALS['config']['omie']['order_budget_stage_codes']??['00']);
-        return !in_array(self::orderStageCode($order),$budgetStages,true);
+        $technical=mb_strtoupper((string)($order['status']??''));
+        if(in_array($technical,['CANCELADO','CANCELADA','DEVOLVIDO','DENEGADO'],true))return false;
+        return self::orderStageCode($order)!=='';
     }
     public static function isServiceOrderCounted(array $service): bool {
         $status=mb_strtoupper((string)($service['status']??''));
