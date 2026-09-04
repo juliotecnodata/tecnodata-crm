@@ -79,6 +79,12 @@ final class ModularSyncService {
             DB::exec("UPDATE sync_states SET status='idle',current_page=0,total_pages=0,processed=0,last_error=NULL,updated_at=NOW() WHERE module_key=?",[$module]);
         }
 
+        if($module==='orders'){
+            $context=['version'=>1,'phase'=>'orders','page'=>0];
+            DB::exec("UPDATE sync_states SET status='idle',current_page=0,total_pages=0,processed=0,last_error=NULL,context_json=?,updated_at=NOW() WHERE module_key='orders'",
+                [json_encode($context,JSON_UNESCAPED_UNICODE)]);
+        }
+
         if($module==='financial'){
             $context=[
                 'version'=>2,
@@ -193,39 +199,138 @@ final class ModularSyncService {
     }
 
     private function stepOrders(array $state): array {
-        $page=max(1,(int)$state['current_page']+1);
-        $incremental=true;
+        $context=json_decode((string)($state['context_json']??''),true);
+        if(!is_array($context)||(int)($context['version']??0)!==1){
+            $context=['version'=>1,'phase'=>'orders','page'=>0];
+        }
+        $phase=(string)($context['phase']??'orders');
         $start=date('d/m/Y',strtotime('-1 day'));
         $end=date('d/m/Y');
-        $data=$this->omie->call('pedidos','ListarPedidos',[
-            'pagina'=>$page,'registros_por_pagina'=>$this->pageSize,
-            'filtrar_por_data_de'=>$start,'filtrar_por_data_ate'=>$end,
-            'filtrar_apenas_inclusao'=>'N','apenas_resumo'=>'N'
-        ]);
-        $items=$this->pick($data,['pedido_venda_produto','pedidos','lista_pedidos']);
-        foreach($items as $r){
-            $cab=$r['cabecalho']??$r;$info=$r['infoCadastro']??[];
-            $additional=is_array($r['informacoes_adicionais']??null)?$r['informacoes_adicionais']:[];
-            $orderCode=(string)($cab['codigo_pedido']??$cab['codigo_pedido_integracao']??$cab['numero_pedido']??$r['codigo_pedido']??'');
-            if($orderCode==='') $orderCode=sha1(json_encode($r));
-            $client=(string)($cab['codigo_cliente']??$cab['codigo_cliente_omie']??$cab['codCli']??'');
-            $seller=(string)($additional['codVend']??$additional['codigo_vendedor']??$cab['codigo_vendedor']??$cab['codVend']??$r['codVend']??'');
-            $totals=is_array($r['total_pedido']??null)?$r['total_pedido']:[];
-            $total=(float)($totals['valor_total_pedido']??$r['valor_total_pedido']??$cab['valor_total_pedido']??$cab['valor_total']??0);
-            $date=$this->normalizeDate($info['dInc']??null);
-            $status='ABERTO';
-            if(mb_strtoupper((string)($info['cancelado']??'N'))==='S')$status='CANCELADO';
-            elseif(mb_strtoupper((string)($info['devolvido']??'N'))==='S')$status='DEVOLVIDO';
-            elseif(mb_strtoupper((string)($info['denegado']??'N'))==='S')$status='DENEGADO';
-            elseif(mb_strtoupper((string)($info['faturado']??'N'))==='S')$status='FATURADO';
-            elseif(mb_strtoupper((string)($info['autorizado']??'N'))==='S')$status='AUTORIZADO';
-            DB::exec("INSERT INTO orders(omie_order_code,client_omie_code,seller_omie_code,order_date,total,status,raw_json,updated_at)
-                      VALUES(?,?,?,?,?,?,?,NOW())
-                      ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
-                      order_date=VALUES(order_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
-                [$orderCode,$client,$seller,$date,$total,$status,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+
+        if($phase==='orders'){
+            $page=max(1,(int)($context['page']??0)+1);
+            if($page===1)$this->syncOrderStageCatalog();
+
+            $data=$this->omie->call('pedidos','ListarPedidos',[
+                'pagina'=>$page,'registros_por_pagina'=>$this->pageSize,
+                'filtrar_por_data_de'=>$start,'filtrar_por_data_ate'=>$end,
+                'filtrar_apenas_inclusao'=>'N','apenas_resumo'=>'N'
+            ]);
+            $items=$this->pick($data,['pedido_venda_produto','pedidos','lista_pedidos']);
+
+            foreach($items as $r){
+                $cab=$r['cabecalho']??$r;
+                $info=$r['infoCadastro']??[];
+                $additional=is_array($r['informacoes_adicionais']??null)?$r['informacoes_adicionais']:[];
+                $orderCode=(string)($cab['codigo_pedido']??$cab['codigo_pedido_integracao']??$cab['numero_pedido']??$r['codigo_pedido']??'');
+                if($orderCode==='')$orderCode=sha1(json_encode($r));
+                $client=(string)($cab['codigo_cliente']??$cab['codigo_cliente_omie']??$cab['codCli']??'');
+                $seller=(string)($additional['codVend']??$additional['codigo_vendedor']??$cab['codigo_vendedor']??$cab['codVend']??$r['codVend']??'');
+                $totals=is_array($r['total_pedido']??null)?$r['total_pedido']:[];
+                $total=(float)($totals['valor_total_pedido']??$r['valor_total_pedido']??$cab['valor_total_pedido']??$cab['valor_total']??0);
+                $date=$this->normalizeDate($info['dInc']??null);
+                $stageCode=$this->normalizeOrderStageCode($cab['etapa']??null);
+                $stageName=$this->orderStageName($stageCode);
+
+                $status='ATIVO';
+                if(mb_strtoupper((string)($info['cancelado']??'N'))==='S')$status='CANCELADO';
+                elseif(mb_strtoupper((string)($info['devolvido']??'N'))==='S')$status='DEVOLVIDO';
+                elseif(mb_strtoupper((string)($info['denegado']??'N'))==='S')$status='DENEGADO';
+
+                DB::exec("INSERT INTO orders(omie_order_code,client_omie_code,seller_omie_code,order_date,total,status,stage_code,stage_name,raw_json,updated_at)
+                          VALUES(?,?,?,?,?,?,?,?,?,NOW())
+                          ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
+                          order_date=VALUES(order_date),total=VALUES(total),status=VALUES(status),stage_code=VALUES(stage_code),
+                          stage_name=COALESCE(VALUES(stage_name),stage_name),raw_json=VALUES(raw_json),updated_at=NOW()",
+                    [$orderCode,$client,$seller,$date,$total,$status,$stageCode,$stageName,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+            }
+
+            $totalPages=max(1,(int)($data['total_de_paginas']??$data['nTotPaginas']??$page));
+            $processed=(int)$state['processed']+count($items);
+
+            if($page >= $totalPages){
+                $context=['version'=>1,'phase'=>'stages','page'=>0];
+                DB::exec("UPDATE sync_states SET status='running',current_page=0,total_pages=0,processed=?,context_json=?,updated_at=NOW() WHERE module_key='orders'",
+                    [$processed,json_encode($context,JSON_UNESCAPED_UNICODE)]);
+                return ['done'=>false,'module'=>'orders','phase'=>'pedidos','page'=>$page,'total_pages'=>$totalPages,'processed'=>$processed,'page_items'=>count($items),'from'=>$start,'to'=>$end];
+            }
+
+            $context['page']=$page;
+            DB::exec("UPDATE sync_states SET status='running',current_page=?,total_pages=?,processed=?,context_json=?,updated_at=NOW() WHERE module_key='orders'",
+                [$page,$totalPages,$processed,json_encode($context,JSON_UNESCAPED_UNICODE)]);
+            return ['done'=>false,'module'=>'orders','phase'=>'pedidos','page'=>$page,'total_pages'=>$totalPages,'processed'=>$processed,'page_items'=>count($items),'from'=>$start,'to'=>$end];
         }
-        return $this->advancePage('orders',$state,$data,count($items),$page)+['incremental'=>true,'from'=>$start,'to'=>$end,'mode'=>'yesterday_today'];
+
+        $page=max(1,(int)($context['page']??0)+1);
+        $data=$this->omie->call('pedido_etapas','ListarEtapasPedido',[
+            'nPagina'=>$page,
+            'nRegPorPagina'=>$this->pageSize,
+            'cOrdenarPor'=>'DATAHORA',
+            'cOrdemDecrescente'=>'N',
+            'dDtInicial'=>$start,
+            'dDtFinal'=>$end,
+            'cHrInicial'=>'00:00:00',
+            'cHrFinal'=>'23:59:59',
+        ]);
+        $items=$this->pick($data,['etapasPedido']);
+
+        foreach($items as $r){
+            $orderCode=(string)($r['nCodPed']??'');
+            if($orderCode==='')continue;
+            $stageCode=$this->normalizeOrderStageCode($r['cEtapa']??null);
+            $stageName=$this->orderStageName($stageCode);
+            $changedAt=null;
+            if(!empty($r['dDtEtapa'])){
+                $dateIso=$this->normalizeDate((string)$r['dDtEtapa']);
+                if($dateIso)$changedAt=$dateIso.' '.((string)($r['cHrEtapa']??'00:00:00'));
+            }
+            DB::exec("UPDATE orders
+                      SET stage_code=?,stage_name=COALESCE(?,stage_name),stage_changed_at=COALESCE(?,stage_changed_at),updated_at=NOW()
+                      WHERE omie_order_code=?",
+                [$stageCode,$stageName,$changedAt,$orderCode]);
+        }
+
+        $totalPages=max(1,(int)($data['nTotPaginas']??$page));
+        $processed=(int)$state['processed']+count($items);
+        $done=$page >= $totalPages;
+        $context['page']=$page;
+
+        DB::exec("UPDATE sync_states SET status=?,current_page=?,total_pages=?,processed=?,context_json=?,updated_at=NOW() WHERE module_key='orders'",
+            [$done?'success':'running',$page,$totalPages,$processed,json_encode($context,JSON_UNESCAPED_UNICODE)]);
+
+        return ['done'=>$done,'module'=>'orders','phase'=>'etapas','page'=>$page,'total_pages'=>$totalPages,'processed'=>$processed,'page_items'=>count($items),'from'=>$start,'to'=>$end];
+    }
+
+    private function syncOrderStageCatalog(): void {
+        $data=$this->omie->call('etapas_faturamento','ListarEtapasFaturamento',[
+            'pagina'=>1,'registros_por_pagina'=>100,'ordenar_por'=>'CODIGO','ordem_decrescente'=>'N'
+        ]);
+        foreach(($data['cadastros']??[]) as $group){
+            foreach(($group['etapas']??[]) as $stage){
+                $code=$this->normalizeOrderStageCode($stage['cCodigo']??null);
+                if($code==='')continue;
+                $name=trim((string)($stage['cDescricao']??''));
+                $default=trim((string)($stage['cDescrPadrao']??''));
+                if($name==='')$name=$default!==''?$default:('Etapa '.$code);
+                $active=mb_strtoupper((string)($stage['cInativo']??'N'))==='S'?0:1;
+                DB::exec("INSERT INTO order_stage_catalog(stage_code,stage_name,default_name,active,updated_at)
+                          VALUES(?,?,?,?,NOW())
+                          ON DUPLICATE KEY UPDATE stage_name=VALUES(stage_name),default_name=VALUES(default_name),active=VALUES(active),updated_at=NOW()",
+                    [$code,$name,$default?:null,$active]);
+            }
+        }
+    }
+
+    private function normalizeOrderStageCode(mixed $code): string {
+        $value=trim((string)$code);
+        if($value==='')return '';
+        return str_pad($value,2,'0',STR_PAD_LEFT);
+    }
+
+    private function orderStageName(string $code): ?string {
+        if($code==='')return null;
+        $row=DB::fetch("SELECT stage_name FROM order_stage_catalog WHERE stage_code=?",[$code]);
+        return $row?(string)$row['stage_name']:('Etapa '.$code);
     }
 
     private function stepServices(array $state): array {
