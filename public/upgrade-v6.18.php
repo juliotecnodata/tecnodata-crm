@@ -17,6 +17,7 @@ function idxExists618(string $table,string $index): bool {
 }
 
 try{
+ DB::conn()->exec("ALTER TABLE interaction_audit MODIFY COLUMN operation ENUM('create','update','delete','reassign') NOT NULL");
  if(!colExists618('collection_actions','assigned_user_id')){
    DB::conn()->exec("ALTER TABLE collection_actions ADD COLUMN assigned_user_id INT UNSIGNED NULL AFTER user_id");
  }
