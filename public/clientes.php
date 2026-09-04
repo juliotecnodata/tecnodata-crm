@@ -13,6 +13,7 @@ if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
 
 $sellers=DB::all("SELECT omie_code,name FROM sellers WHERE active=1 AND is_virtual=0 ORDER BY name");
 $ufs=DB::all("SELECT DISTINCT uf FROM clients WHERE active=1 AND uf IS NOT NULL AND uf<>'' ORDER BY uf");
+$tags=DB::all("SELECT tag,COUNT(*) total FROM client_tags GROUP BY tag ORDER BY tag");
 $stats=DB::fetch("SELECT COUNT(*) total,SUM(pa.id IS NOT NULL) configured_month,SUM(pa.id IS NULL) inherited_base,COUNT(DISTINCT c.uf) states
  FROM clients c
  LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=?
@@ -37,6 +38,7 @@ include '_layout.php';?>
 <div class="panel-card mb-3">
  <div class="portfolio-filter-grid">
   <div><label class="form-label">Estado</label><select class="form-select" id="portfolioUf"><option value="">Todos</option><?php foreach($ufs as $r):?><option value="<?=e($r['uf'])?>"><?=e($r['uf'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Tag do cadastro</label><select class="form-select" id="portfolioTag"><option value="">Todas as tags</option><?php foreach($tags as $t):?><option value="<?=e($t['tag'])?>"><?=e($t['tag'])?> (<?=number_format((int)$t['total'],0,',','.')?>)</option><?php endforeach;?></select></div>
   <div><label class="form-label">Carteira do mês</label><select class="form-select" id="portfolioSellerFilter"><option value="">Todos</option><option value="__unassigned__">Sem vendedor</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>"><?=e($s['name'])?></option><?php endforeach;?></select></div>
   <div><label class="form-label">Situação comercial</label><select class="form-select" id="portfolioStatus"><option value="">Todas</option><option value="normal">Normal</option><option value="attention">Atenção</option><option value="reactivate">Reativar</option></select></div>
   <div><label class="form-label">Financeiro</label><select class="form-select" id="portfolioFinance"><option value="">Todos</option><option value="overdue">Com vencido</option><option value="clear">Sem vencido</option></select></div>
@@ -62,7 +64,7 @@ include '_layout.php';?>
  data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php" data-entity="clientes" data-page-length="25" data-order-column="1">
 <thead><tr>
  <th class="no-sort"><input class="form-check-input" type="checkbox" id="portfolioSelectPage"></th>
- <th>Cliente</th><th>UF / Cidade</th><th>Carteira do mês</th><th>Origem</th><th>Vendedor Omie</th>
+ <th>Cliente</th><th>UF / Cidade</th><th>Tags</th><th>Carteira do mês</th><th>Origem</th><th>Vendedor Omie</th>
  <th>Última compra</th><th>Dias</th><th class="text-end">Receita 12m</th><th>Financeiro</th><th>Situação</th><th class="no-sort"></th>
 </tr></thead><tbody></tbody></table>
 </div></div>
