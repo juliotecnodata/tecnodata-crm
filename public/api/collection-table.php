@@ -153,6 +153,13 @@ try{
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='acordo' AND ca.created_at>=$qStart AND ca.created_at<$qNext) agreement_period,
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='promessa' AND ca.created_at>=$qStart AND ca.created_at<$qNext) promise_period,
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='pagamento' AND ca.created_at>=$qStart AND ca.created_at<$qNext) payment_period,
+        EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='acordo') agreement_exists,
+        EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='pagamento') payment_exists,
+        EXISTS(
+          SELECT 1 FROM collection_actions ag
+          WHERE ag.client_id=c.id AND ag.deleted_at IS NULL AND ag.result='acordo'
+            AND EXISTS(SELECT 1 FROM collection_actions pg WHERE pg.client_id=c.id AND pg.deleted_at IS NULL AND pg.result='pagamento' AND pg.created_at>=ag.created_at)
+        ) agreement_paid,
         (SELECT CONCAT(ua.name,'|',DATE_FORMAT(ca.created_at,'%d/%m/%Y %H:%i'))
            FROM collection_actions ca JOIN users ua ON ua.id=ca.user_id
           WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='acordo'
@@ -195,17 +202,17 @@ try{
         elseif((int)$r['attended_period']===1)$signals[]='<span class="signal-badge signal-attended"><i class="fa-solid fa-check"></i>Atendido</span>';
         $agreementInfo=!empty($r['agreement_info'])?explode('|',(string)$r['agreement_info'],2):[];
         $paymentInfo=!empty($r['payment_info'])?explode('|',(string)$r['payment_info'],2):[];
-        if((int)$r['agreement_period']===1){
+        if((int)$r['agreement_exists']===1){
             $label='<span class="signal-badge signal-agreement"><i class="fa-solid fa-handshake"></i>Acordo fechado</span>';
             if($agreementInfo)$label.='<small class="table-sub">'.e($agreementInfo[0]??'').' • '.e($agreementInfo[1]??'').'</small>';
             $signals[]='<span class="signal-detail">'.$label.'</span>';
         }
-        if((int)$r['payment_period']===1){
+        if((int)$r['payment_exists']===1){
             $label='<span class="signal-badge signal-paid"><i class="fa-solid fa-circle-check"></i>Pago</span>';
             if($paymentInfo)$label.='<small class="table-sub">'.e($paymentInfo[0]??'').' • '.e($paymentInfo[1]??'').'</small>';
             $signals[]='<span class="signal-detail">'.$label.'</span>';
         }
-        if((int)$r['agreement_period']===1 && (int)$r['payment_period']===1){
+        if((int)$r['agreement_paid']===1){
             array_unshift($signals,'<span class="signal-badge signal-paid-agreement"><i class="fa-solid fa-check-double"></i>Acordo pago</span>');
         }elseif((int)$r['promise_period']===1){
             $signals[]='<span class="signal-badge signal-promise"><i class="fa-regular fa-calendar-check"></i>Promessa</span>';
