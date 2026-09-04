@@ -33,8 +33,8 @@ final class FinancialAccountService {
             DB::exec('UPDATE financial_accounts SET selected=0 WHERE selected=1');
             DB::exec("UPDATE financial_accounts SET selected=1,updated_at=NOW() WHERE omie_code IN ({$placeholders})",$codes);
             DB::exec("DELETE FROM sync_states WHERE module_key='financial'");
-            DB::exec('DELETE FROM financial_movements');
-            DB::exec('UPDATE client_metrics SET open_amount=0,overdue_amount=0,max_overdue_days=0,updated_at=NOW()');
+            // Não apaga a carteira financeira ao trocar o escopo. As telas já filtram pelas contas selecionadas
+            // e a próxima sincronização reconcilia os títulos com segurança.
             $pdo->commit();
         }catch(\Throwable $e){
             if($pdo->inTransaction()) $pdo->rollBack();
