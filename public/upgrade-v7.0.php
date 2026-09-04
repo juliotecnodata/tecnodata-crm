@@ -8,6 +8,7 @@ if(empty($cfg['enabled']))exit('Ative temporariamente installer.enabled para atu
 if(!hash_equals((string)$cfg['token'],(string)($_GET['token']??''))){http_response_code(403);exit('Token inválido.');}
 
 try{
+ DB::conn()->exec("ALTER TABLE interaction_audit MODIFY COLUMN operation ENUM('create','update','delete','reassign') NOT NULL");
  DB::conn()->exec("CREATE TABLE IF NOT EXISTS products (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   omie_code VARCHAR(80) NOT NULL,
