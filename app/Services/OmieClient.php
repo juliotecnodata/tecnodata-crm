@@ -19,6 +19,11 @@ final class OmieClient {
             'produtos' => 'https://app.omie.com.br/api/v1/geral/produtos/',
             'categorias' => 'https://app.omie.com.br/api/v1/geral/categorias/',
             'pedidos' => 'https://app.omie.com.br/api/v1/produtos/pedido/',
+            'sales_payment_terms' => 'https://app.omie.com.br/api/v1/produtos/formaspagvendas/',
+            'tax_scenarios' => 'https://app.omie.com.br/api/v1/geral/cenarios/',
+            'stock_locations' => 'https://app.omie.com.br/api/v1/estoque/local/',
+            'payment_methods' => 'https://app.omie.com.br/api/v1/geral/meiospagamento/',
+            'document_types' => 'https://app.omie.com.br/api/v1/geral/tiposdoc/',
         ];
         $url = $this->cfg['endpoints'][$endpointKey] ?? $fallbackEndpoints[$endpointKey] ?? null;
         if (!$url) throw new RuntimeException("Endpoint Omie inválido: {$endpointKey}");

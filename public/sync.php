@@ -64,7 +64,7 @@ include '_layout.php';
 
 <div class="card mb-4"><div class="card-body">
  <h2 class="h5 mb-2">Ordem recomendada</h2>
- <div class="text-secondary">Vendedores → Clientes → Produtos → Categorias → Pedidos → Serviços → Financeiro → Indicadores.</div>
+ <div class="text-secondary">Vendedores → Clientes → Produtos → Categorias → Condições de Pagamento → Cenários Fiscais → Locais de Estoque → Meios de Pagamento → Tipos de Documento → Pedidos → Serviços → Financeiro → Indicadores.</div>
  <div class="small text-secondary mt-2">Os vendedores continuam trabalhando normalmente enquanto a sincronização não estiver rodando. A navegação nunca chama a Omie.</div>
 </div></div>
 

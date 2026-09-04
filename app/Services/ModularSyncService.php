@@ -20,6 +20,11 @@ final class ModularSyncService {
             'clients' => ['label'=>'Clientes', 'icon'=>'fa-building'],
             'products' => ['label'=>'Produtos', 'icon'=>'fa-box'],
             'categories' => ['label'=>'Categorias', 'icon'=>'fa-tags'],
+            'payment_terms' => ['label'=>'Condições de Pagamento', 'icon'=>'fa-calendar-days'],
+            'tax_scenarios' => ['label'=>'Cenários Fiscais', 'icon'=>'fa-receipt'],
+            'stock_locations' => ['label'=>'Locais de Estoque', 'icon'=>'fa-warehouse'],
+            'payment_methods' => ['label'=>'Meios de Pagamento', 'icon'=>'fa-credit-card'],
+            'document_types' => ['label'=>'Tipos de Documento', 'icon'=>'fa-file-invoice'],
             'orders' => ['label'=>'Pedidos', 'icon'=>'fa-cart-shopping'],
             'services' => ['label'=>'Ordens de Serviço', 'icon'=>'fa-graduation-cap'],
             'financial' => ['label'=>'Financeiro', 'icon'=>'fa-file-invoice-dollar'],
@@ -137,6 +142,11 @@ final class ModularSyncService {
                 'clients' => $this->stepClients($state),
                 'products' => $this->stepProducts($state),
                 'categories' => $this->stepCategories($state),
+                'payment_terms' => $this->stepPaymentTerms($state),
+                'tax_scenarios' => $this->stepTaxScenarios($state),
+                'stock_locations' => $this->stepStockLocations($state),
+                'payment_methods' => $this->stepPaymentMethods($state),
+                'document_types' => $this->stepDocumentTypes($state),
                 'orders' => $this->stepOrders($state),
                 'services' => $this->stepServices($state),
                 'financial' => $this->stepFinancial($state,$runId),
@@ -252,6 +262,95 @@ final class ModularSyncService {
                 [$code,(string)($r['descricao']??$r['cDescricao']??$code),$r['natureza']??null,$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
         }
         return $this->advancePage('categories',$state,$data,count($items),$page);
+    }
+
+    private function stepPaymentTerms(array $state): array {
+        $page=max(1,(int)$state['current_page']+1);
+        $data=$this->omie->call('sales_payment_terms','ListarFormasPagVendas',[
+            'pagina'=>$page,'registros_por_pagina'=>$this->pageSize,'ordenar_por'=>'CODIGO','ordem_decrescente'=>'N'
+        ]);
+        $items=$this->pick($data,['cadastros']);
+        foreach($items as $r){
+            $code=trim((string)($r['cCodigo']??''));
+            if($code==='')continue;
+            DB::exec("INSERT INTO sales_payment_terms(code,description,installments,days_list,shift_days,active,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,1,?,NOW())
+                      ON DUPLICATE KEY UPDATE description=VALUES(description),installments=VALUES(installments),
+                      days_list=VALUES(days_list),shift_days=VALUES(shift_days),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,(string)($r['cDescricao']??$code),(int)($r['nQtdeParc']??0),
+                 (string)($r['cListaParc']??''),(int)($r['nDiasParc']??0),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->advancePage('payment_terms',$state,$data,count($items),$page);
+    }
+
+    private function stepTaxScenarios(array $state): array {
+        $page=max(1,(int)$state['current_page']+1);
+        $data=$this->omie->call('tax_scenarios','ListarCenarios',['nPagina'=>$page,'nRegPorPagina'=>$this->pageSize,'cNome'=>'']);
+        $items=$this->pick($data,['cenariosEncontrados']);
+        foreach($items as $r){
+            $code=(string)($r['nCodigo']??'');
+            if($code==='')continue;
+            $active=mb_strtoupper((string)($r['inativo']??'N'))==='S'?0:1;
+            $isDefault=filter_var($r['padrao']??false,FILTER_VALIDATE_BOOLEAN)?1:0;
+            DB::exec("INSERT INTO tax_scenarios(omie_code,name,is_default,active,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,NOW())
+                      ON DUPLICATE KEY UPDATE name=VALUES(name),is_default=VALUES(is_default),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,(string)($r['cNome']??$code),$isDefault,$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->advancePage('tax_scenarios',$state,$data,count($items),$page);
+    }
+
+    private function stepStockLocations(array $state): array {
+        $page=max(1,(int)$state['current_page']+1);
+        $data=$this->omie->call('stock_locations','ListarLocaisEstoque',['nPagina'=>$page,'nRegPorPagina'=>$this->pageSize]);
+        $items=$this->pick($data,['locaisEncontrados']);
+        foreach($items as $r){
+            $code=(string)($r['codigo_local_estoque']??'');
+            if($code==='')continue;
+            $active=mb_strtoupper((string)($r['inativo']??'N'))==='S'?0:1;
+            $saleEnabled=mb_strtoupper((string)($r['dispVenda']??'N'))==='S'?1:0;
+            $isDefault=mb_strtoupper((string)($r['padrao']??'N'))==='S'?1:0;
+            DB::exec("INSERT INTO stock_locations(omie_code,code,name,sale_enabled,is_default,active,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,?,?,NOW())
+                      ON DUPLICATE KEY UPDATE code=VALUES(code),name=VALUES(name),sale_enabled=VALUES(sale_enabled),
+                      is_default=VALUES(is_default),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,(string)($r['codigo']??''),(string)($r['descricao']??$code),$saleEnabled,$isDefault,$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->advancePage('stock_locations',$state,$data,count($items),$page);
+    }
+
+    private function stepPaymentMethods(array $state): array {
+        $data=$this->omie->call('payment_methods','ListarMeiosPagamento',['codigo'=>'']);
+        $items=$this->pick($data,['MeiosPagamentoLista']);
+        foreach($items as $r){
+            $code=trim((string)($r['codigo']??''));
+            if($code==='')continue;
+            DB::exec("INSERT INTO payment_methods(code,description,raw_json,updated_at)
+                      VALUES(?,?,?,NOW())
+                      ON DUPLICATE KEY UPDATE description=VALUES(description),raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,(string)($r['descricao']??$code),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->finishSingleCatalog('payment_methods',$state,count($items));
+    }
+
+    private function stepDocumentTypes(array $state): array {
+        $data=$this->omie->call('document_types','PesquisarTipoDocumento',['codigo'=>'']);
+        $items=$this->pick($data,['tipo_documento_cadastro']);
+        foreach($items as $r){
+            $code=trim((string)($r['codigo']??''));
+            if($code==='')continue;
+            DB::exec("INSERT INTO document_types(code,description,raw_json,updated_at)
+                      VALUES(?,?,?,NOW())
+                      ON DUPLICATE KEY UPDATE description=VALUES(description),raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,(string)($r['descricao']??$code),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->finishSingleCatalog('document_types',$state,count($items));
+    }
+
+    private function finishSingleCatalog(string $module,array $state,int $count): array {
+        $processed=(int)$state['processed']+$count;
+        DB::exec("UPDATE sync_states SET status='success',current_page=1,total_pages=1,processed=?,updated_at=NOW() WHERE module_key=?",[$processed,$module]);
+        return ['done'=>true,'module'=>$module,'page'=>1,'total_pages'=>1,'processed'=>$processed,'page_items'=>$count];
     }
 
     private function stepOrders(array $state): array {

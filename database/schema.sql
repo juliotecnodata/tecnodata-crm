@@ -381,9 +381,15 @@ CREATE TABLE IF NOT EXISTS sales_order_settings (
  default_category_code VARCHAR(80) NULL,
  default_account_code VARCHAR(80) NULL,
  installment_code VARCHAR(30) NULL,
+ default_payment_term_code VARCHAR(3) NULL,
+ default_payment_method_code VARCHAR(2) NULL,
+ default_document_type_code VARCHAR(5) NULL,
+ default_tax_scenario_code VARCHAR(80) NULL,
+ default_stock_location_code VARCHAR(80) NULL,
  consumer_final CHAR(1) NOT NULL DEFAULT 'S',
  send_email CHAR(1) NOT NULL DEFAULT 'N',
  freight_mode VARCHAR(10) NOT NULL DEFAULT '9',
+ allow_seller_freight TINYINT(1) NOT NULL DEFAULT 0,
  updated_by INT UNSIGNED NULL,
  updated_at DATETIME NOT NULL,
  FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
@@ -414,3 +420,52 @@ INSERT INTO sales_order_settings
  (id,installment_code,consumer_final,send_email,freight_mode,updated_at)
  VALUES(1,'999','S','N','9',NOW())
  ON DUPLICATE KEY UPDATE id=id;
+
+
+CREATE TABLE IF NOT EXISTS sales_payment_terms (
+ code VARCHAR(3) PRIMARY KEY,
+ description VARCHAR(120) NOT NULL,
+ installments INT NOT NULL DEFAULT 0,
+ days_list VARCHAR(120) NULL,
+ shift_days INT NOT NULL DEFAULT 0,
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL,
+ INDEX idx_sales_payment_terms_active(active,description)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS tax_scenarios (
+ omie_code VARCHAR(80) PRIMARY KEY,
+ name VARCHAR(120) NOT NULL,
+ is_default TINYINT(1) NOT NULL DEFAULT 0,
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL,
+ INDEX idx_tax_scenarios_active(active,is_default,name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS stock_locations (
+ omie_code VARCHAR(80) PRIMARY KEY,
+ code VARCHAR(50) NULL,
+ name VARCHAR(250) NOT NULL,
+ sale_enabled TINYINT(1) NOT NULL DEFAULT 0,
+ is_default TINYINT(1) NOT NULL DEFAULT 0,
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL,
+ INDEX idx_stock_locations_sale(active,sale_enabled,is_default,name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_methods (
+ code VARCHAR(2) PRIMARY KEY,
+ description VARCHAR(100) NOT NULL,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS document_types (
+ code VARCHAR(5) PRIMARY KEY,
+ description VARCHAR(100) NOT NULL,
+ raw_json JSON NULL,
+ updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

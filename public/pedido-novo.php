@@ -16,6 +16,11 @@ $stages=DB::all("SELECT stage_code,stage_name FROM order_stage_catalog WHERE act
 $categories=DB::all("SELECT code,description FROM sales_categories WHERE active=1 ORDER BY description");
 $accounts=DB::all("SELECT omie_code,name FROM financial_accounts WHERE active=1 ORDER BY name");
 $sellers=Auth::can('supervisor','admin')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[];
+$paymentTerms=DB::all("SELECT code,description,days_list FROM sales_payment_terms WHERE active=1 AND code<>'999' ORDER BY description");
+$paymentMethods=DB::all("SELECT code,description FROM payment_methods ORDER BY description");
+$taxScenarios=DB::all("SELECT omie_code,name,is_default FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name");
+$stockLocations=DB::all("SELECT omie_code,name,is_default FROM stock_locations WHERE active=1 AND sale_enabled=1 ORDER BY is_default DESC,name");
+$requestToken=date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(5)),0,10));
 $prefillClient=(int)($_GET['client_id']??0);
 $prefill=null;
 if($prefillClient){
@@ -94,22 +99,48 @@ include '_layout.php';?>
     <?php if(Auth::can('supervisor','admin')):?>
     <div><label class="form-label">Vendedor</label><select class="form-select" id="orderSeller"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></div>
     <?php endif;?>
-    <div><label class="form-label">Previsão</label><input class="form-control" type="date" id="orderForecast" value="<?=date('Y-m-d')?>"></div>
+
+    <div><label class="form-label">Previsão de faturamento</label><input class="form-control" type="date" id="orderForecast" min="<?=date('Y-m-d')?>" value="<?=date('Y-m-d')?>"></div>
+    <div><label class="form-label">Condição de pagamento</label><select class="form-select" id="orderPaymentTerm" required><option value="">Selecione...</option><?php foreach($paymentTerms as $term):?><option value="<?=e($term['code'])?>" <?=$settings['default_payment_term_code']===$term['code']?'selected':''?>><?=e($term['description'])?><?=$term['days_list']?' • '.e($term['days_list']):''?></option><?php endforeach;?></select></div>
+    <div><label class="form-label">Meio de pagamento</label><select class="form-select" id="orderPaymentMethod"><option value="">Padrão Omie</option><?php foreach($paymentMethods as $pm):?><option value="<?=e($pm['code'])?>" <?=$settings['default_payment_method_code']===$pm['code']?'selected':''?>><?=e($pm['description'])?></option><?php endforeach;?></select></div>
+
     <?php if(Auth::can('supervisor','admin')):?>
     <details class="order-advanced">
-     <summary>Opções avançadas</summary>
+     <summary>Opções fiscais e operacionais</summary>
      <div class="mt-3"><label class="form-label">Etapa</label><select class="form-select" id="orderStage"><?php foreach($stages as $stage):?><option value="<?=e($stage['stage_code'])?>" <?=$settings['default_stage_code']===$stage['stage_code']?'selected':''?>><?=e($stage['stage_code'].' • '.$stage['stage_name'])?></option><?php endforeach;?></select></div>
      <div class="mt-3"><label class="form-label">Categoria</label><select class="form-select" id="orderCategory"><?php foreach($categories as $category):?><option value="<?=e($category['code'])?>" <?=$settings['default_category_code']===$category['code']?'selected':''?>><?=e($category['description'])?></option><?php endforeach;?></select></div>
      <div class="mt-3"><label class="form-label">Conta corrente</label><select class="form-select" id="orderAccount"><?php foreach($accounts as $account):?><option value="<?=e($account['omie_code'])?>" <?=$settings['default_account_code']===$account['omie_code']?'selected':''?>><?=e($account['name'])?></option><?php endforeach;?></select></div>
-     <div class="mt-3"><label class="form-label">Observação</label><textarea class="form-control" id="orderNotes" rows="3" placeholder="Opcional"></textarea></div>
+     <div class="mt-3"><label class="form-label">Cenário fiscal</label><select class="form-select" id="orderTaxScenario"><option value="">Padrão Omie</option><?php foreach($taxScenarios as $tax):?><option value="<?=e($tax['omie_code'])?>" <?=$settings['default_tax_scenario_code']===$tax['omie_code']?'selected':''?>><?=e($tax['name'])?></option><?php endforeach;?></select></div>
+     <div class="mt-3"><label class="form-label">Local de estoque</label><select class="form-select" id="orderStockLocation"><option value="">Padrão Omie</option><?php foreach($stockLocations as $loc):?><option value="<?=e($loc['omie_code'])?>" <?=$settings['default_stock_location_code']===$loc['omie_code']?'selected':''?>><?=e($loc['name'])?></option><?php endforeach;?></select></div>
     </details>
     <?php else:?>
      <input type="hidden" id="orderStage" value="<?=e((string)$settings['default_stage_code'])?>">
      <input type="hidden" id="orderCategory" value="<?=e((string)$settings['default_category_code'])?>">
      <input type="hidden" id="orderAccount" value="<?=e((string)$settings['default_account_code'])?>">
-     <input type="hidden" id="orderNotes" value="">
-     <div class="order-default-rule"><i class="fa-solid fa-shield-check"></i><span>Condições comerciais definidas pela empresa serão aplicadas automaticamente.</span></div>
+     <input type="hidden" id="orderTaxScenario" value="<?=e((string)($settings['default_tax_scenario_code']??''))?>">
+     <input type="hidden" id="orderStockLocation" value="<?=e((string)($settings['default_stock_location_code']??''))?>">
+     <div class="order-default-rule"><i class="fa-solid fa-shield"></i><span>Etapa, categoria, conta, cenário fiscal e estoque seguem os padrões da empresa.</span></div>
     <?php endif;?>
+
+    <?php if(Auth::can('supervisor','admin')||!empty($settings['allow_seller_freight'])):?>
+    <div><label class="form-label">Entrega / frete</label><select class="form-select" id="orderFreightMode">
+      <option value="9" <?=$settings['freight_mode']==='9'?'selected':''?>>Sem frete</option>
+      <option value="0" <?=$settings['freight_mode']==='0'?'selected':''?>>CIF • remetente</option>
+      <option value="1" <?=$settings['freight_mode']==='1'?'selected':''?>>FOB • destinatário</option>
+      <option value="2" <?=$settings['freight_mode']==='2'?'selected':''?>>Terceiros</option>
+      <option value="3" <?=$settings['freight_mode']==='3'?'selected':''?>>Próprio • remetente</option>
+      <option value="4" <?=$settings['freight_mode']==='4'?'selected':''?>>Próprio • destinatário</option>
+    </select></div>
+    <?php else:?><input type="hidden" id="orderFreightMode" value="<?=e((string)$settings['freight_mode'])?>"><?php endif;?>
+
+    <details class="order-advanced">
+     <summary>Mais informações</summary>
+     <div class="mt-3"><label class="form-label">Pedido do cliente</label><input class="form-control" id="orderCustomerNumber" maxlength="30"></div>
+     <div class="mt-3"><label class="form-label">Contato</label><input class="form-control" id="orderContact" maxlength="100"></div>
+     <div class="mt-3"><label class="form-label">Contrato</label><input class="form-control" id="orderContract" maxlength="20"></div>
+     <div class="mt-3"><label class="form-label">Observação</label><textarea class="form-control" id="orderNotes" rows="3" placeholder="Opcional"></textarea></div>
+    </details>
+    <input type="hidden" id="orderRequestToken" value="<?=e($requestToken)?>">
    </div>
 
    <div class="order-total-box">
@@ -214,6 +245,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  submit?.addEventListener('click',async()=>{
    if(!Number(clientId.value)){alert('Selecione o cliente.');return;}
    if(!items.length){alert('Adicione ao menos um produto.');return;}
+   if(!document.getElementById('orderPaymentTerm').value){alert('Escolha a condição de pagamento.');return;}
    const seller=document.getElementById('orderSeller');
    if(seller && !seller.value){alert('Selecione o vendedor.');return;}
    submit.disabled=true;status.className='order-submit-status is-loading';status.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Enviando para a Omie...';
@@ -222,10 +254,19 @@ document.addEventListener('DOMContentLoaded',()=>{
        _token:cfg.csrf,
        client_id:Number(clientId.value),
        seller_omie_code:seller?.value||'',
+       request_token:document.getElementById('orderRequestToken').value,
        forecast_date:document.getElementById('orderForecast').value,
+       payment_term_code:document.getElementById('orderPaymentTerm').value,
+       payment_method_code:document.getElementById('orderPaymentMethod').value,
        stage_code:document.getElementById('orderStage').value,
        category_code:document.getElementById('orderCategory').value,
        account_code:document.getElementById('orderAccount').value,
+       tax_scenario_code:document.getElementById('orderTaxScenario').value,
+       stock_location_code:document.getElementById('orderStockLocation').value,
+       freight_mode:document.getElementById('orderFreightMode').value,
+       customer_order_number:document.getElementById('orderCustomerNumber').value,
+       contact:document.getElementById('orderContact').value,
+       contract_number:document.getElementById('orderContract').value,
        notes:document.getElementById('orderNotes').value,
        items:items.map(i=>({product_id:i.product_id,quantity:i.quantity,unit_price:i.unit_price,discount:i.discount}))
      };
