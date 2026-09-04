@@ -11,7 +11,7 @@ try{
     $requested=(string)($argv[1]??'financial');
     $reset=in_array('--reset',$argv,true);
     $modules=$requested==='all'?array_keys($svc->modules()):array_values(array_filter(explode(',',$requested),fn($module)=>isset($svc->modules()[$module])));
-    if(!$modules) throw new RuntimeException('Módulo inválido. Use financial, sellers, clients, orders, services, metrics ou all.');
+    if(!$modules) throw new RuntimeException('Módulo inválido. Use sellers, clients, products, categories, orders, services, financial, metrics ou all.');
     foreach($modules as $module){
         $run=$svc->start($module,(int)$admin['id'],$reset);
         do{
