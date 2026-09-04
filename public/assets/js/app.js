@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const noSort=[];
     table.querySelectorAll('thead th').forEach((th,i)=>{if(th.classList.contains('no-sort'))noSort.push(i);});
     const orderColumn=Number(table.dataset.orderColumn ?? 0);
+    const orderDir=(table.dataset.orderDir||'desc').toLowerCase()==='asc'?'asc':'desc';
     const pageLength=Number(table.dataset.pageLength ?? 25);
     const entity=table.dataset.entity || 'registros';
     const serverSide=table.dataset.serverSide==='1';
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const options={
       pageLength,
       lengthMenu:[10,25,50,100],
-      order:[[orderColumn,'desc']],
+      order:[[orderColumn,orderDir]],
       columnDefs:noSort.length?[{targets:noSort,orderable:false,searchable:false}]:[],
       language:{
         search:'Buscar',searchPlaceholder:`Buscar ${entity}...`,lengthMenu:'_MENU_ por página',
