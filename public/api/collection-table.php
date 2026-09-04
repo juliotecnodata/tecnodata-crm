@@ -42,7 +42,10 @@ try{
     $qNext=$pdo->quote($monthNext);
 
     $debtJoin="LEFT JOIN (
-        SELECT fm.client_omie_code,SUM(fm.amount) omie_debt
+        SELECT fm.client_omie_code,
+               SUM(fm.amount) omie_debt,
+               COUNT(DISTINCT NULLIF(fm.seller_omie_code,'')) debt_seller_count,
+               MAX(NULLIF(fm.seller_omie_code,'')) debt_seller_code
         FROM financial_movements fm
         INNER JOIN financial_accounts fa
           ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
@@ -52,8 +55,8 @@ try{
 
     $from=" FROM clients c
         LEFT JOIN client_metrics m ON m.client_id=c.id
-        LEFT JOIN sellers s ON s.omie_code=m.seller_omie_code
         $debtJoin
+        LEFT JOIN sellers s ON s.omie_code=d.debt_seller_code
         LEFT JOIN collection_client_adjustments adj ON adj.client_id=c.id
         LEFT JOIN collection_actions la
           ON la.id=(SELECT MAX(lx.id) FROM collection_actions lx WHERE lx.client_id=c.id AND lx.deleted_at IS NULL)
@@ -81,7 +84,16 @@ try{
         $where[]="NOT $periodExists";
     }
 
-    if($seller!==''){$where[]='m.seller_omie_code=?';$params[]=$seller;}
+    if($seller!==''){
+        $where[]="EXISTS(
+            SELECT 1 FROM financial_movements fs
+            INNER JOIN financial_accounts fas ON fas.omie_code=fs.account_omie_code AND fas.selected=1 AND fas.active=1
+            WHERE fs.client_omie_code=c.omie_code
+              AND fs.status IN('ATRASADO','PAGTO_PARCIAL')
+              AND fs.seller_omie_code=?
+        )";
+        $params[]=$seller;
+    }
     if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
 
     $customWhere=' WHERE '.implode(' AND ',$where);
@@ -98,7 +110,8 @@ try{
     $filtered=(int)(DB::fetch("SELECT COUNT(*) n $from $finalWhere",$filteredParams)['n']??0);
 
     $select="SELECT c.id,c.omie_code,c.name,c.uf,c.document,
-        m.last_purchase_at,m.days_without_purchase,m.seller_omie_code,s.name seller_name,
+        m.last_purchase_at,m.days_without_purchase,
+        d.debt_seller_count,d.debt_seller_code,s.name debt_seller_name,
         COALESCE(d.omie_debt,0) omie_debt,COALESCE(adj.pending_received,0) pending_received,
         $effective effective_debt,
         la.id last_action_id,la.created_at last_contact,la.result last_result,lu.name last_user_name,
@@ -149,7 +162,11 @@ try{
 
         $data[]=[
             $person,
-            e($r['seller_name']??'—'),
+            ((int)($r['debt_seller_count']??0)>1
+                ? '<span class="status-pill status-partial">Vários vendedores</span>'
+                : ((int)($r['debt_seller_count']??0)===1
+                    ? e($r['debt_seller_name']?:$r['debt_seller_code'])
+                    : '<span class="text-secondary">Não informado na dívida</span>')),
             '<span class="badge-muted">'.e($r['uf']?:'—').'</span>',
             $r['last_purchase_at']?date('d/m/Y',strtotime((string)$r['last_purchase_at'])):'—',
             $r['days_without_purchase']!==null?(string)(int)$r['days_without_purchase']:'—',
