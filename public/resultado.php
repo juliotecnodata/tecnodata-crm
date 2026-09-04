@@ -1,30 +1,58 @@
 <?php
-require dirname(__DIR__).'/app/bootstrap.php';require APP_ROOT.'/app/Support/helpers.php';
-use Tecnodata\CRM\Core\Auth;use Tecnodata\CRM\Core\DB;use Tecnodata\CRM\Services\GoalService;
-Auth::requireLogin();$user=Auth::user();$month=date('Y-m');
+require dirname(__DIR__).'/app/bootstrap.php';
+require APP_ROOT.'/app/Support/helpers.php';
+
+use Tecnodata\CRM\Core\Auth;
+use Tecnodata\CRM\Services\GoalService;
+use Tecnodata\CRM\Services\CollectionService;
+
+Auth::requireLogin();
+$user=Auth::user();
+$month=date('Y-m');
+
 if(($user['role']??'')==='collector'){
- $goal=\Tecnodata\CRM\Services\CollectionService::monthForUser((int)$user['id'],$month);$portfolio=\Tecnodata\CRM\Services\CollectionService::portfolioSummary();
+ $goal=CollectionService::monthForUser((int)$user['id'],$month);
  include '_layout.php';?>
- <div class="page-heading"><div><div class="eyebrow">MEU RESULTADO • <?=date('m/Y')?></div><h1>Meu resultado</h1><p>Acompanhe quanto você recuperou, quantos clientes trabalhou e quanto falta para atingir sua meta do mês.</p></div><a class="btn btn-dark" href="cobranca.php"><i class="fa-solid fa-headset"></i>Abrir cobrança</a></div>
- <div class="stat-grid stat-grid-4 mb-4"><div class="stat-card"><span>Valor recuperado</span><strong><?=money($goal['recovered'])?></strong><small><?=number_format($goal['amount_percent'],1,',','.')?>% da meta</small></div><div class="stat-card"><span>Meta do mês</span><strong><?=money($goal['amount_goal'])?></strong><small>faltam <?=money($goal['amount_missing'])?></small></div><div class="stat-card"><span>Devedores trabalhados</span><strong><?=$goal['worked']?></strong><small>meta <?=$goal['contact_goal']?> clientes</small></div><div class="stat-card"><span>Carteira atual</span><strong><?=money($portfolio['amount'])?></strong><small><?=$portfolio['open_clients']?> devedores pendentes</small></div></div>
- <div class="row g-4"><div class="col-lg-7"><div class="panel-card"><div class="panel-header"><div><span>RECUPERAÇÃO</span><h2>Meta financeira</h2></div><strong><?=number_format($goal['amount_percent'],1,',','.')?>%</strong></div><div class="panel-body"><div class="display-6 fw-bold"><?=money($goal['recovered'])?></div><p class="text-secondary">de <?=money($goal['amount_goal'])?> • faltam <?=money($goal['amount_missing'])?></p><div class="mini-progress large"><span style="width:<?=min(100,$goal['amount_percent'])?>%"></span></div></div></div></div><div class="col-lg-5"><div class="panel-card h-100"><div class="panel-header"><div><span>COBERTURA</span><h2>Clientes trabalhados</h2></div><strong><?=number_format($goal['contact_percent'],1,',','.')?>%</strong></div><div class="panel-body"><div class="display-6 fw-bold"><?=$goal['worked']?></div><p class="text-secondary">de <?=$goal['contact_goal']?> clientes definidos na meta</p><div class="mini-progress large"><span style="width:<?=min(100,$goal['contact_percent'])?>%"></span></div></div></div></div></div>
- <?php include '_footer.php';exit;}
-$code=(string)($user['seller_omie_code']??'');$goal=GoalService::sellerMonth($code?:'__none__',$month);$hasSales=$goal['has_sales'];$hasCollection=$goal['has_collection'];$start=$month.'-01';$end=date('Y-m-t',strtotime($start));
-$orders=$code!==''&&$hasSales?DB::all("SELECT o.*,c.name client_name FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code WHERE o.seller_omie_code=? AND o.order_date BETWEEN ? AND ? ORDER BY o.order_date DESC,o.id DESC",[$code,$start,$end]):[];
-$services=$code!==''&&$hasSales?DB::all("SELECT so.*,c.name client_name FROM service_orders so LEFT JOIN clients c ON c.omie_code=so.client_omie_code WHERE so.seller_omie_code=? AND so.inclusion_date BETWEEN ? AND ? ORDER BY so.inclusion_date DESC,so.id DESC",[$code,$start,$end]):[];
+ <div class="page-heading"><div><div class="eyebrow">RESULTADO • <?=date('m/Y')?></div><h1>Meu resultado</h1><p>Sua meta de recuperação em uma única leitura.</p></div><a class="btn btn-primary" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-arrow-right"></i>Trabalhar carteira</a></div>
+ <div class="result-focus">
+  <div class="result-focus-main"><span>RECUPERADO NO MÊS</span><strong><?=money($goal['recovered'])?></strong><small>de <?=money($goal['amount_goal'])?> • faltam <?=money($goal['amount_missing'])?></small><div class="result-progress"><span style="width:<?=min(100,$goal['amount_percent'])?>%"></span></div></div>
+  <div><span>Atingimento</span><strong><?=number_format($goal['amount_percent'],1,',','.')?>%</strong></div>
+  <div><span>Clientes</span><strong><?=$goal['worked']?></strong><small>meta <?=$goal['contact_goal']?></small></div>
+  <div><span>Acordos</span><strong><?=$goal['agreements']?></strong><small><?=$goal['actions']?> ações</small></div>
+ </div>
+ <?php include '_footer.php';exit;
+}
+
+$code=(string)($user['seller_omie_code']??'');
+$goal=GoalService::sellerMonth($code?:'__none__',$month);
 include '_layout.php';?>
-<div class="page-heading"><div><div class="eyebrow">DESEMPENHO • <?=date('m/Y')?></div><h1>Meu resultado</h1><p><?=$hasSales&&$hasCollection?'Vendas e cobrança no mesmo painel.':($hasCollection?'Seu foco é a carteira geral de inadimplência.':'Seu foco é o resultado de vendas.')?></p></div></div>
+
+<div class="page-heading">
+ <div><div class="eyebrow">RESULTADO • <?=date('m/Y')?></div><h1>Meu resultado</h1><p>Meta, realizado e ritmo. Pedidos e clientes ficam nas telas de trabalho.</p></div>
+ <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="<?=APP_URL?>/pedidos.php">Pedidos</a><a class="btn btn-primary" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-plus"></i>Novo pedido</a></div>
+</div>
+
 <?php if($code===''):?><div class="alert alert-warning alert-modern"><i class="fa-solid fa-link"></i>Seu usuário ainda não está vinculado a um vendedor.</div><?php endif;?>
-<div class="stat-grid stat-grid-4 mb-4">
-<?php if($hasSales):?><div class="stat-card"><span>Vendas realizadas</span><strong><?=money($goal['realized'])?></strong><small>Produtos <?=money($goal['product_realized'])?> • serviços <?=money($goal['service_realized'])?></small></div><?php endif;?>
-<?php if($hasCollection):?><div class="stat-card"><span>Valor recuperado</span><strong><?=money($goal['collection_realized'])?></strong><small><?=number_format($goal['collection_percent'],1,',','.')?>% da meta</small></div><div class="stat-card"><span>Devedores trabalhados</span><strong><?=$goal['debtors_worked']?></strong><small>meta de <?=$goal['contact_goal']?></small></div><div class="stat-card"><span>Todos os devedores</span><strong><?=money($goal['debtor_amount'])?></strong><small><?=$goal['debtor_count']?> clientes</small></div><?php endif;?>
+
+<div class="result-focus">
+ <?php if($goal['has_sales']):?>
+ <div class="result-focus-main"><span>VENDAS NO MÊS</span><strong><?=money($goal['realized'])?></strong><small>meta atual <?=money($goal['current'])?> • faltam <?=money($goal['missing'])?></small><div class="result-progress"><span style="width:<?=min(100,$goal['percent'])?>%"></span></div></div>
+ <div><span>Atingimento</span><strong><?=number_format($goal['percent'],1,',','.')?>%</strong></div>
+ <div><span>Produtos</span><strong><?=money($goal['product_realized'])?></strong><small>pedidos válidos</small></div>
+ <div><span>Serviços</span><strong><?=money($goal['service_realized'])?></strong><small>OS válidas</small></div>
+ <?php endif;?>
 </div>
-<div class="row g-4 mb-4">
-<?php if($hasSales):?><div class="col-lg-<?=$hasCollection?'6':'12'?>"><div class="panel-card h-100"><div class="panel-header"><div><span>VENDAS</span><h2>Progresso comercial</h2></div><strong><?=number_format($goal['percent'],1,',','.')?>%</strong></div><div class="panel-body"><div class="display-6 fw-bold"><?=money($goal['realized'])?></div><p class="text-secondary">Meta atual <?=money($goal['current'])?> • faltam <?=money($goal['missing'])?></p><div class="mini-progress large"><span style="width:<?=min(100,$goal['percent'])?>%"></span></div><div class="d-flex justify-content-between mt-3 small"><span>Meta 1: <?=money($goal['m1'])?></span><span>Meta 2: <?=money($goal['m2'])?></span><?php if($goal['goal_mode']==='sales'):?><span>Meta 3: <?=money($goal['m3'])?></span><?php endif;?></div></div></div></div><?php endif;?>
-<?php if($hasCollection):?><div class="col-lg-<?=$hasSales?'6':'12'?>"><div class="panel-card h-100"><div class="panel-header"><div><span>COBRANÇA</span><h2>Recuperação no mês</h2></div><strong><?=number_format($goal['collection_percent'],1,',','.')?>%</strong></div><div class="panel-body"><div class="display-6 fw-bold"><?=money($goal['collection_realized'])?></div><p class="text-secondary">Meta <?=money($goal['collection_goal'])?> • faltam <?=money($goal['collection_missing'])?></p><div class="mini-progress large"><span style="width:<?=min(100,$goal['collection_percent'])?>%"></span></div></div></div></div><?php endif;?>
+
+<?php if($goal['has_sales']):?>
+<div class="result-next mt-4">
+ <div><span>Próxima referência</span><strong><?=money($goal['current'])?></strong><small>meta que está sendo perseguida agora</small></div>
+ <div><span>Faltam</span><strong><?=money($goal['missing'])?></strong><small>para alcançar a referência atual</small></div>
+ <div><span>Necessário por dia útil</span><strong><?=money($goal['daily_need'])?></strong><small><?=$goal['days']?> dia(s) útil(eis) restante(s)</small></div>
 </div>
-<?php if($hasSales):?>
-<div class="panel-card mb-4"><div class="panel-header"><div><span>PRODUTOS</span><h2>Pedidos incluídos neste mês</h2></div><strong><?=count($orders)?> pedidos • <?=money($goal['product_realized'])?></strong></div><div class="table-responsive data-table-wrap"><table class="table modern-table data-table mb-0" data-entity="pedidos" data-page-length="10" data-order-column="0"><thead><tr><th>Inclusão</th><th>Pedido</th><th>Cliente</th><th>Status</th><th class="text-end">Valor</th></tr></thead><tbody><?php foreach($orders as $order):$excluded=!GoalService::isOrderCounted($order);$displayStatus=GoalService::orderStageCode($order)==='00'?'ORÇAMENTO':($order['status']?:'ABERTO');?><tr class="<?=$excluded?'order-ignored':''?>"><td data-order="<?=e($order['order_date'])?>"><?=brdate($order['order_date'])?></td><td><?=e($order['omie_order_code'])?></td><td><?=e($order['client_name']??'Cliente não localizado')?></td><td><span class="badge-soft <?=$excluded?'badge-muted':''?>"><?=e($displayStatus)?></span></td><td class="text-end" data-order="<?=(float)$order['total']?>"><strong><?=money($order['total'])?></strong></td></tr><?php endforeach;?></tbody></table></div></div>
-<div class="panel-card"><div class="panel-header"><div><span>SERVIÇOS</span><h2>Ordens de Serviço deste mês</h2></div><strong><?=count($services)?> OS • <?=money($goal['service_realized'])?></strong></div><div class="table-responsive data-table-wrap"><table class="table modern-table data-table mb-0" data-entity="serviços" data-page-length="10" data-order-column="0"><thead><tr><th>Inclusão</th><th>OS</th><th>Cliente</th><th>Serviço</th><th>Status</th><th class="text-end">Valor</th></tr></thead><tbody><?php foreach($services as $service):$excluded=!GoalService::isServiceOrderCounted($service);?><tr class="<?=$excluded?'order-ignored':''?>"><td data-order="<?=e($service['inclusion_date'])?>"><?=brdate($service['inclusion_date'])?></td><td><?=e($service['display_number']?:$service['omie_service_order_code'])?></td><td><?=e($service['client_name']??'Cliente não localizado')?></td><td><?=e($service['service_description']?:'Serviço sem descrição')?></td><td><span class="badge-soft <?=$excluded?'badge-muted':''?>"><?=e($service['stage_code']==='00'?'ORÇAMENTO':$service['status'])?></span></td><td class="text-end" data-order="<?=(float)$service['total']?>"><strong><?=money($service['total'])?></strong></td></tr><?php endforeach;?></tbody></table></div></div>
 <?php endif;?>
+
+<?php if($goal['has_collection']):?>
+<div class="panel-card mt-4"><div class="panel-header"><div><span>COBRANÇA</span><h2>Recuperação atribuída a você</h2></div><a class="btn btn-outline-secondary btn-sm" href="<?=APP_URL?>/cobranca.php">Abrir cobrança</a></div><div class="result-inline"><span><small>Recuperado</small><strong><?=money($goal['collection_realized'])?></strong></span><span><small>Meta</small><strong><?=money($goal['collection_goal'])?></strong></span><span><small>Atingimento</small><strong><?=number_format($goal['collection_percent'],1,',','.')?>%</strong></span><span><small>Clientes trabalhados</small><strong><?=$goal['debtors_worked']?></strong></span></div></div>
+<?php endif;?>
+
 <?php include '_footer.php';?>
