@@ -55,10 +55,57 @@ document.addEventListener('DOMContentLoaded',()=>{
           d.month=document.getElementById('collectionMonth')?.value||'';
           d.seller=document.getElementById('collectionSeller')?.value||'';
           d.uf=document.getElementById('collectionUf')?.value||'';
-          if(table.id==='collectionActionsTable'){
+          if(table.id==='clientsManagementTable'){
+      const selected=new Set();
+      const reloadClients=()=>{selected.clear();document.getElementById('portfolioSelectPage')?.removeAttribute('checked');dt.ajax.reload(null,true);};
+      const updateSelection=()=>{
+        document.getElementById('portfolioSelectionInfo').textContent=selected.size?selected.size+' cliente(s) selecionado(s).':'Selecione clientes ou aplique a distribuição ao filtro atual.';
+      };
+      ['portfolioUf','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource'].forEach(id=>document.getElementById(id)?.addEventListener('change',reloadClients));
+      document.getElementById('portfolioMonth')?.addEventListener('change',e=>{location.href='?month='+encodeURIComponent(e.target.value);});
+      document.getElementById('portfolioClear')?.addEventListener('click',()=>{
+        ['portfolioUf','portfolioSellerFilter','portfolioStatus','portfolioFinance','portfolioSource'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+        reloadClients();
+      });
+      table.addEventListener('change',e=>{
+        if(e.target.classList.contains('portfolio-row-check')){
+          const id=Number(e.target.value);if(e.target.checked)selected.add(id);else selected.delete(id);updateSelection();
+        }
+      });
+      document.getElementById('portfolioSelectPage')?.addEventListener('change',e=>{
+        table.querySelectorAll('.portfolio-row-check').forEach(ch=>{ch.checked=e.target.checked;const id=Number(ch.value);if(e.target.checked)selected.add(id);else selected.delete(id);});updateSelection();
+      });
+      const assign=async mode=>{
+        const seller=document.getElementById('portfolioAssignSeller')?.value||'';
+        if(!seller){alert('Escolha o vendedor ou a ação desejada.');return;}
+        if(mode==='selected'&&!selected.size){alert('Selecione ao menos um cliente.');return;}
+        const label=document.getElementById('portfolioAssignSeller')?.selectedOptions?.[0]?.textContent||'a opção escolhida';
+        const msg=mode==='selected'?'Aplicar '+label+' a '+selected.size+' cliente(s)?':'Aplicar '+label+' a TODOS os clientes do filtro atual?';
+        if(!confirm(msg))return;
+        const payload={_token:window.TDCRM_CONFIG.csrf,mode,seller,month:document.getElementById('portfolioMonth')?.value||'',ids:[...selected],filters:{
+          uf:document.getElementById('portfolioUf')?.value||'',seller:document.getElementById('portfolioSellerFilter')?.value||'',
+          status:document.getElementById('portfolioStatus')?.value||'',finance:document.getElementById('portfolioFinance')?.value||'',
+          source:document.getElementById('portfolioSource')?.value||'',search:dt.search()||''
+        }};
+        const r=await fetch(window.TDCRM_CONFIG.baseUrl+'/api/client-portfolio-assign.php',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
+        const data=await r.json();if(!r.ok||!data.ok){alert(data.error||'Falha ao distribuir carteira.');return;}
+        alert(data.message||'Carteira atualizada.');reloadClients();
+      };
+      document.getElementById('portfolioAssignSelected')?.addEventListener('click',()=>assign('selected'));
+      document.getElementById('portfolioAssignFiltered')?.addEventListener('click',()=>assign('filtered'));
+    }
+    if(table.id==='collectionActionsTable'){
             d.month=document.getElementById('actionMonth')?.value||'';
             d.result=document.getElementById('actionResult')?.value||'';
             d.user_id=document.getElementById('actionUser')?.value||'0';
+          }
+          if(table.id==='clientsManagementTable'){
+            d.month=document.getElementById('portfolioMonth')?.value||'';
+            d.uf=document.getElementById('portfolioUf')?.value||'';
+            d.seller=document.getElementById('portfolioSellerFilter')?.value||'';
+            d.status=document.getElementById('portfolioStatus')?.value||'';
+            d.finance=document.getElementById('portfolioFinance')?.value||'';
+            d.source=document.getElementById('portfolioSource')?.value||'';
           }
         }
       };
