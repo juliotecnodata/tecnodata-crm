@@ -12,10 +12,12 @@ $u=Auth::user();
 $id=(int)($_GET['id']??0);
 
 $row=DB::fetch("SELECT ca.*,c.name client_name,c.omie_code,c.uf,c.phone,
- u.name user_name,m.seller_omie_code,s.name seller_name
+ author.name user_name,assigned.name assigned_name,assigner.name assigned_by_name,m.seller_omie_code,s.name seller_name
  FROM collection_actions ca
  JOIN clients c ON c.id=ca.client_id
- JOIN users u ON u.id=ca.user_id
+ JOIN users author ON author.id=ca.user_id
+ LEFT JOIN users assigned ON assigned.id=ca.assigned_user_id
+ LEFT JOIN users assigner ON assigner.id=ca.assigned_by
  LEFT JOIN client_metrics m ON m.client_id=c.id
  LEFT JOIN sellers s ON s.omie_code=m.seller_omie_code
  WHERE ca.id=? AND ca.deleted_at IS NULL",[$id]);
@@ -45,9 +47,10 @@ include '_layout.php';?>
    </div>
    <div class="panel-body">
     <div class="detail-grid">
-     <div><span>Responsável</span><strong><?=e($row['user_name'])?></strong></div>
+     <div><span>Realizado por</span><strong><?=e($row['user_name'])?></strong><small><?=date('d/m/Y H:i',strtotime($row['created_at']))?></small></div>
+     <div><span>Responsável atual</span><strong><?=e($row['assigned_name']??$row['user_name'])?></strong><?php if(!empty($row['assigned_at'])):?><small>atribuído em <?=date('d/m/Y H:i',strtotime($row['assigned_at']))?><?=!empty($row['assigned_by_name'])?' por '.e($row['assigned_by_name']):''?></small><?php endif;?></div>
      <div><span>Canal</span><strong><?=e($channels[$row['channel']]??$row['channel'])?></strong></div>
-     <div><span>Data</span><strong><?=date('d/m/Y H:i',strtotime($row['created_at']))?></strong></div>
+     <div><span>Registro original</span><strong><?=date('d/m/Y H:i',strtotime($row['created_at']))?></strong><?php if(!empty($row['updated_at'])):?><small>última edição <?=date('d/m/Y H:i',strtotime($row['updated_at']))?></small><?php endif;?></div>
      <div><span>Vendedor</span><strong><?=e($row['seller_name']??'—')?></strong></div>
      <?php if($row['promised_for']):?><div><span>Promessa para</span><strong><?=date('d/m/Y',strtotime($row['promised_for']))?></strong></div><?php endif;?>
      <?php if((float)$row['amount']>0):?><div><span>Valor recebido</span><strong><?=money($row['amount'])?></strong></div><?php endif;?>
