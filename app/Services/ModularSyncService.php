@@ -87,10 +87,10 @@ final class ModularSyncService {
 
         if($module==='financial'){
             $context=[
-                'version'=>2,
+                'version'=>3,
                 'accounts'=>array_map(fn($account)=>['code'=>(string)$account['omie_code'],'name'=>(string)$account['name']],$financialAccounts),
                 'account_index'=>0,
-                'statuses'=>['ATRASADO','PAGTO_PARCIAL'],
+                'statuses'=>['ATRASADO','PAGTOPARCIAL'],
                 'status_index'=>0,
                 'page'=>0,
             ];
@@ -373,13 +373,9 @@ final class ModularSyncService {
 
     private function stepFinancial(array $state,int $runId): array {
         $context=json_decode((string)($state['context_json']??''),true);
-        if(!is_array($context)||(int)($context['version']??0)!==2) throw new RuntimeException('Contexto financeiro inválido. Reinicie o módulo financeiro.');
-        $statuses=$context['statuses']??['ATRASADO','PAGTO_PARCIAL'];
-        // Compatibilidade com contextos gravados por versões anteriores.
-        $statuses=array_values(array_unique(array_map(
-            fn($v)=>mb_strtoupper((string)$v)==='PAGTOPARCIAL'?'PAGTO_PARCIAL':mb_strtoupper((string)$v),
-            $statuses
-        )));
+        if(!is_array($context)||(int)($context['version']??0)!==3) throw new RuntimeException('Contexto financeiro antigo. Use Limpar e reconstruir no módulo Financeiro.');
+        $statuses=$context['statuses']??['ATRASADO','PAGTOPARCIAL'];
+        $statuses=array_values(array_unique(array_map(fn($v)=>mb_strtoupper((string)$v),$statuses)));
         $context['statuses']=$statuses;
         $accounts=$context['accounts']??[];
         $accountIndex=max(0,(int)($context['account_index']??0));
@@ -414,15 +410,27 @@ final class ModularSyncService {
             $client=(string)($details['nCodCliente']??$details['codigo_cliente_omie']??'');
             $due=$this->normalizeDate($details['dDtVenc']??$details['data_vencimento']??null);
             $pay=$this->normalizeDate($details['dDtPagamento']??$details['data_pagamento']??null);
-            $amount=(float)($summary['nValAberto']??$details['nValorTitulo']??$details['nValorMovimento']??$details['valor_documento']??0);
-            $movementStatus=mb_strtoupper((string)($details['cStatus']??$details['status']??''));
-            if($movementStatus==='PAGTOPARCIAL') $movementStatus='PAGTO_PARCIAL';
-            if(!in_array($movementStatus,['ATRASADO','PAGTO_PARCIAL'],true)) continue;
-            DB::exec("INSERT INTO financial_movements(omie_code,client_omie_code,due_date,payment_date,amount,status,account_omie_code,last_seen_run_id,raw_json,updated_at)
-                      VALUES(?,?,?,?,?,?,?,?,?,NOW())
+            $openAmount=(float)($summary['nValAberto']??$details['nValorTitulo']??$details['nValorMovimento']??$details['valor_documento']??0);
+            $paidAmount=(float)($summary['nValPago']??0);
+            $originalAmount=(float)($details['nValorTitulo']??($openAmount+$paidAmount));
+            $apiStatus=mb_strtoupper((string)($details['cStatus']??$details['status']??''));
+            $movementStatus=$apiStatus==='PAGTOPARCIAL'?'PAGTO_PARCIAL':$apiStatus;
+
+            // Regra robusta: se há valor pago e ainda existe saldo em aberto, é parcial,
+            // mesmo quando a própria Omie devolve cStatus ATRASADO no detalhe.
+            if($openAmount>0.009 && $paidAmount>0.009)$movementStatus='PAGTO_PARCIAL';
+            if($openAmount<=0.009)continue;
+            if(!in_array($movementStatus,['ATRASADO','PAGTO_PARCIAL'],true))continue;
+
+            $seller=(string)($details['cCodVendedor']??$details['nCodVendedor']??'');
+            DB::exec("INSERT INTO financial_movements
+                      (omie_code,client_omie_code,due_date,payment_date,amount,original_amount,paid_amount,status,seller_omie_code,account_omie_code,last_seen_run_id,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NOW())
                       ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),due_date=VALUES(due_date),payment_date=VALUES(payment_date),
-                      amount=VALUES(amount),status=VALUES(status),account_omie_code=VALUES(account_omie_code),last_seen_run_id=VALUES(last_seen_run_id),raw_json=VALUES(raw_json),updated_at=NOW()",
-                [$code,$client,$due,$pay,$amount,$movementStatus,$accountCode,$runId,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+                      amount=VALUES(amount),original_amount=VALUES(original_amount),paid_amount=VALUES(paid_amount),status=VALUES(status),
+                      seller_omie_code=VALUES(seller_omie_code),account_omie_code=VALUES(account_omie_code),last_seen_run_id=VALUES(last_seen_run_id),
+                      raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,$client,$due,$pay,$openAmount,$originalAmount,$paidAmount,$movementStatus,$seller?:null,$accountCode,$runId,json_encode($r,JSON_UNESCAPED_UNICODE)]);
         }
         $totalPages=max(1,(int)($data['nTotPaginas']??$page));
         $processed=(int)$state['processed']+count($items);
