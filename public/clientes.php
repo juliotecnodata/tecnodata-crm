@@ -31,11 +31,8 @@ $stats=DB::fetch("SELECT COUNT(*) total,
 include '_layout.php';?>
 <div class="page-heading">
  <div><div class="eyebrow">GESTÃO DE CARTEIRAS • <?=date('m/Y',strtotime($month.'-01'))?></div><h1>Clientes</h1>
- <p>Defina a carteira comercial de cada mês. Você pode filtrar um estado, escolher um vendedor e redistribuir os clientes sem alterar o vendedor-base vindo da Omie.</p></div>
- <input class="form-control month-control" id="portfolioMonth" type="month" value="<?=e($month)?>">
+ <p>Consulte a base, filtre com precisão e distribua a carteira comercial do mês sem alterar o cadastro original da Omie.</p></div>
 </div>
-
-<div class="management-note mb-4"><i class="fa-solid fa-circle-info"></i><div><strong>Como funciona</strong><span>A regra mensal tem prioridade sobre a Omie apenas no mês escolhido. Para começar com a base sem vendedor, filtre uma tag, estado ou qualquer combinação, escolha o vendedor e use <b>Todos filtrados</b>. Assim você distribui centenas de clientes de uma vez.</span></div></div>
 
 <div class="stat-grid stat-grid-4 mb-4">
  <div class="stat-card compact-stat"><span>Clientes ativos</span><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><small>base disponível</small></div>
