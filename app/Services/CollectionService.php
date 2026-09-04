@@ -23,6 +23,9 @@ final class CollectionService {
     }
 
     public static function debtSellerCode(string $clientCode): ?string {
+        $db=(string)DB::conn()->query('SELECT DATABASE()')->fetchColumn();
+        $exists=(bool)DB::fetch("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='financial_movements' AND COLUMN_NAME='seller_omie_code' LIMIT 1",[$db]);
+        if(!$exists)return null;
         $r=DB::fetch("SELECT COUNT(DISTINCT NULLIF(fm.seller_omie_code,'')) sellers,
                              MAX(NULLIF(fm.seller_omie_code,'')) seller_code
                       FROM financial_movements fm
