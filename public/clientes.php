@@ -47,7 +47,10 @@ include '_layout.php';?>
   <div><label class="form-label">Situação comercial</label><select class="form-select" id="portfolioStatus"><option value="">Todas</option><option value="normal">Normal</option><option value="attention">Atenção</option><option value="reactivate">Reativar</option></select></div>
   <div><label class="form-label">Financeiro</label><select class="form-select" id="portfolioFinance"><option value="">Todos</option><option value="overdue">Com vencido</option><option value="clear">Sem vencido</option></select></div>
   <div><label class="form-label">Origem</label><select class="form-select" id="portfolioSource"><option value="">Todas</option><option value="month">Definida no mês</option><option value="omie">Vendedor-base Omie</option></select></div>
-  <div class="portfolio-filter-actions"><button class="btn btn-outline-secondary" type="button" id="portfolioClear"><i class="fa-solid fa-rotate-left"></i>Limpar</button></div>
+  <div class="portfolio-filter-actions">
+    <button class="btn btn-dark" type="button" id="portfolioApply"><i class="fa-solid fa-filter"></i>Filtrar</button>
+    <button class="btn btn-outline-secondary" type="button" id="portfolioClear"><i class="fa-solid fa-rotate-left"></i>Limpar</button>
+   </div>
  </div>
 </div>
 
@@ -63,6 +66,7 @@ include '_layout.php';?>
  <button class="btn btn-dark" type="button" id="portfolioAssignFiltered"><i class="fa-solid fa-users-gear"></i>Todos filtrados</button>
 </div>
 
+<div class="filter-result-strip mb-2"><span id="portfolioFilterStatus"><i class="fa-solid fa-circle-info"></i>Selecione os filtros e clique em <strong>Filtrar</strong>.</span></div>
 <div class="panel-card"><div class="table-responsive data-table-wrap">
 <table class="table modern-table data-table portfolio-table mb-0" id="clientsManagementTable"
  data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php" data-entity="clientes" data-page-length="25" data-order-column="1">
