@@ -4,18 +4,22 @@ use Tecnodata\CRM\Core\Auth; use Tecnodata\CRM\Core\DB;
 Auth::requireLogin(); $u=Auth::user();
 $sellerProfile=$u['role']==='seller'&&$u['seller_omie_code']?DB::fetch('SELECT goal_mode FROM sellers WHERE omie_code=? AND active=1',[$u['seller_omie_code']]):null;
 $sellerMode=(string)($sellerProfile['goal_mode']??'sales_collection');
-$filter=$_GET['status']??'';$finance=$_GET['finance']??'all';$signal=$_GET['signal']??'all';$monthStart=date('Y-m-01');$monthNext=date('Y-m-01',strtotime('+1 month'));
+$filter=$_GET['status']??'';$finance=$_GET['finance']??'all';$signal=$_GET['signal']??'all';$monthRef=date('Y-m');$monthStart=date('Y-m-01');$monthNext=date('Y-m-01',strtotime('+1 month'));
 $sql="SELECT c.id,c.name,c.omie_code,c.uf,c.phone,m.*,s.name seller_name,
  (SELECT MAX(created_at) FROM activities a WHERE a.client_id=c.id AND a.deleted_at IS NULL) last_contact,
  (SELECT MAX(created_at) FROM activities a WHERE a.client_id=c.id AND a.deleted_at IS NULL AND a.created_at>='$monthStart' AND a.created_at<'$monthNext') attended_month_at,
  (SELECT MAX(created_at) FROM activities a WHERE a.client_id=c.id AND a.deleted_at IS NULL AND a.result='acordo' AND a.created_at>='$monthStart' AND a.created_at<'$monthNext') agreement_month_at
- FROM clients c JOIN client_metrics m ON m.client_id=c.id LEFT JOIN sellers s ON s.omie_code=m.seller_omie_code WHERE 1=1";
-$p=[];
+ FROM clients c
+ JOIN client_metrics m ON m.client_id=c.id
+ LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=?
+ LEFT JOIN sellers s ON s.omie_code=(CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE m.seller_omie_code END)
+ WHERE 1=1";
+$p=[$monthRef];
 if($u['role']==='seller' && $u['seller_omie_code']){
  $debtFilter="EXISTS(SELECT 1 FROM financial_movements fm INNER JOIN financial_accounts fa ON fa.omie_code=fm.account_omie_code AND fa.selected=1 WHERE fm.client_omie_code=c.omie_code AND UPPER(fm.status) IN('ATRASADO','PAGTO_PARCIAL'))";
  if($sellerMode==='collection'){$sql.=" AND {$debtFilter}";}
- elseif($sellerMode==='sales'){$sql.=" AND m.seller_omie_code=?";$p[]=$u['seller_omie_code'];}
- else{$sql.=" AND (m.seller_omie_code=? OR {$debtFilter})";$p[]=$u['seller_omie_code'];}
+ elseif($sellerMode==='sales'){$sql.=" AND (CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE m.seller_omie_code END)=?";$p[]=$u['seller_omie_code'];}
+ else{$sql.=" AND ((CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE m.seller_omie_code END)=? OR {$debtFilter})";$p[]=$u['seller_omie_code'];}
 }
 if(in_array($filter,['normal','attention','reactivate'],true)){$sql.=" AND m.commercial_status=?";$p[]=$filter;}
 if($finance==='overdue')$sql.=" AND m.overdue_amount>0";elseif($finance==='clear')$sql.=" AND COALESCE(m.overdue_amount,0)<=0";
