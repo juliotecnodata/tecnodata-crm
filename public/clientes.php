@@ -14,8 +14,12 @@ if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
 $sellers=DB::all("SELECT omie_code,name FROM sellers WHERE active=1 AND is_virtual=0 ORDER BY name");
 $ufs=DB::all("SELECT DISTINCT uf FROM clients WHERE active=1 AND uf IS NOT NULL AND uf<>'' ORDER BY uf");
 $tags=DB::all("SELECT tag,COUNT(*) total FROM client_tags GROUP BY tag ORDER BY tag");
-$stats=DB::fetch("SELECT COUNT(*) total,SUM(pa.id IS NOT NULL) configured_month,SUM(pa.id IS NULL) inherited_base,COUNT(DISTINCT c.uf) states
+$stats=DB::fetch("SELECT COUNT(*) total,
+ SUM(pa.id IS NOT NULL) configured_month,
+ SUM(CASE WHEN (CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE m.seller_omie_code END) IS NULL THEN 1 ELSE 0 END) unassigned,
+ COUNT(DISTINCT c.uf) states
  FROM clients c
+ LEFT JOIN client_metrics m ON m.client_id=c.id
  LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=?
  WHERE c.active=1",[$month])??[];
 
@@ -26,12 +30,12 @@ include '_layout.php';?>
  <input class="form-control month-control" id="portfolioMonth" type="month" value="<?=e($month)?>">
 </div>
 
-<div class="management-note mb-4"><i class="fa-solid fa-circle-info"></i><div><strong>Como funciona</strong><span>A regra mensal tem prioridade sobre a Omie apenas no mês escolhido. No mês seguinte você pode copiar, manter ou reorganizar a distribuição como desejar.</span></div></div>
+<div class="management-note mb-4"><i class="fa-solid fa-circle-info"></i><div><strong>Como funciona</strong><span>A regra mensal tem prioridade sobre a Omie apenas no mês escolhido. Para começar com a base sem vendedor, filtre uma tag, estado ou qualquer combinação, escolha o vendedor e use <b>Todos filtrados</b>. Assim você distribui centenas de clientes de uma vez.</span></div></div>
 
 <div class="stat-grid stat-grid-4 mb-4">
  <div class="stat-card compact-stat"><span>Clientes ativos</span><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><small>base disponível</small></div>
  <div class="stat-card compact-stat"><span>Definidos no mês</span><strong><?=number_format((int)($stats['configured_month']??0),0,',','.')?></strong><small>com regra mensal própria</small></div>
- <div class="stat-card compact-stat"><span>Usando base Omie</span><strong><?=number_format((int)($stats['inherited_base']??0),0,',','.')?></strong><small>sem alteração mensal</small></div>
+ <div class="stat-card compact-stat"><span>Sem vendedor</span><strong><?=number_format((int)($stats['unassigned']??0),0,',','.')?></strong><small>prioridade para distribuir em massa</small></div>
  <div class="stat-card compact-stat"><span>Estados</span><strong><?=number_format((int)($stats['states']??0),0,',','.')?></strong><small>para gestão regional</small></div>
 </div>
 
