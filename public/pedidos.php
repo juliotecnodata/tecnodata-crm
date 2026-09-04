@@ -85,36 +85,15 @@ include '_layout.php';
  <button class="btn btn-primary"><i class="fa-solid fa-filter"></i>Aplicar</button>
 </form>
 
-<div class="stat-grid stat-grid-4 mb-4">
- <div class="stat-card"><span>Valor considerado</span><strong><?=money($total)?></strong><small><?=count($valid)?> pedidos em etapa válida</small></div>
- <div class="stat-card"><span>Pedidos incluídos</span><strong><?=number_format(count($orders),0,',','.')?></strong><small>no período selecionado</small></div>
- <div class="stat-card"><span>Ticket médio</span><strong><?=money($average)?></strong><small>pedidos considerados</small></div>
- <div class="stat-card"><span>Etapas presentes</span><strong><?=number_format(count($stages),0,',','.')?></strong><small>no período selecionado</small></div>
+<div class="order-list-summary mb-3">
+ <span><small>Pedidos</small><strong><?=number_format(count($orders),0,',','.')?></strong></span>
+ <span><small>Valor</small><strong><?=money($total)?></strong></span>
+ <span><small>Ticket médio</small><strong><?=money($average)?></strong></span>
+ <span class="order-stage-filter-inline"><small>Etapa</small><select class="form-select form-select-sm" id="orderStatusFilter"><option value="">Todas</option><?php foreach($stages as $stage):?><option value="<?=e($stage['name'])?>"><?=e(($stage['code']?:'—').' • '.$stage['name'])?></option><?php endforeach;?></select></span>
 </div>
-
-<?php if($stages):?>
-<div class="stage-summary-grid mb-4">
- <?php foreach($stages as $stage):?>
- <button type="button" class="stage-summary-card" data-stage-filter="<?=e($stage['name'])?>">
-  <span>Etapa <?=e($stage['code']?:'—')?></span>
-  <strong><?=e($stage['name'])?></strong>
-  <small><?=number_format($stage['count'],0,',','.')?> pedido(s) • <?=money($stage['total'])?></small>
- </button>
- <?php endforeach;?>
-</div>
-<?php endif;?>
 
 <div class="panel-card">
- <div class="panel-header orders-table-header">
-  <div><span>DETALHAMENTO</span><h2>Lista de pedidos por etapa</h2></div>
-  <div class="status-filter">
-   <label for="orderStatusFilter">Etapa</label>
-   <select class="form-select form-select-sm" id="orderStatusFilter">
-    <option value="">Todas as etapas</option>
-    <?php foreach($stages as $stage):?><option value="<?=e($stage['name'])?>"><?=e(($stage['code']?:'—').' • '.$stage['name'])?></option><?php endforeach;?>
-   </select>
-  </div>
- </div>
+ <div class="panel-header orders-table-header"><div><span>PEDIDOS</span><h2>Lista</h2></div></div>
  <div class="table-responsive data-table-wrap">
   <table id="ordersTable" class="table modern-table data-table orders-table mb-0"
    data-entity="pedidos" data-page-length="25" data-order-column="0"
