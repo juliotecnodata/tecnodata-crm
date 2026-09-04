@@ -15,7 +15,7 @@ if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
 $viewRaw=(string)($_GET['view']??'open');
 $signalRaw=(string)($_GET['signal']??'all');
 $view=in_array($viewRaw,['open','all','settled'],true)?$viewRaw:'open';
-$signal=in_array($signalRaw,['all','mine','attended','agreement','promise','unattended'],true)?$signalRaw:'all';
+$signal=in_array($signalRaw,['all','mine','attended','agreement','promise','payment','paid_agreement','unattended'],true)?$signalRaw:'all';
 
 $summary=CollectionService::portfolioSummary();
 $work=CollectionService::monthForUser((int)$u['id'],$month);
@@ -55,6 +55,8 @@ include '_layout.php';?>
    <option value="mine" <?=$signal==='mine'?'selected':''?>>Atendidos por mim</option>
    <option value="attended" <?=$signal==='attended'?'selected':''?>>Atendidos por qualquer pessoa</option>
    <option value="agreement" <?=$signal==='agreement'?'selected':''?>>Acordo fechado</option>
+   <option value="paid_agreement" <?=$signal==='paid_agreement'?'selected':''?>>Acordo pago</option>
+   <option value="payment" <?=$signal==='payment'?'selected':''?>>Pagamento recebido</option>
    <option value="promise" <?=$signal==='promise'?'selected':''?>>Promessa de pagamento</option>
    <option value="unattended" <?=$signal==='unattended'?'selected':''?>>Sem atendimento no período</option>
   </select></div>
