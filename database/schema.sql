@@ -50,11 +50,15 @@ CREATE TABLE IF NOT EXISTS orders (
  order_date DATE NULL,
  total DECIMAL(15,2) NOT NULL DEFAULT 0,
  status VARCHAR(60) NULL,
+ stage_code VARCHAR(10) NULL,
+ stage_name VARCHAR(120) NULL,
+ stage_changed_at DATETIME NULL,
  raw_json JSON NULL,
  updated_at DATETIME NOT NULL,
  INDEX idx_orders_client(client_omie_code),
  INDEX idx_orders_seller_date(seller_omie_code,order_date),
- INDEX idx_orders_date(order_date)
+ INDEX idx_orders_date(order_date),
+ INDEX idx_orders_stage(stage_code,order_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS service_orders (
@@ -321,4 +325,13 @@ CREATE TABLE IF NOT EXISTS client_tags (
  UNIQUE KEY uq_client_tag(client_id,tag),
  INDEX idx_client_tags_tag(tag),
  CONSTRAINT fk_client_tags_client FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS order_stage_catalog (
+ stage_code VARCHAR(10) PRIMARY KEY,
+ stage_name VARCHAR(120) NOT NULL,
+ default_name VARCHAR(120) NULL,
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
