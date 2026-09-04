@@ -16,6 +16,7 @@ $length=max(10,min(100,(int)($_GET['length']??25)));
 $search=trim((string)($_GET['search']['value']??''));
 $month=(string)($_GET['month']??date('Y-m')); if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
 $uf=strtoupper(trim((string)($_GET['uf']??'')));
+$tag=trim((string)($_GET['tag']??''));
 $seller=trim((string)($_GET['seller']??''));
 $status=trim((string)($_GET['status']??''));
 $finance=trim((string)($_GET['finance']??''));
@@ -30,6 +31,7 @@ $base=" FROM clients c
 $where=['c.active=1']; $params=[$month];
 
 if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
+if($tag!==''){$where[]='EXISTS(SELECT 1 FROM client_tags ct WHERE ct.client_id=c.id AND ct.tag=?)';$params[]=$tag;}
 if($seller==='__unassigned__')$where[]="$effectiveSeller IS NULL";
 elseif($seller!==''){$where[]="$effectiveSeller=?";$params[]=$seller;}
 if(in_array($status,['normal','attention','reactivate'],true)){$where[]='m.commercial_status=?';$params[]=$status;}
@@ -44,16 +46,17 @@ try{
  $total=(int)(DB::fetch("SELECT COUNT(*) n $base $fixed",$params)['n']??0);
  $w=$where;$p=$params;
  if($search!==''){
-   $w[]='(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.omie_code LIKE ? OR sm.name LIKE ? OR so.name LIKE ?)';
-   $like='%'.$search.'%'; array_push($p,$like,$like,$like,$like,$like,$like,$like);
+   $w[]='(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.omie_code LIKE ? OR sm.name LIKE ? OR so.name LIKE ? OR EXISTS(SELECT 1 FROM client_tags cts WHERE cts.client_id=c.id AND cts.tag LIKE ?))';
+   $like='%'.$search.'%'; array_push($p,$like,$like,$like,$like,$like,$like,$like,$like);
  }
  $final=' WHERE '.implode(' AND ',$w);
  $filtered=(int)(DB::fetch("SELECT COUNT(*) n $base $final",$p)['n']??0);
 
  $select="SELECT c.id,c.name,c.legal_name,c.omie_code,c.uf,c.city,c.document,
  m.last_purchase_at,m.days_without_purchase,m.revenue_12m,m.overdue_amount,m.open_amount,m.commercial_status,
- pa.id assignment_id,pa.seller_omie_code month_seller_code,sm.name effective_seller_name,so.name omie_seller_name";
- $orderMap=[1=>'c.name',2=>'c.uf',3=>'sm.name',4=>'pa.id',5=>'so.name',6=>'m.last_purchase_at',7=>'m.days_without_purchase',8=>'m.revenue_12m',9=>'m.overdue_amount',10=>'m.commercial_status'];
+ pa.id assignment_id,pa.seller_omie_code month_seller_code,sm.name effective_seller_name,so.name omie_seller_name,
+ (SELECT GROUP_CONCAT(ct.tag ORDER BY ct.tag SEPARATOR ' • ') FROM client_tags ct WHERE ct.client_id=c.id) tags";
+ $orderMap=[1=>'c.name',2=>'c.uf',4=>'sm.name',5=>'pa.id',6=>'so.name',7=>'m.last_purchase_at',8=>'m.days_without_purchase',9=>'m.revenue_12m',10=>'m.overdue_amount',11=>'m.commercial_status'];
  $idx=(int)($_GET['order'][0]['column']??1);
  $dir=strtolower((string)($_GET['order'][0]['dir']??'asc'))==='desc'?'DESC':'ASC';
  $order=$orderMap[$idx]??'c.name';
@@ -72,8 +75,9 @@ try{
      : ((float)$r['open_amount']>0?'<span class="status-pill status-partial">'.money($r['open_amount']).' em aberto</span>':'<span class="status-pill status-paid">Em dia</span>');
    $statusClass=$r['commercial_status']==='reactivate'?'status-overdue':($r['commercial_status']==='attention'?'status-partial':'status-paid');
    $checkbox='<input class="form-check-input portfolio-row-check" type="checkbox" value="'.(int)$r['id'].'" aria-label="Selecionar '.e($r['name']).'">';
+   $tagsHtml=trim((string)($r['tags']??''))!==''?'<div class="tag-stack">'.implode('',array_map(fn($v)=>'<span class="client-tag">'.e(trim($v)).'</span>',explode(' • ',(string)$r['tags']))).'</div>':'<span class="text-secondary">—</span>';
    $data[]=[
-     $checkbox,$client,$place,$portfolio,$sourceBadge,e($r['omie_seller_name']?:'—'),
+     $checkbox,$client,$place,$tagsHtml,$portfolio,$sourceBadge,e($r['omie_seller_name']?:'—'),
      $r['last_purchase_at']?date('d/m/Y',strtotime((string)$r['last_purchase_at'])):'—',
      $r['days_without_purchase']!==null?(string)(int)$r['days_without_purchase']:'—',
      '<div class="text-end"><strong>'.money((float)$r['revenue_12m']).'</strong></div>',
