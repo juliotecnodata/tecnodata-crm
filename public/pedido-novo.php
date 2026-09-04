@@ -81,13 +81,21 @@ include '_layout.php';?>
     <div><label class="form-label">Vendedor</label><select class="form-select" id="orderSeller"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></div>
     <?php endif;?>
     <div><label class="form-label">Previsão</label><input class="form-control" type="date" id="orderForecast" value="<?=date('Y-m-d')?>"></div>
-    <div><label class="form-label">Etapa</label><select class="form-select" id="orderStage"><?php foreach($stages as $stage):?><option value="<?=e($stage['stage_code'])?>" <?=$settings['default_stage_code']===$stage['stage_code']?'selected':''?>><?=e($stage['stage_code'].' • '.$stage['stage_name'])?></option><?php endforeach;?></select></div>
+    <?php if(Auth::can('supervisor','admin')):?>
     <details class="order-advanced">
-     <summary>Opções do pedido</summary>
+     <summary>Opções avançadas</summary>
+     <div class="mt-3"><label class="form-label">Etapa</label><select class="form-select" id="orderStage"><?php foreach($stages as $stage):?><option value="<?=e($stage['stage_code'])?>" <?=$settings['default_stage_code']===$stage['stage_code']?'selected':''?>><?=e($stage['stage_code'].' • '.$stage['stage_name'])?></option><?php endforeach;?></select></div>
      <div class="mt-3"><label class="form-label">Categoria</label><select class="form-select" id="orderCategory"><?php foreach($categories as $category):?><option value="<?=e($category['code'])?>" <?=$settings['default_category_code']===$category['code']?'selected':''?>><?=e($category['description'])?></option><?php endforeach;?></select></div>
      <div class="mt-3"><label class="form-label">Conta corrente</label><select class="form-select" id="orderAccount"><?php foreach($accounts as $account):?><option value="<?=e($account['omie_code'])?>" <?=$settings['default_account_code']===$account['omie_code']?'selected':''?>><?=e($account['name'])?></option><?php endforeach;?></select></div>
      <div class="mt-3"><label class="form-label">Observação</label><textarea class="form-control" id="orderNotes" rows="3" placeholder="Opcional"></textarea></div>
     </details>
+    <?php else:?>
+     <input type="hidden" id="orderStage" value="<?=e((string)$settings['default_stage_code'])?>">
+     <input type="hidden" id="orderCategory" value="<?=e((string)$settings['default_category_code'])?>">
+     <input type="hidden" id="orderAccount" value="<?=e((string)$settings['default_account_code'])?>">
+     <input type="hidden" id="orderNotes" value="">
+     <div class="order-default-rule"><i class="fa-solid fa-shield-check"></i><span>Condições comerciais definidas pela empresa serão aplicadas automaticamente.</span></div>
+    <?php endif;?>
    </div>
 
    <div class="order-total-box">
