@@ -69,6 +69,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     const dt=new DataTable(table,options);
 
+    if(table.dataset.statusFilter){
+      const filter=document.querySelector(table.dataset.statusFilter);
+      const column=Number(table.dataset.statusColumn??0);
+      filter?.addEventListener('change',()=>dt.column(column).search(filter.value||'').draw());
+    }
+
     if(table.id==='clientsManagementTable'){
       const selected=new Set();
       const selectPage=document.getElementById('portfolioSelectPage');
