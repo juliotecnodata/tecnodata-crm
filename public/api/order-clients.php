@@ -18,9 +18,17 @@ if(($u['role']??'')==='seller'){
 }
 if($q!==''){
  $where.=" AND (c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ?)";
- $like='%'.$q.'%';$params=[$like,$like,$like,$like];
+ $like='%'.$q.'%';array_push($params,$like,$like,$like,$like);
 }
-$rows=DB::all("SELECT c.id,c.name,c.document,c.uf,c.city,c.omie_code,m.last_purchase_at,m.revenue_12m
+$rows=DB::all("SELECT c.id,c.name,c.document,c.uf,c.city,c.omie_code,m.last_purchase_at,m.revenue_12m,
+              COALESCE(fin.overdue_amount,0) overdue_amount
               FROM clients c $joins
+              LEFT JOIN (
+                SELECT fm.client_omie_code,COALESCE(SUM(fm.amount),0) overdue_amount
+                FROM financial_movements fm
+                INNER JOIN financial_accounts fa ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
+                WHERE fm.status IN('ATRASADO','PAGTO_PARCIAL')
+                GROUP BY fm.client_omie_code
+              ) fin ON fin.client_omie_code=c.omie_code
               WHERE $where ORDER BY c.name LIMIT 20",$params);
 echo json_encode(['items'=>$rows],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
