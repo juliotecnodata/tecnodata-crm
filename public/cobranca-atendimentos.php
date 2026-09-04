@@ -50,7 +50,7 @@ include '_layout.php';?>
  <div class="table-responsive data-table-wrap">
   <table class="table modern-table data-table collection-actions-table mb-0" id="collectionActionsTable"
    data-server-side="1" data-ajax="<?=APP_URL?>/api/collection-actions-table.php" data-entity="atendimentos" data-page-length="25" data-order-column="0">
-   <thead><tr><th>Data</th><th>Cliente</th><th>Resultado</th><th>Responsável</th><th>Promessa</th><th class="text-end">Recebido</th><th>Anotação</th><th class="no-sort"></th></tr></thead><tbody></tbody>
+   <thead><tr><th>Data</th><th>Cliente</th><th>Resultado</th><th>Realizado por</th><th>Responsável atual</th><th>Promessa</th><th class="text-end">Recebido</th><th>Anotação</th><th class="no-sort"></th></tr></thead><tbody></tbody>
   </table>
  </div>
 </div>
