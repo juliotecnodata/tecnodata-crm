@@ -42,7 +42,7 @@ include '_layout.php';?>
    <option value="">Todos os resultados</option><option value="acordo">Acordo realizado</option><option value="promessa">Promessa de pagamento</option><option value="pagamento">Pagamento recebido</option><option value="falou">Falou com o cliente</option><option value="nao_atendeu">Não atendeu</option><option value="sem_previsao">Sem previsão</option>
   </select></div>
   <?php if(Auth::can('supervisor','admin')):?><div><label class="form-label">Responsável</label><select class="form-select" id="actionUser"><option value="0">Toda a cobrança</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=$selectedUser===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select></div><?php else:?><input type="hidden" id="actionUser" value="<?=$selectedUser?>"><?php endif;?>
-  <div class="collection-filter-actions"><button class="btn btn-outline-secondary" type="button" id="actionClear"><i class="fa-solid fa-rotate-left"></i>Limpar</button></div>
+  <div class="collection-filter-actions"><button class="btn btn-dark" type="button" id="actionApply"><i class="fa-solid fa-filter"></i>Filtrar</button><button class="btn btn-outline-secondary" type="button" id="actionClear"><i class="fa-solid fa-rotate-left"></i>Limpar</button></div>
  </div>
 </div>
 
