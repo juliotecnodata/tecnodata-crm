@@ -157,7 +157,7 @@ try{
            FROM collection_actions ca JOIN users ua ON ua.id=ca.user_id
           WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='acordo'
           ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1) agreement_info,
-        (SELECT CONCAT(up.name,'|',DATE_FORMAT(cp.created_at,'%d/%m/%Y %H:%i'),'|',FORMAT(cp.amount,2,'pt_BR'))
+        (SELECT CONCAT(up.name,'|',DATE_FORMAT(cp.created_at,'%d/%m/%Y %H:%i'))
            FROM collection_actions cp JOIN users up ON up.id=cp.user_id
           WHERE cp.client_id=c.id AND cp.deleted_at IS NULL AND cp.result='pagamento'
           ORDER BY cp.created_at DESC,cp.id DESC LIMIT 1) payment_info";
@@ -194,7 +194,7 @@ try{
         if((int)$r['mine_period']===1)$signals[]='<span class="signal-badge signal-mine"><i class="fa-solid fa-user-check"></i>Meu atendimento</span>';
         elseif((int)$r['attended_period']===1)$signals[]='<span class="signal-badge signal-attended"><i class="fa-solid fa-check"></i>Atendido</span>';
         $agreementInfo=!empty($r['agreement_info'])?explode('|',(string)$r['agreement_info'],2):[];
-        $paymentInfo=!empty($r['payment_info'])?explode('|',(string)$r['payment_info'],3):[];
+        $paymentInfo=!empty($r['payment_info'])?explode('|',(string)$r['payment_info'],2):[];
         if((int)$r['agreement_period']===1){
             $label='<span class="signal-badge signal-agreement"><i class="fa-solid fa-handshake"></i>Acordo fechado</span>';
             if($agreementInfo)$label.='<small class="table-sub">'.e($agreementInfo[0]??'').' • '.e($agreementInfo[1]??'').'</small>';
@@ -206,7 +206,7 @@ try{
             $signals[]='<span class="signal-detail">'.$label.'</span>';
         }
         if((int)$r['agreement_period']===1 && (int)$r['payment_period']===1){
-            array_unshift($signals,'<span class="signal-badge signal-paid-agreement"><i class="fa-solid fa-badge-check"></i>Acordo pago</span>');
+            array_unshift($signals,'<span class="signal-badge signal-paid-agreement"><i class="fa-solid fa-check-double"></i>Acordo pago</span>');
         }elseif((int)$r['promise_period']===1){
             $signals[]='<span class="signal-badge signal-promise"><i class="fa-regular fa-calendar-check"></i>Promessa</span>';
         }
