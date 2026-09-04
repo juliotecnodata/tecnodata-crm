@@ -35,6 +35,7 @@ try{
    $ids=array_values($ids);
  }else{
    $uf=strtoupper(trim((string)($body['filters']['uf']??'')));
+   $tag=trim((string)($body['filters']['tag']??''));
    $sellerFilter=trim((string)($body['filters']['seller']??''));
    $status=trim((string)($body['filters']['status']??''));
    $finance=trim((string)($body['filters']['finance']??''));
@@ -49,6 +50,7 @@ try{
     WHERE c.active=1";
    $p=[$month];
    if($uf!==''){$sql.=' AND c.uf=?';$p[]=$uf;}
+   if($tag!==''){$sql.=' AND EXISTS(SELECT 1 FROM client_tags ct WHERE ct.client_id=c.id AND ct.tag=?)';$p[]=$tag;}
    if($sellerFilter==='__unassigned__')$sql.=" AND $effective IS NULL";
    elseif($sellerFilter!==''){$sql.=" AND $effective=?";$p[]=$sellerFilter;}
    if(in_array($status,['normal','attention','reactivate'],true)){$sql.=' AND m.commercial_status=?';$p[]=$status;}
