@@ -10,6 +10,11 @@ if(!Auth::can('supervisor','admin')){http_response_code(403);exit('Sem acesso');
 
 $month=(string)($_GET['month']??date('Y-m'));
 if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
+$uf=strtoupper(trim((string)($_GET['uf']??'')));
+$tag=trim((string)($_GET['tag']??''));
+$sellerFilter=trim((string)($_GET['seller']??''));
+$statusFilter=trim((string)($_GET['status']??''));
+$financeFilter=trim((string)($_GET['finance']??''));
 
 $sellers=DB::all("SELECT omie_code,name FROM sellers WHERE active=1 AND is_virtual=0 ORDER BY name");
 $ufs=DB::all("SELECT DISTINCT uf FROM clients WHERE active=1 AND uf IS NOT NULL AND uf<>'' ORDER BY uf");
@@ -40,19 +45,18 @@ include '_layout.php';?>
 </div>
 
 <div class="panel-card mb-3">
- <div class="portfolio-filter-grid">
-  <div><label class="form-label">Estado</label><select class="form-select" id="portfolioUf"><option value="">Todos</option><?php foreach($ufs as $r):?><option value="<?=e($r['uf'])?>"><?=e($r['uf'])?></option><?php endforeach;?></select></div>
-  <div><label class="form-label">Tag do cadastro</label><select class="form-select" id="portfolioTag"><option value="">Todas as tags</option><?php foreach($tags as $t):?><option value="<?=e($t['tag'])?>"><?=e($t['tag'])?> (<?=number_format((int)$t['total'],0,',','.')?>)</option><?php endforeach;?></select></div>
-  <div><label class="form-label">Carteira do mês</label><select class="form-select" id="portfolioSellerFilter"><option value="">Todos</option><option value="__unassigned__">Sem vendedor</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>"><?=e($s['name'])?></option><?php endforeach;?></select></div>
-  <div><label class="form-label">Situação comercial</label><select class="form-select" id="portfolioStatus"><option value="">Todas</option><option value="normal">Normal</option><option value="attention">Atenção</option><option value="reactivate">Reativar</option></select></div>
-  <div><label class="form-label">Financeiro</label><select class="form-select" id="portfolioFinance"><option value="">Todos</option><option value="overdue">Com vencido</option><option value="clear">Sem vencido</option></select></div>
-  <div><label class="form-label">Origem</label><select class="form-select" id="portfolioSource"><option value="">Todas</option><option value="month">Definida no mês</option><option value="omie">Vendedor-base Omie</option></select></div>
-  <div class="portfolio-filter-actions">
-    <button class="btn btn-dark" type="button" id="portfolioApply"><i class="fa-solid fa-filter"></i>Filtrar</button>
-    <button class="btn btn-outline-secondary" type="button" id="portfolioClear"><i class="fa-solid fa-rotate-left"></i>Limpar</button>
-   </div>
- </div>
+ <form class="portfolio-filters-form" method="get" action="<?=APP_URL?>/clientes.php">
+  <div><label class="form-label">Mês</label><input class="form-control" type="month" name="month" value="<?=e($month)?>"></div>
+  <div><label class="form-label">Estado</label><select class="form-select" name="uf"><option value="">Todos</option><?php foreach($ufs as $r):?><option value="<?=e($r['uf'])?>" <?=$uf===$r['uf']?'selected':''?>><?=e($r['uf'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Tag do cadastro</label><select class="form-select" name="tag"><option value="">Todas as tags</option><?php foreach($tags as $t):?><option value="<?=e($t['tag'])?>" <?=$tag===$t['tag']?'selected':''?>><?=e($t['tag'])?> (<?=number_format((int)$t['total'],0,',','.')?>)</option><?php endforeach;?></select></div>
+  <div><label class="form-label">Carteira do mês</label><select class="form-select" name="seller"><option value="">Todos</option><option value="__unassigned__" <?=$sellerFilter==='__unassigned__'?'selected':''?>>Sem vendedor</option><option value="__assigned__" <?=$sellerFilter==='__assigned__'?'selected':''?>>Com vendedor</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=$sellerFilter===$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Situação comercial</label><select class="form-select" name="status"><option value="">Todas</option><option value="normal" <?=$statusFilter==='normal'?'selected':''?>>Normal</option><option value="attention" <?=$statusFilter==='attention'?'selected':''?>>Atenção</option><option value="reactivate" <?=$statusFilter==='reactivate'?'selected':''?>>Reativar</option></select></div>
+  <div><label class="form-label">Financeiro</label><select class="form-select" name="finance"><option value="">Todos</option><option value="overdue" <?=$financeFilter==='overdue'?'selected':''?>>Com vencido</option><option value="open" <?=$financeFilter==='open'?'selected':''?>>Em aberto</option><option value="clear" <?=$financeFilter==='clear'?'selected':''?>>Em dia</option></select></div>
+  <div class="portfolio-filter-actions"><button class="btn btn-dark" type="submit"><i class="fa-solid fa-filter"></i>Filtrar</button><a class="btn btn-outline-secondary" href="<?=APP_URL?>/clientes.php?month=<?=e($month)?>"><i class="fa-solid fa-rotate-left"></i>Limpar</a></div>
+ </form>
 </div>
+
+<div class="management-note mb-3"><i class="fa-solid fa-circle-info"></i><div><strong>Distribuição em massa</strong><span>Os filtros acima são aplicados pela página. Depois escolha o vendedor e use <b>Todos filtrados</b> para distribuir exatamente este conjunto de clientes.</span></div></div>
 
 <div class="portfolio-assignment-bar mb-3">
  <div class="portfolio-assignment-copy"><strong>Distribuir carteira</strong><span id="portfolioSelectionInfo">Selecione clientes ou aplique a distribuição ao filtro atual.</span></div>
@@ -66,13 +70,18 @@ include '_layout.php';?>
  <button class="btn btn-dark" type="button" id="portfolioAssignFiltered"><i class="fa-solid fa-users-gear"></i>Todos filtrados</button>
 </div>
 
-<div class="filter-result-strip mb-2"><span id="portfolioFilterStatus"><i class="fa-solid fa-circle-info"></i>Selecione os filtros e clique em <strong>Filtrar</strong>.</span></div>
+<input type="hidden" id="portfolioMonth" value="<?=e($month)?>">
+<input type="hidden" id="portfolioUf" value="<?=e($uf)?>">
+<input type="hidden" id="portfolioTag" value="<?=e($tag)?>">
+<input type="hidden" id="portfolioSellerFilter" value="<?=e($sellerFilter)?>">
+<input type="hidden" id="portfolioStatus" value="<?=e($statusFilter)?>">
+<input type="hidden" id="portfolioFinance" value="<?=e($financeFilter)?>">
 <div class="panel-card"><div class="table-responsive data-table-wrap">
 <table class="table modern-table data-table portfolio-table mb-0" id="clientsManagementTable"
- data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php" data-entity="clientes" data-page-length="25" data-order-column="1">
+ data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php?<?=e(http_build_query(['month'=>$month,'uf'=>$uf,'tag'=>$tag,'seller'=>$sellerFilter,'status'=>$statusFilter,'finance'=>$financeFilter]))?>" data-entity="clientes" data-page-length="25" data-order-column="1">
 <thead><tr>
  <th class="no-sort"><input class="form-check-input" type="checkbox" id="portfolioSelectPage"></th>
- <th>Cliente</th><th>UF / Cidade</th><th>Tags</th><th>Carteira do mês</th><th>Origem</th><th>Vendedor Omie</th>
+ <th>Cliente</th><th>Localidade</th><th>Tags</th><th>Carteira do mês</th>
  <th>Última compra</th><th>Dias</th><th class="text-end">Receita 12m</th><th>Financeiro</th><th>Situação</th><th class="no-sort"></th>
 </tr></thead><tbody></tbody></table>
 </div></div>
