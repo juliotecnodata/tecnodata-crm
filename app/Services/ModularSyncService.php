@@ -65,8 +65,9 @@ final class ModularSyncService {
         if ($reset) {
             DB::exec("DELETE FROM sync_states WHERE module_key=?",[$module]);
             if($module==='financial'){
-                DB::exec("DELETE FROM financial_movements");
-                DB::exec("UPDATE client_metrics SET open_amount=0,overdue_amount=0,max_overdue_days=0,updated_at=NOW()");
+                // Reconstrução segura: não apaga a carteira viva antes da consulta.
+                // Cada título visto recebe o run atual e os registros obsoletos só são removidos ao concluir 100%.
+                DB::exec("UPDATE sync_states SET status='idle',current_page=0,total_pages=0,processed=0,last_error=NULL,updated_at=NOW() WHERE module_key='financial'");
             }
             // Pedidos e serviços usam upsert. Reiniciar o módulo nunca apaga o histórico local.
         }
