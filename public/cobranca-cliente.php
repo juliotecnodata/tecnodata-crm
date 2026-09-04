@@ -12,13 +12,32 @@ $debtSellerLabel=$debtSellerCode?($debtSeller['name']??$debtSellerCode):'Não in
 $msg='';$err='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
  if(!Security::verifyCsrf($_POST['_token']??null))$err='Sessão expirada.';else try{
+  if(($_POST['form_action']??'')==='transfer'){
+    $target=(int)($_POST['assigned_user_id']??0);
+    $transfer=CollectionService::transferClientResponsibility($id,$target,(int)$u['id']);
+    $msg='Cobrança transferida para '.$transfer['target_name'].'. '.$transfer['changed'].' atendimento(s) e todos os retornos pendentes foram reatribuídos. A meta passa a considerar o novo responsável.';
+  }else{
   $result=(string)($_POST['result']??'falou');$map=['promessa'=>'promise','acordo'=>'agreement','pagamento'=>'payment'];$action=$map[$result]??'contact';
   $amount=(float)str_replace(',','.',(string)($_POST['amount']??0));
   $state=CollectionService::registerAction($id,(int)$u['id'],$action,(string)($_POST['channel']??'ligacao'),$result,$amount,($_POST['promised_for']??'')?:null,($_POST['next_at']??'')?:null,trim((string)($_POST['notes']??'')));
   $msg=$action==='payment'?'Recebimento registrado e saldo atualizado.':'Cobrança registrada.';
+  }
  }catch(Throwable $e){$err=$e->getMessage();}
 }
-$actions=DB::all("SELECT ca.*,u.name user_name FROM collection_actions ca JOIN users u ON u.id=ca.user_id WHERE ca.client_id=? AND ca.deleted_at IS NULL ORDER BY ca.created_at DESC LIMIT 50",[$id]);
+$actions=DB::all("SELECT ca.*,author.name user_name,COALESCE(assigned.name,author.name) assigned_name
+                  FROM collection_actions ca
+                  JOIN users author ON author.id=ca.user_id
+                  LEFT JOIN users assigned ON assigned.id=ca.assigned_user_id
+                  WHERE ca.client_id=? AND ca.deleted_at IS NULL
+                  ORDER BY ca.created_at DESC LIMIT 50",[$id]);
+$collectors=Auth::can('supervisor','admin')
+ ? DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name")
+ : [];
+$currentResponsible=DB::fetch("SELECT COALESCE(ca.assigned_user_id,ca.user_id) user_id,u.name
+                               FROM collection_actions ca
+                               JOIN users u ON u.id=COALESCE(ca.assigned_user_id,ca.user_id)
+                               WHERE ca.client_id=? AND ca.deleted_at IS NULL
+                               ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1",[$id]);
 $dbName=(string)DB::conn()->query('SELECT DATABASE()')->fetchColumn();
 $hasFinSeller=(bool)DB::fetch("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='financial_movements' AND COLUMN_NAME='seller_omie_code' LIMIT 1",[$dbName]);
 $debts=$hasFinSeller
@@ -30,6 +49,26 @@ include '_layout.php';?>
 <div class="page-heading collection-client-heading"><div><a class="back-link" href="cobranca.php"><i class="fa-solid fa-arrow-left"></i> Carteira de cobrança</a><div class="eyebrow mt-3"><?=e($c['omie_code'])?> • <?=e($c['uf'])?></div><h1><?=e($c['name'])?></h1><p>Vendedor da dívida: <?=e($debtSellerLabel)?><?=$c['phone']?' • '.e($c['phone']):''?></p></div><div class="d-flex gap-2"><?php if($c['phone']):?><a class="btn btn-outline-secondary" href="tel:<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-solid fa-phone"></i>Ligar</a><a class="btn btn-outline-secondary" target="_blank" href="https://wa.me/55<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-brands fa-whatsapp"></i>WhatsApp</a><?php endif;?></div></div>
 <div class="row g-3 mb-3"><div class="col-md-4"><div class="stat-card compact-stat"><span>Última compra</span><strong><?=brdate($c['last_purchase_at'])?></strong><small><?=$c['days_without_purchase']??'—'?> dias sem comprar</small></div></div><div class="col-md-4"><div class="stat-card compact-stat"><span>Valor devido</span><strong><?=money($state['effective_debt'])?></strong><small>saldo de cobrança atual</small></div></div><div class="col-md-4"><div class="stat-card compact-stat"><span>Vendedor da dívida</span><strong><?=e($debtSellerLabel)?></strong><small>vendedor associado ao título financeiro</small></div></div></div>
 <div class="collection-hero <?=$settled?'is-settled':''?> mb-4"><div><span class="eyebrow">SALDO ATUAL</span><strong><?=money($state['effective_debt'])?></strong><small><?=$settled?'Cliente sem saldo pendente no controle local.':'Saldo Omie '.money($state['omie_debt']).($state['pending_received']>0?' • recebimentos locais '.money($state['pending_received']):'')?></small></div><span class="status-pill <?=$settled?'status-paid':'status-overdue'?>"><i class="fa-solid <?=$settled?'fa-circle-check':'fa-triangle-exclamation'?>"></i><?=$settled?'Quitado':'Em cobrança'?></span></div>
+<?php if(Auth::can('supervisor','admin')&&$collectors):?>
+<div class="panel-card mb-4">
+ <div class="panel-header"><div><span>RESPONSABILIDADE</span><h2>Transferir cobrança completa</h2></div>
+ <span class="status-pill badge-muted"><?=e($currentResponsible['name']??'Sem responsável')?></span></div>
+ <div class="panel-body">
+  <p class="text-secondary mb-3">Transfere todos os atendimentos deste cliente, pagamentos já registrados, acordos e retornos pendentes. A autoria continua preservada, mas o realizado e a meta passam a pertencer ao novo responsável.</p>
+  <form method="post" class="d-flex gap-2 flex-wrap align-items-end">
+   <input type="hidden" name="_token" value="<?=Security::csrf()?>">
+   <input type="hidden" name="form_action" value="transfer">
+   <div class="flex-grow-1"><label class="form-label">Novo responsável da cobrança</label>
+    <select class="form-select" name="assigned_user_id" required>
+     <option value="">Selecione...</option>
+     <?php foreach($collectors as $person):?><option value="<?=$person['id']?>" <?=(int)($currentResponsible['user_id']??0)===(int)$person['id']?'selected':''?>><?=e($person['name'])?></option><?php endforeach;?>
+    </select>
+   </div>
+   <button class="btn btn-dark" type="submit" data-confirm="Transferir toda a cobrança deste cliente para o novo responsável? A autoria histórica será mantida e a meta passará ao novo responsável."><i class="fa-solid fa-arrow-right-arrow-left"></i>Transferir tudo</button>
+  </form>
+ </div>
+</div>
+<?php endif;?>
 <div class="row g-4"><div class="col-xl-5">
 <div class="panel-card mb-4"><div class="panel-header"><div><span>NOVA AÇÃO</span><h2>Registrar cobrança</h2></div></div><div class="panel-body">
 <?php if($settled):?><div class="settled-box"><i class="fa-solid fa-circle-check"></i><div><strong>Este cliente não deve mais no controle local</strong><small>A ficha continua disponível para consulta. A sincronização financeira fará a reconciliação com o Omie.</small></div></div><?php endif;?>
@@ -42,6 +81,6 @@ include '_layout.php';?>
 <div class="form-hint mb-3"><i class="fa-solid fa-circle-info"></i> Pagamentos registrados reduzem o saldo local imediatamente e entram no realizado da meta de cobrança.</div><button class="btn btn-dark w-100" <?=$settled?'disabled':''?>><i class="fa-solid fa-floppy-disk"></i>Salvar cobrança</button></form></div></div>
 <div class="panel-card"><div class="panel-header"><div><span>TÍTULOS</span><h2>Composição da dívida Omie</h2></div><strong><?=count($debts)?></strong></div><div class="panel-body p-0"><div class="debt-list"><?php foreach($debts as $d):?><div><span><strong><?=brdate($d['due_date'])?></strong><small><?=e($d['status'])?><?php if(!empty($d['debt_seller_name'])):?> • <?=e($d['debt_seller_name'])?><?php endif;?></small></span><strong><?=money($d['amount'])?></strong></div><?php endforeach;?><?php if(!$debts):?><div class="empty-inline m-3">Nenhum título vencido atual.</div><?php endif;?></div></div></div>
 </div><div class="col-xl-7"><div class="panel-card"><div class="panel-header"><div><span>HISTÓRICO</span><h2>Linha do tempo da cobrança</h2></div><strong><?=count($actions)?> ações</strong></div><div class="activity-list">
-<?php $labels=['falou'=>'Falou','nao_atendeu'=>'Não atendeu','sem_previsao'=>'Sem previsão','promessa'=>'Promessa','acordo'=>'Acordo','pagamento'=>'Pagamento'];$icons=['ligacao'=>'fa-phone','whatsapp'=>'fa-brands fa-whatsapp','email'=>'fa-envelope','outro'=>'fa-comment'];foreach($actions as $a):?><div class="activity-row collection-activity"><div class="activity-icon type-<?=e($a['action_type'])?>"><i class="fa-solid <?=e($icons[$a['channel']]??'fa-comment')?>"></i></div><div><strong><?=e($labels[$a['result']]??$a['result'])?><?php if($a['result']==='acordo'):?> <span class="signal-badge signal-agreement ms-1"><i class="fa-solid fa-handshake"></i>Acordo</span><?php endif;?></strong><p><?=e($a['user_name'])?> • <?=e(ucfirst($a['channel']))?><?php if((float)$a['amount']>0):?> • <b><?=money($a['amount'])?></b><?php endif;?></p><?php if($a['notes']):?><p class="activity-note"><?=nl2br(e($a['notes']))?></p><?php endif;?><?php if($a['promised_for']):?><span class="promise-chip"><i class="fa-regular fa-calendar"></i> Prometido para <?=brdate($a['promised_for'])?></span><?php endif;?></div><div class="activity-tail"><time><?=date('d/m/Y H:i',strtotime($a['created_at']))?></time><?php if((int)$a['user_id']===(int)$u['id']||Auth::can('supervisor','admin')):?><a class="activity-edit-link" href="<?=APP_URL?>/atendimento-editar.php?kind=collection&id=<?=$a['id']?>" title="Editar cobrança"><i class="fa-solid fa-pen"></i></a><?php endif;?></div></div><?php endforeach;?><?php if(!$actions):?><div class="empty-state"><i class="fa-solid fa-headset"></i><h2>Nenhuma cobrança registrada</h2><p>O primeiro contato aparecerá aqui.</p></div><?php endif;?></div></div></div></div>
+<?php $labels=['falou'=>'Falou','nao_atendeu'=>'Não atendeu','sem_previsao'=>'Sem previsão','promessa'=>'Promessa','acordo'=>'Acordo','pagamento'=>'Pagamento'];$icons=['ligacao'=>'fa-phone','whatsapp'=>'fa-brands fa-whatsapp','email'=>'fa-envelope','outro'=>'fa-comment'];foreach($actions as $a):?><div class="activity-row collection-activity"><div class="activity-icon type-<?=e($a['action_type'])?>"><i class="fa-solid <?=e($icons[$a['channel']]??'fa-comment')?>"></i></div><div><strong><?=e($labels[$a['result']]??$a['result'])?><?php if($a['result']==='acordo'):?> <span class="signal-badge signal-agreement ms-1"><i class="fa-solid fa-handshake"></i>Acordo</span><?php endif;?></strong><p>Feito por <?=e($a['user_name'])?> • Responsável <?=e($a['assigned_name'])?> • <?=e(ucfirst($a['channel']))?><?php if((float)$a['amount']>0):?> • <b><?=money($a['amount'])?></b><?php endif;?></p><?php if($a['notes']):?><p class="activity-note"><?=nl2br(e($a['notes']))?></p><?php endif;?><?php if($a['promised_for']):?><span class="promise-chip"><i class="fa-regular fa-calendar"></i> Prometido para <?=brdate($a['promised_for'])?></span><?php endif;?></div><div class="activity-tail"><time><?=date('d/m/Y H:i',strtotime($a['created_at']))?></time><?php if((int)$a['user_id']===(int)$u['id']||Auth::can('supervisor','admin')):?><a class="activity-edit-link" href="<?=APP_URL?>/atendimento-editar.php?kind=collection&id=<?=$a['id']?>" title="Editar cobrança"><i class="fa-solid fa-pen"></i></a><?php endif;?></div></div><?php endforeach;?><?php if(!$actions):?><div class="empty-state"><i class="fa-solid fa-headset"></i><h2>Nenhuma cobrança registrada</h2><p>O primeiro contato aparecerá aqui.</p></div><?php endif;?></div></div></div></div>
 <script>document.addEventListener('DOMContentLoaded',()=>{const r=document.getElementById('collectionResult'),a=document.getElementById('collectionAmount');if(r&&a){const f=()=>{const pay=r.value==='pagamento';a.closest('.col-6').classList.toggle('field-emphasis',pay);if(!pay)a.value='0';};r.addEventListener('change',f);f();}});</script>
 <?php include '_footer.php';?>
