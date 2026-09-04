@@ -74,3 +74,12 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 .collection-actions-table td:nth-child(2){min-width:240px}.collection-actions-table td:nth-child(7){min-width:260px;white-space:normal}
 @media(max-width:900px){.collection-actions-filters{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.collection-actions-filters{grid-template-columns:1fr}}
+
+/* V6.7 — ações e detalhe de atendimento */
+.row-actions{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.detail-grid>div,.detail-list>div{display:flex;flex-direction:column;gap:4px;padding:12px 0;border-bottom:1px solid var(--line)}
+.detail-grid span,.detail-list span,.detail-note>span{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.detail-grid strong,.detail-list strong{font-size:13px}.detail-note p{margin:8px 0 0;white-space:normal}
+.danger-zone{border-color:#fecdca}.danger-zone .panel-header{background:#fffafa}
+@media(max-width:650px){.detail-grid{grid-template-columns:1fr}.row-actions{flex-direction:column;align-items:stretch}.row-actions .btn{width:100%}}

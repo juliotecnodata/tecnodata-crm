@@ -59,7 +59,9 @@ try{
   $client='<strong>'.e($r['client_name']).'</strong><small class="table-sub">'.e($r['omie_code']).($r['seller_name']?' • '.e($r['seller_name']):'').'</small>';
   $notes=trim((string)$r['notes']);if(mb_strlen($notes)>120)$notes=mb_substr($notes,0,117).'…';
   $can=(int)$r['user_id']===(int)$u['id']||Auth::can('supervisor','admin');
-  $action=$can?'<a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/atendimento-editar.php?kind=collection&id='.(int)$r['id'].'"><i class="fa-solid fa-pen"></i>Editar</a>':'';
+  $action='<div class="row-actions"><a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/cobranca-atendimento.php?id='.(int)$r['id'].'"><i class="fa-regular fa-eye"></i>Ver</a>';
+  if($can)$action.='<a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/atendimento-editar.php?kind=collection&id='.(int)$r['id'].'"><i class="fa-solid fa-pen"></i>Editar</a>';
+  $action.='</div>';
   $data[]=[
    date('d/m/Y H:i',strtotime((string)$r['created_at'])),$client,$resultHtml,e($r['user_name']),
    $r['promised_for']?date('d/m/Y',strtotime((string)$r['promised_for'])):'—',
