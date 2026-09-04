@@ -48,7 +48,9 @@ try{
         SELECT fm.client_omie_code,
                SUM(fm.amount) omie_debt,
                COUNT(DISTINCT NULLIF($finSellerExpr,'')) debt_seller_count,
-               MAX(NULLIF($finSellerExpr,'')) debt_seller_code
+               MAX(NULLIF($finSellerExpr,'')) debt_seller_code,
+               COUNT(DISTINCT fm.account_omie_code) debt_account_count,
+               GROUP_CONCAT(DISTINCT COALESCE(NULLIF(fa.name,''),fm.account_omie_code) ORDER BY COALESCE(NULLIF(fa.name,''),fm.account_omie_code) SEPARATOR ' • ') debt_account_names
         FROM financial_movements fm
         INNER JOIN financial_accounts fa
           ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
@@ -109,9 +111,9 @@ try{
     $filteredWhere=$where;
     $filteredParams=$params;
     if($search!==''){
-        $filteredWhere[]='(c.name LIKE ? OR c.omie_code LIKE ? OR c.document LIKE ? OR s.name LIKE ? OR lu.name LIKE ?)';
+        $filteredWhere[]='(c.name LIKE ? OR c.omie_code LIKE ? OR c.document LIKE ? OR s.name LIKE ? OR lu.name LIKE ? OR d.debt_account_names LIKE ?)';
         $like='%'.$search.'%';
-        array_push($filteredParams,$like,$like,$like,$like,$like);
+        array_push($filteredParams,$like,$like,$like,$like,$like,$like);
     }
     $finalWhere=' WHERE '.implode(' AND ',$filteredWhere);
     $filtered=(int)(DB::fetch("SELECT COUNT(*) n $from $finalWhere",$filteredParams)['n']??0);
@@ -119,6 +121,7 @@ try{
     $select="SELECT c.id,c.omie_code,c.name,c.uf,c.document,
         m.last_purchase_at,m.days_without_purchase,
         d.debt_seller_count,d.debt_seller_code,s.name debt_seller_name,
+        d.debt_account_count,d.debt_account_names,
         COALESCE(d.omie_debt,0) omie_debt,COALESCE(adj.pending_received,0) pending_received,
         $effective effective_debt,
         la.id last_action_id,la.created_at last_contact,la.result last_result,lu.name last_user_name,
@@ -128,10 +131,10 @@ try{
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='promessa' AND ca.created_at>=$qStart AND ca.created_at<$qNext) promise_period";
 
     $orderMap=[
-        0=>'c.name',1=>'s.name',2=>'c.uf',3=>'m.last_purchase_at',4=>'m.days_without_purchase',
-        5=>'effective_debt',6=>'effective_debt',7=>'la.created_at',8=>'la.created_at'
+        0=>'c.name',1=>'s.name',2=>'d.debt_account_names',3=>'c.uf',4=>'m.last_purchase_at',5=>'m.days_without_purchase',
+        6=>'effective_debt',7=>'effective_debt',8=>'la.created_at',9=>'la.created_at'
     ];
-    $orderIdx=(int)($_GET['order'][0]['column']??8);
+    $orderIdx=(int)($_GET['order'][0]['column']??9);
     $orderDir=strtolower((string)($_GET['order'][0]['dir']??'desc'))==='asc'?'ASC':'DESC';
     $orderBy=$orderMap[$orderIdx]??'la.created_at';
 
@@ -174,6 +177,9 @@ try{
                 : ((int)($r['debt_seller_count']??0)===1
                     ? e($r['debt_seller_name']?:$r['debt_seller_code'])
                     : '<span class="text-secondary">Não informado na dívida</span>')),
+            (!empty($r['debt_account_names'])
+                ? '<span class="debt-account-name">'.e($r['debt_account_names']).'</span>'
+                : '<span class="text-secondary">—</span>'),
             '<span class="badge-muted">'.e($r['uf']?:'—').'</span>',
             $r['last_purchase_at']?date('d/m/Y',strtotime((string)$r['last_purchase_at'])):'—',
             $r['days_without_purchase']!==null?(string)(int)$r['days_without_purchase']:'—',
