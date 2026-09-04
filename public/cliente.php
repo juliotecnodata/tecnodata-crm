@@ -1,7 +1,7 @@
 <?php
 require dirname(__DIR__) . '/app/bootstrap.php';
 require APP_ROOT . '/app/Support/helpers.php';
-use Tecnodata\CRM\Core\Auth; use Tecnodata\CRM\Core\DB; use Tecnodata\CRM\Core\Security; use Tecnodata\CRM\Services\GoalService; use Tecnodata\CRM\Services\InteractionService;
+use Tecnodata\CRM\Core\Auth; use Tecnodata\CRM\Core\DB; use Tecnodata\CRM\Core\Security; use Tecnodata\CRM\Services\GoalService; use Tecnodata\CRM\Services\InteractionService; use Tecnodata\CRM\Services\PurchaseCycleService;
 Auth::requireLogin(); $u=Auth::user(); $id=(int)($_GET['id']??0);
 $c=DB::fetch("SELECT c.*,m.*,s.name seller_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN sellers s ON s.omie_code=m.seller_omie_code WHERE c.id=?",[$id]);
 if(!$c){http_response_code(404);exit('Cliente não encontrado');}
@@ -29,17 +29,18 @@ $collectionActions=$hasCollection?DB::all("SELECT ca.*,u.name user_name FROM col
 if(!$hasCollection)$debts=[];
 $debtAmount=array_sum(array_map(fn($debt)=>(float)$debt['amount'],$debts));
 $c['overdue_amount']=$debtAmount;$c['open_amount']=$debtAmount;
+$cycle=PurchaseCycleService::analyze($c['last_purchase_at']??null,$c['avg_interval_days']??null,isset($c['days_without_purchase'])?(int)$c['days_without_purchase']:null);
 include '_layout.php';?>
 <?php if($msg):?><div class="alert alert-success"><?=$msg?></div><?php endif;?>
 <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
 <div><div class="kicker"><?=e($c['omie_code'])?> • <?=e($c['uf'])?></div><h1 class="h3 mb-1"><?=e($c['name'])?></h1><div class="text-secondary"><?=e($c['seller_name']??'Sem vendedor')?><?=($c['phone']?' • '.$c['phone']:'')?></div></div>
 <div class="quick-actions d-flex gap-2 align-items-start"><?php if($c['phone']):?><a class="btn btn-outline-secondary" href="tel:<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-solid fa-phone me-2"></i>Ligar</a><a class="btn btn-outline-secondary" target="_blank" href="https://wa.me/55<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-brands fa-whatsapp me-2"></i>WhatsApp</a><?php endif;?></div>
 </div>
-<div class="row g-3 mb-4">
-<div class="col-6 col-xl-3"><div class="card metric"><div class="label">Última compra</div><div class="value fs-5"><?=brdate($c['last_purchase_at'])?></div><div class="sub"><?=$c['days_without_purchase']??'—'?> dias</div></div></div>
-<div class="col-6 col-xl-3"><div class="card metric"><div class="label">Faturamento 12m</div><div class="value fs-5"><?=money($c['revenue_12m'])?></div><div class="sub"><?=$c['orders_12m']?> compras</div></div></div>
-<div class="col-6 col-xl-3"><div class="card metric"><div class="label">Ticket médio</div><div class="value fs-5"><?=money($c['avg_ticket_12m'])?></div><div class="sub">últimos 12 meses</div></div></div>
-<div class="col-6 col-xl-3"><div class="card metric"><div class="label">Financeiro</div><div class="value fs-5"><?=$c['overdue_amount']>0?money($c['overdue_amount']).' vencido':'Em dia'?></div><div class="sub"><?=money($c['open_amount'])?> em aberto</div></div></div>
+<div class="client-intelligence-grid mb-4">
+<div class="client-intelligence-card"><span>Momento de compra</span><strong><span class="cycle-chip cycle-<?=e($cycle['tone'])?>"><?=e($cycle['label'])?></span></strong><small><?=e($cycle['hint'])?></small></div>
+<div class="client-intelligence-card"><span>Próxima compra estimada</span><strong><?=$cycle['expected_date']?brdate($cycle['expected_date']):'—'?></strong><small><?=$cycle['interval']?'ciclo médio de '.$cycle['interval'].' dias':'histórico insuficiente para estimativa'?></small></div>
+<div class="client-intelligence-card"><span>Histórico 12 meses</span><strong><?=money($c['revenue_12m'])?></strong><small><?=$c['orders_12m']?> compra(s) • ticket <?=money($c['avg_ticket_12m'])?></small></div>
+<div class="client-intelligence-card"><span>Financeiro</span><strong><?=$c['overdue_amount']>0?money($c['overdue_amount']).' vencido':'Em dia'?></strong><small><?=money($c['open_amount'])?> em aberto</small></div>
 </div>
 <div class="row g-4">
 <div class="col-lg-5">
@@ -67,6 +68,6 @@ include '_layout.php';?>
 <?php if(!$acts):?><div class="text-secondary">Nenhum atendimento registrado.</div><?php endif;?>
 <?php foreach($acts as $a):?><div class="timeline-item"><div class="d-flex justify-content-between gap-2"><div class="fw-semibold"><?=date('d/m/Y H:i',strtotime($a['created_at']))?> • <?=e($a['user_name'])?></div><?php if((int)$a['user_id']===(int)$u['id']||Auth::can('supervisor','admin')):?><a class="activity-edit-link" href="<?=APP_URL?>/atendimento-editar.php?kind=sales&id=<?=$a['id']?>" title="Editar atendimento"><i class="fa-solid fa-pen"></i></a><?php endif;?></div><div class="small text-secondary text-capitalize"><?=e(str_replace('_',' ',$a['type']))?> • <?=e(str_replace('_',' ',$a['result']))?><?php if($a['result']==='acordo'):?> <span class="signal-badge signal-agreement ms-1"><i class="fa-solid fa-handshake"></i>Acordo</span><?php endif;?></div><?php if($a['notes']):?><div class="mt-1"><?=nl2br(e($a['notes']))?></div><?php endif;?></div><?php endforeach;?>
 </div></div></div>
-<div class="card"><div class="card-body"><h2 class="h5">Últimas compras</h2><?php foreach($orders as $o):?><div class="d-flex justify-content-between border-top py-2"><span><?=brdate($o['order_date'])?></span><strong><?=money($o['total'])?></strong></div><?php endforeach;?></div></div>
+<div class="card"><div class="card-body"><div class="d-flex justify-content-between align-items-center gap-3 mb-2"><div><div class="eyebrow">HISTÓRICO DE COMPRA</div><h2 class="h5 mb-0">Últimas compras</h2></div><span class="cycle-chip cycle-<?=e($cycle['tone'])?>"><?=e($cycle['label'])?></span></div><p class="text-secondary small mb-3"><?=$cycle['interval']?'Intervalo médio entre compras: '.$cycle['interval'].' dias. Próxima compra estimada: '.brdate($cycle['expected_date']).'.':'Ainda não há histórico suficiente para calcular um padrão confiável de recompra.'?></p><?php foreach($orders as $o):?><div class="d-flex justify-content-between border-top py-2"><span><?=brdate($o['order_date'])?></span><strong><?=money($o['total'])?></strong></div><?php endforeach;?></div></div>
 </div></div>
 <?php include '_footer.php';?>
