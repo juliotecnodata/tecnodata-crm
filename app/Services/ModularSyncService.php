@@ -91,7 +91,7 @@ final class ModularSyncService {
                 'version'=>3,
                 'accounts'=>array_map(fn($account)=>['code'=>(string)$account['omie_code'],'name'=>(string)$account['name']],$financialAccounts),
                 'account_index'=>0,
-                'statuses'=>['ATRASADO','PAGTOPARCIAL'],
+                'statuses'=>['ATRASADO','PAGTO_PARCIAL'],
                 'status_index'=>0,
                 'page'=>0,
             ];
@@ -375,8 +375,11 @@ final class ModularSyncService {
     private function stepFinancial(array $state,int $runId): array {
         $context=json_decode((string)($state['context_json']??''),true);
         if(!is_array($context)||(int)($context['version']??0)!==3) throw new RuntimeException('Contexto financeiro antigo. Use Limpar e reconstruir no módulo Financeiro.');
-        $statuses=$context['statuses']??['ATRASADO','PAGTOPARCIAL'];
-        $statuses=array_values(array_unique(array_map(fn($v)=>mb_strtoupper((string)$v),$statuses)));
+        $statuses=$context['statuses']??['ATRASADO','PAGTO_PARCIAL'];
+        $statuses=array_values(array_unique(array_map(
+            fn($v)=>mb_strtoupper((string)$v)==='PAGTOPARCIAL'?'PAGTO_PARCIAL':mb_strtoupper((string)$v),
+            $statuses
+        )));
         $context['statuses']=$statuses;
         $accounts=$context['accounts']??[];
         $accountIndex=max(0,(int)($context['account_index']??0));
