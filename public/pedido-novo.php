@@ -146,14 +146,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 
  function addProduct(p){
    const existing=items.find(i=>Number(i.product_id)===Number(p.id));
-   if(existing){existing.quantity+=1;}else items.push({product_id:Number(p.id),description:p.description,code:p.internal_code||p.omie_code,unit:p.unit||'UN',quantity:1,unit_price:Number(p.unit_price||0),discount:0});
+   if(existing){existing.quantity+=1;}else items.push({product_id:Number(p.id),description:p.description,code:p.internal_code||p.omie_code,unit:p.unit||'UN',stock_qty:p.stock_qty===null?null:Number(p.stock_qty),quantity:1,unit_price:Number(p.unit_price||0),discount:0});
    productSearch.value='';productResults.innerHTML='';renderItems();
  }
  async function searchProducts(){
    const q=productSearch.value.trim();if(q.length<2){productResults.innerHTML='';return;}
    const r=await fetch(cfg.baseUrl+'/api/order-products.php?q='+encodeURIComponent(q),{credentials:'same-origin'});
    const data=await r.json();
-   productResults.innerHTML=(data.items||[]).map(p=>`<button type="button" class="order-result-item" data-product='${encodeURIComponent(JSON.stringify(p))}'><span class="order-product-icon"><i class="fa-solid fa-box"></i></span><span><strong>${esc(p.description)}</strong><small>${esc(p.internal_code||p.omie_code)} • ${esc(p.unit||'UN')} • ${money(p.unit_price)}</small></span><i class="fa-solid fa-plus"></i></button>`).join('')||'<div class="order-no-result">Nenhum produto encontrado. Atualize o módulo Produtos.</div>';
+   productResults.innerHTML=(data.items||[]).map(p=>`<button type="button" class="order-result-item" data-product='${encodeURIComponent(JSON.stringify(p))}'><span class="order-product-icon"><i class="fa-solid fa-box"></i></span><span><strong>${esc(p.description)}</strong><small>${esc(p.internal_code||p.omie_code)} • ${esc(p.unit||'UN')} • ${money(p.unit_price)}${p.stock_qty!==null&&p.stock_qty!==undefined?' • estoque '+Number(p.stock_qty).toLocaleString('pt-BR'):''}</small></span><i class="fa-solid fa-plus"></i></button>`).join('')||'<div class="order-no-result">Nenhum produto encontrado. Atualize o módulo Produtos.</div>';
    productResults.querySelectorAll('[data-product]').forEach(b=>b.addEventListener('click',()=>addProduct(JSON.parse(decodeURIComponent(b.dataset.product)))));
  }
  productSearch?.addEventListener('input',()=>{clearTimeout(productTimer);productTimer=setTimeout(searchProducts,250);});
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded',()=>{
      itemsEl.innerHTML='';itemsEl.appendChild(emptyEl);emptyEl.classList.remove('d-none');
    }else{
      itemsEl.innerHTML=items.map((i,idx)=>`<div class="order-item-row" data-index="${idx}">
-       <div class="order-item-main"><strong>${esc(i.description)}</strong><small>${esc(i.code)} • ${esc(i.unit)}</small></div>
+       <div class="order-item-main"><strong>${esc(i.description)}</strong><small>${esc(i.code)} • ${esc(i.unit)}${i.stock_qty!==null?' • estoque '+Number(i.stock_qty).toLocaleString('pt-BR'):''}</small></div>
        <div><label>Qtd.</label><input class="form-control order-qty" type="number" min="0.01" step="0.01" value="${i.quantity}"></div>
        <div><label>Unitário</label><input class="form-control order-price" type="number" min="0" step="0.01" value="${Number(i.unit_price).toFixed(2)}"></div>
        <div><label>Desconto</label><input class="form-control order-discount" type="number" min="0" step="0.01" value="${Number(i.discount).toFixed(2)}"></div>
