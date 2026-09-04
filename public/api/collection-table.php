@@ -33,6 +33,8 @@ if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
 $monthStart=$month.'-01';
 $monthNext=date('Y-m-d',strtotime($monthStart.' +1 month'));
 $seller=trim((string)($_GET['seller']??''));
+$account=trim((string)($_GET['account']??''));
+$financial=trim((string)($_GET['financial']??'all'));
 $uf=strtoupper(trim((string)($_GET['uf']??'')));
 $userId=(int)$u['id'];
 
@@ -50,7 +52,11 @@ try{
                COUNT(DISTINCT NULLIF($finSellerExpr,'')) debt_seller_count,
                MAX(NULLIF($finSellerExpr,'')) debt_seller_code,
                COUNT(DISTINCT fm.account_omie_code) debt_account_count,
-               GROUP_CONCAT(DISTINCT COALESCE(NULLIF(fa.name,''),fm.account_omie_code) ORDER BY COALESCE(NULLIF(fa.name,''),fm.account_omie_code) SEPARATOR ' • ') debt_account_names
+               GROUP_CONCAT(DISTINCT COALESCE(NULLIF(fa.name,''),fm.account_omie_code) ORDER BY COALESCE(NULLIF(fa.name,''),fm.account_omie_code) SEPARATOR ' • ') debt_account_names,
+               SUM(fm.status='PAGTO_PARCIAL') partial_count,
+               SUM(fm.status='ATRASADO') overdue_count,
+               COALESCE(SUM(CASE WHEN fm.status='PAGTO_PARCIAL' THEN fm.paid_amount ELSE 0 END),0) partial_paid_amount,
+               MAX(CASE WHEN fm.due_date IS NOT NULL THEN GREATEST(0,DATEDIFF(CURDATE(),fm.due_date)) ELSE 0 END) max_overdue_days
         FROM financial_movements fm
         INNER JOIN financial_accounts fa
           ON fa.omie_code=fm.account_omie_code AND fa.selected=1 AND fa.active=1
@@ -103,6 +109,18 @@ try{
             $params[]=$seller;
         }
     }
+    if($account!==''){
+        $where[]="EXISTS(
+            SELECT 1 FROM financial_movements fac
+            INNER JOIN financial_accounts faa ON faa.omie_code=fac.account_omie_code AND faa.selected=1 AND faa.active=1
+            WHERE fac.client_omie_code=c.omie_code
+              AND fac.status IN('ATRASADO','PAGTO_PARCIAL')
+              AND fac.account_omie_code=?
+        )";
+        $params[]=$account;
+    }
+    if($financial==='partial')$where[]="COALESCE(d.partial_count,0)>0";
+    elseif($financial==='overdue')$where[]="COALESCE(d.overdue_count,0)>0";
     if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
 
     $customWhere=' WHERE '.implode(' AND ',$where);
@@ -121,7 +139,7 @@ try{
     $select="SELECT c.id,c.omie_code,c.name,c.uf,c.document,
         m.last_purchase_at,m.days_without_purchase,
         d.debt_seller_count,d.debt_seller_code,s.name debt_seller_name,
-        d.debt_account_count,d.debt_account_names,
+        d.debt_account_count,d.debt_account_names,d.partial_count,d.overdue_count,d.partial_paid_amount,d.max_overdue_days,
         COALESCE(d.omie_debt,0) omie_debt,COALESCE(adj.pending_received,0) pending_received,
         $effective effective_debt,
         la.id last_action_id,la.created_at last_contact,la.result last_result,lu.name last_user_name,
@@ -131,7 +149,7 @@ try{
         EXISTS(SELECT 1 FROM collection_actions ca WHERE ca.client_id=c.id AND ca.deleted_at IS NULL AND ca.result='promessa' AND ca.created_at>=$qStart AND ca.created_at<$qNext) promise_period";
 
     $orderMap=[
-        0=>'c.name',1=>'s.name',2=>'d.debt_account_names',3=>'c.uf',4=>'m.last_purchase_at',5=>'m.days_without_purchase',
+        0=>'c.name',1=>'s.name',2=>'d.debt_account_names',3=>'c.uf',4=>'m.last_purchase_at',5=>'d.max_overdue_days',
         6=>'effective_debt',7=>'effective_debt',8=>'la.created_at',9=>'la.created_at'
     ];
     $orderIdx=(int)($_GET['order'][0]['column']??9);
@@ -147,11 +165,16 @@ try{
     $data=[];
     foreach($rows as $r){
         $settled=(float)$r['effective_debt']<=0.009;
-        $financial=$settled
-            ? '<span class="status-pill status-paid"><i class="fa-solid fa-circle-check"></i>Quitado</span>'
-            : ((float)$r['pending_received']>0
-                ? '<span class="status-pill status-partial"><i class="fa-solid fa-clock-rotate-left"></i>Parcial</span>'
-                : '<span class="status-pill status-overdue"><i class="fa-solid fa-triangle-exclamation"></i>Vencido</span>');
+        if($settled){
+            $financialHtml='<span class="status-pill status-paid"><i class="fa-solid fa-circle-check"></i>Quitado</span>';
+        }else{
+            $badges=[];
+            if((int)($r['overdue_count']??0)>0)$badges[]='<span class="status-pill status-overdue"><i class="fa-solid fa-triangle-exclamation"></i>Vencido</span>';
+            if((int)($r['partial_count']??0)>0)$badges[]='<span class="status-pill status-partial"><i class="fa-solid fa-circle-half-stroke"></i>Pagamento parcial</span>';
+            if((float)$r['pending_received']>0)$badges[]='<span class="status-pill status-partial"><i class="fa-solid fa-clock-rotate-left"></i>Recebido local</span>';
+            $financialHtml='<div class="signal-stack">'.implode('',$badges).'</div>';
+            if((float)($r['partial_paid_amount']??0)>0)$financialHtml.='<small class="table-sub">'.money((float)$r['partial_paid_amount']).' já recebido na Omie</small>';
+        }
 
         $signals=[];
         if((int)$r['mine_period']===1)$signals[]='<span class="signal-badge signal-mine"><i class="fa-solid fa-user-check"></i>Meu atendimento</span>';
@@ -182,8 +205,8 @@ try{
                 : '<span class="text-secondary">—</span>'),
             '<span class="badge-muted">'.e($r['uf']?:'—').'</span>',
             $r['last_purchase_at']?date('d/m/Y',strtotime((string)$r['last_purchase_at'])):'—',
-            $r['days_without_purchase']!==null?(string)(int)$r['days_without_purchase']:'—',
-            $financial,
+            (int)($r['max_overdue_days']??0)>0?((int)$r['max_overdue_days'].' dias'):'—',
+            $financialHtml,
             '<div class="text-end">'.$amount.'</div>',
             '<div class="signal-stack">'.implode('',$signals).'</div>',
             $last,
