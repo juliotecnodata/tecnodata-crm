@@ -153,3 +153,22 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 .filter-result-strip{min-height:24px;display:flex;align-items:center;color:var(--muted);font-size:10px;padding:0 4px}
 .filter-result-strip i{margin-right:5px;color:var(--lime-dark)}
 @media(max-width:700px){.portfolio-filter-actions,.collection-filter-actions{width:100%}.portfolio-filter-actions .btn,.collection-filter-actions .btn{flex:1}}
+
+/* V6.12 — gestão de clientes reconstruída */
+.portfolio-filters-form{display:grid;grid-template-columns:150px 110px minmax(220px,1.25fr) minmax(220px,1.25fr) minmax(170px,1fr) minmax(160px,1fr) auto;gap:12px;align-items:end;padding:16px 18px}
+.portfolio-filters-form>div{min-width:0}
+.portfolio-filters-form .form-label{margin-bottom:6px}
+.portfolio-filter-actions{display:flex;gap:8px;align-items:end}
+.portfolio-assignment-bar{border-left:4px solid #BDD630}
+.portfolio-table td{vertical-align:middle}
+.portfolio-table td:nth-child(2){min-width:260px;white-space:normal}
+.portfolio-table td:nth-child(3){min-width:145px}
+.portfolio-table td:nth-child(4){min-width:190px;white-space:normal}
+.portfolio-table td:nth-child(5){min-width:190px;white-space:normal}
+.portfolio-table td:nth-child(8){min-width:170px}
+.portfolio-table td:nth-child(9){min-width:155px;white-space:normal}
+.tag-stack{display:flex;gap:5px;flex-wrap:wrap}
+.client-tag{display:inline-flex;align-items:center;padding:4px 7px;border-radius:8px;background:#F5F8DF;color:#566300;font-size:9px;font-weight:750}
+.table-sub{display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:500;line-height:1.35}
+@media(max-width:1300px){.portfolio-filters-form{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-filter-actions{grid-column:1/-1}}
+@media(max-width:700px){.portfolio-filters-form{grid-template-columns:1fr}.portfolio-filter-actions{grid-column:auto}.portfolio-filter-actions .btn{flex:1}.portfolio-assignment-bar{border-left-width:1px}}
