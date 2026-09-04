@@ -291,3 +291,21 @@ CREATE TABLE IF NOT EXISTS interaction_audit (
  INDEX idx_interaction_audit_entity(entity_type,entity_id),
  INDEX idx_interaction_audit_user_date(user_id,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS client_portfolio_assignments (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ month_ref CHAR(7) NOT NULL,
+ client_id BIGINT UNSIGNED NOT NULL,
+ seller_omie_code VARCHAR(80) NULL,
+ created_by INT UNSIGNED NULL,
+ updated_by INT UNSIGNED NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NOT NULL,
+ UNIQUE KEY uq_client_portfolio_month(month_ref,client_id),
+ INDEX idx_portfolio_month_seller(month_ref,seller_omie_code),
+ INDEX idx_portfolio_client_month(client_id,month_ref),
+ CONSTRAINT fk_portfolio_client FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,
+ CONSTRAINT fk_portfolio_created_by FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,
+ CONSTRAINT fk_portfolio_updated_by FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
