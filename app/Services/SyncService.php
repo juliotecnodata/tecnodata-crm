@@ -218,12 +218,12 @@ final class SyncService {
     }
 
     private function extractFinancialSellerCode(array $payload): ?string {
-        foreach(['nCodVendedor','codigo_vendedor','codigo_vendedor_omie','nCodigoVendedor','codVendedor','vendedor_omie_code'] as $key){
+        foreach(['cCodVendedor','nCodVendedor','codigo_vendedor','codigo_vendedor_omie','nCodigoVendedor','codVendedor','vendedor_omie_code'] as $key){
             if(isset($payload[$key]) && trim((string)$payload[$key])!=='') return trim((string)$payload[$key]);
         }
         foreach(['detalhes','cabecalho','dadosTitulo','titulo','origem'] as $group){
             if(!isset($payload[$group]) || !is_array($payload[$group])) continue;
-            foreach(['nCodVendedor','codigo_vendedor','codigo_vendedor_omie','nCodigoVendedor','codVendedor','vendedor_omie_code'] as $key){
+            foreach(['cCodVendedor','nCodVendedor','codigo_vendedor','codigo_vendedor_omie','nCodigoVendedor','codVendedor','vendedor_omie_code'] as $key){
                 if(isset($payload[$group][$key]) && trim((string)$payload[$group][$key])!=='') return trim((string)$payload[$group][$key]);
             }
         }
