@@ -18,6 +18,8 @@ final class ModularSyncService {
         return [
             'sellers' => ['label'=>'Vendedores', 'icon'=>'fa-user-tie'],
             'clients' => ['label'=>'Clientes', 'icon'=>'fa-building'],
+            'products' => ['label'=>'Produtos', 'icon'=>'fa-box'],
+            'categories' => ['label'=>'Categorias', 'icon'=>'fa-tags'],
             'orders' => ['label'=>'Pedidos', 'icon'=>'fa-cart-shopping'],
             'services' => ['label'=>'Ordens de Serviço', 'icon'=>'fa-graduation-cap'],
             'financial' => ['label'=>'Financeiro', 'icon'=>'fa-file-invoice-dollar'],
@@ -133,6 +135,8 @@ final class ModularSyncService {
             $result = match($module) {
                 'sellers' => $this->stepSellers($state),
                 'clients' => $this->stepClients($state),
+                'products' => $this->stepProducts($state),
+                'categories' => $this->stepCategories($state),
                 'orders' => $this->stepOrders($state),
                 'services' => $this->stepServices($state),
                 'financial' => $this->stepFinancial($state,$runId),
@@ -197,6 +201,56 @@ final class ModularSyncService {
             if($client)$this->syncClientTags((int)$client['id'],$r);
         }
         return $this->advancePage('clients',$state,$data,count($items),$page);
+    }
+
+    private function stepProducts(array $state): array {
+        $page=max(1,(int)$state['current_page']+1);
+        $data=$this->omie->call('produtos','ListarProdutos',[
+            'pagina'=>$page,
+            'registros_por_pagina'=>$this->pageSize,
+            'apenas_importado_api'=>'N',
+            'filtrar_apenas_tipo'=>'P',
+            'exibir_caracteristicas'=>'N',
+            'exibir_tabelas_preco'=>'N',
+            'exibir_kit'=>'N',
+            'exibir_info_variacoes'=>'N',
+        ]);
+        $items=$this->pick($data,['produto_servico_cadastro','produto_servico_resumido','produtos','lista_produtos']);
+        foreach($items as $r){
+            $code=(string)($r['codigo_produto']??$r['codigo']??'');
+            if($code==='')continue;
+            $active=mb_strtoupper((string)($r['inativo']??'N'))!=='S'?1:0;
+            DB::exec("INSERT INTO products
+                      (omie_code,integration_code,internal_code,description,unit,ncm,cfop,unit_price,active,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,NOW())
+                      ON DUPLICATE KEY UPDATE integration_code=VALUES(integration_code),internal_code=VALUES(internal_code),
+                      description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),cfop=VALUES(cfop),
+                      unit_price=VALUES(unit_price),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,$r['codigo_produto_integracao']??null,$r['codigo']??null,
+                 (string)($r['descricao']??('Produto '.$code)),$r['unidade']??null,$r['ncm']??null,$r['cfop']??null,
+                 (float)($r['valor_unitario']??0),$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->advancePage('products',$state,$data,count($items),$page);
+    }
+
+    private function stepCategories(array $state): array {
+        $page=max(1,(int)$state['current_page']+1);
+        $data=$this->omie->call('categorias','ListarCategorias',[
+            'pagina'=>$page,
+            'registros_por_pagina'=>$this->pageSize,
+        ]);
+        $items=$this->pick($data,['categoria_cadastro','categorias','lista_categorias','cadastros']);
+        foreach($items as $r){
+            $code=(string)($r['codigo']??$r['cCodigo']??'');
+            if($code==='')continue;
+            $active=mb_strtoupper((string)($r['conta_inativa']??$r['inativo']??'N'))!=='S'?1:0;
+            DB::exec("INSERT INTO sales_categories(code,description,nature,active,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,NOW())
+                      ON DUPLICATE KEY UPDATE description=VALUES(description),nature=VALUES(nature),
+                      active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+                [$code,(string)($r['descricao']??$r['cDescricao']??$code),$r['natureza']??null,$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+        }
+        return $this->advancePage('categories',$state,$data,count($items),$page);
     }
 
     private function stepOrders(array $state): array {
