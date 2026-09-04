@@ -24,7 +24,7 @@ $collectors=Auth::can('supervisor','admin')?DB::all("SELECT id,name FROM users W
 
 include '_layout.php';?>
 <div class="page-heading">
- <div><a class="back-link" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-arrow-left"></i>Carteira de cobrança</a><div class="eyebrow mt-3">COBRANÇA</div><h1><?=$selectedUser===(int)$u['id']?'Meus atendimentos':'Atendimentos da cobrança'?></h1><p>Histórico operacional completo. Use os filtros para reencontrar acordos, promessas, pagamentos e contatos já realizados.</p></div>
+ <div><a class="back-link" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-arrow-left"></i>Voltar para cobrança</a><div class="eyebrow mt-3">ATENDIMENTOS</div><h1><?=$selectedUser===(int)$u['id']?'Meus atendimentos':'Atendimentos da cobrança'?></h1><p>Esta é a sua memória de trabalho. Veja tudo o que já foi feito, filtre por acordo, promessa ou pagamento e abra qualquer registro para revisar, editar ou excluir.</p></div>
  <a class="btn btn-dark" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-headset"></i>Voltar à carteira</a>
 </div>
 

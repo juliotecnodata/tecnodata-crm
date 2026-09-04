@@ -24,7 +24,7 @@ $ufs=DB::all("SELECT DISTINCT uf FROM clients WHERE uf IS NOT NULL AND uf<>'' OR
 
 include '_layout.php';?>
 <div class="page-heading">
- <div><div class="eyebrow">COBRANÇA</div><h1>Carteira de cobrança</h1><p>Consulta rápida da base local. Filtros, busca e paginação são processados no servidor sem consultar o Omie.</p></div>
+ <div><div class="eyebrow">COBRANÇA</div><h1>Cobrança</h1><p>Aqui você encontra os clientes com pendências financeiras e decide quem precisa ser atendido agora. Use os filtros para localizar acordos, promessas, clientes já trabalhados ou ainda sem contato.</p></div>
  <div class="d-flex gap-2 flex-wrap">
    <a class="btn btn-outline-secondary" href="cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i>Agenda</a>
    <button class="btn btn-dark" type="button" id="showMyWork"><i class="fa-solid fa-user-check"></i>Meus atendimentos</button>

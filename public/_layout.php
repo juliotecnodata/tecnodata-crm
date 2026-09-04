@@ -32,11 +32,18 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
  </div>
  <nav class="td-nav">
   <div class="nav-label">TRABALHO</div>
-  <a class="<?=navActive('index.php')?>" href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Visão geral</span></a>
-  <a class="<?=navActive('carteira.php','cliente.php')?>" href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-address-book"></i><span><?=$sellerMode==='collection'?'Carteira de cobrança':'Minha carteira'?></span></a>
-  <?php if($navHasSales):?><a class="<?=navActive('agenda.php')?>" href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a><?php endif;?>
-  <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Meu resultado</span></a>
-  <?php if(Auth::can('collector','supervisor','admin')):?><a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a><a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a><a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a><?php endif;?>
+  <?php if($isCollector):?>
+    <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Meu resultado</span></a>
+    <a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
+    <a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a>
+    <a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a>
+  <?php else:?>
+    <a class="<?=navActive('index.php')?>" href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Visão geral</span></a>
+    <a class="<?=navActive('carteira.php','cliente.php')?>" href="<?=APP_URL?>/carteira.php"><i class="fa-solid fa-address-book"></i><span><?=$sellerMode==='collection'?'Carteira de cobrança':'Minha carteira'?></span></a>
+    <?php if($navHasSales):?><a class="<?=navActive('agenda.php')?>" href="<?=APP_URL?>/agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a><?php endif;?>
+    <a class="<?=navActive('resultado.php')?>" href="<?=APP_URL?>/resultado.php"><i class="fa-solid fa-chart-line"></i><span>Meu resultado</span></a>
+    <?php if(Auth::can('supervisor','admin')):?><a class="<?=navActive('cobranca.php','cobranca-cliente.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a><a class="<?=navActive('cobranca-atendimentos.php','cobranca-atendimento.php','atendimento-editar.php')?>" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-clock-rotate-left"></i><span>Atendimentos</span></a><a class="<?=navActive('cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a><?php endif;?>
+  <?php endif;?>
   <?php if($navHasSales):?>
   <a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a>
   <a class="<?=navActive('servicos.php')?>" href="<?=APP_URL?>/servicos.php"><i class="fa-solid fa-graduation-cap"></i><span>Serviços</span></a>
