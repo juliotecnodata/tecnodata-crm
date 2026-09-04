@@ -28,5 +28,5 @@ window.TDCRM_CONFIG={
  notificationPollSeconds:<?=json_encode((int)($GLOBALS['config']['alerts']['poll_seconds']??60))?>
 };
 </script>
-<script src="<?=APP_URL?>/assets/js/app.js"></script>
+<script src="<?=APP_URL?>/assets/js/app.js?v=<?=rawurlencode((string)@filemtime(APP_ROOT.'/public/assets/js/app.js'))?>"></script>
 </body></html>
