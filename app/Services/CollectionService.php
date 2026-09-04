@@ -44,7 +44,9 @@ final class CollectionService {
     }
 
     private static function canManage(array $row,int $userId): bool {
-        return (int)$row['user_id']===$userId || Auth::can('supervisor','admin');
+        return (int)$row['user_id']===$userId
+            || (int)($row['assigned_user_id']??0)===$userId
+            || Auth::can('supervisor','admin');
     }
 
     private static function setAdjustmentPending(int $clientId,float $pending,float $baseline): void {
@@ -163,6 +165,11 @@ final class CollectionService {
                 [$newType,$channel,$result,$amount,$newPending,$newDebt,$promisedFor,$notes,
                  $targetAssigned,$assignedAt,$assignedBy,$userId,$id]);
             self::setAdjustmentPending((int)$row['client_id'],$newTotalPending,$state['omie_debt']);
+            if($assignmentChanged){
+                DB::exec("UPDATE tasks SET user_id=?
+                          WHERE client_id=? AND user_id=? AND status='pending' AND title LIKE 'Cobrança:%'",
+                    [$targetAssigned,(int)$row['client_id'],$currentAssigned]);
+            }
             $after=DB::fetch("SELECT * FROM collection_actions WHERE id=?",[$id]);
             self::audit($id,'update',$userId,$row,$after);
             $pdo->commit();
