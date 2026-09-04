@@ -17,7 +17,21 @@ $categories=DB::all("SELECT code,description FROM sales_categories WHERE active=
 $accounts=DB::all("SELECT omie_code,name FROM financial_accounts WHERE active=1 ORDER BY name");
 $sellers=Auth::can('supervisor','admin')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[];
 $prefillClient=(int)($_GET['client_id']??0);
-$prefill=$prefillClient?DB::fetch("SELECT id,name,document,uf,city,omie_code FROM clients WHERE id=? AND active=1",[$prefillClient]):null;
+$prefill=null;
+if($prefillClient){
+ if(($u['role']??'')==='seller'){
+  $prefill=DB::fetch("SELECT c.id,c.name,c.document,c.uf,c.city,c.omie_code
+                     FROM clients c
+                     LEFT JOIN client_metrics m ON m.client_id=c.id
+                     LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=?
+                     WHERE c.id=? AND c.active=1
+                       AND (CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE m.seller_omie_code END)=?",
+                    [date('Y-m'),$prefillClient,(string)($u['seller_omie_code']??'')]);
+ }else{
+  $prefill=DB::fetch("SELECT id,name,document,uf,city,omie_code FROM clients WHERE id=? AND active=1",[$prefillClient]);
+ }
+}
+$canEditCommercial=Auth::can('supervisor','admin');
 
 include '_layout.php';?>
 
@@ -130,13 +144,15 @@ document.addEventListener('DOMContentLoaded',()=>{
  const summaryText=document.getElementById('orderSummaryText');
  const submit=document.getElementById('submitOrder');
  const status=document.getElementById('orderSubmitStatus');
+ const canEditCommercial=<?=json_encode($canEditCommercial)?>;
  let items=[];
  let clientTimer,productTimer;
 
  function chooseClient(c){
    clientId.value=c.id;
    selectedClientName.textContent=c.name||'Cliente';
-   selectedClientMeta.textContent=[c.document,c.city&&c.uf?c.city+' / '+c.uf:c.uf].filter(Boolean).join(' • ');
+   const base=[c.document,c.city&&c.uf?c.city+' / '+c.uf:c.uf].filter(Boolean).join(' • ');
+   selectedClientMeta.textContent=base+(Number(c.overdue_amount||0)>0?' • '+money(c.overdue_amount)+' vencido':' • financeiro em dia');
    selectedClient.classList.remove('d-none');
    clientResults.innerHTML='';
    clientSearch.value='';
@@ -173,8 +189,8 @@ document.addEventListener('DOMContentLoaded',()=>{
      itemsEl.innerHTML=items.map((i,idx)=>`<div class="order-item-row" data-index="${idx}">
        <div class="order-item-main"><strong>${esc(i.description)}</strong><small>${esc(i.code)} • ${esc(i.unit)}${i.stock_qty!==null?' • estoque '+Number(i.stock_qty).toLocaleString('pt-BR'):''}</small></div>
        <div><label>Qtd.</label><input class="form-control order-qty" type="number" min="0.01" step="0.01" value="${i.quantity}"></div>
-       <div><label>Unitário</label><input class="form-control order-price" type="number" min="0" step="0.01" value="${Number(i.unit_price).toFixed(2)}"></div>
-       <div><label>Desconto</label><input class="form-control order-discount" type="number" min="0" step="0.01" value="${Number(i.discount).toFixed(2)}"></div>
+       <div><label>Unitário</label><input class="form-control order-price" type="number" min="0" step="0.01" value="${Number(i.unit_price).toFixed(2)}" ${canEditCommercial?'':'readonly'}></div>
+       <div><label>Desconto</label><input class="form-control order-discount" type="number" min="0" step="0.01" value="${Number(i.discount).toFixed(2)}" ${canEditCommercial?'':'readonly'}></div>
        <div class="order-line-total"><span>Total</span><strong>${money(i.quantity*i.unit_price-i.discount)}</strong></div>
        <button type="button" class="icon-button order-remove" title="Remover"><i class="fa-solid fa-trash"></i></button>
      </div>`).join('');
