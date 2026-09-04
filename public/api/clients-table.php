@@ -54,7 +54,7 @@ try{
  $final=' WHERE '.implode(' AND ',$w);
  $filtered=(int)(DB::fetch("SELECT COUNT(*) n $base $final",$p)['n']??0);
 
- $select="SELECT c.id,c.name,c.legal_name,c.omie_code,c.uf,c.city,c.document,
+ $select="SELECT c.id,c.name,c.legal_name,c.omie_code,c.uf,c.city,c.document,c.phone,c.email,
  m.last_purchase_at,m.days_without_purchase,m.orders_12m,m.revenue_12m,m.avg_ticket_12m,m.overdue_amount,m.open_amount,m.max_overdue_days,m.commercial_status,
  pa.id assignment_id,pa.seller_omie_code month_seller_code,sm.name effective_seller_name,so.name omie_seller_name,
  (SELECT GROUP_CONCAT(ct.tag ORDER BY ct.tag SEPARATOR ' • ') FROM client_tags ct WHERE ct.client_id=c.id) tags";
@@ -68,9 +68,10 @@ try{
  $data=[];
  foreach($rows as $r){
    $client='<strong>'.e($r['name']).'</strong><small class="table-sub">'.e($r['document']?:$r['omie_code']).'</small>';
+   if(!empty($r['phone'])||!empty($r['email']))$client.='<small class="table-sub">'.e($r['phone']?:$r['email']).'</small>';
    $place='<strong>'.e($r['uf']?:'—').'</strong><small class="table-sub">'.e($r['city']?:'—').'</small>';
    $sellerName=$r['effective_seller_name']?:'Sem vendedor';
-   $portfolio='<strong>'.e($sellerName).'</strong><small class="table-sub">'.($r['assignment_id']?'Carteira definida no mês':'Vendedor-base Omie').'</small>';
+   $portfolio='<strong>'.e($sellerName).'</strong><small class="table-sub">'.($r['assignment_id']?($r['month_seller_code']===null?'Sem vendedor no mês':'Carteira definida no mês'):($r['effective_seller_name']?'Vendedor-base Omie':'Não distribuído')).'</small>';
    $financeHtml=(float)$r['overdue_amount']>0
      ? '<span class="status-pill status-overdue">'.money($r['overdue_amount']).' vencido</span><small class="table-sub">'.(int)$r['max_overdue_days'].' dia(s) de atraso</small>'
      : ((float)$r['open_amount']>0
