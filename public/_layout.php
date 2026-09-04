@@ -55,7 +55,11 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
    <a class="<?=navActive('vendedores.php','vendedor.php')?>" href="<?=APP_URL?>/vendedores.php"><i class="fa-solid fa-user-tie"></i><span>Vendedores</span></a>
    <a class="<?=navActive('equipe.php')?>" href="<?=APP_URL?>/equipe.php"><i class="fa-solid fa-users"></i><span>Equipe</span></a>
    <a class="<?=navActive('metas.php')?>" href="<?=APP_URL?>/metas.php"><i class="fa-solid fa-bullseye"></i><span>Metas do mês</span></a>
-   <?php if($isAdmin):?><a class="<?=navActive('cobranca.php','cobranca-atendimentos.php','cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a><?php endif;?>
+   <?php if($isAdmin):?>
+    <a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a>
+    <a class="<?=navActive('servicos.php')?>" href="<?=APP_URL?>/servicos.php"><i class="fa-solid fa-graduation-cap"></i><span>Serviços</span></a>
+    <a class="<?=navActive('cobranca.php','cobranca-atendimentos.php','cobranca-agenda.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
+   <?php endif;?>
    <a class="<?=navActive('configuracoes.php')?>" href="<?=APP_URL?>/configuracoes.php"><i class="fa-solid fa-sliders"></i><span>Configurações</span></a>
   <?php endif;?>
 
