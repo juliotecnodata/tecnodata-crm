@@ -36,20 +36,20 @@ include '_layout.php';?>
 </div>
 
 <div class="panel-card mb-3">
- <div class="collection-filter-grid collection-actions-filters">
-  <div><label class="form-label">Período</label><input class="form-control" id="actionMonth" type="month" value="<?=e($month)?>"></div>
-  <div><label class="form-label">Resultado</label><select class="form-select" id="actionResult">
-   <option value="">Todos os resultados</option><option value="acordo">Acordo realizado</option><option value="promessa">Promessa de pagamento</option><option value="pagamento">Pagamento recebido</option><option value="falou">Falou com o cliente</option><option value="nao_atendeu">Não atendeu</option><option value="sem_previsao">Sem previsão</option>
+ <form class="collection-filter-grid collection-actions-filters" method="get" action="<?=APP_URL?>/cobranca-atendimentos.php">
+  <div><label class="form-label">Período</label><input class="form-control" name="month" type="month" value="<?=e($month)?>"></div>
+  <div><label class="form-label">Resultado</label><select class="form-select" name="result">
+   <option value="">Todos os resultados</option><option value="acordo" <?=($_GET['result']??'')==='acordo'?'selected':''?>>Acordo realizado</option><option value="promessa" <?=($_GET['result']??'')==='promessa'?'selected':''?>>Promessa de pagamento</option><option value="pagamento" <?=($_GET['result']??'')==='pagamento'?'selected':''?>>Pagamento recebido</option><option value="falou" <?=($_GET['result']??'')==='falou'?'selected':''?>>Falou com o cliente</option><option value="nao_atendeu" <?=($_GET['result']??'')==='nao_atendeu'?'selected':''?>>Não atendeu</option><option value="sem_previsao" <?=($_GET['result']??'')==='sem_previsao'?'selected':''?>>Sem previsão</option>
   </select></div>
-  <?php if(Auth::can('supervisor','admin')):?><div><label class="form-label">Responsável</label><select class="form-select" id="actionUser"><option value="0">Toda a cobrança</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=$selectedUser===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select></div><?php else:?><input type="hidden" id="actionUser" value="<?=$selectedUser?>"><?php endif;?>
-  <div class="collection-filter-actions"><button class="btn btn-dark" type="button" id="actionApply"><i class="fa-solid fa-filter"></i>Filtrar</button><button class="btn btn-outline-secondary" type="button" id="actionClear"><i class="fa-solid fa-rotate-left"></i>Limpar</button></div>
- </div>
+  <?php if(Auth::can('supervisor','admin')):?><div><label class="form-label">Responsável</label><select class="form-select" name="user_id"><option value="0">Toda a cobrança</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=$selectedUser===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select></div><?php else:?><input type="hidden" name="user_id" value="<?=$selectedUser?>"><?php endif;?>
+  <div class="collection-filter-actions"><button class="btn btn-dark" type="submit"><i class="fa-solid fa-filter"></i>Filtrar</button><a class="btn btn-outline-secondary" href="<?=APP_URL?>/cobranca-atendimentos.php"><i class="fa-solid fa-rotate-left"></i>Limpar</a></div>
+ </form>
 </div>
 
 <div class="panel-card">
  <div class="table-responsive data-table-wrap">
   <table class="table modern-table data-table collection-actions-table mb-0" id="collectionActionsTable"
-   data-server-side="1" data-ajax="<?=APP_URL?>/api/collection-actions-table.php" data-entity="atendimentos" data-page-length="25" data-order-column="0">
+   data-server-side="1" data-ajax="<?=APP_URL?>/api/collection-actions-table.php?<?=e(http_build_query(['month'=>$month,'result'=>(string)($_GET['result']??''),'user_id'=>$selectedUser]))?>" data-entity="atendimentos" data-page-length="25" data-order-column="0">
    <thead><tr><th>Data</th><th>Cliente</th><th>Resultado</th><th>Realizado por</th><th>Responsável atual</th><th>Promessa</th><th class="text-end">Recebido</th><th>Anotação</th><th class="no-sort"></th></tr></thead><tbody></tbody>
   </table>
  </div>
