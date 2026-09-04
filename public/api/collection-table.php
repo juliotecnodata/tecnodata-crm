@@ -175,7 +175,7 @@ try{
             ((int)($r['debt_seller_count']??0)>1
                 ? '<span class="status-pill status-partial">Vários vendedores</span>'
                 : ((int)($r['debt_seller_count']??0)===1
-                    ? e($r['debt_seller_name']?:$r['debt_seller_code'])
+                    ? e(trim(explode(' ',trim((string)($r['debt_seller_name']?:$r['debt_seller_code'])))[0]??''))
                     : '<span class="text-secondary">Não informado na dívida</span>')),
             (!empty($r['debt_account_names'])
                 ? '<span class="debt-account-name">'.e($r['debt_account_names']).'</span>'
