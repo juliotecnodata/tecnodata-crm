@@ -30,15 +30,8 @@ $stats=DB::fetch("SELECT COUNT(*) total,
 
 include '_layout.php';?>
 <div class="page-heading">
- <div><div class="eyebrow">GESTÃO DE CARTEIRAS • <?=date('m/Y',strtotime($month.'-01'))?></div><h1>Clientes</h1>
- <p>Consulte a base, filtre com precisão e distribua a carteira comercial do mês sem alterar o cadastro original da Omie.</p></div>
-</div>
-
-<div class="stat-grid stat-grid-4 mb-4">
- <div class="stat-card compact-stat"><span>Clientes ativos</span><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><small>base disponível</small></div>
- <div class="stat-card compact-stat"><span>Definidos no mês</span><strong><?=number_format((int)($stats['configured_month']??0),0,',','.')?></strong><small>com regra mensal própria</small></div>
- <div class="stat-card compact-stat"><span>Sem vendedor</span><strong><?=number_format((int)($stats['unassigned']??0),0,',','.')?></strong><small>prioridade para distribuir em massa</small></div>
- <div class="stat-card compact-stat"><span>Estados</span><strong><?=number_format((int)($stats['states']??0),0,',','.')?></strong><small>para gestão regional</small></div>
+ <div><div class="eyebrow">CLIENTES • <?=date('m/Y',strtotime($month.'-01'))?></div><h1>Clientes</h1><p>Consulte a base e distribua a carteira mensal sem alterar o cadastro da Omie.</p></div>
+ <div class="compact-page-stats"><span><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><small>ativos</small></span><span class="<?=($stats['unassigned']??0)>0?'is-alert':''?>"><strong><?=number_format((int)($stats['unassigned']??0),0,',','.')?></strong><small>sem vendedor</small></span></div>
 </div>
 
 <div class="panel-card mb-3">
@@ -53,10 +46,8 @@ include '_layout.php';?>
  </form>
 </div>
 
-<div class="management-note mb-3"><i class="fa-solid fa-circle-info"></i><div><strong>Distribuição em massa</strong><span>Os filtros acima são aplicados pela página. Depois escolha o vendedor e use <b>Todos filtrados</b> para distribuir exatamente este conjunto de clientes.</span></div></div>
-
 <div class="portfolio-assignment-bar mb-3">
- <div class="portfolio-assignment-copy"><strong>Distribuir carteira</strong><span id="portfolioSelectionInfo">Selecione clientes ou aplique a distribuição ao filtro atual.</span></div>
+ <div class="portfolio-assignment-copy"><strong>Distribuir</strong><span id="portfolioSelectionInfo">Selecione clientes ou use todos os filtrados.</span></div>
  <select class="form-select" id="portfolioAssignSeller">
   <option value="">Escolha o vendedor...</option>
   <?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>"><?=e($s['name'])?></option><?php endforeach;?>
@@ -64,7 +55,7 @@ include '_layout.php';?>
   <option value="__omie__">Voltar a usar vendedor-base Omie</option>
  </select>
  <button class="btn btn-outline-secondary" type="button" id="portfolioAssignSelected"><i class="fa-solid fa-user-check"></i>Selecionados</button>
- <button class="btn btn-dark" type="button" id="portfolioAssignFiltered"><i class="fa-solid fa-users-gear"></i>Todos filtrados</button>
+ <button class="btn btn-dark" type="button" id="portfolioAssignFiltered"><i class="fa-solid fa-users-gear"></i>Aplicar aos filtrados</button>
 </div>
 
 <input type="hidden" id="portfolioMonth" value="<?=e($month)?>">
@@ -78,7 +69,7 @@ include '_layout.php';?>
  data-server-side="1" data-ajax="<?=APP_URL?>/api/clients-table.php?<?=e(http_build_query(['month'=>$month,'uf'=>$uf,'tag'=>$tag,'seller'=>$sellerFilter,'status'=>$statusFilter,'finance'=>$financeFilter]))?>" data-entity="clientes" data-page-length="25" data-order-column="1" data-order-dir="asc">
 <thead><tr>
  <th class="no-sort"><input class="form-check-input" type="checkbox" id="portfolioSelectPage"></th>
- <th>Cliente</th><th>Localidade</th><th>Tags</th><th>Carteira do mês</th>
+ <th>Cliente</th><th>Local</th><th>Tags</th><th>Responsável</th>
  <th>Última compra</th><th>Dias</th><th class="text-end">Receita 12m</th><th>Financeiro</th><th>Situação</th><th class="no-sort"></th>
 </tr></thead><tbody></tbody></table>
 </div></div>
