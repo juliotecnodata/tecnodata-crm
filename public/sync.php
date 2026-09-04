@@ -37,7 +37,7 @@ include '_layout.php';
    <div class="d-flex gap-3">
     <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:42px;height:42px;background:#eef1f3"><i class="fa-solid <?=e($m['icon'])?>"></i></div>
     <div><h2 class="h6 mb-1"><?=e($m['label'])?></h2><div class="small text-secondary" id="state-<?=$key?>"><?=e($s['status'])?></div>
-    <?php if($key==='financial'):?><div class="small text-secondary mt-1">Conta selecionada • somente atrasados e parciais • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?></div>
+    <?php if($key==='financial'):?><div class="small text-secondary mt-1">Conta selecionada • somente atrasados e parciais • últimos 3 anos</div><?php endif;?><?php if($key==='orders'):?><div class="small text-secondary mt-1">Ontem + hoje • atualiza/inclui pedidos • sincroniza também as mudanças de etapa</div><?php endif;?><?php if($key==='services'):?><div class="small text-secondary mt-1">Somente ontem + hoje • atualiza existentes e inclui novos</div><?php endif;?></div>
    </div>
    <div class="small text-secondary" id="count-<?=$key?>"><?=number_format((int)$s['processed'],0,',','.')?></div>
   </div>
@@ -146,7 +146,14 @@ async function startSync(module, reset){
 
       document.getElementById('modalPage').textContent= total ? `Página ${page}/${total}` : `Página ${page}`;
       document.getElementById('modalBar').style.width=pct+'%';
-      const phase=data.phase ? (data.phase==='ATRASADO'?'Atrasados':'Pagamentos parciais')+' • ' : '';
+      let phase='';
+      if(data.phase){
+        if(data.phase==='ATRASADO') phase='Atrasados • ';
+        else if(data.phase==='PAGTO_PARCIAL') phase='Pagamentos parciais • ';
+        else if(data.phase==='pedidos') phase='Pedidos • ';
+        else if(data.phase==='etapas') phase='Mudanças de etapa • ';
+        else phase=data.phase+' • ';
+      }
       const account=data.account ? data.account+' • ' : '';
       document.getElementById('modalInfo').textContent=`${account}${phase}${Number(data.processed||0).toLocaleString('pt-BR')} registros processados`;
 
