@@ -61,8 +61,8 @@ try{
    if($source==='month')$sql.=' AND pa.id IS NOT NULL';
    elseif($source==='omie')$sql.=' AND pa.id IS NULL';
    if($search!==''){
-     $sql.=' AND (c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.omie_code LIKE ? OR sm.name LIKE ? OR so.name LIKE ?)';
-     $like='%'.$search.'%';array_push($p,$like,$like,$like,$like,$like,$like,$like);
+     $sql.=' AND (c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.omie_code LIKE ? OR sm.name LIKE ? OR so.name LIKE ? OR EXISTS(SELECT 1 FROM client_tags cts WHERE cts.client_id=c.id AND cts.tag LIKE ?))';
+     $like='%'.$search.'%';array_push($p,$like,$like,$like,$like,$like,$like,$like,$like);
    }
    $ids=array_map(fn($r)=>(int)$r['id'],DB::all($sql,$p));
  }
