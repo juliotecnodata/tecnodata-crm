@@ -22,16 +22,23 @@ $allowed=['falou','nao_atendeu','promessa','acordo','pagamento','sem_previsao'];
 if(!in_array($result,$allowed,true))$result='';
 
 $userId=(int)($_GET['user_id']??0);
-if(($u['role']??'')==='collector')$userId=(int)$u['id'];
+$collectorOnly=($u['role']??'')==='collector';
 
 $where=['ca.deleted_at IS NULL','ca.created_at>=?','ca.created_at<?'];
 $params=[$from,$to];
-if($userId>0){$where[]='ca.user_id=?';$params[]=$userId;}
+if($collectorOnly){
+ $where[]='(ca.user_id=? OR ca.assigned_user_id=?)';
+ $params[]=(int)$u['id'];$params[]=(int)$u['id'];
+}elseif($userId>0){
+ $where[]='COALESCE(ca.assigned_user_id,ca.user_id)=?';
+ $params[]=$userId;
+}
 if($result!==''){$where[]='ca.result=?';$params[]=$result;}
 
 $base=" FROM collection_actions ca
  JOIN clients c ON c.id=ca.client_id
- JOIN users u ON u.id=ca.user_id
+ JOIN users author ON author.id=ca.user_id
+ LEFT JOIN users assigned ON assigned.id=ca.assigned_user_id
  LEFT JOIN client_metrics m ON m.client_id=c.id
  LEFT JOIN sellers s ON s.omie_code=m.seller_omie_code";
 $custom=' WHERE '.implode(' AND ',$where);
@@ -40,15 +47,17 @@ try{
  $total=(int)(DB::fetch("SELECT COUNT(*) n $base $custom",$params)['n']??0);
  $w=$where;$p=$params;
  if($search!==''){
-  $w[]='(c.name LIKE ? OR c.omie_code LIKE ? OR u.name LIKE ? OR ca.notes LIKE ? OR s.name LIKE ?)';
-  $like='%'.$search.'%';array_push($p,$like,$like,$like,$like,$like);
+  $w[]='(c.name LIKE ? OR c.omie_code LIKE ? OR author.name LIKE ? OR assigned.name LIKE ? OR ca.notes LIKE ? OR s.name LIKE ?)';
+  $like='%'.$search.'%';array_push($p,$like,$like,$like,$like,$like,$like);
  }
  $final=' WHERE '.implode(' AND ',$w);
  $filtered=(int)(DB::fetch("SELECT COUNT(*) n $base $final",$p)['n']??0);
- $orderMap=[0=>'ca.created_at',1=>'c.name',2=>'ca.result',3=>'u.name',4=>'ca.promised_for',5=>'ca.amount',6=>'ca.created_at'];
+ $orderMap=[0=>'ca.created_at',1=>'c.name',2=>'ca.result',3=>'author.name',4=>'assigned.name',5=>'ca.promised_for',6=>'ca.amount',7=>'ca.created_at'];
  $idx=(int)($_GET['order'][0]['column']??0);$dir=strtolower((string)($_GET['order'][0]['dir']??'desc'))==='asc'?'ASC':'DESC';
  $order=$orderMap[$idx]??'ca.created_at';
- $rows=DB::all("SELECT ca.*,c.name client_name,c.omie_code,s.name seller_name,u.name user_name $base $final ORDER BY $order $dir,ca.id DESC LIMIT $length OFFSET $start",$p);
+ $rows=DB::all("SELECT ca.*,c.name client_name,c.omie_code,s.name seller_name,
+                       author.name author_name,COALESCE(assigned.name,author.name) assigned_name
+                $base $final ORDER BY $order $dir,ca.id DESC LIMIT $length OFFSET $start",$p);
 
  $labels=['falou'=>'Falou com o cliente','nao_atendeu'=>'Não atendeu','sem_previsao'=>'Sem previsão','promessa'=>'Promessa de pagamento','acordo'=>'Acordo realizado','pagamento'=>'Pagamento recebido'];
  $badges=['acordo'=>'signal-agreement','promessa'=>'signal-promise','pagamento'=>'status-paid'];
@@ -63,7 +72,9 @@ try{
   if($can)$action.='<a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/atendimento-editar.php?kind=collection&id='.(int)$r['id'].'"><i class="fa-solid fa-pen"></i>Editar</a>';
   $action.='</div>';
   $data[]=[
-   date('d/m/Y H:i',strtotime((string)$r['created_at'])),$client,$resultHtml,e($r['user_name']),
+   date('d/m/Y H:i',strtotime((string)$r['created_at'])),$client,$resultHtml,
+   '<strong>'.e($r['author_name']).'</strong><small class="table-sub">'.date('d/m/Y H:i',strtotime((string)$r['created_at'])).'</small>',
+   '<strong>'.e($r['assigned_name']).'</strong>'.(!empty($r['assigned_at'])?'<small class="table-sub">desde '.date('d/m/Y H:i',strtotime((string)$r['assigned_at'])).'</small>':''),
    $r['promised_for']?date('d/m/Y',strtotime((string)$r['promised_for'])):'—',
    '<div class="text-end">'.((float)$r['amount']>0?'<strong>'.money($r['amount']).'</strong>':'—').'</div>',
    $notes!==''?e($notes):'<span class="text-secondary">—</span>',$action
