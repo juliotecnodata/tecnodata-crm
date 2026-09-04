@@ -231,6 +231,46 @@ final class CollectionService {
         }
     }
 
+    public static function transferClientResponsibility(int $clientId,int $targetUserId,int $actorUserId): array {
+        if(!Auth::can('supervisor','admin'))throw new \RuntimeException('Somente Supervisor ou Admin pode transferir uma cobrança.');
+
+        $client=DB::fetch("SELECT id,name FROM clients WHERE id=?",[$clientId]);
+        if(!$client)throw new \RuntimeException('Cliente não encontrado.');
+
+        $target=DB::fetch("SELECT id,name FROM users WHERE id=? AND active=1 AND role='collector'",[$targetUserId]);
+        if(!$target)throw new \RuntimeException('Escolha um usuário ativo do perfil Cobrança.');
+
+        $rows=DB::all("SELECT * FROM collection_actions WHERE client_id=? AND deleted_at IS NULL ORDER BY id",[$clientId]);
+        $pdo=DB::conn();$pdo->beginTransaction();
+        try{
+            $changed=0;
+            foreach($rows as $row){
+                $current=(int)($row['assigned_user_id']??$row['user_id']);
+                if($current===$targetUserId)continue;
+
+                DB::exec("UPDATE collection_actions
+                          SET assigned_user_id=?,assigned_at=NOW(),assigned_by=?,updated_at=NOW(),updated_by=?
+                          WHERE id=?",
+                    [$targetUserId,$actorUserId,$actorUserId,(int)$row['id']]);
+
+                $after=DB::fetch("SELECT * FROM collection_actions WHERE id=?",[(int)$row['id']]);
+                self::audit((int)$row['id'],'reassign',$actorUserId,$row,$after);
+                $changed++;
+            }
+
+            // Todos os retornos pendentes desse cliente passam a acompanhar o novo responsável.
+            DB::exec("UPDATE tasks SET user_id=?
+                      WHERE client_id=? AND status='pending' AND title LIKE 'Cobrança:%'",
+                [$targetUserId,$clientId]);
+
+            $pdo->commit();
+            return ['changed'=>$changed,'target_name'=>(string)$target['name']];
+        }catch(\Throwable $e){
+            if($pdo->inTransaction())$pdo->rollBack();
+            throw $e;
+        }
+    }
+
     public static function monthForUser(int $userId,string $month): array {
         $goal=DB::fetch("SELECT * FROM collection_user_goals WHERE user_id=? AND month_ref=?",[$userId,$month]);
         $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
@@ -238,7 +278,9 @@ final class CollectionService {
             COUNT(DISTINCT client_id) worked, COUNT(*) actions,
             COUNT(DISTINCT CASE WHEN result='acordo' THEN client_id END) agreements,
             COUNT(DISTINCT CASE WHEN result='promessa' THEN client_id END) promises
-            FROM collection_actions WHERE user_id=? AND deleted_at IS NULL AND created_at>=? AND created_at<?",
+            FROM collection_actions
+            WHERE COALESCE(assigned_user_id,user_id)=?
+              AND deleted_at IS NULL AND created_at>=? AND created_at<?",
             [$userId,$start,$next])??[];
         $amountGoal=(float)($goal['amount_goal']??0);$contactGoal=(int)($goal['contact_goal']??0);
         $recovered=(float)($stats['recovered']??0);$worked=(int)($stats['worked']??0);
