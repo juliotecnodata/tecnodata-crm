@@ -221,14 +221,15 @@ final class ModularSyncService {
             if($code==='')continue;
             $active=mb_strtoupper((string)($r['inativo']??'N'))!=='S'?1:0;
             DB::exec("INSERT INTO products
-                      (omie_code,integration_code,internal_code,description,unit,ncm,cfop,unit_price,active,raw_json,updated_at)
-                      VALUES(?,?,?,?,?,?,?,?,?,?,NOW())
+                      (omie_code,integration_code,internal_code,description,unit,ncm,cfop,unit_price,stock_qty,active,raw_json,updated_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())
                       ON DUPLICATE KEY UPDATE integration_code=VALUES(integration_code),internal_code=VALUES(internal_code),
                       description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),cfop=VALUES(cfop),
-                      unit_price=VALUES(unit_price),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+                      unit_price=VALUES(unit_price),stock_qty=VALUES(stock_qty),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
                 [$code,$r['codigo_produto_integracao']??null,$r['codigo']??null,
                  (string)($r['descricao']??('Produto '.$code)),$r['unidade']??null,$r['ncm']??null,$r['cfop']??null,
-                 (float)($r['valor_unitario']??0),$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+                 (float)($r['valor_unitario']??0),isset($r['quantidade_estoque'])?(float)$r['quantidade_estoque']:null,
+                 $active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
         }
         return $this->advancePage('products',$state,$data,count($items),$page);
     }
