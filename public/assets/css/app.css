@@ -281,3 +281,106 @@ body{background:#F6F8F9;color:#14232B}
 .ownership-box small{font-size:9px;color:var(--muted);line-height:1.4}
 .collection-actions-table td:nth-child(4),.collection-actions-table td:nth-child(5){min-width:170px;white-space:normal}
 @media(max-width:700px){.ownership-box{grid-template-columns:1fr}}
+
+
+/* V6.19 — workspace comercial orientado por ciclo de compra */
+.seller-cockpit-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:6px 0}
+.seller-cockpit-head h1{font-size:34px;font-weight:800;margin:4px 0 5px}
+.seller-cockpit-head p{margin:0;color:var(--muted);max-width:680px}
+.seller-cockpit-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.seller-command-grid{display:grid;grid-template-columns:minmax(360px,1.7fr) repeat(3,minmax(180px,1fr));gap:14px}
+.seller-goal-card,.seller-signal-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px}
+.seller-goal-card{border-top:3px solid var(--brand-blue)}
+.seller-goal-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+.seller-goal-top>div{display:flex;flex-direction:column}
+.seller-goal-top span,.seller-signal-card>span{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase}
+.seller-goal-top strong{font-size:30px;margin-top:5px}
+.goal-percent{font-size:20px!important;color:var(--brand-blue)!important}
+.seller-goal-track{height:8px;background:#EEF2F4;border-radius:10px;overflow:hidden;margin:20px 0 13px}
+.seller-goal-track>span{display:block;height:100%;background:var(--brand-blue);border-radius:10px}
+.seller-goal-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.seller-goal-meta span{font-size:10px;color:var(--muted)}
+.seller-goal-meta strong{display:block;font-size:12px;color:var(--ink);margin-top:3px}
+
+.seller-signal-card{display:flex;flex-direction:column;min-height:166px;border-top:3px solid var(--brand-lime)}
+.seller-signal-card.is-critical{border-top-color:var(--brand-orange)}
+.seller-signal-card>strong{font-size:30px;margin:8px 0 4px}
+.seller-signal-card>small{font-size:10px;color:var(--muted);line-height:1.45}
+.seller-signal-card>a{margin-top:auto;padding-top:14px;font-size:10px;font-weight:800;color:var(--brand-blue);display:flex;align-items:center;justify-content:space-between}
+
+.priority-worklist{display:flex;flex-direction:column}
+.priority-work-row{display:grid;grid-template-columns:auto minmax(220px,1fr) auto minmax(160px,auto) auto;align-items:center;gap:14px;padding:15px 18px;border-top:1px solid var(--line)}
+.priority-work-row:first-child{border-top:0}
+.priority-work-row:hover{background:#F8FBFC}
+.priority-rank{width:34px;height:34px;border-radius:10px;background:#F0F4F6;display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--ink)}
+.priority-copy,.priority-cycle{display:flex;flex-direction:column;min-width:0}
+.priority-copy strong{font-size:12px}
+.priority-copy small,.priority-cycle small{font-size:9px;color:var(--muted);margin-top:3px}
+.priority-cycle{align-items:flex-end;text-align:right}
+.priority-cycle strong{font-size:11px}
+
+.cycle-chip{display:inline-flex;align-items:center;width:max-content;padding:5px 8px;border-radius:8px;font-size:9px;font-weight:800;white-space:nowrap}
+.cycle-success{background:#EAF7F1;color:#007B49}
+.cycle-info{background:#EAF5FB;color:#006CA9}
+.cycle-warning{background:#FFF8D6;color:#8B6700}
+.cycle-danger{background:#FDF0EC;color:#C83F1D}
+.cycle-muted{background:#F2F4F7;color:#667085}
+
+.cockpit-list{display:flex;flex-direction:column}
+.cockpit-list>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.cockpit-list>div:first-child{border-top:0}
+.cockpit-list span{font-size:10px;color:var(--muted)}
+.cockpit-list strong{font-size:13px}
+
+.cycle-legend{display:flex;flex-direction:column}
+.cycle-legend>div{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.cycle-legend>div:first-child{border-top:0}
+.cycle-legend p{display:flex;flex-direction:column;margin:0}
+.cycle-legend strong{font-size:10px}
+.cycle-legend small{font-size:9px;color:var(--muted);margin-top:2px}
+.cycle-dot{width:9px;height:9px;border-radius:50%;margin-top:3px;background:#98A2B3}
+.cycle-dot.is-success{background:var(--brand-green)}
+.cycle-dot.is-info{background:var(--brand-blue)}
+.cycle-dot.is-warning{background:var(--brand-yellow)}
+.cycle-dot.is-danger{background:var(--brand-orange)}
+
+.portfolio-work-filter{display:grid;grid-template-columns:minmax(210px,1.2fr) repeat(3,minmax(160px,1fr)) auto;gap:12px;align-items:end;padding:16px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.portfolio-work-filter>div{min-width:0}
+.portfolio-work-actions{display:flex;gap:8px}
+.portfolio-work-table td:first-child{min-width:260px}
+.portfolio-work-table td:nth-child(3){min-width:150px;white-space:normal}
+.portfolio-work-table td:nth-child(4){min-width:155px}
+.portfolio-work-table td:nth-child(5){min-width:180px}
+
+.client-intelligence-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.client-intelligence-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;min-height:118px}
+.client-intelligence-card>span{font-size:10px;font-weight:750;color:var(--muted)}
+.client-intelligence-card>strong{font-size:18px;margin-top:auto}
+.client-intelligence-card>small{font-size:9px;color:var(--muted);margin-top:5px;line-height:1.4}
+
+@media(max-width:1350px){
+ .seller-command-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .seller-goal-card{grid-column:1/-1}
+ .portfolio-work-filter{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .portfolio-work-actions{grid-column:1/-1}
+}
+@media(max-width:900px){
+ .seller-cockpit-head{align-items:flex-start;flex-direction:column}
+ .seller-command-grid{grid-template-columns:1fr}
+ .seller-goal-card{grid-column:auto}
+ .seller-goal-meta{grid-template-columns:1fr}
+ .priority-work-row{grid-template-columns:auto 1fr auto}
+ .priority-work-row .cycle-chip{grid-column:2}
+ .priority-cycle{grid-column:2;align-items:flex-start;text-align:left}
+ .client-intelligence-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ .seller-cockpit-head h1{font-size:28px}
+ .seller-cockpit-actions{width:100%}
+ .seller-cockpit-actions .btn{flex:1}
+ .portfolio-work-filter{grid-template-columns:1fr}
+ .portfolio-work-actions{grid-column:auto}
+ .portfolio-work-actions .btn{flex:1}
+ .client-intelligence-grid{grid-template-columns:1fr}
+}
