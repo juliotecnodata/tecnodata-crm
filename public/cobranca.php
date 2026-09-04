@@ -16,6 +16,11 @@ $viewRaw=(string)($_GET['view']??'open');
 $signalRaw=(string)($_GET['signal']??'all');
 $view=in_array($viewRaw,['open','all','settled'],true)?$viewRaw:'open';
 $signal=in_array($signalRaw,['all','mine','attended','agreement','promise','payment','paid_agreement','unattended'],true)?$signalRaw:'all';
+$sellerFilter=trim((string)($_GET['seller']??''));
+$accountFilter=trim((string)($_GET['account']??''));
+$financialFilter=trim((string)($_GET['financial']??'all'));
+if(!in_array($financialFilter,['all','overdue','partial'],true))$financialFilter='all';
+$ufFilter=strtoupper(trim((string)($_GET['uf']??'')));
 
 $summary=CollectionService::portfolioSummary();
 $work=CollectionService::monthForUser((int)$u['id'],$month);
@@ -28,7 +33,7 @@ include '_layout.php';?>
  <div><div class="eyebrow">COBRANÇA</div><h1>Cobrança</h1><p>Aqui você encontra os clientes com pendências financeiras e decide quem precisa ser atendido agora. Use os filtros para localizar acordos, promessas, clientes já trabalhados ou ainda sem contato.</p></div>
  <div class="d-flex gap-2 flex-wrap">
    <a class="btn btn-outline-secondary" href="cobranca-agenda.php"><i class="fa-regular fa-calendar-check"></i>Agenda</a>
-   <button class="btn btn-dark" type="button" id="showMyWork"><i class="fa-solid fa-user-check"></i>Meus atendimentos</button>
+   <a class="btn btn-dark" href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['signal'=>'mine'])))?>"><i class="fa-solid fa-user-check"></i>Meus atendimentos</a>
    <?php if(Auth::can('supervisor','admin')):?><a class="btn btn-outline-secondary" href="cobranca-equipe.php"><i class="fa-solid fa-chart-line"></i>Desempenho</a><?php endif;?>
  </div>
 </div>
@@ -43,16 +48,17 @@ include '_layout.php';?>
 <div class="panel-card mb-3">
  <div class="collection-filter-head">
   <div class="segmented-control" id="collectionView">
-   <button type="button" data-value="open" class="<?=$view==='open'?'active':''?>">Pendentes</button>
-   <button type="button" data-value="all" class="<?=$view==='all'?'active':''?>">Todos</button>
-   <button type="button" data-value="settled" class="<?=$view==='settled'?'active':''?>">Quitados</button>
+   <a href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['view'=>'open'])))?>" class="<?=$view==='open'?'active':''?>">Pendentes</a>
+   <a href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['view'=>'all'])))?>" class="<?=$view==='all'?'active':''?>">Todos</a>
+   <a href="<?=APP_URL?>/cobranca.php?<?=e(http_build_query(array_merge($_GET,['view'=>'settled'])))?>" class="<?=$view==='settled'?'active':''?>">Quitados</a>
   </div>
   <div class="small text-secondary"><i class="fa-solid fa-database me-1"></i>Dados locais • nenhuma consulta ao Omie ao filtrar</div>
  </div>
- <div class="collection-filter-grid">
-  <div><label class="form-label">Atendimento</label><select class="form-select" id="collectionSignal">
+ <form class="collection-filter-grid" method="get" action="<?=APP_URL?>/cobranca.php">
+  <input type="hidden" name="view" value="<?=e($view)?>">
+  <div><label class="form-label">Atendimento</label><select class="form-select" name="signal">
    <option value="all" <?=$signal==='all'?'selected':''?>>Todos</option>
-   <option value="mine" <?=$signal==='mine'?'selected':''?>>Atendidos por mim</option>
+   <option value="mine" <?=$signal==='mine'?'selected':''?>>Meus atendimentos / atribuídos a mim</option>
    <option value="attended" <?=$signal==='attended'?'selected':''?>>Atendidos por qualquer pessoa</option>
    <option value="agreement" <?=$signal==='agreement'?'selected':''?>>Acordo fechado</option>
    <option value="paid_agreement" <?=$signal==='paid_agreement'?'selected':''?>>Acordo pago</option>
@@ -60,13 +66,16 @@ include '_layout.php';?>
    <option value="promise" <?=$signal==='promise'?'selected':''?>>Promessa de pagamento</option>
    <option value="unattended" <?=$signal==='unattended'?'selected':''?>>Sem atendimento no período</option>
   </select></div>
-  <div><label class="form-label">Período do atendimento</label><input class="form-control" id="collectionMonth" type="month" value="<?=e($month)?>"></div>
-  <div><label class="form-label">Vendedor da dívida</label><select class="form-select" id="collectionSeller"><option value="">Todos</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>"><?=e($s['name'])?></option><?php endforeach;?></select></div>
-  <div><label class="form-label">Conta corrente</label><select class="form-select" id="collectionAccount"><option value="">Todas</option><?php foreach($accounts as $a):?><option value="<?=e($a['omie_code'])?>"><?=e($a['name'])?></option><?php endforeach;?></select></div>
-  <div><label class="form-label">Situação financeira</label><select class="form-select" id="collectionFinancial"><option value="all">Todas</option><option value="overdue">Vencido</option><option value="partial">Pagamento parcial</option></select></div>
-  <div><label class="form-label">UF</label><select class="form-select" id="collectionUf"><option value="">Todas</option><?php foreach($ufs as $row):?><option value="<?=e($row['uf'])?>"><?=e($row['uf'])?></option><?php endforeach;?></select></div>
-  <div class="collection-filter-actions"><button class="btn btn-dark" type="button" id="collectionApply"><i class="fa-solid fa-filter"></i>Filtrar</button><button class="btn btn-outline-secondary" type="button" id="collectionClear"><i class="fa-solid fa-rotate-left"></i>Limpar filtros</button></div>
- </div>
+  <div><label class="form-label">Período do atendimento</label><input class="form-control" name="month" type="month" value="<?=e($month)?>"></div>
+  <div><label class="form-label">Vendedor da dívida</label><select class="form-select" name="seller"><option value="">Todos</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=$sellerFilter===(string)$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Conta corrente</label><select class="form-select" name="account"><option value="">Todas</option><?php foreach($accounts as $a):?><option value="<?=e($a['omie_code'])?>" <?=$accountFilter===(string)$a['omie_code']?'selected':''?>><?=e($a['name'])?></option><?php endforeach;?></select></div>
+  <div><label class="form-label">Situação financeira</label><select class="form-select" name="financial"><option value="all" <?=$financialFilter==='all'?'selected':''?>>Todas</option><option value="overdue" <?=$financialFilter==='overdue'?'selected':''?>>Vencido</option><option value="partial" <?=$financialFilter==='partial'?'selected':''?>>Pagamento parcial</option></select></div>
+  <div><label class="form-label">UF</label><select class="form-select" name="uf"><option value="">Todas</option><?php foreach($ufs as $row):?><option value="<?=e($row['uf'])?>" <?=$ufFilter===(string)$row['uf']?'selected':''?>><?=e($row['uf'])?></option><?php endforeach;?></select></div>
+  <div class="collection-filter-actions">
+   <button class="btn btn-dark" type="submit"><i class="fa-solid fa-filter"></i>Filtrar</button>
+   <a class="btn btn-outline-secondary" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-rotate-left"></i>Limpar</a>
+  </div>
+ </form>
 </div>
 
 <div class="panel-card">
@@ -74,7 +83,7 @@ include '_layout.php';?>
   <table class="table modern-table data-table collection-table mb-0"
          id="collectionTable"
          data-server-side="1"
-         data-ajax="<?=APP_URL?>/api/collection-table.php"
+         data-ajax="<?=APP_URL?>/api/collection-table.php?<?=e(http_build_query(['view'=>$view,'signal'=>$signal,'month'=>$month,'seller'=>$sellerFilter,'account'=>$accountFilter,'financial'=>$financialFilter,'uf'=>$ufFilter]))?>"
          data-entity="clientes"
          data-page-length="25"
          data-order-column="9">
