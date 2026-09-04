@@ -296,7 +296,7 @@ CREATE TABLE IF NOT EXISTS interaction_audit (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  entity_type ENUM('sales_activity','collection_action') NOT NULL,
  entity_id BIGINT UNSIGNED NOT NULL,
- operation ENUM('create','update','delete') NOT NULL,
+ operation ENUM('create','update','delete','reassign') NOT NULL,
  user_id INT UNSIGNED NOT NULL,
  before_json JSON NULL,
  after_json JSON NULL,
