@@ -4,6 +4,24 @@ document.addEventListener('DOMContentLoaded',()=>{
   const sidebarButton=document.querySelector('.sidebar-toggle');
   if(sidebarButton){sidebarButton.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));}
 
+  const sidebarCollapse=document.getElementById('sidebarCollapse');
+  const applySidebarState=()=>{
+    if(window.innerWidth<992){document.body.classList.remove('sidebar-collapsed');return;}
+    const collapsed=localStorage.getItem('tdcrm-sidebar-collapsed')==='1';
+    document.body.classList.toggle('sidebar-collapsed',collapsed);
+    if(sidebarCollapse){
+      sidebarCollapse.setAttribute('aria-label',collapsed?'Expandir menu':'Recolher menu');
+      sidebarCollapse.setAttribute('title',collapsed?'Expandir menu':'Recolher menu');
+    }
+  };
+  applySidebarState();
+  sidebarCollapse?.addEventListener('click',()=>{
+    const collapsed=!document.body.classList.contains('sidebar-collapsed');
+    localStorage.setItem('tdcrm-sidebar-collapsed',collapsed?'1':'0');
+    applySidebarState();
+  });
+  window.addEventListener('resize',applySidebarState);
+
   document.querySelectorAll('table.data-table').forEach(table=>{
     if(typeof DataTable==='undefined') return;
     const noSort=[];

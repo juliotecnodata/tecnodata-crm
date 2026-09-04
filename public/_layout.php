@@ -16,7 +16,7 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
 ?>
 <!doctype html><html lang="pt-br"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#101828"><title><?=e($pageLabels[$current]??$GLOBALS['config']['app']['name'])?> • <?=e($GLOBALS['config']['app']['name'])?></title>
+<meta name="theme-color" content="#121B25"><title><?=e($pageLabels[$current]??$GLOBALS['config']['app']['name'])?> • <?=e($GLOBALS['config']['app']['name'])?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -26,7 +26,10 @@ $pageLabels=['index.php'=>'Visão geral','carteira.php'=>'Carteira','agenda.php'
 </head><body>
 <div class="td-shell">
 <aside class="td-sidebar">
+ <div class="sidebar-head">
  <a class="td-brand" href="<?=APP_URL?>/index.php"><span class="brand-mark">T</span><span class="brand-copy"><strong>Tecnodata</strong><small>Revenue workspace</small></span></a>
+ <button class="sidebar-collapse" type="button" id="sidebarCollapse" aria-label="Recolher menu" title="Recolher menu"><i class="fa-solid fa-chevron-left"></i></button>
+ </div>
  <nav class="td-nav">
   <div class="nav-label">TRABALHO</div>
   <a class="<?=navActive('index.php')?>" href="<?=APP_URL?>/index.php"><i class="fa-solid fa-grid-2"></i><span>Visão geral</span></a>

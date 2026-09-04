@@ -1,8 +1,9 @@
 :root{
- --ink:#101828;--ink-2:#1d2939;--muted:#667085;--subtle:#98a2b3;--line:#e4e7ec;
- --canvas:#f5f7fa;--surface:#fff;--lime:#c7e536;--lime-dark:#718b00;--lime-soft:#f4f9d8;
- --blue:#175cd3;--blue-soft:#eff4ff;--red:#b42318;--red-soft:#fef3f2;--amber:#b54708;--amber-soft:#fffaeb;
- --green:#067647;--green-soft:#ecfdf3;--sidebar:#101828;--radius:16px;--shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.05)
+ --ink:#121B25;--ink-2:#1B2733;--muted:#667085;--subtle:#98A2B3;--line:#E4E7EC;
+ --canvas:#F6F7F8;--surface:#FFFFFF;--lime:#BDD630;--lime-dark:#6C7B00;--lime-soft:#F5F8DF;
+ --blue:#175CD3;--blue-soft:#EFF4FF;--red:#B42318;--red-soft:#FEF3F2;--amber:#B54708;--amber-soft:#FFFAEB;
+ --green:#067647;--green-soft:#ECFDF3;--sidebar:#121B25;--sidebar-hover:#1B2733;--sidebar-active:#24313D;
+ --radius:10px;--shadow:none
 }
 *{box-sizing:border-box}html{background:var(--canvas)}body{margin:0;background:var(--canvas);color:var(--ink);font-family:"Manrope","Segoe UI",sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}a{text-decoration:none;color:inherit}h1,h2,h3,h4,h5,h6{letter-spacing:-.025em;color:var(--ink)}
 .td-shell{min-height:100vh}.td-sidebar{position:fixed;inset:0 auto 0 0;width:268px;padding:22px 16px 18px;background:var(--sidebar);color:#fff;display:flex;flex-direction:column;z-index:100;overflow-y:auto}.td-brand{display:flex;align-items:center;gap:12px;padding:0 8px 22px;color:#fff}.brand-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--lime);color:#17210a;font-size:20px;font-weight:800;box-shadow:0 8px 24px rgba(199,229,54,.18)}.brand-copy{display:flex;flex-direction:column}.brand-copy strong{font-size:16px;letter-spacing:-.02em}.brand-copy small{color:#98a2b3;font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-top:1px}
@@ -83,3 +84,53 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 .detail-grid strong,.detail-list strong{font-size:13px}.detail-note p{margin:8px 0 0;white-space:normal}
 .danger-zone{border-color:#fecdca}.danger-zone .panel-header{background:#fffafa}
 @media(max-width:650px){.detail-grid{grid-template-columns:1fr}.row-actions{flex-direction:column;align-items:stretch}.row-actions .btn{width:100%}}
+
+/* V6.8 — identidade Grupo Tecnodata + sidebar recolhível */
+.sidebar-head{display:flex;align-items:center;gap:8px;padding:0 0 14px}
+.sidebar-head .td-brand{flex:1;padding:0 8px}
+.sidebar-collapse{width:34px;height:34px;border:1px solid #31404D;background:transparent;color:#AEB8C2;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease}
+.sidebar-collapse:hover{background:#1B2733;color:#fff;border-color:#42515E}
+.td-sidebar{background:#121B25;transition:width .22s ease,padding .22s ease}
+.td-main{transition:margin-left .22s ease}
+.td-nav a:hover{background:#1B2733;color:#fff}
+.td-nav a.active{background:#24313D;color:#fff;box-shadow:none;border-left:3px solid #BDD630;padding-left:9px}
+.td-nav a.active i{color:#BDD630}
+.brand-mark{background:#BDD630;color:#121B25;box-shadow:none}
+.sidebar-status{background:#1B2733;border-color:#31404D}
+.pulse-dot{background:#BDD630;box-shadow:none}
+.eyebrow,.panel-header span,.kicker{color:#6C7B00}
+.badge-soft{background:#F5F8DF;color:#566300}
+.btn-primary,.btn-dark{background:#121B25;border-color:#121B25}
+.btn-primary:hover,.btn-dark:hover{background:#1B2733;border-color:#1B2733}
+.form-check-input:checked{background-color:#121B25;border-color:#121B25}
+.mini-progress span,.td-progress>span{background:#BDD630}
+.account-option:hover,.account-option.selected{border-color:#BDD630;background:#FBFCEB}
+.timeline-item:before{background:#BDD630}
+
+/* desktop collapsed */
+@media(min-width:992px){
+ body.sidebar-collapsed .td-sidebar{width:84px;padding-left:12px;padding-right:12px}
+ body.sidebar-collapsed .td-main{margin-left:84px}
+ body.sidebar-collapsed .sidebar-head{justify-content:center;flex-direction:column;gap:10px}
+ body.sidebar-collapsed .sidebar-head .td-brand{padding:0;justify-content:center}
+ body.sidebar-collapsed .brand-copy,
+ body.sidebar-collapsed .td-nav a span,
+ body.sidebar-collapsed .nav-label,
+ body.sidebar-collapsed .sidebar-status div{display:none}
+ body.sidebar-collapsed .td-brand{gap:0}
+ body.sidebar-collapsed .td-nav a{justify-content:center;padding:11px;border-left:0}
+ body.sidebar-collapsed .td-nav a.active{padding-left:11px;border-left:0;box-shadow:inset 3px 0 0 #BDD630}
+ body.sidebar-collapsed .td-nav a i{width:22px;font-size:16px}
+ body.sidebar-collapsed .sidebar-status{justify-content:center;padding:12px 8px}
+ body.sidebar-collapsed .sidebar-collapse i{transform:rotate(180deg)}
+ body.sidebar-collapsed .sidebar-collapse{border-color:#42515E}
+}
+
+/* mobile remains off-canvas, not collapsed */
+@media(max-width:991px){
+ .sidebar-collapse{display:none}
+ .sidebar-head{padding-bottom:10px}
+ .td-sidebar{width:268px}
+ body.sidebar-collapsed .td-sidebar{width:268px}
+ body.sidebar-collapsed .td-main{margin-left:0}
+}
