@@ -57,6 +57,17 @@ final class SalesOrderService {
         $client=DB::fetch("SELECT * FROM clients WHERE id=? AND active=1",[$clientId]);
         if(!$client)throw new RuntimeException('Cliente inválido.');
 
+        if($forcedSellerCode!==null && $forcedSellerCode!==''){
+            $month=date('Y-m');
+            $owner=DB::fetch("SELECT CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE m.seller_omie_code END seller_code
+                              FROM clients c
+                              LEFT JOIN client_metrics m ON m.client_id=c.id
+                              LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=?
+                              WHERE c.id=?",[$month,$clientId]);
+            if((string)($owner['seller_code']??'')!==$forcedSellerCode)
+                throw new RuntimeException('Este cliente não pertence à sua carteira comercial do mês.');
+        }
+
         $items=is_array($input['items']??null)?$input['items']:[];
         if(!$items)throw new RuntimeException('Inclua ao menos um produto.');
 
