@@ -151,15 +151,17 @@ final class CollectionService {
             $targetAssigned=(int)$validAssignee['id'];
         }
 
+        $assignmentChanged=$targetAssigned!==$currentAssigned;
+        $assignedAt=$assignmentChanged?date('Y-m-d H:i:s'):($row['assigned_at']??$row['created_at']);
+        $assignedBy=$assignmentChanged?$userId:(int)($row['assigned_by']??$row['user_id']);
+
         $pdo=DB::conn();$pdo->beginTransaction();
         try{
             DB::exec("UPDATE collection_actions SET action_type=?,channel=?,result=?,amount=?,pending_amount=?,
-                      debt_after=?,promised_for=?,notes=?,assigned_user_id=?,
-                      assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),
-                      assigned_by=IF(COALESCE(assigned_user_id,0)<>?,?,assigned_by),
+                      debt_after=?,promised_for=?,notes=?,assigned_user_id=?,assigned_at=?,assigned_by=?,
                       updated_at=NOW(),updated_by=? WHERE id=?",
                 [$newType,$channel,$result,$amount,$newPending,$newDebt,$promisedFor,$notes,
-                 $targetAssigned,$targetAssigned,$userId,$userId,$id]);
+                 $targetAssigned,$assignedAt,$assignedBy,$userId,$id]);
             self::setAdjustmentPending((int)$row['client_id'],$newTotalPending,$state['omie_debt']);
             $after=DB::fetch("SELECT * FROM collection_actions WHERE id=?",[$id]);
             self::audit($id,'update',$userId,$row,$after);
