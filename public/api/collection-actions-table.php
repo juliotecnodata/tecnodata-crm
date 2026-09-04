@@ -67,7 +67,7 @@ try{
   $resultHtml='<span class="signal-badge '.$badge.'">'.e($labels[$r['result']]??$r['result']).'</span>';
   $client='<strong>'.e($r['client_name']).'</strong><small class="table-sub">'.e($r['omie_code']).($r['seller_name']?' • '.e($r['seller_name']):'').'</small>';
   $notes=trim((string)$r['notes']);if(mb_strlen($notes)>120)$notes=mb_substr($notes,0,117).'…';
-  $can=(int)$r['user_id']===(int)$u['id']||Auth::can('supervisor','admin');
+  $can=(int)$r['user_id']===(int)$u['id']||(int)($r['assigned_user_id']??0)===(int)$u['id']||Auth::can('supervisor','admin');
   $action='<div class="row-actions"><a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/cobranca-atendimento.php?id='.(int)$r['id'].'"><i class="fa-regular fa-eye"></i>Ver</a>';
   if($can)$action.='<a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/atendimento-editar.php?kind=collection&id='.(int)$r['id'].'"><i class="fa-solid fa-pen"></i>Editar</a>';
   $action.='</div>';
