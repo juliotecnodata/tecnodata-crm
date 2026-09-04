@@ -146,3 +146,10 @@ h1,h2,h3,h4,h5,h6,.brand-copy strong,.brand-copy small,.nav-label,.topbar-title 
 .portfolio-table td{white-space:nowrap}.portfolio-table td:nth-child(2){min-width:250px;white-space:normal}.portfolio-table td:nth-child(3){min-width:130px}
 @media(max-width:1200px){.portfolio-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-assignment-bar{grid-template-columns:1fr 1fr}.portfolio-assignment-copy{grid-column:1/-1}}
 @media(max-width:700px){.portfolio-filter-grid{grid-template-columns:1fr}.portfolio-assignment-bar{grid-template-columns:1fr}.portfolio-assignment-copy{grid-column:auto}.portfolio-assignment-bar .btn{width:100%}}
+
+/* V6.11 — filtros explícitos */
+.portfolio-filter-actions,.collection-filter-actions{display:flex;align-items:end;gap:8px;flex-wrap:wrap}
+.portfolio-filter-actions .btn,.collection-filter-actions .btn{height:42px;white-space:nowrap}
+.filter-result-strip{min-height:24px;display:flex;align-items:center;color:var(--muted);font-size:10px;padding:0 4px}
+.filter-result-strip i{margin-right:5px;color:var(--lime-dark)}
+@media(max-width:700px){.portfolio-filter-actions,.collection-filter-actions{width:100%}.portfolio-filter-actions .btn,.collection-filter-actions .btn{flex:1}}
