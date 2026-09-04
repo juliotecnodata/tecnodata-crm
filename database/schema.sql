@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS financial_movements (
  payment_date DATE NULL,
  amount DECIMAL(15,2) NOT NULL DEFAULT 0,
  status VARCHAR(60) NULL,
+ seller_omie_code VARCHAR(80) NULL,
  account_omie_code VARCHAR(80) NULL,
  last_seen_run_id BIGINT UNSIGNED NULL,
  raw_json JSON NULL,
@@ -95,7 +96,8 @@ CREATE TABLE IF NOT EXISTS financial_movements (
  INDEX idx_fin_account(account_omie_code),
  INDEX idx_fin_seen(last_seen_run_id),
  INDEX idx_fin_collection(account_omie_code,status,client_omie_code),
- INDEX idx_fin_client_status_account(client_omie_code,status,account_omie_code)
+ INDEX idx_fin_client_status_account(client_omie_code,status,account_omie_code),
+ INDEX idx_fin_seller_status(seller_omie_code,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS client_metrics (
