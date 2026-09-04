@@ -309,3 +309,14 @@ CREATE TABLE IF NOT EXISTS client_portfolio_assignments (
  CONSTRAINT fk_portfolio_created_by FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,
  CONSTRAINT fk_portfolio_updated_by FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS client_tags (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ client_id BIGINT UNSIGNED NOT NULL,
+ tag VARCHAR(160) NOT NULL,
+ created_at DATETIME NOT NULL,
+ UNIQUE KEY uq_client_tag(client_id,tag),
+ INDEX idx_client_tags_tag(tag),
+ CONSTRAINT fk_client_tags_client FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
