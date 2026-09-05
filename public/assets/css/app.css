@@ -757,3 +757,47 @@ body{background:#F6F8F9;color:#14232B}
 .diag-row strong{font-size:10px}.diag-row small{font-size:9px;color:var(--muted);margin-top:2px;word-break:break-word}
 .diag-row.is-ok>i{color:#009657}.diag-row.is-error{border-color:#F2C7BC;background:#FFF9F7}.diag-row.is-error>i{color:#EA5127}
 @media(max-width:700px){.diag-grid{grid-template-columns:1fr}}
+
+
+/* V7.3 — CRUD de clientes Omie */
+.client-form-heading{align-items:flex-end}
+.client-form-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.client-editor{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.client-editor-main{display:flex;flex-direction:column;gap:14px}
+.client-form-section,.client-side-card{background:#fff;border:1px solid var(--line);border-radius:10px}
+.client-form-section{padding:0 18px 18px}
+.client-form-section legend{float:none;width:100%;margin:0;padding:16px 0 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.client-form-section legend>span:last-child,.side-card-title>div{display:flex;flex-direction:column}
+.client-form-section legend strong,.side-card-title strong{font-size:12px}
+.client-form-section legend small,.side-card-title small{font-size:9px;color:var(--muted);margin-top:2px}
+.legend-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto}
+.legend-icon.is-blue{background:#EAF5FB;color:#007FC7}
+.legend-icon.is-green{background:#EAF7F1;color:#009657}
+.legend-icon.is-orange{background:#FFF0EA;color:#EA5127}
+.legend-icon.is-lime{background:#F4F8DB;color:#7B8F08}
+.legend-icon.is-purple{background:#F3EEFB;color:#7656B6}
+.legend-icon.is-slate{background:#EEF2F4;color:#4A5B63}
+.form-label b{color:#EA5127}
+.input-action{display:grid;grid-template-columns:minmax(0,1fr) auto}
+.input-action .form-control{border-radius:10px 0 0 10px}
+.input-action .btn{border-radius:0 10px 10px 0;white-space:nowrap}
+.input-action.compact{grid-template-columns:minmax(0,1fr) 42px}
+.field-help{display:block;font-size:9px;color:var(--muted);margin-top:5px}
+.client-tag-options{display:grid;grid-template-columns:repeat(2,minmax(0,180px));gap:10px}
+.client-tag-options label{cursor:pointer}
+.client-tag-options input{position:absolute;opacity:0;pointer-events:none}
+.client-tag-options span{min-height:74px;border:1px solid var(--line);border-radius:10px;display:grid;grid-template-columns:28px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:12px}
+.client-tag-options i{grid-row:1/3;width:28px;height:28px;border-radius:8px;background:#F2F4F7;display:grid;place-items:center;color:var(--muted)}
+.client-tag-options strong{font-size:11px}
+.client-tag-options small{font-size:8px;color:var(--muted)}
+.client-tag-options input:checked+span{border-color:#9CCBE4;background:#F8FBFD}
+.client-tag-options input:checked+span i{background:#EAF5FB;color:#007FC7}
+.client-editor-side{position:sticky;top:78px;display:flex;flex-direction:column;gap:12px}
+.client-side-card{padding:14px}
+.side-card-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.client-required-note{display:flex;gap:9px;align-items:flex-start;padding:12px;border:1px solid #E5E9EC;border-radius:10px;background:#FAFBFC;color:var(--muted)}
+.client-required-note i{font-size:9px;color:#EA5127;margin-top:3px}
+.client-required-note span{font-size:9px;line-height:1.45}
+.client-save-button{min-height:44px}
+@media(max-width:1050px){.client-editor{grid-template-columns:1fr}.client-editor-side{position:static;display:grid;grid-template-columns:1fr 1fr}.client-editor-side>.client-required-note,.client-editor-side>.btn{grid-column:1/-1}}
+@media(max-width:700px){.client-form-heading{align-items:flex-start}.client-form-head-actions{width:100%}.client-form-head-actions .btn{flex:1}.client-form-section{padding:0 12px 14px}.client-editor-side{display:flex}.client-tag-options{grid-template-columns:1fr 1fr}.input-action{grid-template-columns:1fr}.input-action .form-control,.input-action .btn{border-radius:10px}.input-action .btn{margin-top:6px}.input-action.compact{grid-template-columns:minmax(0,1fr) 42px}.input-action.compact .form-control{border-radius:10px 0 0 10px}.input-action.compact .btn{margin-top:0;border-radius:0 10px 10px 0}}
