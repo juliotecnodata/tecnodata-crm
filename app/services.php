@@ -139,13 +139,8 @@ final class ClientService {
   $city=trim((string)($i['city']??''));
   $uf=strtoupper(trim((string)($i['uf']??'')));
   $notes=trim((string)($i['notes']??''));
-  $rawTags=(string)($i['tags']??'');
-  $tags=[];
-  foreach(preg_split('/[,;\n]+/',$rawTags)?:[] as $tag){
-   $tag=trim($tag);
-   if($tag!==''&&!in_array(mb_strtolower($tag),array_map('mb_strtolower',$tags),true))$tags[]=$tag;
-  }
-  $tags=array_slice($tags,0,20);
+  // Classificação comercial padronizada para todos os cadastros criados/editados pelo CRM.
+  $tags=['CLIENTE','CFC'];
 
   if($legalName==='')throw new RuntimeException('Razão social / Nome é obrigatório.');
   if($tradeName==='')throw new RuntimeException('Nome fantasia é obrigatório.');
@@ -160,7 +155,6 @@ final class ClientService {
   if($neighborhood==='')throw new RuntimeException('Bairro é obrigatório.');
   if($city==='')throw new RuntimeException('Cidade é obrigatória.');
   if(!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('UF é obrigatória e deve conter 2 letras.');
-  if(!$tags)throw new RuntimeException('Informe ao menos uma tag.');
 
   $seller='';
   if(($u['role']??'')==='seller')$seller=(string)($u['seller_omie_code']??'');
