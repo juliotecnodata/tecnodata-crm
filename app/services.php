@@ -50,10 +50,15 @@ final class CRMService {
    $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(amount),0) FROM collection_actions WHERE assigned_user_id=? AND result='payment' AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);
    $worked=(int)(DB::scalar("SELECT COUNT(DISTINCT client_id) FROM collection_actions WHERE assigned_user_id=? AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);return compact('debt','recovered','worked');
   }
-  $sales=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE order_date>=? AND order_date<? AND status<>'CANCELADO'",[$start,$next])??0);
+  $management=GoalService::managementMonth(date('Y-m'));
+  $sales=(float)$management['sales'];
+  $recovered=(float)$management['recovered'];
+  $sales_percent=(float)$management['sales_percent'];
+  $collection_percent=(float)$management['collection_percent'];
   $debt=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
   $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1")??0);
-  $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<NOW()")??0);return compact('sales','debt','clients','late');
+  $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<NOW()")??0);
+  return compact('sales','recovered','sales_percent','collection_percent','debt','clients','late','management');
  }
 }
 
@@ -236,7 +241,7 @@ final class OrderService {
 final class GoalService {
  public static function userMonth(int $userId,string $month): array{
   $u=DB::one("SELECT * FROM users WHERE id=?",[$userId]);if(!$u)return [];
-  $g=DB::one("SELECT * FROM goals WHERE user_id=? AND month_ref=?",[$userId,$month])?:['sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0];
+  $g=DB::one("SELECT * FROM goals WHERE user_id=? AND month_ref=?",[$userId,$month])?:['month_ref'=>$month,'sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0];
   $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
   $sales=0.0;$recovered=0.0;$contacts=0;
   if($u['role']==='seller'&&!empty($u['seller_omie_code']))$sales=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$u['seller_omie_code'],$start,$next])??0);
@@ -248,11 +253,62 @@ final class GoalService {
    'collection_percent'=>(float)$g['collection_goal']>0?min(999,$recovered/(float)$g['collection_goal']*100):0,
    'contact_percent'=>(int)$g['contact_goal']>0?min(999,$contacts/(int)$g['contact_goal']*100):0];
  }
+
+ public static function managementMonth(string $month): array{
+  if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
+  $users=DB::all("SELECT * FROM users WHERE active=1 AND role IN('seller','collector') ORDER BY role,name");
+  $rows=[];$sellerRows=[];$collectorRows=[];
+  $sales=0.0;$recovered=0.0;$contacts=0;$salesGoals=0.0;$collectionGoals=0.0;$contactGoals=0;
+  foreach($users as $u){
+   $row=self::userMonth((int)$u['id'],$month);if(!$row)continue;$rows[]=$row;
+   $contacts+=(int)$row['contacts'];$contactGoals+=(int)$row['goal']['contact_goal'];
+   if($u['role']==='seller'){$sales+=(float)$row['sales'];$salesGoals+=(float)$row['goal']['sales_goal'];$sellerRows[]=$row;}
+   if($u['role']==='collector'){$recovered+=(float)$row['recovered'];$collectionGoals+=(float)$row['goal']['collection_goal'];$collectorRows[]=$row;}
+  }
+  usort($sellerRows,fn($a,$b)=>$b['sales']<=>$a['sales']);
+  usort($collectorRows,fn($a,$b)=>$b['recovered']<=>$a['recovered']);
+
+  $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key=?",['general_goal_'.$month]);
+  $general=$raw?json_decode((string)$raw,true):[];
+  if(!is_array($general))$general=[];
+  $general+=['sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0];
+  $effectiveSalesGoal=(float)$general['sales_goal']>0?(float)$general['sales_goal']:$salesGoals;
+  $effectiveCollectionGoal=(float)$general['collection_goal']>0?(float)$general['collection_goal']:$collectionGoals;
+  $effectiveContactGoal=(int)$general['contact_goal']>0?(int)$general['contact_goal']:$contactGoals;
+
+  return [
+   'month'=>$month,'rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'general_goal'=>$general,
+   'sales'=>$sales,'recovered'=>$recovered,'contacts'=>$contacts,
+   'sales_goal_sum'=>$salesGoals,'collection_goal_sum'=>$collectionGoals,'contact_goal_sum'=>$contactGoals,
+   'effective_sales_goal'=>$effectiveSalesGoal,'effective_collection_goal'=>$effectiveCollectionGoal,'effective_contact_goal'=>$effectiveContactGoal,
+   'sales_percent'=>$effectiveSalesGoal>0?min(999,$sales/$effectiveSalesGoal*100):0,
+   'collection_percent'=>$effectiveCollectionGoal>0?min(999,$recovered/$effectiveCollectionGoal*100):0,
+   'contact_percent'=>$effectiveContactGoal>0?min(999,$contacts/$effectiveContactGoal*100):0,
+  ];
+ }
+
  public static function save(int $userId,string $month,array $i,int $actor): void{
   if(!preg_match('/^\d{4}-\d{2}$/',$month))throw new RuntimeException('Mês inválido.');
+  $u=DB::one("SELECT id,role FROM users WHERE id=?",[$userId]);if(!$u)throw new RuntimeException('Usuário inválido.');
+  $sales=max(0,(float)str_replace(',','.',(string)($i['sales_goal']??0)));
+  $collection=max(0,(float)str_replace(',','.',(string)($i['collection_goal']??0)));
+  if($u['role']==='seller')$collection=0;
+  if($u['role']==='collector')$sales=0;
   DB::exec("INSERT INTO goals(user_id,month_ref,sales_goal,collection_goal,contact_goal,updated_by,updated_at) VALUES(?,?,?,?,?,?,NOW())
             ON DUPLICATE KEY UPDATE sales_goal=VALUES(sales_goal),collection_goal=VALUES(collection_goal),contact_goal=VALUES(contact_goal),updated_by=VALUES(updated_by),updated_at=NOW()",
-   [$userId,$month,max(0,(float)str_replace(',','.',(string)($i['sales_goal']??0))),max(0,(float)str_replace(',','.',(string)($i['collection_goal']??0))),max(0,(int)($i['contact_goal']??0)),$actor]);
+   [$userId,$month,$sales,$collection,max(0,(int)($i['contact_goal']??0)),$actor]);
+ }
+
+ public static function saveGeneral(string $month,array $i): void{
+  if(!preg_match('/^\d{4}-\d{2}$/',$month))throw new RuntimeException('Mês inválido.');
+  $g=[
+   'sales_goal'=>max(0,(float)str_replace(',','.',(string)($i['sales_goal']??0))),
+   'collection_goal'=>max(0,(float)str_replace(',','.',(string)($i['collection_goal']??0))),
+   'contact_goal'=>max(0,(int)($i['contact_goal']??0)),
+  ];
+  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES(?,?,NOW())
+            ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+   ['general_goal_'.$month,json_encode($g,JSON_UNESCAPED_UNICODE)]);
  }
 }
 
