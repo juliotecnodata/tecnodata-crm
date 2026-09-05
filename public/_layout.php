@@ -13,7 +13,7 @@ $sync=DB::fetch("SELECT * FROM sync_runs WHERE status='success' ORDER BY id DESC
 $current=basename($_SERVER['PHP_SELF']);
 function navActive(string ...$files):string{global $current;return in_array($current,$files,true)?'active':'';}
 $roleLabels=['seller'=>'Vendedor','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Administrador'];
-$pageLabels=['index.php'=>'Hoje','carteira.php'=>'Carteira','agenda.php'=>'Agenda','resultado.php'=>'Resultado','pedidos.php'=>'Pedidos','pedido-novo.php'=>'Novo pedido','diagnostico-pedidos.php'=>'Diagnóstico de pedidos','servicos.php'=>'Serviços','equipe.php'=>'Equipe','metas.php'=>'Metas','vendedores.php'=>'Vendedores','vendedor.php'=>'Vendedor','configuracoes.php'=>'Configurações','sync.php'=>'Sincronização','usuarios.php'=>'Usuários','cobranca.php'=>'Cobrança','cobranca-cliente.php'=>'Atendimento de cobrança','cobranca-atendimento.php'=>'Detalhe do atendimento','cobranca-agenda.php'=>'Agenda de cobrança','cobranca-atendimentos.php'=>'Atendimentos de cobrança','cobranca-equipe.php'=>'Desempenho da cobrança','alertas.php'=>'Alertas','gestao.php'=>'Painel','atendimento-editar.php'=>'Editar atendimento','clientes.php'=>'Clientes'];
+$pageLabels=['index.php'=>'Hoje','carteira.php'=>'Carteira','agenda.php'=>'Agenda','resultado.php'=>'Resultado','pedidos.php'=>'Pedidos','pedido-novo.php'=>'Novo pedido','diagnostico-pedidos.php'=>'Diagnóstico de pedidos','servicos.php'=>'Serviços','equipe.php'=>'Equipe','metas.php'=>'Metas','vendedores.php'=>'Vendedores','vendedor.php'=>'Vendedor','configuracoes.php'=>'Configurações','sync.php'=>'Sincronização','usuarios.php'=>'Usuários','cobranca.php'=>'Cobrança','cobranca-cliente.php'=>'Atendimento de cobrança','cobranca-atendimento.php'=>'Detalhe do atendimento','cobranca-agenda.php'=>'Agenda de cobrança','cobranca-atendimentos.php'=>'Atendimentos de cobrança','cobranca-equipe.php'=>'Desempenho da cobrança','alertas.php'=>'Alertas','gestao.php'=>'Painel','atendimento-editar.php'=>'Editar atendimento','clientes.php'=>'Clientes','cliente-cadastro.php'=>'Cadastro de cliente'];
 ?>
 <!doctype html><html lang="pt-br"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -53,7 +53,7 @@ $pageLabels=['index.php'=>'Hoje','carteira.php'=>'Carteira','agenda.php'=>'Agend
   <?php else:?>
    <div class="nav-label">OPERAÇÃO</div>
    <a class="<?=navActive('gestao.php')?>" href="<?=APP_URL?>/gestao.php"><i class="fa-solid fa-gauge-high"></i><span>Painel</span></a>
-   <a class="<?=navActive('clientes.php','cliente.php')?>" href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+   <a class="<?=navActive('clientes.php','cliente.php','cliente-cadastro.php')?>" href="<?=APP_URL?>/clientes.php"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
    <a class="<?=navActive('pedido-novo.php')?>" href="<?=APP_URL?>/pedido-novo.php"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
    <a class="<?=navActive('pedidos.php')?>" href="<?=APP_URL?>/pedidos.php"><i class="fa-solid fa-receipt"></i><span>Pedidos</span></a>
    <a class="<?=navActive('cobranca.php','cobranca-cliente.php','cobranca-atendimentos.php','cobranca-atendimento.php')?>" href="<?=APP_URL?>/cobranca.php"><i class="fa-solid fa-hand-holding-dollar"></i><span>Cobrança</span></a>
