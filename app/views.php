@@ -49,7 +49,7 @@ function render(string $name,array $vars=[]): void{
       <div class="field span-5"><label>Razão social / Nome<span class="required-mark">*</span></label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
       <div class="field span-3"><label>Nome fantasia<span class="required-mark">*</span></label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>" required></div>
 
-      <div class="field span-5"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email" required></div>
+      <div class="field span-5"><label>E-mail<span class="required-mark">*</span></label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email" required></div>
       <div class="field span-5"><label>Nome do contato<span class="required-mark">*</span></label><input class="form-control" name="contact_name" value="<?=e((string)($old['contact_name']??''))?>" autocomplete="name" required></div>
       <div class="field span-2 client-phone-inline">
        <label>Telefone<span class="required-mark">*</span></label>
@@ -95,8 +95,12 @@ function render(string $name,array $vars=[]): void{
       </div>
       <div class="field span-8">
        <label>Tags<span class="required-mark">*</span></label>
-       <div class="tag-editor" data-tag-editor><div class="tag-chips" data-tag-chips></div><input class="form-control" type="text" data-tag-input placeholder="Digite uma tag e pressione Enter"><input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??($editClient?'':'CLIENTE, CFC')))?>"></div>
-       <small class="field-hint">Ex.: CFC, Parceiro, PR, EAD.</small>
+       <div class="client-fixed-tags">
+        <span><i class="fa-solid fa-user-check"></i>CLIENTE</span>
+        <span><i class="fa-solid fa-car-side"></i>CFC</span>
+       </div>
+       <input type="hidden" name="tags" value="CLIENTE, CFC">
+       <small class="field-hint">As tags CLIENTE e CFC serão enviadas automaticamente para a Omie.</small>
       </div>
       <div class="field span-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
      </div>
