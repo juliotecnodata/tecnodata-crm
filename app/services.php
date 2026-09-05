@@ -256,6 +256,74 @@ final class GoalService {
  }
 }
 
+final class TestDataService {
+ public static function importClient(string $omieCode): array{
+  $code=trim($omieCode);if($code===''||!ctype_digit($code))throw new RuntimeException('Informe o código numérico do cliente na Omie.');
+  $o=new OmieClient();
+  $r=$o->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
+  $client=$r['clientes_cadastro'][0]??$r;
+  $omie=(string)($client['codigo_cliente_omie']??$client['codigo_cliente']??$code);
+  $name=(string)($client['nome_fantasia']??$client['razao_social']??$omie);
+  $phone=trim((string)($client['telefone1_ddd']??'').' '.(string)($client['telefone1_numero']??''));
+  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())
+            ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),
+            phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),seller_omie_code=VALUES(seller_omie_code),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
+   [$omie,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$client['codigo_vendedor']??null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
+  return DB::one("SELECT * FROM clients WHERE omie_code=?",[$omie])??[];
+ }
+
+ public static function importProduct(string $omieCode): array{
+  $code=trim($omieCode);if($code===''||!ctype_digit($code))throw new RuntimeException('Informe o código numérico do produto na Omie.');
+  $o=new OmieClient();
+  $r=$o->call('products','ConsultarProduto',['codigo_produto'=>(int)$code]);
+  $product=$r['produto_servico_cadastro'][0]??$r;
+  $omie=(string)($product['codigo_produto']??$code);
+  DB::exec("INSERT INTO products(omie_code,sku,description,unit,ncm,unit_price,stock_qty,active,raw_json,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,NOW())
+            ON DUPLICATE KEY UPDATE sku=VALUES(sku),description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),
+            unit_price=VALUES(unit_price),stock_qty=VALUES(stock_qty),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+   [$omie,$product['codigo']??null,(string)($product['descricao']??$omie),$product['unidade']??null,$product['ncm']??null,(float)($product['valor_unitario']??0),
+    isset($product['quantidade_estoque'])?(float)$product['quantidade_estoque']:null,(($product['inativo']??'N')==='S'?0:1),json_encode($product,JSON_UNESCAPED_UNICODE)]);
+  return DB::one("SELECT * FROM products WHERE omie_code=?",[$omie])??[];
+ }
+
+ public static function importMinimal(array $input): array{
+  $client=self::importClient((string)($input['client_omie_code']??''));
+  $products=[];
+  foreach(['product_1_omie_code','product_2_omie_code'] as $key){
+   $v=trim((string)($input[$key]??''));if($v!=='')$products[]=self::importProduct($v);
+  }
+  if(count($products)<1)throw new RuntimeException('Informe pelo menos um produto para teste.');
+  return ['client'=>$client,'products'=>$products];
+ }
+
+ public static function prepareReferences(): array{
+  $modules=['sellers','categories','accounts','stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types'];
+  $result=[];
+  foreach($modules as $module){
+   $page=1;$processed=0;
+   do{
+    $r=SyncService::run($module,$page);$processed+=(int)($r['count']??0);$page++;
+   }while(empty($r['done'])&&$page<=50);
+   $result[$module]=$processed;
+  }
+  return $result;
+ }
+
+ public static function snapshot(): array{
+  return [
+   'clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients")??0),
+   'products'=>(int)(DB::scalar("SELECT COUNT(*) FROM products")??0),
+   'sellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM sellers WHERE active=1")??0),
+   'categories'=>(int)(DB::scalar("SELECT COUNT(*) FROM categories WHERE active=1")??0),
+   'accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM financial_accounts WHERE active=1")??0),
+   'stages'=>(int)(DB::scalar("SELECT COUNT(*) FROM order_stages WHERE active=1")??0),
+   'terms'=>(int)(DB::scalar("SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999'")??0),
+  ];
+ }
+}
+
 final class SyncService {
  public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
