@@ -24,6 +24,8 @@ function render(string $name,array $vars=[]): void{
    </div>
 
    <?php if($error):?><div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation me-2"></i><?=e($error)?></div><?php endif;?>
+   <?php if($createError):?><div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Omie:</strong> <?=e($createError)?></div><?php endif;?>
+   <?php if($createSuccess):?><div class="alert alert-success client-created-alert"><i class="fa-solid fa-circle-check"></i><div><strong>Cliente criado com sucesso na Omie.</strong><span><?=e((string)($createSuccess['client']['name']??''))?> • código Omie <?=e((string)($createSuccess['client']['omie_code']??''))?></span></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=e((string)($createSuccess['client']['id']??''))?>">Abrir cliente</a></div><?php endif;?>
 
    <form method="post" action="<?=APP_URL?>/clients/preview" class="client-create-layout" id="clientCreateForm">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
@@ -99,8 +101,11 @@ function render(string $name,array $vars=[]): void{
      <?php else:?>
       <div class="client-preview-empty"><i class="fa-solid fa-code"></i><strong>Veja antes de integrar</strong><span>Preencha o cadastro e clique em “Simular integração”. Vamos validar o formato antes de ativar o envio real.</span></div>
      <?php endif;?>
-     <button class="btn btn-primary w-100" type="submit"><i class="fa-solid fa-flask"></i>Simular integração</button>
-     <p class="client-preview-help">Nesta primeira versão o botão apenas valida os dados e monta a estrutura que seria enviada à Omie.</p>
+     <div class="client-preview-actions">
+      <button class="btn btn-outline-secondary w-100" type="submit" formaction="<?=APP_URL?>/clients/preview"><i class="fa-solid fa-flask"></i>Simular integração</button>
+      <button class="btn btn-primary w-100" type="submit" formaction="<?=APP_URL?>/clients/send" data-real-client-send><i class="fa-solid fa-cloud-arrow-up"></i>Cadastrar 1 cliente na Omie</button>
+     </div>
+     <p class="client-preview-help">O segundo botão é real: ele envia somente este cadastro para a Omie e, após sucesso, grava o cliente também no banco local do CRM.</p>
     </aside>
    </form>
   <?php break;
