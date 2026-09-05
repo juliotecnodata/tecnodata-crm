@@ -290,3 +290,15 @@
  .client-form-grid .span-2{grid-column:auto}
  .page-head-actions{width:100%}.page-head-actions .btn{flex:1}
 }
+
+.lookup-field{display:flex;align-items:stretch;gap:6px}
+.lookup-field .form-control{min-width:0}
+.lookup-action{width:42px;flex:0 0 42px;border:1px solid var(--line-strong);background:#fff;color:var(--navy);border-radius:10px;display:grid;place-items:center}
+.lookup-action:hover{border-color:var(--green);color:var(--green);background:#F5FBF7}
+.lookup-action:disabled{opacity:.65;cursor:wait}
+.field-hint{display:block;font-size:9px;color:var(--muted);margin-top:5px;line-height:1.35}
+.field-hint.ok{color:var(--green)}
+.field-hint.error{color:var(--orange)}
+.field-hint.loading{color:var(--blue)}
+.lookup-filled{animation:lookupFlash 1.35s ease}
+@keyframes lookupFlash{0%{background:#F0F9F4;border-color:#9FD2B9}100%{background:#fff;border-color:var(--line-strong)}}
