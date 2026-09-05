@@ -327,7 +327,16 @@ final class TestDataService {
 final class SyncService {
  public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
+ private static function purgeOldYearData(string $module): void{
+  $year=(int)date('Y');
+  if($module==='orders'){
+   DB::exec("DELETE FROM orders WHERE order_date IS NOT NULL AND YEAR(order_date)<>?",[$year]);
+  }elseif($module==='services'){
+   DB::exec("DELETE FROM service_orders WHERE service_date IS NOT NULL AND YEAR(service_date)<>?",[$year]);
+  }
+ }
  private static function syncWindow(string $module,int $page): array{
+  if($page===1)self::purgeOldYearData($module);
   $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
   $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
   if($page===1||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
