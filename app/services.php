@@ -62,6 +62,67 @@ final class CRMService {
  }
 }
 
+final class ClientService {
+ public static function buildOmiePreview(array $i,array $u): array{
+  $legalName=trim((string)($i['legal_name']??''));
+  $tradeName=trim((string)($i['trade_name']??''));
+  $document=preg_replace('/\D+/','',(string)($i['document']??''));
+  $email=mb_strtolower(trim((string)($i['email']??'')));
+  $phone=preg_replace('/\D+/','',(string)($i['phone']??''));
+  $zip=preg_replace('/\D+/','',(string)($i['zip_code']??''));
+  $address=trim((string)($i['address']??''));
+  $number=trim((string)($i['address_number']??''));
+  $neighborhood=trim((string)($i['neighborhood']??''));
+  $city=trim((string)($i['city']??''));
+  $uf=strtoupper(trim((string)($i['uf']??'')));
+  $notes=trim((string)($i['notes']??''));
+
+  if($legalName==='')throw new RuntimeException('Informe a razão social ou nome.');
+  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('Informe um CPF ou CNPJ válido no formato numérico.');
+  if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-mail inválido.');
+  if($phone!==''&&!in_array(strlen($phone),[10,11],true))throw new RuntimeException('Telefone deve conter DDD e número.');
+  if($zip!==''&&strlen($zip)!==8)throw new RuntimeException('CEP deve conter 8 dígitos.');
+  if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('UF inválida.');
+
+  $seller='';
+  if(($u['role']??'')==='seller')$seller=(string)($u['seller_omie_code']??'');
+  else $seller=trim((string)($i['seller_omie_code']??''));
+  if($seller!==''&&!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$seller]))throw new RuntimeException('Vendedor inválido.');
+
+  $integration='TDCRM-CLI-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(3)),0,6));
+  $payload=[
+   'codigo_cliente_integracao'=>$integration,
+   'razao_social'=>$legalName,
+   'nome_fantasia'=>$tradeName!==''?$tradeName:$legalName,
+   'cnpj_cpf'=>$document,
+   'email'=>$email,
+   'cep'=>$zip,
+   'endereco'=>$address,
+   'endereco_numero'=>$number,
+   'bairro'=>$neighborhood,
+   'cidade'=>$city,
+   'estado'=>$uf,
+  ];
+  if($phone!==''){
+   $payload['telefone1_ddd']=substr($phone,0,2);
+   $payload['telefone1_numero']=substr($phone,2);
+  }
+  if($seller!=='')$payload['codigo_vendedor']=(int)$seller;
+  if($notes!=='')$payload['observacao']=$notes;
+
+  return [
+   'call'=>'IncluirCliente',
+   'endpoint'=>'/api/v1/geral/clientes/',
+   'payload'=>$payload,
+   'summary'=>[
+    'name'=>$tradeName!==''?$tradeName:$legalName,
+    'document'=>$document,
+    'seller'=>$seller!==''?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[$seller])?:$seller):'Não definido'
+   ]
+  ];
+ }
+}
+
 final class OrderService {
  public static function defaults(): array{
   $j=DB::scalar("SELECT value_json FROM settings WHERE setting_key='order_defaults'");
