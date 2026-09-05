@@ -41,7 +41,8 @@ $router->get('/settings',function(){Auth::requireRole('admin');render('settings'
 $router->post('/settings',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveDefaults($_POST);DB::exec("UPDATE financial_accounts SET selected=0");foreach((array)($_POST['collection_accounts']??[]) as $c)DB::exec("UPDATE financial_accounts SET selected=1 WHERE omie_code=?",[(string)$c]);redirect('/settings');});
 $router->get('/users',function(){
  Auth::requireRole('admin');
- render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name")]);
+ $editId=(int)($_GET['edit']??0);
+ render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"),'edit'=>$editId?DB::one("SELECT * FROM users WHERE id=?",[$editId]):null]);
 });
 $router->post('/users',function(){
  Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
