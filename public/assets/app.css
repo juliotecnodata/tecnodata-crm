@@ -573,3 +573,13 @@ body{background:var(--bg)}
 .client-fixed-tags{display:flex;gap:8px;flex-wrap:wrap;min-height:44px;align-items:center}
 .client-fixed-tags span{display:inline-flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #D7E4DA;border-radius:9px;background:#EEF4EF;color:#486557;font-size:10px;font-weight:800}
 .client-fixed-tags i{color:var(--green)}
+
+.client-omie-pending,.client-omie-linked{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.client-omie-pending{background:#FFF9E8;border:1px solid #EAD8A2;color:#5E512A}
+.client-omie-linked{background:#EDF7F2;border:1px solid #CDE5D9;color:#315F4C}
+.client-omie-pending-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:#FFF2C8;color:#A77916}
+.client-omie-pending>div:nth-child(2),.client-omie-linked>div{display:flex;flex-direction:column}
+.client-omie-pending strong,.client-omie-linked strong{font-size:11px}
+.client-omie-pending span,.client-omie-linked span{font-size:9px;line-height:1.45;margin-top:2px}
+.client-omie-linked>i{font-size:18px;color:var(--green)}
+@media(max-width:760px){.client-omie-pending,.client-omie-linked{grid-template-columns:auto 1fr}.client-omie-pending form{grid-column:1/-1}.client-omie-pending .btn{width:100%}}
