@@ -113,6 +113,17 @@ $router->post('/clients/{id}/update',function($p){
   redirect('/clients/'.$id.'/edit');
  }
 });
+$router->post('/clients/{id}/delete-local',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
+ try{
+  ClientService::deleteLocalOnly($id,Auth::user());
+  $_SESSION['clients_flash']=['type'=>'success','message'=>'Cliente removido somente do CRM local. Nenhuma chamada foi feita à Omie.'];
+ }catch(Throwable $e){
+  $_SESSION['clients_flash']=['type'=>'danger','message'=>'Não foi possível excluir localmente: '.$e->getMessage()];
+ }
+ redirect('/clients');
+});
+
 $router->post('/clients/{id}/delete',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
