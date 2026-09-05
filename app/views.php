@@ -1,11 +1,14 @@
 <?php
-function render(string $name,array $data=[]): void{
- extract($data,EXTR_SKIP);$u=Auth::user();ob_start();
+function render(string $name,array $vars=[]): void{
+ extract($vars,EXTR_SKIP);$u=Auth::user();ob_start();
  switch($name){
   case 'login':?>
    <div class="login-page"><div class="login-card"><div class="login-brand"><span>T</span><div><strong>Tecnodata</strong><small>CRM</small></div></div><h1>Acessar</h1><p>Carteira, pedidos, agenda e cobrança.</p><?php if(!empty($error)):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?><form method="post" action="<?=APP_URL?>/login"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>E-mail</label><input class="form-control" type="email" name="email" required autofocus><label>Senha</label><input class="form-control" type="password" name="password" required><button class="btn btn-primary w-100">Entrar</button></form></div></div>
   <?php break;
-  case 'dashboard':?>
+  case 'dashboard':
+   $data=is_array($data??null)?$data:[];
+   $data+=['sales'=>0.0,'debt'=>0.0,'clients'=>0,'late'=>0,'tasks'=>0,'worked'=>0,'recovered'=>0.0];
+   ?>
    <div class="page-head"><div><span class="eyebrow">HOJE</span><h1><?=e(explode(' ',trim((string)$u['name']))[0]??'')?></h1><p>Somente o que precisa de atenção agora.</p></div></div>
    <?php if($u['role']==='seller'):?><div class="metric-row"><div><span>Vendas no mês</span><strong><?=money($data['sales'])?></strong></div><div><span>Clientes</span><strong><?=$data['clients']?></strong></div><div><span>Retornos</span><strong><?=$data['tasks']?></strong></div></div><div class="quick-actions"><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i><div><strong>Novo pedido</strong><small>Enviar para Omie</small></div></a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><div><strong>Clientes</strong><small>Trabalhar carteira</small></div></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><div><strong>Agenda</strong><small>Retornos</small></div></a></div>
    <?php elseif($u['role']==='collector'):?><div class="metric-row"><div><span>Saldo em cobrança</span><strong><?=money($data['debt'])?></strong></div><div><span>Trabalhados</span><strong><?=$data['worked']?></strong></div><div><span>Recuperado</span><strong><?=money($data['recovered'])?></strong></div></div><div class="quick-actions"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><div><strong>Cobrança</strong><small>Priorizar carteira</small></div></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><div><strong>Agenda</strong><small>Promessas</small></div></a></div>
