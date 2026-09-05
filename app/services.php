@@ -401,20 +401,40 @@ final class ClientService {
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
 
-  $omieCode=(string)($client['omie_code']??'');
-  if(str_starts_with($omieCode,'LOCAL-')){
+  $localOmieCode=(string)($client['omie_code']??'');
+  if(str_starts_with($localOmieCode,'LOCAL-')){
    DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
    return ['status'=>'local_deleted','client'=>$client,'response'=>null];
   }
 
-  if($omieCode==='')throw new RuntimeException('Este cliente não possui código Omie válido. A exclusão foi interrompida.');
+  $document=preg_replace('/\D+/','',(string)($client['document']??''));
+  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('CPF/CNPJ inválido no cadastro local. A exclusão foi interrompida.');
 
-  // Ordem segura: só remove do CRM depois que a Omie confirmar a exclusão.
+  // Antes de excluir, confirma o cliente real na Omie pelo documento.
+  $remote=self::findExistingInOmieByDocument($document);
+  if(!$remote){
+   throw new RuntimeException('O CPF/CNPJ deste cliente não foi encontrado na Omie. Nenhuma exclusão foi realizada.');
+  }
+
+  $remoteCode=(string)($remote['codigo_cliente_omie']??'');
+  if($remoteCode==='')throw new RuntimeException('A Omie localizou o cliente, mas não retornou um código válido. Nenhuma exclusão foi realizada.');
+
+  // Se o código salvo localmente estiver divergente, corrige antes da exclusão.
+  if($localOmieCode!==$remoteCode){
+   DB::exec("UPDATE clients SET omie_code=?,updated_at=NOW() WHERE id=?",[$remoteCode,$id]);
+  }
+
   $omie=new OmieClient();
-  $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$omieCode]);
+  $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$remoteCode]);
 
   DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
-  return ['status'=>'synced_deleted','client'=>$client,'response'=>$response];
+  return [
+   'status'=>'synced_deleted',
+   'client'=>$client,
+   'response'=>$response,
+   'remote_code'=>$remoteCode,
+   'corrected_code'=>$localOmieCode!==$remoteCode,
+  ];
  }
 
 }
