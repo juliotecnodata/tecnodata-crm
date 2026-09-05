@@ -94,7 +94,8 @@ final class BrasilApiService {
    'legal_name'=>(string)($r['razao_social']??''),
    'trade_name'=>(string)($r['nome_fantasia']??''),
    'email'=>mb_strtolower(trim((string)($r['email']??''))),
-   'phone'=>$phone,
+   'phone_ddd'=>$phone!==''?substr($phone,0,2):'',
+   'phone_number'=>$phone!==''?substr($phone,2):'',
    'zip_code'=>preg_replace('/\D+/','',(string)($r['cep']??'')),
    'address'=>$street,
    'address_number'=>(string)($r['numero']??''),
@@ -127,7 +128,8 @@ final class ClientService {
   $tradeName=trim((string)($i['trade_name']??''));
   $document=preg_replace('/\D+/','',(string)($i['document']??''));
   $email=mb_strtolower(trim((string)($i['email']??'')));
-  $phone=preg_replace('/\D+/','',(string)($i['phone']??''));
+  $phoneDdd=preg_replace('/\D+/','',(string)($i['phone_ddd']??''));
+  $phoneNumber=preg_replace('/\D+/','',(string)($i['phone_number']??''));
   $zip=preg_replace('/\D+/','',(string)($i['zip_code']??''));
   $address=trim((string)($i['address']??''));
   $number=trim((string)($i['address_number']??''));
@@ -147,7 +149,9 @@ final class ClientService {
   if($legalName==='')throw new RuntimeException('Informe a razão social ou nome.');
   if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('Informe um CPF ou CNPJ válido no formato numérico.');
   if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-mail inválido.');
-  if($phone!==''&&!in_array(strlen($phone),[10,11],true))throw new RuntimeException('Telefone deve conter DDD e número.');
+  if($phoneDdd!==''&&strlen($phoneDdd)!==2)throw new RuntimeException('DDD deve conter 2 dígitos.');
+  if($phoneNumber!==''&&!in_array(strlen($phoneNumber),[8,9],true))throw new RuntimeException('Telefone deve conter 8 ou 9 dígitos.');
+  if(($phoneDdd===''&&$phoneNumber!=='')||($phoneDdd!==''&&$phoneNumber===''))throw new RuntimeException('Informe DDD e número do telefone.');
   if($zip!==''&&strlen($zip)!==8)throw new RuntimeException('CEP deve conter 8 dígitos.');
   if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('UF inválida.');
 
@@ -172,9 +176,9 @@ final class ClientService {
    'estado'=>$uf,
   ];
   if($tags)$payload['tags']=array_map(fn($tag)=>['tag'=>$tag],$tags);
-  if($phone!==''){
-   $payload['telefone1_ddd']=substr($phone,0,2);
-   $payload['telefone1_numero']=substr($phone,2);
+  if($phoneDdd!==''&&$phoneNumber!==''){
+   $payload['telefone1_ddd']=$phoneDdd;
+   $payload['telefone1_numero']=$phoneNumber;
   }
   if($seller!=='')$payload['codigo_vendedor']=(int)$seller;
   if($notes!=='')$payload['observacao']=$notes;
