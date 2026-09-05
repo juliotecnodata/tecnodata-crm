@@ -15,8 +15,83 @@ function render(string $name,array $vars=[]): void{
    <?php else:?><div class="metric-row management-metrics"><div><span>Vendas no mês</span><strong><?=money($data['sales'])?></strong><small><?=number_format($data['sales_percent'],1,',','.')?>% da meta geral</small></div><div><span>Recuperado no mês</span><strong><?=money($data['recovered'])?></strong><small><?=number_format($data['collection_percent'],1,',','.')?>% da meta de cobrança</small></div><div><span>Saldo cobrança</span><strong><?=money($data['debt'])?></strong></div><div><span>Clientes</span><strong><?=$data['clients']?></strong><small><?=$data['late']?> retorno(s) atrasado(s)</small></div></div><div class="quick-actions"><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><div><strong>Resultados</strong><small>Equipe, metas e atingimento</small></div></a><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i><div><strong>Novo pedido</strong><small>Operação comercial</small></div></a><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><div><strong>Cobrança</strong><small>Carteira financeira</small></div></a></div><?php endif;?>
   <?php break;
   case 'clients':?>
-   <div class="page-head"><div><span class="eyebrow">COMERCIAL</span><h1>Clientes</h1><p>Carteira direta e pesquisável.</p></div><a class="btn btn-primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a></div><form class="filter-bar" method="get"><input class="form-control" type="search" name="q" value="<?=e($q)?>" placeholder="Nome, documento ou cidade"><button class="btn btn-dark">Buscar</button></form><div class="table-card"><table class="table align-middle"><thead><tr><th>Cliente</th><th>Local</th><th>Momento</th><th>Última compra</th><th>Receita 12m</th><th></th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /'))?></td><td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td><td><?=brdate($r['last_purchase_at']??null)?></td><td><?=money($r['revenue_12m']??0)?></td><td><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$r['id']?>">Abrir</a></td></tr><?php endforeach;?></tbody></table></div>
+   <div class="page-head"><div><span class="eyebrow">COMERCIAL</span><h1>Clientes</h1><p>Carteira direta e pesquisável.</p></div><div class="page-head-actions"><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-receipt"></i>Novo pedido</a><a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div></div><form class="filter-bar" method="get"><input class="form-control" type="search" name="q" value="<?=e($q)?>" placeholder="Nome, documento ou cidade"><button class="btn btn-dark">Buscar</button></form><div class="table-card"><table class="table align-middle"><thead><tr><th>Cliente</th><th>Local</th><th>Momento</th><th>Última compra</th><th>Receita 12m</th><th></th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /'))?></td><td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td><td><?=brdate($r['last_purchase_at']??null)?></td><td><?=money($r['revenue_12m']??0)?></td><td><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$r['id']?>">Abrir</a></td></tr><?php endforeach;?></tbody></table></div>
   <?php break;
+  case 'client_new':?>
+   <div class="page-head">
+    <div><span class="eyebrow">CADASTRO</span><h1>Novo cliente</h1><p>Somente os dados necessários para começar. Nesta etapa nada é enviado à Omie.</p></div>
+    <a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Clientes</a>
+   </div>
+
+   <?php if($error):?><div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation me-2"></i><?=e($error)?></div><?php endif;?>
+
+   <form method="post" action="<?=APP_URL?>/clients/preview" class="client-create-layout" id="clientCreateForm">
+    <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+    <div class="client-create-main">
+     <section class="panel client-form-section">
+      <div class="client-section-title"><div class="client-section-icon"><i class="fa-solid fa-building"></i></div><div><span>Identificação</span><small>Quem é o cliente.</small></div></div>
+      <div class="client-form-grid">
+       <div class="span-2"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
+       <div><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
+       <div><label>CPF / CNPJ</label><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required></div>
+      </div>
+     </section>
+
+     <section class="panel client-form-section">
+      <div class="client-section-title"><div class="client-section-icon green"><i class="fa-solid fa-address-book"></i></div><div><span>Contato</span><small>Dados usados pelo comercial.</small></div></div>
+      <div class="client-form-grid">
+       <div><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
+       <div><label>Telefone / WhatsApp</label><input class="form-control" name="phone" data-phone value="<?=e((string)($old['phone']??''))?>" inputmode="tel" autocomplete="tel"></div>
+      </div>
+     </section>
+
+     <section class="panel client-form-section">
+      <div class="client-section-title"><div class="client-section-icon blue"><i class="fa-solid fa-location-dot"></i></div><div><span>Endereço</span><small>Cadastro enxuto para faturamento e logística.</small></div></div>
+      <div class="client-address-grid">
+       <div><label>CEP</label><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"></div>
+       <div class="address-wide"><label>Endereço</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1"></div>
+       <div><label>Número</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
+       <div><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
+       <div><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2"></div>
+       <div><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1"></div>
+      </div>
+     </section>
+
+     <section class="panel client-form-section">
+      <div class="client-section-title"><div class="client-section-icon orange"><i class="fa-solid fa-user-tie"></i></div><div><span>Comercial</span><small>Responsável e observações úteis.</small></div></div>
+      <div class="client-form-grid">
+       <div>
+        <label>Vendedor responsável</label>
+        <?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select>
+        <?php else:?><div class="client-fixed-seller"><i class="fa-solid fa-user"></i><span><?=e(Auth::user()['name']??'Vendedor')?></span></div><?php endif;?>
+       </div>
+       <div class="span-2"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Somente informações realmente úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
+      </div>
+     </section>
+    </div>
+
+    <aside class="panel client-preview-card">
+     <div class="client-preview-status"><span class="preview-dot"></span><div><strong>Simulação Omie</strong><small>Nenhum dado será gravado ou enviado.</small></div></div>
+     <?php if($preview):?>
+      <div class="client-preview-success"><i class="fa-solid fa-circle-check"></i><div><strong>Payload validado</strong><small>Pronto para analisarmos antes da integração real.</small></div></div>
+      <div class="client-preview-summary">
+       <div><span>Cliente</span><strong><?=e($preview['summary']['name'])?></strong></div>
+       <div><span>Documento</span><strong><?=e($preview['summary']['document'])?></strong></div>
+       <div><span>Vendedor</span><strong><?=e($preview['summary']['seller'])?></strong></div>
+      </div>
+      <div class="client-api-preview">
+       <div class="client-api-head"><span><?=e($preview['call'])?></span><small><?=e($preview['endpoint'])?></small></div>
+       <pre><?=e(json_encode($preview['payload'],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?></pre>
+      </div>
+     <?php else:?>
+      <div class="client-preview-empty"><i class="fa-solid fa-code"></i><strong>Veja antes de integrar</strong><span>Preencha o cadastro e clique em “Simular integração”. Vamos validar o formato antes de ativar o envio real.</span></div>
+     <?php endif;?>
+     <button class="btn btn-primary w-100" type="submit"><i class="fa-solid fa-flask"></i>Simular integração</button>
+     <p class="client-preview-help">Nesta primeira versão o botão apenas valida os dados e monta a estrutura que seria enviada à Omie.</p>
+    </aside>
+   </form>
+  <?php break;
+
   case 'client':?>
    <div class="page-head"><div><a class="back" href="<?=APP_URL?>/clients">← Clientes</a><h1><?=e($client['name'])?></h1><p><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /'))?> • <?=e($client['document']??'')?></p></div><a class="btn btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a></div><div class="snapshot"><div><span>Momento</span><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span>Receita 12m</span><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span>Última compra</span><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span>Pedidos 12m</span><strong><?=(int)($client['orders_12m']??0)?></strong></div></div><div class="two-col"><div class="panel"><h2>Registrar contato</h2><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado</label><select class="form-select" name="result"><option value="contact">Falou</option><option value="interested">Interessado</option><option value="agreement">Venda encaminhada</option><option value="no_answer">Não atendeu</option></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="btn btn-primary w-100">Salvar</button></form></div><div><div class="panel mb-3"><h2>Últimos contatos</h2><div class="timeline"><?php foreach($activities as $a):?><div><strong><?=e($a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?></div></div><div class="panel"><h2>Últimos pedidos</h2><div class="simple-list"><?php foreach($orders as $o):?><div><span><strong><?=brdate($o['order_date'])?></strong><small><?=e($o['number']??$o['omie_code'])?></small></span><strong><?=money($o['total'])?></strong></div><?php endforeach;?></div></div></div></div>
   <?php break;
