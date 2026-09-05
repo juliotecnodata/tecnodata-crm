@@ -62,6 +62,64 @@ final class CRMService {
  }
 }
 
+final class BrasilApiService {
+ private static function get(string $path): array{
+  $url='https://brasilapi.com.br/api/'.$path;
+  $ch=curl_init($url);
+  curl_setopt_array($ch,[
+   CURLOPT_RETURNTRANSFER=>true,
+   CURLOPT_HTTPHEADER=>['Accept: application/json','User-Agent: TecnodataCRM/1.0'],
+   CURLOPT_CONNECTTIMEOUT=>8,
+   CURLOPT_TIMEOUT=>15,
+   CURLOPT_ENCODING=>'identity',
+  ]);
+  $raw=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$err=curl_error($ch);curl_close($ch);
+  if($raw===false||$err)throw new RuntimeException('Não foi possível consultar o serviço público agora.');
+  $data=json_decode($raw,true);
+  if($http===404)throw new RuntimeException('Registro não encontrado.');
+  if($http>=400||!is_array($data))throw new RuntimeException((string)($data['message']??'Falha na consulta pública.'));
+  return $data;
+ }
+
+ public static function cnpj(string $value): array{
+  $cnpj=preg_replace('/\D+/','',$value);
+  if(strlen($cnpj)!==14)throw new RuntimeException('CNPJ deve conter 14 dígitos.');
+  $r=self::get('cnpj/v1/'.$cnpj);
+  $phone=preg_replace('/\D+/','',(string)($r['ddd_telefone_1']??$r['ddd_telefone_2']??''));
+  $street=trim((string)($r['logradouro']??''));
+  $type=trim((string)($r['descricao_tipo_de_logradouro']??''));
+  if($type!==''&&$street!==''&&!str_starts_with(mb_strtoupper($street),mb_strtoupper($type)))$street=$type.' '.$street;
+  return [
+   'cnpj'=>$cnpj,
+   'legal_name'=>(string)($r['razao_social']??''),
+   'trade_name'=>(string)($r['nome_fantasia']??''),
+   'email'=>mb_strtolower(trim((string)($r['email']??''))),
+   'phone'=>$phone,
+   'zip_code'=>preg_replace('/\D+/','',(string)($r['cep']??'')),
+   'address'=>$street,
+   'address_number'=>(string)($r['numero']??''),
+   'neighborhood'=>(string)($r['bairro']??''),
+   'city'=>(string)($r['municipio']??''),
+   'uf'=>(string)($r['uf']??''),
+   'source'=>'BrasilAPI',
+  ];
+ }
+
+ public static function cep(string $value): array{
+  $cep=preg_replace('/\D+/','',$value);
+  if(strlen($cep)!==8)throw new RuntimeException('CEP deve conter 8 dígitos.');
+  $r=self::get('cep/v2/'.$cep);
+  return [
+   'zip_code'=>$cep,
+   'address'=>(string)($r['street']??''),
+   'neighborhood'=>(string)($r['neighborhood']??''),
+   'city'=>(string)($r['city']??''),
+   'uf'=>(string)($r['state']??''),
+   'source'=>'BrasilAPI',
+  ];
+ }
+}
+
 final class ClientService {
  public static function buildOmiePreview(array $i,array $u): array{
   $legalName=trim((string)($i['legal_name']??''));
