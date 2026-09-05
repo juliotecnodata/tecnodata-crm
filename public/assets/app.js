@@ -1,49 +1,39 @@
 document.addEventListener('DOMContentLoaded',()=>{
-  const paginateTable=(table,pageSize=10)=>{
-    if(table.dataset.pagerReady==='1')return;
-    const tbody=table.tBodies[0];if(!tbody)return;
-    const rows=Array.from(tbody.rows);if(rows.length===0)return;
-    table.dataset.pagerReady='1';
+  document.querySelectorAll('.sidebar nav a').forEach(link=>{
+    try{
+      const current=new URL(location.href).pathname.replace(/\/$/,'');
+      const target=new URL(link.href).pathname.replace(/\/$/,'');
+      if(target===current||(target!=='/'&&current.startsWith(target+'/')))link.classList.add('active');
+    }catch(e){}
+  });
 
-    const card=table.closest('.table-card');if(!card)return;
-    card.dataset.paginated='1';
+  if(window.DataTable){
+    document.querySelectorAll('.table-card table').forEach(table=>{
+      if(table.dataset.dtReady==='1'||!table.tHead)return;
+      table.dataset.dtReady='1';
+      new DataTable(table,{
+        pageLength:10,
+        lengthChange:false,
+        searching:true,
+        ordering:true,
+        paging:true,
+        info:true,
+        autoWidth:false,
+        order:[],
+        language:{
+          search:'',
+          searchPlaceholder:'Buscar nesta tabela...',
+          info:'Exibindo _START_–_END_ de _TOTAL_',
+          infoEmpty:'Nenhum registro',
+          infoFiltered:'(filtrado de _MAX_)',
+          zeroRecords:'Nenhum registro encontrado',
+          emptyTable:'Nenhum registro disponível',
+          paginate:{first:'Primeira',last:'Última',next:'›',previous:'‹'}
+        }
+      });
+    });
+  }
 
-    const scroll=document.createElement('div');
-    scroll.className='table-scroll';
-    table.parentNode.insertBefore(scroll,table);
-    scroll.appendChild(table);
-
-    const pager=document.createElement('div');
-    pager.className='table-pager';
-    const info=document.createElement('div');info.className='table-pager-info';
-    const actions=document.createElement('div');actions.className='table-pager-actions';
-    pager.append(info,actions);card.appendChild(pager);
-
-    let current=1;
-    const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));
-
-    const render=()=>{
-      current=Math.min(Math.max(1,current),totalPages);
-      const start=(current-1)*pageSize,end=start+pageSize;
-      rows.forEach((row,index)=>row.hidden=index<start||index>=end);
-      const shownStart=rows.length?start+1:0,shownEnd=Math.min(end,rows.length);
-      info.textContent=`Exibindo ${shownStart}–${shownEnd} de ${rows.length} • 10 por página`;
-      actions.innerHTML='';
-
-      const make=(label,page,disabled=false,active=false)=>{
-        const b=document.createElement('button');b.type='button';b.textContent=label;b.disabled=disabled;b.classList.toggle('active',active);
-        b.addEventListener('click',()=>{current=page;render();card.scrollIntoView({behavior:'smooth',block:'start'});});
-        actions.appendChild(b);
-      };
-      make('‹',current-1,current===1);
-      const from=Math.max(1,Math.min(current-2,totalPages-4)),to=Math.min(totalPages,from+4);
-      for(let p=from;p<=to;p++)make(String(p),p,false,p===current);
-      make('›',current+1,current===totalPages);
-    };
-    render();
-  };
-
-  document.querySelectorAll('.table-card table').forEach(table=>paginateTable(table,10));
   document.querySelector('[data-menu]')?.addEventListener('click',()=>document.querySelector('.sidebar')?.classList.toggle('open'));
 
   document.querySelectorAll('[data-sync]').forEach(btn=>btn.addEventListener('click',async()=>{
