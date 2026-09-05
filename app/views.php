@@ -21,106 +21,95 @@ function render(string $name,array $vars=[]): void{
    <div class="table-card"><table class="table align-middle"><thead><tr><th>Cliente</th><th>Local</th><th>Momento</th><th>Última compra</th><th>Receita 12m</th><th class="text-end">Ações</th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /'))?></td><td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td><td><?=brdate($r['last_purchase_at']??null)?></td><td><?=money($r['revenue_12m']??0)?></td><td class="text-end"><div class="table-actions"><a class="btn btn-sm btn-light" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Ver"><i class="fa-regular fa-eye"></i></a><a class="btn btn-sm btn-light" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete" class="d-inline"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" title="Excluir" data-confirm="Excluir este cliente também na Omie? Esta operação pode ser recusada pela Omie se houver vínculos financeiros ou fiscais."><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td></tr><?php endforeach;?></tbody></table></div>
   <?php break;
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
-   <div class="page-head">
-    <div><span class="eyebrow"><?=$editClient?'EDIÇÃO':'CADASTRO'?></span><h1><?=$editClient?'Editar cliente':'Novo cliente'?></h1><p><?=$editClient?'As alterações serão enviadas à Omie e atualizadas no CRM.':'Cadastre somente o necessário e valide antes de enviar à Omie.'?></p></div>
-    <a class="btn btn-outline-secondary" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i><?=$editClient?'Voltar ao cliente':'Clientes'?></a>
+   <div class="page-head client-editor-head">
+    <div><span class="eyebrow"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Atualize somente o necessário. As alterações confirmadas seguem para a Omie.':'Cadastro direto, com consulta automática por CNPJ e CEP.'?></p></div>
+    <a class="btn btn-outline-secondary" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a>
    </div>
 
-   <?php if($error):?><div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation me-2"></i><?=e($error)?></div><?php endif;?>
-   <?php if($editError):?><div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Omie:</strong> <?=e($editError)?></div><?php endif;?>
-   <?php if($createError):?><div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Omie:</strong> <?=e($createError)?></div><?php endif;?>
-   <?php if($createSuccess):?><div class="alert alert-success client-created-alert"><i class="fa-solid fa-circle-check"></i><div><strong>Cliente criado com sucesso na Omie.</strong><span><?=e((string)($createSuccess['client']['name']??''))?> • código Omie <?=e((string)($createSuccess['client']['omie_code']??''))?></span></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=e((string)($createSuccess['client']['id']??''))?>">Abrir cliente</a></div><?php endif;?>
+   <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
+   <?php if($editError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($editError)?></div><?php endif;?>
+   <?php if($createError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($createError)?></div><?php endif;?>
+   <?php if($createSuccess):?><div class="alert alert-success client-created-alert"><i class="fa-solid fa-circle-check"></i><div><strong>Cliente criado com sucesso.</strong><span><?=e((string)($createSuccess['client']['name']??''))?> • Omie <?=e((string)($createSuccess['client']['omie_code']??''))?></span></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=e((string)($createSuccess['client']['id']??''))?>">Abrir cliente</a></div><?php endif;?>
 
-   <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/preview'?>" class="client-create-layout" id="clientCreateForm">
+   <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/preview'?>" id="clientCreateForm" class="client-editor">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-    <div class="client-create-main">
-     <section class="panel client-form-section">
-      <div class="client-section-title"><div class="client-section-icon"><i class="fa-solid fa-building"></i></div><div><span>Identificação</span><small>Quem é o cliente.</small></div></div>
-      <div class="client-form-grid client-id-grid">
-       <div class="client-legal"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
-       <div class="client-trade"><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
-       <div class="client-document"><label>CPF / CNPJ</label><div class="lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button class="lookup-action" type="button" data-cnpj-lookup title="Buscar dados pelo CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="field-hint" data-cnpj-status>Ao informar um CNPJ, o CRM pode preencher os dados automaticamente.</small></div>
-      </div>
-     </section>
 
-     <section class="panel client-form-section">
-      <div class="client-section-title"><div class="client-section-icon green"><i class="fa-solid fa-address-book"></i></div><div><span>Contato</span><small>Dados usados pelo comercial.</small></div></div>
-      <div class="client-form-grid client-contact-grid">
-       <div class="client-email"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
-       <div class="client-phone-group">
-        <div><label>DDD</label><input class="form-control" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="41"></div>
-        <div><label>Telefone / WhatsApp</label><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="999999999"></div>
-       </div>
-      </div>
-     </section>
+    <section class="client-editor-card">
+     <header class="client-editor-section-head">
+      <div><strong>Dados principais</strong><span>Identificação e contato</span></div>
+      <?php if($editClient):?><span class="client-omie-code">Omie #<?=e((string)$editClient['omie_code'])?></span><?php endif;?>
+     </header>
 
-     <section class="panel client-form-section">
-      <div class="client-section-title"><div class="client-section-icon blue"><i class="fa-solid fa-location-dot"></i></div><div><span>Endereço</span><small>Cadastro enxuto para faturamento e logística.</small></div></div>
-      <div class="client-address-grid">
-       <div><label>CEP</label><div class="lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"><button class="lookup-action" type="button" data-cep-lookup title="Buscar endereço pelo CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="field-hint" data-cep-status>Digite o CEP para preencher endereço, bairro, cidade e UF.</small></div>
-       <div class="address-wide"><label>Endereço</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1"></div>
-       <div><label>Número</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
-       <div><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>" placeholder="Opcional"></div>
-       <div><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
-       <div><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2"></div>
-       <div><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1"></div>
+     <div class="client-fields-grid">
+      <div class="field col-4">
+       <label>CPF / CNPJ</label>
+       <div class="lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button class="lookup-action" type="button" data-cnpj-lookup title="Buscar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div>
+       <small class="field-hint" data-cnpj-status>CNPJ completo busca e preenche os dados disponíveis.</small>
       </div>
-     </section>
+      <div class="field col-5"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
+      <div class="field col-3"><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
 
-     <section class="panel client-form-section">
-      <div class="client-section-title"><div class="client-section-icon orange"><i class="fa-solid fa-user-tie"></i></div><div><span>Comercial</span><small>Responsável e observações úteis.</small></div></div>
-      <div class="client-form-grid client-commercial-grid">
-       <div>
-        <label>Vendedor responsável</label>
-        <?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select>
-        <?php else:?><div class="client-fixed-seller"><i class="fa-solid fa-user"></i><span><?=e(Auth::user()['name']??'Vendedor')?></span></div><?php endif;?>
-       </div>
-       <div>
-        <label>Tags</label>
-        <div class="tag-editor" data-tag-editor>
-         <div class="tag-chips" data-tag-chips></div>
-         <input class="form-control" type="text" data-tag-input placeholder="Digite e pressione Enter">
-         <input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??''))?>">
-        </div>
-        <small class="field-hint">As tags serão enviadas no formato nativo da Omie.</small>
-       </div>
-       <div class="span-2"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Somente informações realmente úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
-      </div>
-     </section>
-    </div>
+      <div class="field col-7"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
+      <div class="field col-1"><label>DDD</label><input class="form-control text-center" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="41"></div>
+      <div class="field col-4"><label>Telefone / WhatsApp</label><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="999999999"></div>
+     </div>
+    </section>
 
-    <aside class="panel client-preview-card">
-     <?php if($editClient):?>
-      <div class="client-preview-status"><span class="preview-dot"></span><div><strong>Editar cliente Omie</strong><small>Código Omie <?=e((string)$editClient['omie_code'])?></small></div></div>
-      <div class="client-edit-summary">
-       <div><span>Cliente</span><strong><?=e($editClient['name'])?></strong></div>
-       <div><span>Documento</span><strong><?=e($editClient['document']??'—')?></strong></div>
-       <div><span>Sincronização</span><strong>Omie + CRM</strong></div>
+    <section class="client-editor-card">
+     <header class="client-editor-section-head"><div><strong>Endereço</strong><span>Usado no cadastro e nas rotinas de faturamento</span></div></header>
+     <div class="client-fields-grid">
+      <div class="field col-2">
+       <label>CEP</label>
+       <div class="lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"><button class="lookup-action" type="button" data-cep-lookup title="Buscar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div>
+       <small class="field-hint" data-cep-status>Busca automática ao completar.</small>
       </div>
-      <div class="client-preview-empty compact"><i class="fa-solid fa-pen-to-square"></i><strong>Alteração integrada</strong><span>Ao salvar, o CRM usa <b>AlterarCliente</b> na Omie. O banco local só é atualizado após resposta de sucesso.</span></div>
-      <button class="btn btn-primary w-100" type="submit" data-confirm="Salvar estas alterações também na Omie?"><i class="fa-solid fa-check"></i>Salvar alterações</button>
-      <?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$editClient['id']?>/delete" class="mt-2"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-danger w-100" type="submit" data-confirm="Excluir este cliente também na Omie? Esta operação pode ser recusada se existirem vínculos financeiros, fiscais ou pedidos."><i class="fa-regular fa-trash-can"></i>Excluir cliente</button></form><?php endif;?>
-      <p class="client-preview-help">A exclusão é restrita a administrador/supervisor e só remove o cliente da carteira ativa depois que a Omie confirma.</p>
-     <?php else:?>
-      <div class="client-preview-status"><span class="preview-dot"></span><div><strong>Simulação Omie</strong><small>Nenhum dado será gravado ou enviado.</small></div></div>
-      <?php if($preview):?>
-       <div class="client-preview-success"><i class="fa-solid fa-circle-check"></i><div><strong>Payload validado</strong><small>Pronto para analisarmos antes da integração real.</small></div></div>
-       <div class="client-preview-summary">
-        <div><span>Cliente</span><strong><?=e($preview['summary']['name'])?></strong></div>
-        <div><span>Documento</span><strong><?=e($preview['summary']['document'])?></strong></div>
-        <div><span>Vendedor</span><strong><?=e($preview['summary']['seller'])?></strong></div>
-       </div>
-       <div class="client-api-preview"><div class="client-api-head"><span><?=e($preview['call'])?></span><small><?=e($preview['endpoint'])?></small></div><pre><?=e(json_encode($preview['payload'],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?></pre></div>
+      <div class="field col-5"><label>Endereço</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1"></div>
+      <div class="field col-2"><label>Número</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
+      <div class="field col-3"><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>" placeholder="Opcional"></div>
+
+      <div class="field col-4"><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
+      <div class="field col-6"><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2"></div>
+      <div class="field col-2"><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1"></div>
+     </div>
+    </section>
+
+    <section class="client-editor-card">
+     <header class="client-editor-section-head"><div><strong>Organização comercial</strong><span>Responsável, classificação e observações</span></div></header>
+     <div class="client-fields-grid">
+      <div class="field col-4">
+       <label>Vendedor responsável</label>
+       <?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select>
+       <?php else:?><div class="client-fixed-seller"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?>
+      </div>
+      <div class="field col-8">
+       <label>Tags</label>
+       <div class="tag-editor" data-tag-editor><div class="tag-chips" data-tag-chips></div><input class="form-control" type="text" data-tag-input placeholder="Digite uma tag e pressione Enter"><input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??''))?>"></div>
+       <small class="field-hint">Ex.: CFC, Parceiro, PR, EAD.</small>
+      </div>
+      <div class="field col-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
+     </div>
+    </section>
+
+    <?php if(!$editClient&&$preview):?>
+    <section class="client-editor-card client-preview-inline">
+     <header class="client-editor-section-head"><div><strong>Prévia da integração</strong><span>Payload validado, ainda não enviado</span></div><span class="client-preview-badge">VALIDADO</span></header>
+     <div class="client-preview-summary-inline"><div><span>Cliente</span><strong><?=e($preview['summary']['name'])?></strong></div><div><span>Documento</span><strong><?=e($preview['summary']['document'])?></strong></div><div><span>Vendedor</span><strong><?=e($preview['summary']['seller'])?></strong></div></div>
+     <details class="client-payload-details"><summary>Ver payload técnico</summary><pre><?=e(json_encode($preview['payload'],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?></pre></details>
+    </section>
+    <?php endif;?>
+
+    <div class="client-editor-actions">
+     <div class="client-editor-actions-info"><i class="fa-solid fa-cloud"></i><span><?=$editClient?'Salvar atualiza Omie e CRM após confirmação.':'Você pode simular antes de cadastrar de verdade.'?></span></div>
+     <div class="client-editor-actions-buttons">
+      <?php if($editClient):?>
+       <?php if(Auth::can('admin','supervisor')):?><button class="btn btn-outline-danger" type="submit" formaction="<?=APP_URL?>/clients/<?=(int)$editClient['id']?>/delete" formnovalidate data-confirm="Excluir este cliente também na Omie? Esta operação pode ser recusada se houver vínculos."><i class="fa-regular fa-trash-can"></i>Excluir</button><?php endif;?>
+       <button class="btn btn-primary" type="submit" data-confirm="Salvar estas alterações também na Omie?"><i class="fa-solid fa-check"></i>Salvar alterações</button>
       <?php else:?>
-       <div class="client-preview-empty"><i class="fa-solid fa-code"></i><strong>Veja antes de integrar</strong><span>Preencha o cadastro e clique em “Simular integração”. Vamos validar o formato antes de ativar o envio real.</span></div>
+       <button class="btn btn-outline-secondary" type="submit" formaction="<?=APP_URL?>/clients/preview"><i class="fa-solid fa-flask"></i>Simular</button>
+       <button class="btn btn-primary" type="submit" formaction="<?=APP_URL?>/clients/send" data-real-client-send><i class="fa-solid fa-cloud-arrow-up"></i>Cadastrar na Omie</button>
       <?php endif;?>
-      <div class="client-preview-actions">
-       <button class="btn btn-outline-secondary w-100" type="submit" formaction="<?=APP_URL?>/clients/preview"><i class="fa-solid fa-flask"></i>Simular integração</button>
-       <button class="btn btn-primary w-100" type="submit" formaction="<?=APP_URL?>/clients/send" data-real-client-send><i class="fa-solid fa-cloud-arrow-up"></i>Cadastrar cliente na Omie</button>
-      </div>
-      <p class="client-preview-help">O cadastro local ocorre somente depois de a Omie confirmar a criação.</p>
-     <?php endif;?>
-    </aside>
+     </div>
+    </div>
    </form>
   <?php break;
 
