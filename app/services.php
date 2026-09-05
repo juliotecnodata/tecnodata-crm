@@ -98,6 +98,7 @@ final class BrasilApiService {
    'zip_code'=>preg_replace('/\D+/','',(string)($r['cep']??'')),
    'address'=>$street,
    'address_number'=>(string)($r['numero']??''),
+   'complement'=>(string)($r['complemento']??''),
    'neighborhood'=>(string)($r['bairro']??''),
    'city'=>(string)($r['municipio']??''),
    'uf'=>(string)($r['uf']??''),
