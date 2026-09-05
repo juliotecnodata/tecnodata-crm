@@ -49,3 +49,23 @@ CREATE TABLE IF NOT EXISTS collection_assignment_log(
  FOREIGN KEY(changed_by) REFERENCES users(id),
  INDEX idx_collection_assignment_client_date(client_id,created_at)
 );
+
+CREATE TABLE IF NOT EXISTS order_profiles(
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ code VARCHAR(40) NOT NULL,
+ name VARCHAR(120) NOT NULL,
+ description VARCHAR(255) NULL,
+ default_no_stock CHAR(1) NOT NULL DEFAULT 'N',
+ default_no_finance CHAR(1) NOT NULL DEFAULT 'N',
+ default_no_total CHAR(1) NOT NULL DEFAULT 'N',
+ default_reserve_stock CHAR(1) NOT NULL DEFAULT 'N',
+ active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NOT NULL,
+ UNIQUE KEY uq_order_profiles_code(code)
+);
+INSERT IGNORE INTO order_profiles(code,name,description,default_no_stock,default_no_finance,default_no_total,default_reserve_stock,active,created_at,updated_at) VALUES
+('NORMAL','Venda normal','Movimenta estoque e gera financeiro normalmente.','N','N','N','N',1,NOW(),NOW()),
+('SEM_ESTOQUE','Venda sem movimento de estoque','Gera financeiro, mas não baixa estoque ao faturar.','S','N','N','N',1,NOW(),NOW()),
+('SEM_FINANCEIRO','Remessa sem financeiro','Movimenta estoque, mas o item não gera conta a receber.','N','S','N','N',1,NOW(),NOW()),
+('INFORMATIVO','Item informativo','Não movimenta estoque, não gera financeiro e não soma no total da NF-e.','S','S','S','N',1,NOW(),NOW());
