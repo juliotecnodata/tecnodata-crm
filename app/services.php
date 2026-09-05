@@ -825,13 +825,25 @@ final class SyncService {
   }
  }
  private static function syncWindow(string $module,int $page): array{
-  if($page===1)self::purgeOldYearData($module);
   $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
   $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+  $hasInitialLoad=$state&&!empty($state['last_success_at']);
+
   if($page===1||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
-   $start=date('01/01/Y');
-   $end=date('d/m/Y');
-   $ctx=['start'=>$start,'end'=>$end,'mode'=>'current_year'];
+   if($hasInitialLoad){
+    // Depois da primeira carga concluída, Pedidos e Serviços trabalham em janela móvel de 5 dias.
+    // Inclui hoje + 4 dias anteriores; o UPSERT abaixo atualiza registros que já existirem.
+    $start=date('d/m/Y',strtotime('-4 days'));
+    $end=date('d/m/Y');
+    $ctx=['start'=>$start,'end'=>$end,'mode'=>'incremental_5_days'];
+   }else{
+    // Primeira carga: mantém a carga histórica do ano corrente.
+    self::purgeOldYearData($module);
+    $start=date('01/01/Y');
+    $end=date('d/m/Y');
+    $ctx=['start'=>$start,'end'=>$end,'mode'=>'initial_current_year'];
+   }
+
    DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
              VALUES(?,0,0,0,?,NULL,NULL)
              ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
