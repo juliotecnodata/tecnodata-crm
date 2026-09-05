@@ -130,10 +130,18 @@ final class ClientService {
   $zip=preg_replace('/\D+/','',(string)($i['zip_code']??''));
   $address=trim((string)($i['address']??''));
   $number=trim((string)($i['address_number']??''));
+  $complement=trim((string)($i['complement']??''));
   $neighborhood=trim((string)($i['neighborhood']??''));
   $city=trim((string)($i['city']??''));
   $uf=strtoupper(trim((string)($i['uf']??'')));
   $notes=trim((string)($i['notes']??''));
+  $rawTags=(string)($i['tags']??'');
+  $tags=[];
+  foreach(preg_split('/[,;\n]+/',$rawTags)?:[] as $tag){
+   $tag=trim($tag);
+   if($tag!==''&&!in_array(mb_strtolower($tag),array_map('mb_strtolower',$tags),true))$tags[]=$tag;
+  }
+  $tags=array_slice($tags,0,20);
 
   if($legalName==='')throw new RuntimeException('Informe a razão social ou nome.');
   if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('Informe um CPF ou CNPJ válido no formato numérico.');
@@ -157,10 +165,12 @@ final class ClientService {
    'cep'=>$zip,
    'endereco'=>$address,
    'endereco_numero'=>$number,
+   'complemento'=>$complement,
    'bairro'=>$neighborhood,
    'cidade'=>$city,
    'estado'=>$uf,
   ];
+  if($tags)$payload['tags']=array_map(fn($tag)=>['tag'=>$tag],$tags);
   if($phone!==''){
    $payload['telefone1_ddd']=substr($phone,0,2);
    $payload['telefone1_numero']=substr($phone,2);
