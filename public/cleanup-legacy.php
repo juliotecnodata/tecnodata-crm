@@ -74,6 +74,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    try{DB::conn()->exec('SET FOREIGN_KEY_CHECKS=1');}catch(Throwable){}
    $error=$e->getMessage();
   }
+ }
 }
 
 function h(mixed $v): string{return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
