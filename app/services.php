@@ -71,12 +71,20 @@ final class OrderService {
    'stock_location'=>(string)($i['stock_location']??''),'consumer_final'=>(string)($i['consumer_final']??'S')==='N'?'N':'S',
    'send_email'=>!empty($i['send_email'])?'S':'N','freight_mode'=>(string)($i['freight_mode']??'9')
   ];
-  if($d['stage']===''||!DB::one("SELECT 1 FROM order_stages WHERE code=? AND active=1",[$d['stage']]))throw new RuntimeException('Etapa padrão inválida.');
-  if($d['category']===''||!DB::one("SELECT 1 FROM categories WHERE code=? AND active=1",[$d['category']]))throw new RuntimeException('Categoria padrão inválida.');
-  if($d['account']===''||!DB::one("SELECT 1 FROM financial_accounts WHERE omie_code=? AND active=1",[$d['account']]))throw new RuntimeException('Conta corrente padrão inválida.');
-  if($d['payment_term']===''||$d['payment_term']==='999'||!DB::one("SELECT 1 FROM payment_terms WHERE code=? AND active=1",[$d['payment_term']]))throw new RuntimeException('Condição de pagamento padrão inválida.');
+  self::validateHeaderChoices($d,true);
   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('order_defaults',?,NOW())
             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode($d,JSON_UNESCAPED_UNICODE)]);
+ }
+ private static function validateHeaderChoices(array $d,bool $requireCore=false): void{
+  if(($requireCore||($d['stage']??'')!=='')&&!DB::one("SELECT 1 FROM order_stages WHERE code=? AND active=1",[(string)($d['stage']??'')]))throw new RuntimeException('Etapa inválida.');
+  if(($requireCore||($d['category']??'')!=='')&&!DB::one("SELECT 1 FROM categories WHERE code=? AND active=1",[(string)($d['category']??'')]))throw new RuntimeException('Categoria inválida.');
+  if(($requireCore||($d['account']??'')!=='')&&!DB::one("SELECT 1 FROM financial_accounts WHERE omie_code=? AND active=1",[(string)($d['account']??'')]))throw new RuntimeException('Conta corrente inválida.');
+  if(($requireCore||($d['payment_term']??'')!=='')&&((string)($d['payment_term']??'')==='999'||!DB::one("SELECT 1 FROM payment_terms WHERE code=? AND active=1",[(string)($d['payment_term']??'')])))throw new RuntimeException('Condição de pagamento inválida.');
+  if(($d['tax_scenario']??'')!==''&&!DB::one("SELECT 1 FROM tax_scenarios WHERE omie_code=? AND active=1",[(string)$d['tax_scenario']]))throw new RuntimeException('Cenário fiscal inválido.');
+  if(($d['stock_location']??'')!==''&&!DB::one("SELECT 1 FROM stock_locations WHERE omie_code=? AND active=1",[(string)$d['stock_location']]))throw new RuntimeException('Local de estoque inválido.');
+  if(($d['payment_method']??'')!==''&&!DB::one("SELECT 1 FROM payment_methods WHERE code=?",[(string)$d['payment_method']]))throw new RuntimeException('Meio de pagamento inválido.');
+  if(($d['document_type']??'')!==''&&!DB::one("SELECT 1 FROM document_types WHERE code=?",[(string)$d['document_type']]))throw new RuntimeException('Tipo de documento inválido.');
+  if(!in_array((string)($d['freight_mode']??'9'),['0','1','2','3','4','9'],true))throw new RuntimeException('Modalidade de frete inválida.');
  }
  public static function ready(): array{
   $d=self::defaults();$m=[];
@@ -85,47 +93,113 @@ final class OrderService {
   if((int)(DB::scalar("SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999'")??0)===0)$m[]='payment_terms';
   return ['ok'=>!$m,'missing'=>$m,'defaults'=>$d];
  }
+ public static function profiles(): array{
+  return DB::all("SELECT * FROM order_profiles WHERE active=1 ORDER BY id");
+ }
+ public static function saveProfile(array $i): void{
+  $id=(int)($i['id']??0);$code=strtoupper(preg_replace('/[^A-Za-z0-9_]/','_',trim((string)($i['code']??''))));
+  $name=trim((string)($i['name']??''));if($code===''||$name==='')throw new RuntimeException('Código e nome do tipo de pedido são obrigatórios.');
+  $flags=[];
+  foreach(['default_no_stock','default_no_finance','default_no_total','default_reserve_stock'] as $k)$flags[$k]=!empty($i[$k])?'S':'N';
+  if($id>0)DB::exec("UPDATE order_profiles SET code=?,name=?,description=?,default_no_stock=?,default_no_finance=?,default_no_total=?,default_reserve_stock=?,active=?,updated_at=NOW() WHERE id=?",
+   [$code,$name,trim((string)($i['description']??'')),$flags['default_no_stock'],$flags['default_no_finance'],$flags['default_no_total'],$flags['default_reserve_stock'],!empty($i['active'])?1:0,$id]);
+  else DB::exec("INSERT INTO order_profiles(code,name,description,default_no_stock,default_no_finance,default_no_total,default_reserve_stock,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,NOW(),NOW())",
+   [$code,$name,trim((string)($i['description']??'')),$flags['default_no_stock'],$flags['default_no_finance'],$flags['default_no_total'],$flags['default_reserve_stock'],!empty($i['active'])?1:0]);
+ }
  public static function build(array $i,array $u): array{
-  $r=self::ready();if(!$r['ok'])throw new RuntimeException('Configuração incompleta: '.implode(', ',$r['missing']).'.');$d=$r['defaults'];
+  $r=self::ready();if(!$r['ok'])throw new RuntimeException('Configuração incompleta: '.implode(', ',$r['missing']).'.');$defaults=$r['defaults'];
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[(int)($i['client_id']??0)]);if(!$client)throw new RuntimeException('Cliente inválido.');
   if($u['role']==='seller'&&(string)$client['seller_omie_code']!==(string)$u['seller_omie_code'])throw new RuntimeException('Cliente fora da sua carteira.');
   $seller=$u['role']==='seller'?(string)$u['seller_omie_code']:(string)($i['seller_omie_code']??'');if($seller===''||!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$seller]))throw new RuntimeException('Vendedor obrigatório ou inválido.');
-  $term=(string)($i['payment_term']??$d['payment_term']);if($term==='999'||!DB::one("SELECT 1 FROM payment_terms WHERE code=? AND active=1",[$term]))throw new RuntimeException('Condição de pagamento inválida.');
+
+  // O vendedor pode setar os campos operacionais do pedido; os padrões apenas agilizam a digitação.
+  $header=[
+   'stage'=>(string)($i['stage']??$defaults['stage']??''),
+   'category'=>(string)($i['category']??$defaults['category']??''),
+   'account'=>(string)($i['account']??$defaults['account']??''),
+   'payment_term'=>(string)($i['payment_term']??$defaults['payment_term']??''),
+   'payment_method'=>(string)($i['payment_method']??$defaults['payment_method']??''),
+   'document_type'=>(string)($i['document_type']??$defaults['document_type']??''),
+   'tax_scenario'=>(string)($i['tax_scenario']??$defaults['tax_scenario']??''),
+   'stock_location'=>(string)($i['stock_location']??$defaults['stock_location']??''),
+   'consumer_final'=>(string)($i['consumer_final']??$defaults['consumer_final']??'S')==='N'?'N':'S',
+   'send_email'=>(string)($i['send_email']??$defaults['send_email']??'N')==='S'?'S':'N',
+   'freight_mode'=>(string)($i['freight_mode']??$defaults['freight_mode']??'9'),
+  ];
+  self::validateHeaderChoices($header,true);
+
   $items=json_decode((string)($i['items_json']??'[]'),true);if(!is_array($items)||!$items)throw new RuntimeException('Inclua ao menos um produto.');
+  if(count($items)>199)throw new RuntimeException('A Omie aceita no máximo 199 itens por pedido.');
 
   $requestToken=preg_replace('/[^A-Za-z0-9_-]/','',(string)($i['request_token']??''));
   if($requestToken==='')$requestToken=date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
   $integration=substr('TDCRM-'.$requestToken,0,60);
-
   $existing=DB::one("SELECT * FROM omie_order_logs WHERE integration_code=? AND status='success' LIMIT 1",[$integration]);
   if($existing)return ['payload'=>json_decode((string)$existing['request_json'],true),'client'=>$client,'seller'=>$seller,'total'=>(float)$existing['total'],'integration'=>$integration,'existing'=>$existing];
 
-  $det=[];$total=0.0;$n=0;
+  $det=[];$commercialTotal=0.0;$fiscalTotal=0.0;$financialTotal=0.0;$n=0;
   foreach($items as $it){
    $p=DB::one("SELECT * FROM products WHERE id=? AND active=1",[(int)($it['product_id']??0)]);if(!$p)throw new RuntimeException('Produto inválido.');
    $q=(float)($it['quantity']??0);if($q<=0)throw new RuntimeException('Quantidade inválida para '.$p['description'].'.');
-   $price=$u['role']==='seller'?(float)$p['unit_price']:(float)($it['unit_price']??$p['unit_price']);
-   $discount=$u['role']==='seller'?0:max(0,(float)($it['discount']??0));if($price<=0)throw new RuntimeException('Produto sem preço: '.$p['description'].'.');
-   $line=max(0,$q*$price-$discount);if($line<=0)throw new RuntimeException('Total inválido para '.$p['description'].'.');$total+=$line;$n++;
-   $prod=['codigo_produto'=>(int)$p['omie_code'],'descricao'=>(string)$p['description'],'quantidade'=>$q,'unidade'=>(string)($p['unit']?:'UN'),'valor_unitario'=>$price];
-   if($discount>0){$prod['tipo_desconto']='V';$prod['valor_desconto']=$discount;}
-   if(!empty($p['ncm']))$prod['ncm']=$p['ncm'];
-   $detail=['ide'=>['codigo_item_integracao'=>(string)$n],'produto'=>$prod];
-   if(!empty($d['stock_location']))$detail['inf_adic']=['codigo_local_estoque'=>(int)$d['stock_location']];
-   $det[]=$detail;
+   $price=(float)($it['unit_price']??$p['unit_price']);if($price<=0)throw new RuntimeException('Produto sem preço: '.$p['description'].'.');
+   $discountType=in_array((string)($it['discount_type']??'V'),['V','P'],true)?(string)$it['discount_type']:'V';
+   $discountValue=max(0,(float)($it['discount_value']??$it['discount']??0));
+   $discount=$discountType==='P'?($q*$price*min(100,$discountValue)/100):$discountValue;
+   $line=max(0,$q*$price-$discount);if($line<=0)throw new RuntimeException('Total inválido para '.$p['description'].'.');
+
+   $noStock=!empty($it['no_stock'])?'S':'N';
+   $noFinance=!empty($it['no_finance'])?'S':'N';
+   $noTotal=!empty($it['no_total'])?'S':'N';
+   $reserve=!empty($it['reserve_stock'])?'S':'N';
+   $commercialTotal+=$line;if($noTotal==='N')$fiscalTotal+=$line;if($noFinance==='N')$financialTotal+=$line;$n++;
+
+   $prod=['codigo_produto'=>(int)$p['omie_code'],'descricao'=>(string)$p['description'],'quantidade'=>$q,'unidade'=>(string)($it['unit']??$p['unit']?:'UN'),'valor_unitario'=>$price,'reservado'=>$reserve];
+   if($discountValue>0){$prod['tipo_desconto']=$discountType;if($discountType==='P')$prod['percentual_desconto']=$discountValue;else $prod['valor_desconto']=$discountValue;}
+   $ncm=trim((string)($it['ncm']??$p['ncm']??''));if($ncm!=='')$prod['ncm']=$ncm;
+   $cfop=trim((string)($it['cfop']??''));if($cfop!=='')$prod['cfop']=$cfop;
+
+   $inf=[
+    'nao_movimentar_estoque'=>$noStock,
+    'nao_gerar_financeiro'=>$noFinance,
+    'nao_somar_total'=>$noTotal,
+   ];
+   $categoryItem=trim((string)($it['category_code']??''));if($categoryItem!==''){
+    if(!DB::one("SELECT 1 FROM categories WHERE code=? AND active=1",[$categoryItem]))throw new RuntimeException('Categoria inválida no item '.$n.'.');
+    $inf['codigo_categoria_item']=$categoryItem;
+   }
+   $taxItem=trim((string)($it['tax_scenario_code']??''));if($taxItem!==''){
+    if(!DB::one("SELECT 1 FROM tax_scenarios WHERE omie_code=? AND active=1",[$taxItem]))throw new RuntimeException('Cenário fiscal inválido no item '.$n.'.');
+    $inf['codigo_cenario_impostos_item']=(int)$taxItem;
+   }
+   $stockItem=trim((string)($it['stock_location_code']??$header['stock_location']));if($stockItem!==''){
+    if(!DB::one("SELECT 1 FROM stock_locations WHERE omie_code=? AND active=1",[$stockItem]))throw new RuntimeException('Local de estoque inválido no item '.$n.'.');
+    $inf['codigo_local_estoque']=(int)$stockItem;
+   }
+   $po=trim((string)($it['purchase_order_number']??''));if($po!=='')$inf['numero_pedido_compra']=mb_substr($po,0,15);
+   $poItem=(int)($it['purchase_order_item']??0);if($poItem>0)$inf['item_pedido_compra']=$poItem;
+   $fiscalNotes=trim((string)($it['fiscal_notes']??''));if($fiscalNotes!=='')$inf['dados_adicionais_item']=$fiscalNotes;
+
+   $det[]=['ide'=>['codigo_item_integracao'=>(string)$n],'produto'=>$prod,'inf_adic'=>$inf];
   }
 
   $forecast=(string)($i['forecast_date']??date('Y-m-d'));if(!strtotime($forecast)||$forecast<date('Y-m-d'))throw new RuntimeException('Previsão inválida.');
-  $cab=['codigo_pedido_integracao'=>$integration,'codigo_cliente'=>(int)$client['omie_code'],'data_previsao'=>date('d/m/Y',strtotime($forecast)),'etapa'=>(string)$d['stage'],'codigo_parcela'=>$term];
-  if(!empty($d['tax_scenario']))$cab['codigo_cenario_impostos']=(int)$d['tax_scenario'];
-  $info=['codigo_categoria'=>(string)$d['category'],'codigo_conta_corrente'=>(int)$d['account'],'consumidor_final'=>(string)($d['consumer_final']??'S'),'enviar_email'=>(string)($d['send_email']??'N'),'codVend'=>(int)$seller];
-  $pm=(string)($i['payment_method']??$d['payment_method']??'');if($pm!=='')$info['meio_pagamento']=$pm;
-  if(!empty($d['document_type']))$info['tipo_documento']=$d['document_type'];
-  if(($d['send_email']??'N')==='S'&&!empty($client['email']))$info['utilizar_emails']=$client['email'];
-  foreach(['customer_order'=>'numero_pedido_cliente','contract'=>'numero_contrato','contact'=>'contato'] as $from=>$to){$v=trim((string)($i[$from]??''));if($v!=='')$info[$to]=$v;}
-  $payload=['cabecalho'=>$cab,'det'=>$det,'frete'=>['modalidade'=>(string)($d['freight_mode']??'9')],'informacoes_adicionais'=>$info];
+  $cab=['codigo_pedido_integracao'=>$integration,'codigo_cliente'=>(int)$client['omie_code'],'data_previsao'=>date('d/m/Y',strtotime($forecast)),'etapa'=>$header['stage'],'codigo_parcela'=>$header['payment_term']];
+  if($header['tax_scenario']!=='')$cab['codigo_cenario_impostos']=(int)$header['tax_scenario'];
+
+  $info=['codigo_categoria'=>$header['category'],'codigo_conta_corrente'=>(int)$header['account'],'consumidor_final'=>$header['consumer_final'],'enviar_email'=>$header['send_email'],'codVend'=>(int)$seller];
+  if($header['payment_method']!=='')$info['meio_pagamento']=$header['payment_method'];
+  if($header['document_type']!=='')$info['tipo_documento']=$header['document_type'];
+  if($header['send_email']==='S'&&!empty($client['email']))$info['utilizar_emails']=$client['email'];
+  foreach(['customer_order'=>'numero_pedido_cliente','contract'=>'numero_contrato','contact'=>'contato','additional_nf'=>'dados_adicionais_nf'] as $from=>$to){$v=trim((string)($i[$from]??''));if($v!=='')$info[$to]=$v;}
+
+  $freight=['modalidade'=>$header['freight_mode']];
+  $freightMap=['carrier_code'=>'codigo_transportadora','plate'=>'placa','plate_state'=>'placa_estado','rntrc'=>'registro_transportador','volumes'=>'quantidade_volumes','volume_type'=>'especie_volumes','volume_brand'=>'marca_volumes','volume_numbering'=>'numeracao_volumes','net_weight'=>'peso_liquido','gross_weight'=>'peso_bruto','freight_value'=>'valor_frete','insurance_value'=>'valor_seguro','other_expenses'=>'outras_despesas','delivery_date'=>'previsao_entrega','tracking_code'=>'codigo_rastreio'];
+  foreach($freightMap as $from=>$to){$v=trim((string)($i[$from]??''));if($v==='')continue;if(in_array($from,['carrier_code','volumes'],true))$freight[$to]=(int)$v;elseif(in_array($from,['net_weight','gross_weight','freight_value','insurance_value','other_expenses'],true))$freight[$to]=(float)str_replace(',','.',$v);elseif($from==='delivery_date'&&strtotime($v))$freight[$to]=date('d/m/Y',strtotime($v));else $freight[$to]=$v;}
+  if(!empty($i['own_vehicle']))$freight['veiculo_proprio']='S';
+
+  $payload=['cabecalho'=>$cab,'det'=>$det,'frete'=>$freight,'informacoes_adicionais'=>$info];
   $notes=trim((string)($i['notes']??''));if($notes!=='')$payload['observacoes']=['obs_venda'=>$notes];
-  return ['payload'=>$payload,'client'=>$client,'seller'=>$seller,'total'=>$total,'integration'=>$integration];
+  return ['payload'=>$payload,'client'=>$client,'seller'=>$seller,'total'=>$commercialTotal,'fiscal_total'=>$fiscalTotal,'financial_total'=>$financialTotal,'integration'=>$integration];
  }
  public static function send(array $i,array $u): array{
   $b=self::build($i,$u);
@@ -137,13 +211,12 @@ final class OrderService {
    if($code!==''){try{$verify=$o->call('orders','ConsultarPedido',['codigo_pedido'=>(int)$code]);}catch(Throwable){}}
    DB::exec("INSERT INTO omie_order_logs(integration_code,omie_order_code,omie_order_number,client_id,seller_omie_code,user_id,total,request_json,response_json,status,created_at)
              VALUES(?,?,?,?,?,?,?,?,?,'success',NOW())",
-      [$b['integration'],$code?:null,$number?:null,(int)$b['client']['id'],$b['seller'],(int)$u['id'],$b['total'],json_encode($b['payload'],JSON_UNESCAPED_UNICODE),json_encode(['include'=>$res,'verify'=>$verify],JSON_UNESCAPED_UNICODE)]);
+      [$b['integration'],$code?:null,$number?:null,(int)$b['client']['id'],$b['seller'],(int)$u['id'],$b['total'],json_encode($b['payload'],JSON_UNESCAPED_UNICODE),json_encode(['include'=>$res,'verify'=>$verify,'fiscal_total'=>$b['fiscal_total'],'financial_total'=>$b['financial_total']],JSON_UNESCAPED_UNICODE)]);
    return ['code'=>$code,'number'=>$number,'total'=>$b['total']];
   }catch(Throwable $e){
    try{
     $found=$o->call('orders','ConsultarPedido',['codigo_pedido_integracao'=>$b['integration']]);
-    $cab=$found['pedido_venda_produto']['cabecalho']??$found['cabecalho']??[];
-    $code=(string)($cab['codigo_pedido']??'');
+    $cab=$found['pedido_venda_produto']['cabecalho']??$found['cabecalho']??[];$code=(string)($cab['codigo_pedido']??'');
     if($code!==''){
      $number=(string)($cab['numero_pedido']??'');
      DB::exec("INSERT INTO omie_order_logs(integration_code,omie_order_code,omie_order_number,client_id,seller_omie_code,user_id,total,request_json,response_json,status,created_at)
