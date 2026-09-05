@@ -239,16 +239,29 @@ final class OrderService {
 }
 
 final class GoalService {
+ public static function isVirtualSellerName(string $name): bool{
+  $n=mb_strtoupper(trim($name));
+  return str_contains($n,'EAD')||str_contains($n,'SUPORTE JUMPER');
+ }
+ private static function sellerProduction(string $sellerCode,string $start,string $next): array{
+  $orders=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$sellerCode,$start,$next])??0);
+  $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$sellerCode,$start,$next])??0);
+  return ['orders'=>$orders,'services'=>$services,'total'=>$orders+$services];
+ }
  public static function userMonth(int $userId,string $month): array{
   $u=DB::one("SELECT * FROM users WHERE id=?",[$userId]);if(!$u)return [];
   $g=DB::one("SELECT * FROM goals WHERE user_id=? AND month_ref=?",[$userId,$month])?:['month_ref'=>$month,'sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0];
   $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
   $sales=0.0;$recovered=0.0;$contacts=0;
-  if($u['role']==='seller'&&!empty($u['seller_omie_code']))$sales=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$u['seller_omie_code'],$start,$next])??0);
+  $ordersSales=0.0;$servicesSales=0.0;
+  if($u['role']==='seller'&&!empty($u['seller_omie_code'])){
+   $prod=self::sellerProduction((string)$u['seller_omie_code'],$start,$next);
+   $ordersSales=$prod['orders'];$servicesSales=$prod['services'];$sales=$prod['total'];
+  }
   if($u['role']==='collector')$recovered=(float)(DB::scalar("SELECT COALESCE(SUM(amount),0) FROM collection_actions WHERE assigned_user_id=? AND result='payment' AND created_at>=? AND created_at<?",[$userId,$start,$next])??0);
   if($u['role']==='seller')$contacts=(int)(DB::scalar("SELECT COUNT(*) FROM activities WHERE user_id=? AND created_at>=? AND created_at<?",[$userId,$start,$next])??0);
   if($u['role']==='collector')$contacts=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions WHERE assigned_user_id=? AND created_at>=? AND created_at<?",[$userId,$start,$next])??0);
-  return ['user'=>$u,'goal'=>$g,'sales'=>$sales,'recovered'=>$recovered,'contacts'=>$contacts,
+  return ['user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'services_sales'=>$servicesSales,'recovered'=>$recovered,'contacts'=>$contacts,
    'sales_percent'=>(float)$g['sales_goal']>0?min(999,$sales/(float)$g['sales_goal']*100):0,
    'collection_percent'=>(float)$g['collection_goal']>0?min(999,$recovered/(float)$g['collection_goal']*100):0,
    'contact_percent'=>(int)$g['contact_goal']>0?min(999,$contacts/(int)$g['contact_goal']*100):0];
@@ -256,17 +269,33 @@ final class GoalService {
 
  public static function managementMonth(string $month): array{
   if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
+  $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
   $users=DB::all("SELECT * FROM users WHERE active=1 AND role IN('seller','collector') ORDER BY role,name");
-  $rows=[];$sellerRows=[];$collectorRows=[];
-  $sales=0.0;$recovered=0.0;$contacts=0;$salesGoals=0.0;$collectionGoals=0.0;$contactGoals=0;
+  $rows=[];$sellerRows=[];$collectorRows=[];$linkedSellerCodes=[];
+  $recovered=0.0;$contacts=0;$salesGoals=0.0;$collectionGoals=0.0;$contactGoals=0;
   foreach($users as $u){
    $row=self::userMonth((int)$u['id'],$month);if(!$row)continue;$rows[]=$row;
    $contacts+=(int)$row['contacts'];$contactGoals+=(int)$row['goal']['contact_goal'];
-   if($u['role']==='seller'){$sales+=(float)$row['sales'];$salesGoals+=(float)$row['goal']['sales_goal'];$sellerRows[]=$row;}
+   if($u['role']==='seller'){
+    $salesGoals+=(float)$row['goal']['sales_goal'];$sellerRows[]=$row;
+    if(!empty($u['seller_omie_code']))$linkedSellerCodes[(string)$u['seller_omie_code']]=true;
+   }
    if($u['role']==='collector'){$recovered+=(float)$row['recovered'];$collectionGoals+=(float)$row['goal']['collection_goal'];$collectorRows[]=$row;}
   }
+
+  $allSellers=DB::all("SELECT omie_code,name,active FROM sellers WHERE active=1 ORDER BY name");
+  $sales=0.0;$orderSales=0.0;$serviceSales=0.0;$virtualRows=[];
+  foreach($allSellers as $seller){
+   $prod=self::sellerProduction((string)$seller['omie_code'],$start,$next);
+   $sales+=$prod['total'];$orderSales+=$prod['orders'];$serviceSales+=$prod['services'];
+   if(self::isVirtualSellerName((string)$seller['name'])){
+    $virtualRows[]=['seller'=>$seller,'orders'=>$prod['orders'],'services'=>$prod['services'],'sales'=>$prod['total'],'virtual'=>true];
+   }
+  }
+
   usort($sellerRows,fn($a,$b)=>$b['sales']<=>$a['sales']);
   usort($collectorRows,fn($a,$b)=>$b['recovered']<=>$a['recovered']);
+  usort($virtualRows,fn($a,$b)=>$b['sales']<=>$a['sales']);
 
   $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key=?",['general_goal_'.$month]);
   $general=$raw?json_decode((string)$raw,true):[];
@@ -277,8 +306,8 @@ final class GoalService {
   $effectiveContactGoal=(int)$general['contact_goal']>0?(int)$general['contact_goal']:$contactGoals;
 
   return [
-   'month'=>$month,'rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'general_goal'=>$general,
-   'sales'=>$sales,'recovered'=>$recovered,'contacts'=>$contacts,
+   'month'=>$month,'rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'virtual_sellers'=>$virtualRows,'general_goal'=>$general,
+   'sales'=>$sales,'order_sales'=>$orderSales,'service_sales'=>$serviceSales,'recovered'=>$recovered,'contacts'=>$contacts,
    'sales_goal_sum'=>$salesGoals,'collection_goal_sum'=>$collectionGoals,'contact_goal_sum'=>$contactGoals,
    'effective_sales_goal'=>$effectiveSalesGoal,'effective_collection_goal'=>$effectiveCollectionGoal,'effective_contact_goal'=>$effectiveContactGoal,
    'sales_percent'=>$effectiveSalesGoal>0?min(999,$sales/$effectiveSalesGoal*100):0,
