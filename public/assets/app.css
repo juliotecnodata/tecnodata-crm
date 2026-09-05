@@ -183,3 +183,60 @@
  .order-tab-nav button{justify-content:flex-start}
  .order-tab-head{align-items:flex-start;flex-direction:column}
 }
+
+/* Pedido inspirado na estrutura Omie: cabeçalho + abas horizontais */
+.omie-order-form{display:flex;flex-direction:column;gap:14px}
+.omie-order-header{padding:18px 18px 16px}
+.omie-order-header-grid{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:18px;align-items:start}
+.omie-client-block{display:grid;grid-template-columns:58px minmax(0,1fr);gap:14px;align-items:start}
+.omie-avatar{width:58px;height:58px;border-radius:10px;background:#EAF5FB;color:var(--blue);display:grid;place-items:center;font-size:22px}
+.omie-client-main{min-width:0}
+.omie-order-header label,.omie-tab-content label{display:block;font-size:10px;font-weight:750;color:#4E5D65;margin:0 0 5px}
+.omie-order-header .selected-box:not(:empty){margin-top:7px}
+.omie-order-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0 14px;padding-left:72px}
+.omie-order-kpis>div{background:#F6F8F8;border:1px solid var(--line);border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;min-width:0}
+.omie-order-kpis span{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.omie-order-kpis strong{font-size:14px;color:var(--navy);margin-top:3px;text-align:right}
+.omie-order-header-fields{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;padding-left:72px}
+.omie-readonly-field{min-height:42px;border:1px solid var(--line-strong);border-radius:10px;background:#F7F8F8;padding:10px 12px;color:#48565E}
+.omie-order-body{padding:0;overflow:visible}
+.omie-main-tabs{display:flex;gap:0;overflow-x:auto;border-bottom:1px solid var(--line-strong);background:#fff;padding:0 14px}
+.omie-main-tabs button{position:relative;flex:0 0 auto;border:0;background:transparent;color:#647179;padding:14px 15px 12px;font-size:11px;font-weight:650;white-space:nowrap}
+.omie-main-tabs button:hover{color:var(--navy)}
+.omie-main-tabs button.active{color:var(--navy);font-weight:800}
+.omie-main-tabs button.active:before{content:"";position:absolute;left:8px;right:8px;top:0;height:3px;background:var(--lime);border-radius:0 0 3px 3px}
+.omie-main-tabs button.active:after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:#fff}
+.omie-tab-content{padding:18px}
+.omie-tab-content .order-tab-panel{display:none}
+.omie-tab-content .order-tab-panel.active{display:block}
+.omie-tab-toolbar{display:grid;grid-template-columns:230px minmax(0,1fr);gap:12px;align-items:end;margin-bottom:14px}
+.omie-product-search{min-width:0}
+.omie-tab-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px 14px}
+.freight-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.additional-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.installments-grid{grid-template-columns:1fr 1fr;max-width:760px}
+.omie-tab-content textarea{resize:vertical}
+.omie-empty-tab{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);padding:24px}
+.omie-empty-tab i{font-size:24px;color:var(--blue);margin-bottom:10px}.omie-empty-tab strong{color:var(--navy);font-size:15px}.omie-empty-tab span{max-width:520px;font-size:11px;margin-top:5px}
+.omie-empty-tab.compact{min-height:150px;margin-top:15px;border:1px dashed var(--line-strong);border-radius:10px}
+.freight-api-placeholder{display:flex;align-items:center;gap:12px;margin-top:18px;padding:14px;border:1px solid #DFE7D0;background:#F8FAF0;border-radius:10px}
+.freight-api-placeholder>i{width:38px;height:38px;border-radius:10px;background:var(--lime);color:var(--navy);display:grid;place-items:center}.freight-api-placeholder>div{display:flex;flex-direction:column;min-width:0;flex:1}.freight-api-placeholder span{font-size:10px;color:var(--muted)}
+.omie-email-panel{max-width:920px}.omie-email-note{margin-top:18px;background:#FFF8DF;border:1px solid #F0E0A0;border-radius:10px;padding:12px;color:#765E00;font-size:10px}
+.omie-order-footer{position:sticky;bottom:0;z-index:18;display:flex;justify-content:space-between;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-top:3px solid var(--lime);border-radius:10px;padding:12px 14px}
+.omie-order-footer-total{display:flex;flex-direction:column}.omie-order-footer-total span{font-size:9px;color:var(--muted);text-transform:uppercase}.omie-order-footer-total strong{font-size:22px;color:var(--navy)}
+.omie-order-footer-actions{display:flex;gap:8px}
+@media(max-width:1150px){
+ .omie-order-kpis{grid-template-columns:repeat(3,1fr);padding-left:0}
+ .omie-order-header-fields{padding-left:0}
+ .freight-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:800px){
+ .omie-order-header-grid,.omie-order-header-fields,.omie-tab-toolbar,.additional-grid,.installments-grid{grid-template-columns:1fr}
+ .omie-client-block{grid-template-columns:46px 1fr}.omie-avatar{width:46px;height:46px}
+ .omie-order-kpis{grid-template-columns:1fr 1fr}
+ .freight-grid{grid-template-columns:1fr 1fr}
+ .omie-main-tabs{padding:0 8px}
+ .omie-main-tabs button{padding:12px 11px 10px}
+ .omie-order-footer{align-items:stretch;flex-direction:column}.omie-order-footer-actions{width:100%}.omie-order-footer-actions .btn{flex:1}
+}
+@media(max-width:540px){.omie-order-kpis,.freight-grid{grid-template-columns:1fr}.omie-tab-content{padding:14px}}
