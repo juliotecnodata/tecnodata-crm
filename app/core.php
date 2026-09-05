@@ -21,7 +21,7 @@ final class DB {
  }
  public static function sql(string $sql): string{
   $prefix=self::prefix();
-  $tables=['users','sellers','clients','client_metrics','products','categories','financial_accounts','order_stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state','omie_order_logs','goals','collection_assignment_log'];
+  $tables=['users','sellers','clients','client_metrics','products','categories','financial_accounts','order_stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state','omie_order_logs','goals','collection_assignment_log','order_profiles'];
   usort($tables,fn($a,$b)=>strlen($b)<=>strlen($a));
   foreach($tables as $table)$sql=preg_replace('/(?<![A-Za-z0-9_])'.preg_quote($table,'/').'(?![A-Za-z0-9_])/i',$prefix.$table,$sql);
   return $sql;
