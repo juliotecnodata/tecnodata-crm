@@ -241,34 +241,58 @@ final class ClientService {
 
  public static function syncLocalWithOmie(int $id,array $u): array{
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
-  if(!$client)throw new RuntimeException('Cliente local não encontrado.');
+  if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
 
+  $rawCurrent=json_decode((string)($client['raw_json']??''),true);
+  if(!is_array($rawCurrent))$rawCurrent=[];
   $form=self::formFromClient($client);
   $built=self::buildOmiePreview($form,$u);
   $document=(string)$built['summary']['document'];
+  $isLocal=str_starts_with((string)$client['omie_code'],'LOCAL-');
+  $originalOmieCode=(string)($rawCurrent['previous_omie_code']??($isLocal?'':$client['omie_code']));
 
   $remoteExisting=self::findExistingInOmieByDocument($document);
-  if($remoteExisting){
-   $remoteCode=(string)($remoteExisting['codigo_cliente_omie']??'');
-   if($remoteCode==='')throw new RuntimeException('A Omie encontrou o CPF/CNPJ, mas não retornou o código do cliente.');
 
-   $conflict=DB::one("SELECT id,name FROM clients WHERE omie_code=? AND id<>? LIMIT 1",[$remoteCode,$id]);
-   if($conflict)throw new RuntimeException('O cliente já está vinculado no CRM a "'.$conflict['name'].'". Revise antes de continuar.');
+  if($isLocal){
+   if($remoteExisting){
+    $remoteCode=(string)($remoteExisting['codigo_cliente_omie']??'');
+    if($remoteCode==='')throw new RuntimeException('A Omie encontrou o CPF/CNPJ, mas não retornou o código do cliente.');
+    $conflict=DB::one("SELECT id,name FROM clients WHERE omie_code=? AND id<>? LIMIT 1",[$remoteCode,$id]);
+    if($conflict)throw new RuntimeException('Este cliente já está vinculado no CRM a "'.$conflict['name'].'".');
 
-   $raw=['request'=>$built['payload'],'response'=>$remoteExisting,'source'=>'omie_linked_existing','omie_status'=>'linked'];
+    $remoteName=(string)($remoteExisting['nome_fantasia']??$remoteExisting['razao_social']??'Cliente Omie');
+    $raw=['request'=>$built['payload'],'response'=>$remoteExisting,'source'=>'omie_linked_existing','omie_status'=>'linked'];
+    DB::exec("UPDATE clients SET omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+    return ['status'=>'already_exists','message'=>'Este CPF/CNPJ já existe na Omie como "'.$remoteName.'" (código '.$remoteCode.'). Nenhum cadastro duplicado foi criado; o CRM apenas vinculou os registros.'];
+   }
+
+   $omie=new OmieClient();
+   $response=$omie->call('clients','IncluirCliente',$built['payload']);
+   $remoteCode=(string)($response['codigo_cliente_omie']??$response['codigo_cliente']??$response['nCodCli']??'');
+   if($remoteCode==='')throw new RuntimeException('A Omie confirmou o cadastro, mas não retornou o código do cliente.');
+   $raw=['request'=>$built['payload'],'response'=>$response,'source'=>'omie_created_from_local','omie_status'=>'linked'];
    DB::exec("UPDATE clients SET omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
-   return ['status'=>'linked','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'remote'=>$remoteExisting,'message'=>'Cliente já existia na Omie. O cadastro local foi vinculado ao código Omie '.$remoteCode.'.'];
+   return ['status'=>'created','message'=>'Cliente não existia na Omie e foi integrado com sucesso. Código Omie '.$remoteCode.'.'];
   }
 
-  $omie=new OmieClient();
-  $response=$omie->call('clients','IncluirCliente',$built['payload']);
-  $remoteCode=(string)($response['codigo_cliente_omie']??$response['codigo_cliente']??$response['nCodCli']??'');
-  if($remoteCode==='')throw new RuntimeException('A Omie confirmou o cadastro, mas não retornou o código do cliente.');
+  if($remoteExisting){
+   $remoteCode=(string)($remoteExisting['codigo_cliente_omie']??'');
+   if($remoteCode!==''&&$originalOmieCode!==''&&$remoteCode!==$originalOmieCode){
+    $remoteName=(string)($remoteExisting['nome_fantasia']??$remoteExisting['razao_social']??'outro cliente');
+    throw new RuntimeException('O CPF/CNPJ informado pertence a outro cadastro na Omie: "'.$remoteName.'" (código '.$remoteCode.'). A sincronização foi interrompida para evitar vínculo incorreto.');
+   }
+  }
 
-  $raw=['request'=>$built['payload'],'response'=>$response,'source'=>'omie_created_from_local','omie_status'=>'created'];
-  DB::exec("UPDATE clients SET omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
-  return ['status'=>'created','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'response'=>$response,'message'=>'Cliente não existia na Omie e foi cadastrado com sucesso. Código Omie '.$remoteCode.'.'];
+  $p=$built['payload'];
+  unset($p['codigo_cliente_integracao']);
+  $p['codigo_cliente_omie']=(int)$originalOmieCode;
+
+  $omie=new OmieClient();
+  $response=$omie->call('clients','AlterarCliente',$p);
+  $raw=['request'=>$p,'response'=>$response,'source'=>'omie_updated_after_local_save','omie_status'=>'linked'];
+  DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  return ['status'=>'updated','message'=>'Alterações locais sincronizadas com sucesso na Omie. Código Omie '.$originalOmieCode.'.'];
  }
 
  public static function createInOmie(array $i,array $u): array{
@@ -346,26 +370,19 @@ final class ClientService {
   $p=$built['payload'];
   $name=(string)($p['nome_fantasia']??$p['razao_social']??$client['name']);
   $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
-  $seller=(string)($p['codigo_vendedor']??'');
-
-  if(str_starts_with((string)$client['omie_code'],'LOCAL-')){
-   $raw=['request'=>$p,'source'=>'local_pending','omie_status'=>'pending'];
-   DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",
-    [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
-   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
-  }
-
-  unset($p['codigo_cliente_integracao']);
-  $p['codigo_cliente_omie']=(int)$client['omie_code'];
-
-  $omie=new OmieClient();
-  $response=$omie->call('clients','AlterarCliente',$p);
-  $raw=['request'=>$p,'response'=>$response,'source'=>'crm_update','omie_status'=>'linked'];
+  $seller=(string)($p['recomendacoes']['codigo_vendedor']??'');
+  $isLocal=str_starts_with((string)$client['omie_code'],'LOCAL-');
+  $raw=[
+   'request'=>$p,
+   'source'=>$isLocal?'local_pending':'local_update_pending',
+   'omie_status'=>$isLocal?'pending':'pending_update',
+   'previous_omie_code'=>$isLocal?null:(string)$client['omie_code'],
+  ];
 
   DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",
    [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
 
-  return ['status'=>'omie_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'response'=>$response,'payload'=>$p];
+  return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
 
  public static function deleteFromOmie(int $id,array $u): array{
