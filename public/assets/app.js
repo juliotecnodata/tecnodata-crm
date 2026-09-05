@@ -57,6 +57,20 @@ document.addEventListener('DOMContentLoaded',()=>{
   const form=document.getElementById('orderForm');
   if(!form)return;
 
+  document.querySelectorAll('[data-order-tabs]').forEach(group=>{
+    const buttons=Array.from(group.querySelectorAll('[data-order-tab]'));
+    const panels=Array.from(group.querySelectorAll('[data-order-panel]'));
+    const activate=name=>{
+      buttons.forEach(btn=>{
+        const on=btn.dataset.orderTab===name;
+        btn.classList.toggle('active',on);
+        btn.setAttribute('aria-selected',on?'true':'false');
+      });
+      panels.forEach(panel=>panel.classList.toggle('active',panel.dataset.orderPanel===name));
+    };
+    buttons.forEach(btn=>btn.addEventListener('click',()=>activate(btn.dataset.orderTab)));
+  });
+
   const meta=window.ORDER_META||{categories:[],taxes:[],stocks:[],profiles:[]};
   const money=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0));
   const esc=value=>{const d=document.createElement('div');d.textContent=String(value??'');return d.innerHTML;};
