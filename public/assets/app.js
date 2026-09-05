@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
   document.querySelector('[data-menu]')?.addEventListener('click',()=>document.querySelector('.sidebar')?.classList.toggle('open'));
+  document.querySelectorAll('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm||'Confirmar operação?'))e.preventDefault();}));
+
   const clientCreateForm=document.getElementById('clientCreateForm');
   if(clientCreateForm){
     clientCreateForm.querySelector('[data-real-client-send]')?.addEventListener('click',e=>{
