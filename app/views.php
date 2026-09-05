@@ -30,18 +30,18 @@ function render(string $name,array $vars=[]): void{
     <div class="client-create-main">
      <section class="panel client-form-section">
       <div class="client-section-title"><div class="client-section-icon"><i class="fa-solid fa-building"></i></div><div><span>Identificação</span><small>Quem é o cliente.</small></div></div>
-      <div class="client-form-grid">
-       <div class="span-2"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
-       <div><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
-       <div><label>CPF / CNPJ</label><div class="lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button class="lookup-action" type="button" data-cnpj-lookup title="Buscar dados pelo CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="field-hint" data-cnpj-status>Ao informar um CNPJ, o CRM pode preencher os dados automaticamente.</small></div>
+      <div class="client-form-grid client-id-grid">
+       <div class="client-legal"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
+       <div class="client-trade"><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
+       <div class="client-document"><label>CPF / CNPJ</label><div class="lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button class="lookup-action" type="button" data-cnpj-lookup title="Buscar dados pelo CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="field-hint" data-cnpj-status>Ao informar um CNPJ, o CRM pode preencher os dados automaticamente.</small></div>
       </div>
      </section>
 
      <section class="panel client-form-section">
       <div class="client-section-title"><div class="client-section-icon green"><i class="fa-solid fa-address-book"></i></div><div><span>Contato</span><small>Dados usados pelo comercial.</small></div></div>
-      <div class="client-form-grid">
-       <div><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
-       <div><label>Telefone / WhatsApp</label><input class="form-control" name="phone" data-phone value="<?=e((string)($old['phone']??''))?>" inputmode="tel" autocomplete="tel"></div>
+      <div class="client-form-grid client-contact-grid">
+       <div class="client-email"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
+       <div class="client-phone"><label>Telefone / WhatsApp</label><input class="form-control" name="phone" data-phone value="<?=e((string)($old['phone']??''))?>" inputmode="tel" autocomplete="tel"></div>
       </div>
      </section>
 
@@ -51,6 +51,7 @@ function render(string $name,array $vars=[]): void{
        <div><label>CEP</label><div class="lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"><button class="lookup-action" type="button" data-cep-lookup title="Buscar endereço pelo CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="field-hint" data-cep-status>Digite o CEP para preencher endereço, bairro, cidade e UF.</small></div>
        <div class="address-wide"><label>Endereço</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1"></div>
        <div><label>Número</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
+       <div><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>" placeholder="Opcional"></div>
        <div><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
        <div><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2"></div>
        <div><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1"></div>
@@ -59,11 +60,20 @@ function render(string $name,array $vars=[]): void{
 
      <section class="panel client-form-section">
       <div class="client-section-title"><div class="client-section-icon orange"><i class="fa-solid fa-user-tie"></i></div><div><span>Comercial</span><small>Responsável e observações úteis.</small></div></div>
-      <div class="client-form-grid">
+      <div class="client-form-grid client-commercial-grid">
        <div>
         <label>Vendedor responsável</label>
         <?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select>
         <?php else:?><div class="client-fixed-seller"><i class="fa-solid fa-user"></i><span><?=e(Auth::user()['name']??'Vendedor')?></span></div><?php endif;?>
+       </div>
+       <div>
+        <label>Tags</label>
+        <div class="tag-editor" data-tag-editor>
+         <div class="tag-chips" data-tag-chips></div>
+         <input class="form-control" type="text" data-tag-input placeholder="Digite e pressione Enter">
+         <input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??''))?>">
+        </div>
+        <small class="field-hint">As tags serão enviadas no formato nativo da Omie.</small>
        </div>
        <div class="span-2"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Somente informações realmente úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
       </div>
