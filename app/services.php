@@ -128,6 +128,7 @@ final class ClientService {
   $tradeName=trim((string)($i['trade_name']??''));
   $document=preg_replace('/\D+/','',(string)($i['document']??''));
   $email=mb_strtolower(trim((string)($i['email']??'')));
+  $contactName=trim((string)($i['contact_name']??''));
   $phoneDdd=preg_replace('/\D+/','',(string)($i['phone_ddd']??''));
   $phoneNumber=preg_replace('/\D+/','',(string)($i['phone_number']??''));
   $zip=preg_replace('/\D+/','',(string)($i['zip_code']??''));
@@ -167,6 +168,7 @@ final class ClientService {
    'nome_fantasia'=>$tradeName!==''?$tradeName:$legalName,
    'cnpj_cpf'=>$document,
    'email'=>$email,
+   'contato'=>$contactName,
    'cep'=>$zip,
    'endereco'=>$address,
    'endereco_numero'=>$number,
@@ -234,6 +236,7 @@ final class ClientService {
    'trade_name'=>(string)($src['nome_fantasia']??$client['name']??''),
    'document'=>(string)($src['cnpj_cpf']??$client['document']??''),
    'email'=>(string)($src['email']??$client['email']??''),
+   'contact_name'=>(string)($src['contato']??''),
    'phone_ddd'=>(string)($src['telefone1_ddd']??''),
    'phone_number'=>(string)($src['telefone1_numero']??''),
    'zip_code'=>(string)($src['cep']??''),
