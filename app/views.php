@@ -132,12 +132,21 @@ function render(string $name,array $vars=[]): void{
    </form>
   <?php break;
 
-  case 'client':?>
+  case 'client':$isLocal=str_starts_with((string)$client['omie_code'],'LOCAL-');?>
    <div class="page-head">
-    <div><a class="back" href="<?=APP_URL?>/clients">← Clientes</a><h1><?=e($client['name'])?></h1><p><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /'))?> • <?=e($client['document']??'')?> • Omie <?=e($client['omie_code'])?></p></div>
-    <div class="page-head-actions"><a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><a class="btn btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-danger" type="submit" data-confirm="Excluir este cliente também na Omie? Esta operação pode ser recusada se houver vínculos financeiros ou fiscais."><i class="fa-regular fa-trash-can"></i>Excluir</button></form><?php endif;?></div>
+    <div><a class="back" href="<?=APP_URL?>/clients">← Clientes</a><h1><?=e($client['name'])?></h1><p><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /'))?> • <?=e($client['document']??'')?> • <?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></p></div>
+    <div class="page-head-actions"><a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cadastro</a><?php if(!$isLocal):?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-danger" type="submit" data-confirm="Excluir este cliente?"><i class="fa-regular fa-trash-can"></i>Excluir</button></form><?php endif;?></div>
    </div>
    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+   <?php if($isLocal):?>
+    <div class="client-omie-pending">
+     <div class="client-omie-pending-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+     <div><strong>Cliente salvo localmente</strong><span>O cadastro já está gravado no CRM. Clique em “Verificar Omie” para procurar o CPF/CNPJ antes de qualquer inclusão. Se já existir, apenas vinculamos; se não existir, o cliente será cadastrado na Omie.</span></div>
+     <form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-primary" data-confirm="Verificar este CPF/CNPJ na Omie e cadastrar somente se ele ainda não existir?"><i class="fa-solid fa-magnifying-glass"></i>Verificar Omie</button></form>
+    </div>
+   <?php else:?>
+    <div class="client-omie-linked"><i class="fa-solid fa-circle-check"></i><div><strong>Integrado com a Omie</strong><span>Cadastro vinculado ao código Omie <?=e((string)$client['omie_code'])?>.</span></div></div>
+   <?php endif;?>
 
    <div class="snapshot"><div><span>Momento</span><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span>Receita 12m</span><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span>Última compra</span><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span>Pedidos 12m</span><strong><?=(int)($client['orders_12m']??0)?></strong></div></div>
 
