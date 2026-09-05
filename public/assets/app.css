@@ -162,3 +162,24 @@
  .table-card .dt-paging{justify-content:flex-start;overflow:auto}
  .table-card .pagination{flex-wrap:nowrap}
 }
+
+/* Pedido em tabs estilo ERP */
+.order-tabs{margin-top:14px}
+.order-tab-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:5px;background:#EEF2F3;border:1px solid var(--line);border-radius:10px}
+.order-tab-nav button{border:0;background:transparent;color:#5B6870;border-radius:8px;padding:9px 8px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px;font-weight:800;white-space:nowrap}
+.order-tab-nav button i{font-size:11px}
+.order-tab-nav button:hover{background:#fff;color:var(--navy)}
+.order-tab-nav button.active{background:var(--navy);color:#fff}
+.order-tab-nav button.active i{color:var(--lime)}
+.order-tab-panel{display:none;padding-top:14px}
+.order-tab-panel.active{display:block}
+.order-tab-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-bottom:9px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+.order-tab-head span{font-size:11px;font-weight:800;color:var(--navy)}
+.order-tab-head small{font-size:8px;color:var(--muted);text-align:right}
+.order-summary>.panel-title-row{margin-bottom:2px}
+.order-summary .order-totals{position:sticky;bottom:104px;background:#fff;z-index:2}
+@media(max-width:700px){
+ .order-tab-nav{grid-template-columns:1fr 1fr}
+ .order-tab-nav button{justify-content:flex-start}
+ .order-tab-head{align-items:flex-start;flex-direction:column}
+}
