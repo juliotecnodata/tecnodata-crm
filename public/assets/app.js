@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelector('[data-menu]')?.addEventListener('click',()=>document.querySelector('.sidebar')?.classList.toggle('open'));
   const clientCreateForm=document.getElementById('clientCreateForm');
   if(clientCreateForm){
+    clientCreateForm.querySelector('[data-real-client-send]')?.addEventListener('click',e=>{
+      if(!confirm('Este botão enviará este cliente de verdade para a Omie. Deseja continuar?'))e.preventDefault();
+    });
     const onlyDigits=v=>String(v||'').replace(/\D+/g,'');
     const doc=clientCreateForm.querySelector('[data-document]');
     const phoneDdd=clientCreateForm.querySelector('[data-phone-ddd]');
