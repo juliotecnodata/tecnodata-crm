@@ -35,12 +35,53 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
   document.querySelector('[data-menu]')?.addEventListener('click',()=>document.querySelector('.sidebar')?.classList.toggle('open'));
-  document.querySelectorAll('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm||'Confirmar operação?'))e.preventDefault();}));
+  const ensureConfirmModal=()=>{
+    let modal=document.getElementById('appConfirmModal');
+    if(modal)return modal;
+    modal=document.createElement('div');
+    modal.id='appConfirmModal';
+    modal.className='app-confirm-backdrop';
+    modal.innerHTML='<div class="app-confirm-card" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle"><div class="app-confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="app-confirm-copy"><strong id="appConfirmTitle">Confirmar operação</strong><span data-confirm-message></span></div><div class="app-confirm-actions"><button type="button" class="btn btn-outline-secondary" data-confirm-cancel>Cancelar</button><button type="button" class="btn btn-danger" data-confirm-ok>Confirmar</button></div></div>';
+    document.body.appendChild(modal);
+    return modal;
+  };
+  const askConfirm=message=>new Promise(resolve=>{
+    const modal=ensureConfirmModal();
+    const msg=modal.querySelector('[data-confirm-message]');
+    const ok=modal.querySelector('[data-confirm-ok]');
+    const cancel=modal.querySelector('[data-confirm-cancel]');
+    msg.textContent=message||'Confirmar operação?';
+    modal.classList.add('show');
+    const finish=value=>{
+      modal.classList.remove('show');
+      ok.removeEventListener('click',onOk);
+      cancel.removeEventListener('click',onCancel);
+      modal.removeEventListener('click',onBackdrop);
+      document.removeEventListener('keydown',onKey);
+      resolve(value);
+    };
+    const onOk=()=>finish(true);
+    const onCancel=()=>finish(false);
+    const onBackdrop=e=>{if(e.target===modal)finish(false);};
+    const onKey=e=>{if(e.key==='Escape')finish(false);};
+    ok.addEventListener('click',onOk);
+    cancel.addEventListener('click',onCancel);
+    modal.addEventListener('click',onBackdrop);
+    document.addEventListener('keydown',onKey);
+    setTimeout(()=>ok.focus(),0);
+  });
+  document.querySelectorAll('[data-confirm]').forEach(el=>el.addEventListener('click',async e=>{
+    e.preventDefault();
+    if(await askConfirm(el.dataset.confirm||'Confirmar operação?')){
+      if(el.tagName==='BUTTON'&&el.form)el.form.requestSubmit(el);
+      else if(el.tagName==='A'&&el.href)location.href=el.href;
+    }
+  }));
 
   const clientCreateForm=document.getElementById('clientCreateForm');
   if(clientCreateForm){
-    clientCreateForm.querySelector('[data-real-client-send]')?.addEventListener('click',e=>{
-      if(!confirm('Este botão enviará este cliente de verdade para a Omie. Deseja continuar?'))e.preventDefault();
+    clientCreateForm.querySelector('[data-real-client-send]')?.addEventListener('click',async e=>{
+      e.preventDefault();if(await askConfirm('Este botão enviará este cliente de verdade para a Omie. Deseja continuar?'))clientCreateForm.requestSubmit(e.currentTarget);
     });
     const onlyDigits=v=>String(v||'').replace(/\D+/g,'');
     const doc=clientCreateForm.querySelector('[data-document]');
