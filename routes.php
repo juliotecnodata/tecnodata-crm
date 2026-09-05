@@ -4,6 +4,7 @@ $router->post('/login',function(){CSRF::require($_POST['_token']??null);if(Auth:
 $router->post('/logout',function(){CSRF::require($_POST['_token']??null);Auth::logout();redirect('/login');});
 
 $router->get('/',function(){Auth::requireLogin();$u=Auth::user();render('dashboard',['u'=>$u,'data'=>CRMService::dashboard($u)]);});
+$router->get('/result',function(){Auth::requireLogin();render('result',['result'=>GoalService::userMonth(Auth::id(),(string)($_GET['month']??date('Y-m')))]);});
 
 $router->get('/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$w=['c.active=1'];$p=[];if($u['role']==='seller'){$w[]='c.seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}$rows=DB::all("SELECT c.*,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE ".implode(' AND ',$w)." ORDER BY c.name LIMIT 300",$p);foreach($rows as &$r)$r['cycle']=CRMService::cycle($r['last_purchase_at']??null,(float)($r['avg_interval_days']??0));unset($r);render('clients',['rows'=>$rows,'q'=>$q]);});
 $router->get('/clients/{id}',function($p){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];$c=DB::one("SELECT c.*,m.* FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=?",[$id]);if(!$c){http_response_code(404);exit('Cliente não encontrado.');}if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Cliente fora da sua carteira.');}$a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);$o=DB::all("SELECT * FROM orders WHERE client_omie_code=? ORDER BY order_date DESC,id DESC LIMIT 20",[$c['omie_code']]);render('client',['client'=>$c,'activities'=>$a,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0))]);});
@@ -15,6 +16,22 @@ $router->post('/orders',function(){Auth::requireRole('admin','supervisor','selle
 
 $router->get('/collection',function(){Auth::requireRole('admin','supervisor','collector');$view=(string)($_GET['view']??'open');$rows=DB::all("SELECT cc.*,c.name,c.document,c.uf,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.status=? ORDER BY cc.open_amount DESC LIMIT 500",[$view==='settled'?'settled':'open']);render('collection',['rows'=>$rows,'view'=>$view]);});
 $router->get('/collection/{id}',function($p){Auth::requireRole('admin','supervisor','collector');$id=(int)$p['id'];$c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}$a=DB::all("SELECT ca.*,ua.name author_name,ur.name assigned_name FROM collection_actions ca JOIN users ua ON ua.id=ca.author_user_id JOIN users ur ON ur.id=ca.assigned_user_id WHERE ca.client_id=? ORDER BY ca.created_at DESC",[$id]);render('collection_case',['case'=>$c,'actions'=>$a,'collectors'=>Auth::can('admin','supervisor')?DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name"):[]]);});
+$router->post('/collection/{id}/assign',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ $id=(int)$p['id'];$to=(int)($_POST['assigned_user_id']??0);
+ $target=DB::one("SELECT id FROM users WHERE id=? AND role='collector' AND active=1",[$to]);if(!$target)exit('Responsável inválido.');
+ $case=DB::one("SELECT * FROM collection_cases WHERE client_id=?",[$id]);if(!$case)exit('Cobrança inválida.');
+ $from=(int)($case['assigned_user_id']??0);
+ DB::conn()->beginTransaction();
+ try{
+  DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=NOW(),updated_at=NOW() WHERE client_id=?",[$to,$id]);
+  DB::exec("UPDATE collection_actions SET assigned_user_id=? WHERE client_id=?",[$to,$id]);
+  DB::exec("UPDATE tasks SET assigned_user_id=? WHERE client_id=? AND type='collection' AND status='pending'",[$to,$id]);
+  DB::exec("INSERT INTO collection_assignment_log(client_id,from_user_id,to_user_id,changed_by,created_at) VALUES(?,?,?,?,NOW())",[$id,$from?:null,$to,Auth::id()]);
+  DB::conn()->commit();
+ }catch(Throwable $e){if(DB::conn()->inTransaction())DB::conn()->rollBack();throw $e;}
+ redirect('/collection/'.$id);
+});
 $router->post('/collection/{id}/action',function($p){Auth::requireRole('admin','supervisor','collector');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$case=DB::one("SELECT * FROM collection_cases WHERE client_id=?",[$id]);if(!$case)exit('Cobrança inválida.');$assigned=(int)($case['assigned_user_id']??0);if(Auth::can('admin','supervisor')&&!empty($_POST['assigned_user_id']))$assigned=(int)$_POST['assigned_user_id'];if($assigned<=0)$assigned=(int)$u['id'];DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,notes,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),(float)str_replace(',','.',(string)($_POST['amount']??0)),($_POST['promise_date']??'')?:null,trim((string)($_POST['notes']??''))]);if(!empty($_POST['promise_date']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'collection','Retorno de cobrança',?,'pending',NOW())",[$id,$assigned,$_POST['promise_date'].' 09:00:00']);redirect('/collection/'.$id);});
 
 $router->get('/agenda',function(){Auth::requireLogin();render('agenda',['rows'=>DB::all("SELECT t.*,c.name,c.uf FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.assigned_user_id=? AND t.status='pending' ORDER BY t.due_at",[Auth::id()])]);});
@@ -22,6 +39,37 @@ $router->post('/agenda/{id}/done',function($p){Auth::requireLogin();CSRF::requir
 
 $router->get('/settings',function(){Auth::requireRole('admin');render('settings',['defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 AND sale_enabled=1 ORDER BY is_default DESC,name")]);});
 $router->post('/settings',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveDefaults($_POST);DB::exec("UPDATE financial_accounts SET selected=0");foreach((array)($_POST['collection_accounts']??[]) as $c)DB::exec("UPDATE financial_accounts SET selected=1 WHERE omie_code=?",[(string)$c]);redirect('/settings');});
+$router->get('/users',function(){
+ Auth::requireRole('admin');
+ render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name")]);
+});
+$router->post('/users',function(){
+ Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ $id=(int)($_POST['id']??0);$name=trim((string)($_POST['name']??''));$email=mb_strtolower(trim((string)($_POST['email']??'')));
+ $role=(string)($_POST['role']??'seller');if(!in_array($role,['admin','supervisor','seller','collector'],true))exit('Perfil inválido.');
+ $seller=trim((string)($_POST['seller_omie_code']??''))?:null;$active=!empty($_POST['active'])?1:0;$password=(string)($_POST['password']??'');
+ if($name===''||!filter_var($email,FILTER_VALIDATE_EMAIL))exit('Nome/e-mail inválidos.');
+ if($role==='seller'&&$seller===null)exit('Vincule o vendedor Omie.');
+ if($id>0){
+  DB::exec("UPDATE users SET name=?,email=?,role=?,seller_omie_code=?,active=?,updated_at=NOW() WHERE id=?",[$name,$email,$role,$role==='seller'?$seller:null,$active,$id]);
+  if($password!=='')DB::exec("UPDATE users SET password_hash=? WHERE id=?",[password_hash($password,PASSWORD_DEFAULT),$id]);
+ }else{
+  if($password==='')exit('Senha obrigatória.');
+  DB::exec("INSERT INTO users(name,email,password_hash,role,seller_omie_code,active,created_at,updated_at) VALUES(?,?,?,?,?,?,NOW(),NOW())",[$name,$email,password_hash($password,PASSWORD_DEFAULT),$role,$role==='seller'?$seller:null,$active]);
+ }
+ redirect('/users');
+});
+$router->get('/goals',function(){
+ Auth::requireRole('admin','supervisor');$month=(string)($_GET['month']??date('Y-m'));
+ $users=DB::all("SELECT * FROM users WHERE active=1 AND role IN('seller','collector') ORDER BY role,name");
+ $rows=[];foreach($users as $u)$rows[]=GoalService::userMonth((int)$u['id'],$month);
+ render('goals',['rows'=>$rows,'month'=>$month]);
+});
+$router->post('/goals/{id}',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
+ redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
+});
 $router->get('/sync',function(){Auth::requireRole('admin');render('sync',['modules'=>SyncService::modules(),'states'=>DB::all("SELECT * FROM sync_state ORDER BY module_key")]);});
 $router->post('/api/sync',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);try{json_response(['ok'=>true]+SyncService::run((string)($_POST['module']??''),(int)($_POST['page']??1)));}catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}});
 $router->get('/api/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$w=['active=1'];$p=[];if($u['role']==='seller'){$w[]='seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(name LIKE ? OR document LIKE ? OR CAST(id AS CHAR)=?)';$x='%'.$q.'%';array_push($p,$x,$x,$q);}json_response(['items'=>DB::all("SELECT id,omie_code,name,document,city,uf FROM clients WHERE ".implode(' AND ',$w)." ORDER BY name LIMIT 25",$p)]);});
