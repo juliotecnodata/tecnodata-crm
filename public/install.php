@@ -1,19 +1,13 @@
 <?php
-require dirname(__DIR__) . '/app/bootstrap.php';
-use Tecnodata\CRM\Core\DB;
-$cfg=$GLOBALS['config']['installer'];
-if(empty($cfg['enabled'])) exit('Instalador desativado.');
-if(!hash_equals((string)$cfg['token'],(string)($_GET['token']??''))) {http_response_code(403);exit('Token inválido.');}
+declare(strict_types=1);
+require dirname(__DIR__).'/app/bootstrap.php';
+$c=$GLOBALS['config']['installer'];
+if(empty($c['enabled']))exit('Instalador desativado.');
+if(!hash_equals((string)$c['token'],(string)($_GET['token']??''))){http_response_code(403);exit('Token inválido.');}
 try{
- $sql=file_get_contents(APP_ROOT.'/database/schema.sql');
- DB::conn()->exec($sql);
- $admin=$cfg['admin'];
- $exists=DB::fetch("SELECT id FROM users WHERE email=?",[$admin['email']]);
- if(!$exists){
-  DB::exec("INSERT INTO users(name,email,password_hash,role,active,created_at) VALUES (?,?,?,'admin',1,NOW())",
-   [$admin['name'],mb_strtolower($admin['email']),password_hash($admin['password'],PASSWORD_DEFAULT)]);
- }
- echo '<h2>Instalação concluída.</h2><p>Desative installer.enabled em config/config.php e acesse <a href="'.APP_URL.'/login.php">o login</a>.</p>';
-}catch(Throwable $e){
- http_response_code(500); echo '<h2>Erro na instalação</h2><pre>'.htmlspecialchars($e->getMessage()).'</pre>';
-}
+ $sql=file_get_contents(APP_ROOT.'/database/schema.sql');if($sql===false)throw new RuntimeException('schema.sql ausente.');
+ foreach(preg_split('/;\s*(?:\r?\n|$)/',$sql)?:[] as $s){$s=trim($s);if($s!=='')DB::conn()->exec($s);}
+ $a=$c['admin'];$email=mb_strtolower(trim((string)$a['email']));
+ if(!DB::one("SELECT id FROM users WHERE email=?",[$email]))DB::exec("INSERT INTO users(name,email,password_hash,role,active,created_at,updated_at) VALUES(?,?,?,'admin',1,NOW(),NOW())",[(string)$a['name'],$email,password_hash((string)$a['password'],PASSWORD_DEFAULT)]);
+ echo '<h2>Instalação concluída.</h2><p>Desative o instalador e acesse <a href="'.e(APP_URL).'">'.e(APP_URL).'</a>.</p>';
+}catch(Throwable $e){http_response_code(500);echo '<h2>Erro</h2><pre>'.e($e->getMessage()).'</pre>';}

@@ -1,8 +1,6 @@
-config/config.php
-.env
-.env.*
-storage/*.log
-storage/cache/*
-!storage/.htaccess
-.DS_Store
-Thumbs.db
+/config/config.php
+/.idea
+/.vscode
+/vendor
+/storage/logs/*.log
+/storage/cache/*
