@@ -147,14 +147,20 @@ final class ClientService {
   }
   $tags=array_slice($tags,0,20);
 
-  if($legalName==='')throw new RuntimeException('Informe a razão social ou nome.');
-  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('Informe um CPF ou CNPJ válido no formato numérico.');
-  if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-mail inválido.');
-  if($phoneDdd!==''&&strlen($phoneDdd)!==2)throw new RuntimeException('DDD deve conter 2 dígitos.');
-  if($phoneNumber!==''&&!in_array(strlen($phoneNumber),[8,9],true))throw new RuntimeException('Telefone deve conter 8 ou 9 dígitos.');
-  if(($phoneDdd===''&&$phoneNumber!=='')||($phoneDdd!==''&&$phoneNumber===''))throw new RuntimeException('Informe DDD e número do telefone.');
-  if($zip!==''&&strlen($zip)!==8)throw new RuntimeException('CEP deve conter 8 dígitos.');
-  if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('UF inválida.');
+  if($legalName==='')throw new RuntimeException('Razão social / Nome é obrigatório.');
+  if($tradeName==='')throw new RuntimeException('Nome fantasia é obrigatório.');
+  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('CPF / CNPJ é obrigatório e deve conter 11 ou 14 dígitos.');
+  if($email===''||!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-mail é obrigatório e deve ser válido.');
+  if($contactName==='')throw new RuntimeException('Nome do contato é obrigatório.');
+  if(strlen($phoneDdd)!==2)throw new RuntimeException('DDD é obrigatório e deve conter 2 dígitos.');
+  if(!in_array(strlen($phoneNumber),[8,9],true))throw new RuntimeException('Telefone é obrigatório e deve conter 8 ou 9 dígitos.');
+  if(strlen($zip)!==8)throw new RuntimeException('CEP é obrigatório e deve conter 8 dígitos.');
+  if($address==='')throw new RuntimeException('Endereço é obrigatório.');
+  if($number==='')throw new RuntimeException('Número é obrigatório.');
+  if($neighborhood==='')throw new RuntimeException('Bairro é obrigatório.');
+  if($city==='')throw new RuntimeException('Cidade é obrigatória.');
+  if(!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('UF é obrigatória e deve conter 2 letras.');
+  if(!$tags)throw new RuntimeException('Informe ao menos uma tag.');
 
   $seller='';
   if(($u['role']??'')==='seller')$seller=(string)($u['seller_omie_code']??'');
