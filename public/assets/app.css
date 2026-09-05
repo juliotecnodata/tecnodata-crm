@@ -349,3 +349,31 @@
 .client-created-alert>div{display:flex;flex-direction:column;flex:1}
 .client-created-alert span{font-size:10px;margin-top:2px}
 @media(max-width:720px){.client-created-alert{align-items:flex-start;flex-direction:column}.client-created-alert .btn{width:100%}}
+
+/* CRUD clientes */
+.table-actions{display:flex;justify-content:flex-end;gap:5px}
+.table-actions form{margin:0}
+.table-actions .btn{width:34px;height:34px;padding:0;display:grid;place-items:center}
+.table-actions .btn.danger{color:var(--orange)}
+.table-actions .btn.danger:hover{background:#FFF0EA;color:#B73518}
+.client-detail-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.65fr);gap:14px;align-items:start}
+.client-data-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.client-data-grid>div{min-width:0;padding:11px 12px;background:#F8FAFA;border:1px solid var(--line);border-radius:9px;display:flex;flex-direction:column}
+.client-data-grid>div.wide{grid-column:1/-1}
+.client-data-grid span{font-size:8px;text-transform:uppercase;color:var(--muted);font-weight:800}
+.client-data-grid strong{font-size:11px;color:var(--navy);margin-top:4px;word-break:break-word}
+.client-data-grid small{font-size:9px;color:var(--muted);margin-top:3px}
+.client-data-grid .normal-weight{font-weight:500;line-height:1.5}
+.client-tags-view{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.client-tags-view b{font-size:9px;background:#EFF6D8;color:#5D6E00;border:1px solid #D9E9A4;border-radius:7px;padding:4px 7px}
+.client-edit-summary{display:grid;gap:7px;margin:18px 0 8px}
+.client-edit-summary>div{display:flex;flex-direction:column;padding:10px;background:#F8FAFA;border:1px solid var(--line);border-radius:8px}
+.client-edit-summary span{font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:800}
+.client-edit-summary strong{font-size:11px;color:var(--navy);margin-top:2px}
+.client-preview-empty.compact{min-height:180px}
+.empty-state-small{padding:18px 0!important;color:var(--muted);font-size:10px!important;border:0!important}
+.btn-outline-danger{border-color:#E9B6A6;color:#B93E20}
+.btn-outline-danger:hover{background:#EA5127;border-color:#EA5127;color:#fff}
+.page-head-actions form{margin:0}
+@media(max-width:1000px){.client-detail-grid{grid-template-columns:1fr}.client-data-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.client-data-grid{grid-template-columns:1fr}.client-data-grid>div.wide{grid-column:auto}.table-actions{justify-content:flex-start}}
