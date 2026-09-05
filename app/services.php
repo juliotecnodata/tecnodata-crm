@@ -255,6 +255,8 @@ final class ClientService {
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
 
   $built=self::buildOmiePreview($i,$u);
+  $duplicate=DB::one("SELECT id,name FROM clients WHERE document=? AND id<>? AND active=1 LIMIT 1",[(string)$built['summary']['document'],$id]);
+  if($duplicate)throw new RuntimeException('Este CPF/CNPJ já pertence ao cliente "'.$duplicate['name'].'".');
   $p=$built['payload'];
   unset($p['codigo_cliente_integracao']);
   $p['codigo_cliente_omie']=(int)$client['omie_code'];
