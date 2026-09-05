@@ -39,7 +39,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(clientCreateForm){
     const onlyDigits=v=>String(v||'').replace(/\D+/g,'');
     const doc=clientCreateForm.querySelector('[data-document]');
-    const phone=clientCreateForm.querySelector('[data-phone]');
+    const phoneDdd=clientCreateForm.querySelector('[data-phone-ddd]');
+    const phoneNumber=clientCreateForm.querySelector('[data-phone-number]');
     const cep=clientCreateForm.querySelector('[data-cep]');
     const cnpjBtn=clientCreateForm.querySelector('[data-cnpj-lookup]');
     const cepBtn=clientCreateForm.querySelector('[data-cep-lookup]');
@@ -51,11 +52,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(n.length<=11)return n.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
       return n.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
     };
-    const formatPhone=v=>{
-      const n=onlyDigits(v).slice(0,11);
-      if(n.length<=10)return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2');
-      return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
-    };
+    const formatPhoneNumber=v=>onlyDigits(v).slice(0,9);
     const formatCep=v=>onlyDigits(v).slice(0,8).replace(/(\d{5})(\d)/,'$1-$2');
     const setStatus=(el,msg,type='')=>{if(!el)return;el.textContent=msg;el.classList.remove('ok','error','loading');if(type)el.classList.add(type);};
     const setLoading=(btn,on)=>{if(!btn)return;btn.disabled=on;btn.classList.toggle('loading',on);btn.innerHTML=on?'<i class="fa-solid fa-spinner fa-spin"></i>':btn.dataset.icon||btn.innerHTML;};
@@ -93,7 +90,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         setLoading(cnpjBtn,true);setStatus(cnpjStatus,'Consultando CNPJ...','loading');
         const d=await fetchJson('/api/public/cnpj?value='+encodeURIComponent(digits));
         fill('legal_name',d.legal_name);fill('trade_name',d.trade_name);fill('email',d.email,false);
-        if(d.phone){const p=fields('phone');if(p&&!p.value){p.value=formatPhone(d.phone);p.classList.add('lookup-filled');setTimeout(()=>p.classList.remove('lookup-filled'),1400);}}
+        if(d.phone_ddd){const p=fields('phone_ddd');if(p&&!p.value){p.value=onlyDigits(d.phone_ddd).slice(0,2);p.classList.add('lookup-filled');setTimeout(()=>p.classList.remove('lookup-filled'),1400);}}
+        if(d.phone_number){const p=fields('phone_number');if(p&&!p.value){p.value=formatPhoneNumber(d.phone_number);p.classList.add('lookup-filled');setTimeout(()=>p.classList.remove('lookup-filled'),1400);}}
         if(d.zip_code){const z=fields('zip_code');if(z&&!z.value){z.value=formatCep(d.zip_code);z.classList.add('lookup-filled');setTimeout(()=>z.classList.remove('lookup-filled'),1400);}}
         fill('address',d.address,false);fill('address_number',d.address_number,false);fill('complement',d.complement,false);fill('neighborhood',d.neighborhood,false);fill('city',d.city,false);fill('uf',d.uf,false);
         setStatus(cnpjStatus,'CNPJ localizado. Dados cadastrais preenchidos.','ok');
@@ -107,7 +105,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       doc.addEventListener('input',()=>{doc.value=formatDoc(doc.value);const n=onlyDigits(doc.value);if(n.length===14&&n!==prev){prev=n;lookupCnpj(true);}});
       doc.addEventListener('blur',()=>{const n=onlyDigits(doc.value);if(n.length===14&&n!==prev){prev=n;lookupCnpj(true);}});
     }
-    if(phone){phone.value=formatPhone(phone.value);phone.addEventListener('input',()=>phone.value=formatPhone(phone.value));}
+    if(phoneDdd){phoneDdd.value=onlyDigits(phoneDdd.value).slice(0,2);phoneDdd.addEventListener('input',()=>phoneDdd.value=onlyDigits(phoneDdd.value).slice(0,2));}
+    if(phoneNumber){phoneNumber.value=formatPhoneNumber(phoneNumber.value);phoneNumber.addEventListener('input',()=>phoneNumber.value=formatPhoneNumber(phoneNumber.value));}
     if(cep){
       cep.value=formatCep(cep.value);
       let prevCep=onlyDigits(cep.value);
