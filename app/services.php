@@ -182,7 +182,7 @@ final class ClientService {
    $payload['telefone1_ddd']=$phoneDdd;
    $payload['telefone1_numero']=$phoneNumber;
   }
-  if($seller!=='')$payload['codigo_vendedor']=(int)$seller;
+  if($seller!=='')$payload['recomendacoes']=['codigo_vendedor'=>(int)$seller];
   if($notes!=='')$payload['observacao']=$notes;
 
   return [
@@ -228,7 +228,7 @@ final class ClientService {
   $localCode='LOCAL-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(3)),0,6));
   $name=(string)($p['nome_fantasia']??$p['razao_social']??$document);
   $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
-  $seller=(string)($p['codigo_vendedor']??'');
+  $seller=(string)($p['recomendacoes']['codigo_vendedor']??'');
   $raw=['request'=>$p,'source'=>'local_pending','omie_status'=>'pending'];
 
   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
@@ -328,7 +328,7 @@ final class ClientService {
    'neighborhood'=>(string)($src['bairro']??''),
    'city'=>(string)($src['cidade']??$client['city']??''),
    'uf'=>(string)($src['estado']??$client['uf']??''),
-   'seller_omie_code'=>(string)($src['codigo_vendedor']??$client['seller_omie_code']??''),
+   'seller_omie_code'=>(string)($src['recomendacoes']['codigo_vendedor']??$src['codigo_vendedor']??$client['seller_omie_code']??''),
    'tags'=>implode(', ',$tags),
    'notes'=>(string)($src['observacao']??''),
   ];
