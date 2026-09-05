@@ -35,6 +35,28 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
   document.querySelector('[data-menu]')?.addEventListener('click',()=>document.querySelector('.sidebar')?.classList.toggle('open'));
+  const clientCreateForm=document.getElementById('clientCreateForm');
+  if(clientCreateForm){
+    const onlyDigits=v=>String(v||'').replace(/\D+/g,'');
+    const doc=clientCreateForm.querySelector('[data-document]');
+    const phone=clientCreateForm.querySelector('[data-phone]');
+    const cep=clientCreateForm.querySelector('[data-cep]');
+    const formatDoc=v=>{
+      const n=onlyDigits(v).slice(0,14);
+      if(n.length<=11)return n.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+      return n.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
+    };
+    const formatPhone=v=>{
+      const n=onlyDigits(v).slice(0,11);
+      if(n.length<=10)return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2');
+      return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
+    };
+    const formatCep=v=>onlyDigits(v).slice(0,8).replace(/(\d{5})(\d)/,'$1-$2');
+    if(doc){doc.value=formatDoc(doc.value);doc.addEventListener('input',()=>doc.value=formatDoc(doc.value));}
+    if(phone){phone.value=formatPhone(phone.value);phone.addEventListener('input',()=>phone.value=formatPhone(phone.value));}
+    if(cep){cep.value=formatCep(cep.value);cep.addEventListener('input',()=>cep.value=formatCep(cep.value));}
+  }
+
 
   document.querySelectorAll('[data-sync]').forEach(btn=>btn.addEventListener('click',async()=>{
     const module=btn.dataset.sync;let page=1;btn.disabled=true;
