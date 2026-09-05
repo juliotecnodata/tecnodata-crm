@@ -486,3 +486,83 @@ body{background:var(--bg);color:var(--text)}
 @media(max-width:640px){
  .client-phone-compact{grid-template-columns:76px minmax(0,1fr);max-width:none}
 }
+
+/* Identidade refinada: cor funcional, contraste confortável e legends */
+:root{
+ --navy:#17212A;
+ --blue:#2D7DB5;
+ --green:#2F7D64;
+ --lime:#AFC74E;
+ --yellow:#D8A62A;
+ --orange:#D56A3A;
+ --red:#C55252;
+ --bg:#F4F6F7;
+ --surface:#FFFFFF;
+ --surface-soft:#F8FAFB;
+ --line:#DFE5E8;
+ --line-strong:#CBD5DA;
+ --muted:#6D7A81;
+ --text:#253038;
+}
+body{background:var(--bg)}
+.sidebar{background:#18222B}
+.sidebar nav a{color:#C9D3D8}
+.sidebar nav a i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:#22313B;color:#A9BBC4;transition:.18s}
+.sidebar nav a:nth-of-type(5n+1) i{color:#83B6D8;background:#20313D}
+.sidebar nav a:nth-of-type(5n+2) i{color:#8BC5AF;background:#20352E}
+.sidebar nav a:nth-of-type(5n+3) i{color:#D7CA72;background:#37341F}
+.sidebar nav a:nth-of-type(5n+4) i{color:#E3A27E;background:#3B2C25}
+.sidebar nav a:nth-of-type(5n+5) i{color:#C6B0DF;background:#302B3A}
+.sidebar nav a:hover,.sidebar nav a.active{background:#202D36}
+.sidebar nav a:hover i,.sidebar nav a.active i{filter:brightness(1.08)}
+.brand>span,.login-brand>span{background:var(--lime);color:#1D2718}
+.page-head h1{color:#202A31}
+.eyebrow{color:#557C6B}
+.btn-primary{background:#286D59;border-color:#286D59}
+.btn-primary:hover,.btn-primary:focus{background:#225F4E;border-color:#225F4E}
+.btn-outline-secondary{border-color:#C6D0D5;color:#425159;background:#fff}
+.btn-outline-secondary:hover{background:#EEF2F4;border-color:#AEBCC3;color:#28343B}
+.panel,.table-card,.client-editor-card{box-shadow:none!important}
+.form-control,.form-select{border-color:#D3DCE0;background:#fff;color:#263238}
+.form-control:focus,.form-select:focus{border-color:#78A694;box-shadow:0 0 0 3px rgba(47,125,100,.08)}
+.table-card table.dataTable thead th{background:#F0F3F4!important;color:#45525A!important}
+.table-actions .btn i{font-size:13px}
+.table-actions .btn[title="Ver"] i{color:var(--blue)}
+.table-actions .btn[title="Editar"] i{color:var(--green)}
+.table-actions .btn[title="Excluir"] i{color:var(--red)}
+
+/* Fieldset/legend premium no cadastro */
+.client-editor-group{position:relative;padding:24px 18px 18px!important;border:1px solid var(--line)!important;border-radius:12px!important;background:#fff;overflow:visible!important;margin:0}
+.client-editor-legend{float:none;width:auto;margin:0 0 0 14px;padding:0 10px;display:inline-flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;color:var(--text)}
+.client-editor-legend .legend-copy{display:flex;flex-direction:column;min-width:0}
+.client-editor-legend .legend-copy strong{font-size:13px;font-weight:800;color:#28343B;line-height:1.15}
+.client-editor-legend .legend-copy small{font-size:9px;color:var(--muted);margin-top:2px;font-weight:500}
+.legend-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:14px;flex:0 0 34px;border:1px solid transparent}
+.legend-blue{background:#E8F2F8;color:#236F9F;border-color:#CEE3F0}
+.legend-green{background:#EAF5F0;color:#2F7D64;border-color:#D3E8DE}
+.legend-orange{background:#FAEFE9;color:#B95A31;border-color:#F0D9CE}
+.legend-yellow{background:#FBF5E4;color:#A47A16;border-color:#EDDFB6}
+.client-group-main{border-top:2px solid #BFD9E8!important}
+.client-group-address{border-top:2px solid #C9E1D5!important}
+.client-group-commercial{border-top:2px solid #EBCDBD!important}
+.client-group-preview{border-top:2px solid #E7D79F!important}
+.client-editor-group .client-fields-grid{padding:8px 0 0}
+.client-editor-legend .client-omie-code,.client-editor-legend .client-preview-badge{margin-left:8px}
+.client-editor-card .field>label{color:#536269;font-weight:750}
+.lookup-action i{color:var(--blue)}
+.lookup-action:hover i{color:var(--green)}
+.client-editor-actions-info i{color:var(--blue)}
+.client-editor-actions .btn i{margin-right:4px}
+.client-editor-actions .btn-primary i{color:#fff}
+.client-editor-actions .btn-outline-secondary i{color:var(--blue)}
+.client-editor-actions .btn-outline-danger i{color:var(--red)}
+.client-editor-actions .btn-outline-danger:hover i{color:#fff}
+.tag-chip{background:#EEF4EF;color:#486557;border-color:#D7E4DA}
+
+@media(max-width:640px){
+ .client-editor-group{padding:20px 14px 14px!important}
+ .client-editor-legend{margin-left:6px;padding:0 6px;gap:8px}
+ .legend-icon{width:30px;height:30px;flex-basis:30px}
+ .client-editor-legend .legend-copy small{display:none}
+ .client-editor-legend .client-omie-code,.client-editor-legend .client-preview-badge{display:none}
+}
