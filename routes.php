@@ -4,7 +4,11 @@ $router->post('/login',function(){CSRF::require($_POST['_token']??null);if(Auth:
 $router->post('/logout',function(){CSRF::require($_POST['_token']??null);Auth::logout();redirect('/login');});
 
 $router->get('/',function(){Auth::requireLogin();$u=Auth::user();render('dashboard',['u'=>$u,'data'=>CRMService::dashboard($u)]);});
-$router->get('/result',function(){Auth::requireLogin();render('result',['result'=>GoalService::userMonth(Auth::id(),(string)($_GET['month']??date('Y-m')))]);});
+$router->get('/result',function(){
+ Auth::requireLogin();$month=(string)($_GET['month']??date('Y-m'));$u=Auth::user();
+ if(in_array($u['role'],['admin','supervisor'],true))render('management_result',['management'=>GoalService::managementMonth($month),'month'=>$month]);
+ else render('result',['result'=>GoalService::userMonth(Auth::id(),$month),'month'=>$month]);
+});
 
 $router->get('/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$w=['c.active=1'];$p=[];if($u['role']==='seller'){$w[]='c.seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}$rows=DB::all("SELECT c.*,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE ".implode(' AND ',$w)." ORDER BY c.name LIMIT 300",$p);foreach($rows as &$r)$r['cycle']=CRMService::cycle($r['last_purchase_at']??null,(float)($r['avg_interval_days']??0));unset($r);render('clients',['rows'=>$rows,'q'=>$q]);});
 $router->get('/clients/{id}',function($p){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];$c=DB::one("SELECT c.*,m.* FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=?",[$id]);if(!$c){http_response_code(404);exit('Cliente não encontrado.');}if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Cliente fora da sua carteira.');}$a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);$o=DB::all("SELECT * FROM orders WHERE client_omie_code=? ORDER BY order_date DESC,id DESC LIMIT 20",[$c['omie_code']]);render('client',['client'=>$c,'activities'=>$a,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0))]);});
@@ -79,14 +83,18 @@ $router->post('/users',function(){
 });
 $router->get('/goals',function(){
  Auth::requireRole('admin','supervisor');$month=(string)($_GET['month']??date('Y-m'));
- $users=DB::all("SELECT * FROM users WHERE active=1 AND role IN('seller','collector') ORDER BY role,name");
- $rows=[];foreach($users as $u)$rows[]=GoalService::userMonth((int)$u['id'],$month);
- render('goals',['rows'=>$rows,'month'=>$month]);
+ $management=GoalService::managementMonth($month);
+ render('goals',['rows'=>$management['rows'],'month'=>$month,'management'=>$management]);
 });
 $router->post('/goals/{id}',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
  redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
+});
+$router->post('/goals/general',function(){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ $month=(string)($_POST['month']??date('Y-m'));GoalService::saveGeneral($month,$_POST);
+ redirect('/goals?month='.urlencode($month));
 });
 $router->get('/test-data',function(){
  Auth::requireRole('admin');
