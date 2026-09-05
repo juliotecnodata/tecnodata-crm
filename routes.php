@@ -71,8 +71,8 @@ $router->get('/clients/{id}/edit',function($p){
 $router->post('/clients/{id}/update',function($p){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
-  $result=ClientService::updateInOmie($id,$_POST,Auth::user());
-  $_SESSION['client_flash']=['type'=>'success','message'=>($result['status']??'')==='local_updated'?'Cliente local atualizado com sucesso. A Omie ainda não foi alterada.':'Cliente atualizado com sucesso no CRM e na Omie.'];
+  ClientService::updateInOmie($id,$_POST,Auth::user());
+  $_SESSION['client_flash']=['type'=>'success','message'=>'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.'];
   redirect('/clients/'.$id);
  }catch(Throwable $e){
   $_SESSION['client_edit_error']=$e->getMessage();
