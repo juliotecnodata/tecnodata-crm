@@ -29,17 +29,28 @@ $router->post('/clients/preview',function(){
  redirect('/clients/new');
 });
 
-$router->post('/clients/send',function(){
+$router->post('/clients/save-local',function(){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
  try{
-  $result=ClientService::createInOmie($_POST,Auth::user());
-  $_SESSION['client_create_success']=['client'=>$result['client'],'response'=>$result['response']];
-  redirect('/clients/new');
+  $result=ClientService::createLocal($_POST,Auth::user());
+  $_SESSION['client_flash']=['type'=>'success','message'=>'Cliente salvo localmente. Agora verifique a situação na Omie antes de concluir a integração.'];
+  redirect('/clients/'.(int)$result['client']['id']);
  }catch(Throwable $e){
   $_SESSION['client_create_error']=$e->getMessage();
   $_SESSION['client_create_old']=$_POST;
   redirect('/clients/new');
  }
+});
+
+$router->post('/clients/{id}/omie-sync',function($p){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
+ try{
+  $result=ClientService::syncLocalWithOmie($id,Auth::user());
+  $_SESSION['client_flash']=['type'=>'success','message'=>$result['message']];
+ }catch(Throwable $e){
+  $_SESSION['client_flash']=['type'=>'danger','message'=>'Não foi possível concluir a verificação na Omie: '.$e->getMessage()];
+ }
+ redirect('/clients/'.$id);
 });
 
 $router->get('/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);$q=trim((string)($_GET['q']??''));$w=['c.active=1'];$p=[];if($u['role']==='seller'){$w[]='c.seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}$rows=DB::all("SELECT c.*,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE ".implode(' AND ',$w)." ORDER BY c.name LIMIT 300",$p);foreach($rows as &$r)$r['cycle']=CRMService::cycle($r['last_purchase_at']??null,(float)($r['avg_interval_days']??0));unset($r);render('clients',['rows'=>$rows,'q'=>$q,'flash'=>$flash]);});
