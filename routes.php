@@ -13,9 +13,11 @@ $router->get('/result',function(){
 $router->get('/clients/new',function(){
  Auth::requireRole('admin','supervisor','seller');
  $preview=$_SESSION['client_preview']??null;$error=$_SESSION['client_preview_error']??null;$old=$_SESSION['client_preview_old']??[];
- unset($_SESSION['client_preview'],$_SESSION['client_preview_error'],$_SESSION['client_preview_old']);
+ $createSuccess=$_SESSION['client_create_success']??null;$createError=$_SESSION['client_create_error']??null;$createOld=$_SESSION['client_create_old']??[];
+ unset($_SESSION['client_preview'],$_SESSION['client_preview_error'],$_SESSION['client_preview_old'],$_SESSION['client_create_success'],$_SESSION['client_create_error'],$_SESSION['client_create_old']);
+ if($createOld)$old=$createOld;
  render('client_new',[
-  'preview'=>$preview,'error'=>$error,'old'=>$old,
+  'preview'=>$preview,'error'=>$error,'old'=>$old,'createSuccess'=>$createSuccess,'createError'=>$createError,
   'sellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[]
  ]);
 });
@@ -25,6 +27,19 @@ $router->post('/clients/preview',function(){
  catch(Throwable $e){$_SESSION['client_preview_error']=$e->getMessage();}
  $_SESSION['client_preview_old']=$_POST;
  redirect('/clients/new');
+});
+
+$router->post('/clients/send',function(){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ try{
+  $result=ClientService::createInOmie($_POST,Auth::user());
+  $_SESSION['client_create_success']=['client'=>$result['client'],'response'=>$result['response']];
+  redirect('/clients/new');
+ }catch(Throwable $e){
+  $_SESSION['client_create_error']=$e->getMessage();
+  $_SESSION['client_create_old']=$_POST;
+  redirect('/clients/new');
+ }
 });
 
 $router->get('/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$w=['c.active=1'];$p=[];if($u['role']==='seller'){$w[]='c.seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}$rows=DB::all("SELECT c.*,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE ".implode(' AND ',$w)." ORDER BY c.name LIMIT 300",$p);foreach($rows as &$r)$r['cycle']=CRMService::cycle($r['last_purchase_at']??null,(float)($r['avg_interval_days']??0));unset($r);render('clients',['rows'=>$rows,'q'=>$q]);});
