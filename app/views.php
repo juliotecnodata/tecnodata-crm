@@ -34,12 +34,12 @@ function render(string $name,array $vars=[]): void{
    <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/preview'?>" id="clientCreateForm" class="client-editor">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
 
-    <section class="client-editor-card">
-     <header class="client-editor-section-head">
-      <div><strong>Dados principais</strong><span>Identificação e contato</span></div>
+    <fieldset class="client-editor-card client-editor-group client-group-main">
+     <legend class="client-editor-legend">
+      <span class="legend-icon legend-blue"><i class="fa-solid fa-building"></i></span>
+      <span class="legend-copy"><strong>Dados principais</strong><small>Identificação e contato do cliente</small></span>
       <?php if($editClient):?><span class="client-omie-code">Omie #<?=e((string)$editClient['omie_code'])?></span><?php endif;?>
-     </header>
-
+     </legend>
      <div class="client-fields-grid">
       <div class="field span-4">
        <label>CPF / CNPJ</label>
@@ -59,10 +59,13 @@ function render(string $name,array $vars=[]): void{
        </div>
       </div>
      </div>
-    </section>
+    </fieldset>
 
-    <section class="client-editor-card">
-     <header class="client-editor-section-head"><div><strong>Endereço</strong><span>Usado no cadastro e nas rotinas de faturamento</span></div></header>
+    <fieldset class="client-editor-card client-editor-group client-group-address">
+     <legend class="client-editor-legend">
+      <span class="legend-icon legend-green"><i class="fa-solid fa-location-dot"></i></span>
+      <span class="legend-copy"><strong>Endereço</strong><small>Dados usados no cadastro e no faturamento</small></span>
+     </legend>
      <div class="client-fields-grid">
       <div class="field span-2">
        <label>CEP</label>
@@ -77,10 +80,13 @@ function render(string $name,array $vars=[]): void{
       <div class="field span-6"><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2"></div>
       <div class="field span-2"><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1"></div>
      </div>
-    </section>
+    </fieldset>
 
-    <section class="client-editor-card">
-     <header class="client-editor-section-head"><div><strong>Organização comercial</strong><span>Responsável, classificação e observações</span></div></header>
+    <fieldset class="client-editor-card client-editor-group client-group-commercial">
+     <legend class="client-editor-legend">
+      <span class="legend-icon legend-orange"><i class="fa-solid fa-user-tie"></i></span>
+      <span class="legend-copy"><strong>Organização comercial</strong><small>Responsável, classificação e observações</small></span>
+     </legend>
      <div class="client-fields-grid">
       <div class="field span-4">
        <label>Vendedor responsável</label>
@@ -94,14 +100,18 @@ function render(string $name,array $vars=[]): void{
       </div>
       <div class="field span-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
      </div>
-    </section>
+    </fieldset>
 
     <?php if(!$editClient&&$preview):?>
-    <section class="client-editor-card client-preview-inline">
-     <header class="client-editor-section-head"><div><strong>Prévia da integração</strong><span>Payload validado, ainda não enviado</span></div><span class="client-preview-badge">VALIDADO</span></header>
+    <fieldset class="client-editor-card client-editor-group client-preview-inline client-group-preview">
+     <legend class="client-editor-legend">
+      <span class="legend-icon legend-yellow"><i class="fa-solid fa-code"></i></span>
+      <span class="legend-copy"><strong>Prévia da integração</strong><small>Payload validado, ainda não enviado</small></span>
+      <span class="client-preview-badge">VALIDADO</span>
+     </legend>
      <div class="client-preview-summary-inline"><div><span>Cliente</span><strong><?=e($preview['summary']['name'])?></strong></div><div><span>Documento</span><strong><?=e($preview['summary']['document'])?></strong></div><div><span>Vendedor</span><strong><?=e($preview['summary']['seller'])?></strong></div></div>
      <details class="client-payload-details"><summary>Ver payload técnico</summary><pre><?=e(json_encode($preview['payload'],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?></pre></details>
-    </section>
+    </fieldset>
     <?php endif;?>
 
     <div class="client-editor-actions">
