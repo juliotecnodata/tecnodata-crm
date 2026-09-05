@@ -424,6 +424,15 @@ final class ClientService {
   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
 
+ public static function deleteLocalOnly(int $id,array $u): array{
+  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
+  if(!$client)throw new RuntimeException('Cliente não encontrado.');
+  if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
+
+  DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
+  return ['status'=>'local_deleted','client'=>$client];
+ }
+
  public static function deleteFromOmie(int $id,array $u): array{
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
