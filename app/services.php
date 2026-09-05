@@ -287,28 +287,21 @@ final class ClientService {
 
    $omie=new OmieClient();
    $response=$omie->call('clients','IncluirCliente',$built['payload']);
-   $responseCode=self::extractOmieClientCode($response);
+   $remoteCode=self::extractOmieClientCode($response);
+   if($remoteCode==='')throw new RuntimeException('A Omie confirmou o cadastro, mas não retornou codigo_cliente_omie válido.');
 
-   // Confirma imediatamente o código real pelo CPF/CNPJ para evitar persistir um identificador incorreto.
-   $confirmed=self::findExistingInOmieByDocument($document);
-   $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
-   $remoteCode=$confirmedCode!==''?$confirmedCode:$responseCode;
-   if($remoteCode==='')throw new RuntimeException('A Omie confirmou o cadastro, mas não foi possível confirmar o código real do cliente.');
-
+   // Não repete ListarClientes imediatamente após a inclusão: a Omie bloqueia consumo redundante.
    $raw=[
     'request'=>$built['payload'],
     'response'=>$response,
-    'confirmation'=>$confirmed,
-    'response_code'=>$responseCode,
-    'confirmed_code'=>$confirmedCode,
-    'code_mismatch'=>$responseCode!==''&&$confirmedCode!==''&&$responseCode!==$confirmedCode,
+    'response_code'=>$remoteCode,
     'source'=>'omie_created_from_local',
     'omie_status'=>'linked'
    ];
    DB::exec("UPDATE clients SET omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
    return [
     'status'=>'created',
-    'message'=>'Cliente integrado com sucesso. Código Omie confirmado '.$remoteCode.'.'.(($responseCode!==''&&$confirmedCode!==''&&$responseCode!==$confirmedCode)?' O código retornado inicialmente divergiu e foi corrigido automaticamente.':'')
+    'message'=>'Cliente integrado com sucesso. Código Omie '.$remoteCode.'.'
    ];
   }
 
@@ -347,17 +340,14 @@ final class ClientService {
 
   $omie=new OmieClient();
   $response=$omie->call('clients','IncluirCliente',$built['payload']);
-  $responseCode=self::extractOmieClientCode($response);
-  $confirmed=self::findExistingInOmieByDocument($document);
-  $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
-  $omieCode=$confirmedCode!==''?$confirmedCode:$responseCode;
-  if($omieCode==='')throw new RuntimeException('A Omie confirmou a operação, mas não foi possível confirmar o código real do cliente.');
+  $omieCode=self::extractOmieClientCode($response);
+  if($omieCode==='')throw new RuntimeException('A Omie confirmou a operação, mas não retornou codigo_cliente_omie válido.');
 
   $p=$built['payload'];
   $name=(string)($p['nome_fantasia']??$p['razao_social']??$document);
   $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
   $seller=(string)($p['codigo_vendedor']??'');
-  $raw=['request'=>$p,'response'=>$response,'confirmation'=>$confirmed,'response_code'=>$responseCode,'confirmed_code'=>$confirmedCode,'code_mismatch'=>$responseCode!==''&&$confirmedCode!==''&&$responseCode!==$confirmedCode,'source'=>'crm_create'];
+  $raw=['request'=>$p,'response'=>$response,'response_code'=>$omieCode,'source'=>'crm_create'];
 
   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
             VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())
