@@ -327,6 +327,32 @@ final class TestDataService {
 final class SyncService {
  public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
+ private static function syncWindow(string $module,int $page): array{
+  $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
+  $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+  if($page===1||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
+   $first=empty($state['last_success_at']);
+   $start=$first?date('01/01/Y'):date('d/m/Y',strtotime('-5 days'));
+   $end=date('d/m/Y');
+   $ctx=['start'=>$start,'end'=>$end,'mode'=>$first?'current_year':'last_5_days'];
+   DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+             VALUES(?,0,0,0,?,NULL,NULL)
+             ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+    [$module,json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  }
+  return $ctx;
+ }
+ private static function finishWindow(string $module,array $data,int $page,int $count,array $period): array{
+  $total=max(1,(int)($data['total_de_paginas']??$data['nTotPaginas']??1));
+  $done=$page>=$total;
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,?,?,?,?,IF(?,NOW(),NULL),NULL)
+            ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),
+            context_json=VALUES(context_json),last_success_at=IF(VALUES(last_success_at) IS NULL,last_success_at,VALUES(last_success_at)),last_error=NULL",
+   [$module,$page,$total,$count,$done?null:json_encode($period,JSON_UNESCAPED_UNICODE),$done?1:0]);
+  if($module==='orders'&&$done)self::rebuildMetrics();
+  return ['module'=>$module,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$done,'period'=>$period];
+ }
  private static function finish(string $m,array $d,int $page,int $count): array{$total=(int)($d['total_de_paginas']??$d['nTotPaginas']??1);$total=max(1,$total);DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error) VALUES(?,?,?,?,NULL,NOW(),NULL) ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=NOW(),last_error=NULL",[$m,$page,$total,$count]);if($m==='orders'&&$page>=$total)self::rebuildMetrics();return ['module'=>$m,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$page>=$total];}
  public static function run(string $m,int $page=1): array{
   if(!isset(self::modules()[$m]))throw new RuntimeException('Módulo inválido.');$o=new OmieClient();$page=max(1,$page);
@@ -341,8 +367,49 @@ final class SyncService {
   if($m==='stock_locations'){$d=$o->call('stock_locations','ListarLocaisEstoque',['nPagina'=>$page,'nRegPorPagina'=>100]);$it=self::pick($d,['locaisEncontrados']);foreach($it as $r){$c=(string)($r['codigo_local_estoque']??'');if($c==='')continue;DB::exec("INSERT INTO stock_locations(omie_code,name,sale_enabled,is_default,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),sale_enabled=VALUES(sale_enabled),is_default=VALUES(is_default),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),(($r['dispVenda']??'N')==='S'?1:0),(($r['padrao']??'N')==='S'?1:0),(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='payment_methods'){$d=$o->call('payment_methods','ListarMeiosPagamento',['codigo'=>'']);$it=self::pick($d,['MeiosPagamentoLista']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO payment_methods(code,description,raw_json,updated_at) VALUES(?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,['total_de_paginas'=>1],1,count($it));}
   if($m==='document_types'){$d=$o->call('document_types','PesquisarTipoDocumento',['codigo'=>'']);$it=self::pick($d,['tipo_documento_cadastro']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO document_types(code,description,raw_json,updated_at) VALUES(?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,['total_de_paginas'=>1],1,count($it));}
-  if($m==='orders'){$d=$o->call('orders','ListarPedidos',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['pedido_venda_produto']);foreach($it as $r){$cab=$r['cabecalho']??[];$info=$r['infoCadastro']??[];$add=$r['informacoes_adicionais']??[];$tot=$r['total_pedido']??[];$c=(string)($cab['codigo_pedido']??'');if($c==='')continue;$status=(($info['cancelado']??'N')==='S')?'CANCELADO':((($info['faturado']??'N')==='S')?'FATURADO':'ATIVO');DB::exec("INSERT INTO orders(omie_code,number,client_omie_code,seller_omie_code,order_date,forecast_date,total,status,stage_code,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE number=VALUES(number),client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),order_date=VALUES(order_date),forecast_date=VALUES(forecast_date),total=VALUES(total),status=VALUES(status),stage_code=VALUES(stage_code),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,$cab['numero_pedido']??null,(string)($cab['codigo_cliente']??''),(string)($add['codVend']??''),!empty($info['dInc'])?date('Y-m-d',strtotime(str_replace('/','-',$info['dInc']))):null,!empty($cab['data_previsao'])?date('Y-m-d',strtotime(str_replace('/','-',$cab['data_previsao']))):null,(float)($tot['valor_total_pedido']??0),$status,(string)($cab['etapa']??''),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
-  if($m==='services'){$d=$o->call('services','ListarOS',['pagina'=>$page,'registros_por_pagina'=>100,'filtrar_apenas_inclusao'=>'N']);$it=self::pick($d,['osCadastro','ordens_servico']);foreach($it as $r){$cab=$r['Cabecalho']??$r['cabecalho']??$r;$c=(string)($cab['nCodOS']??$cab['codigo_os']??'');if($c==='')continue;DB::exec("INSERT INTO service_orders(omie_code,client_omie_code,seller_omie_code,service_date,total,status,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),service_date=VALUES(service_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($cab['nCodCli']??''),(string)($cab['nCodVend']??''),!empty($cab['dDtPrevisao'])?date('Y-m-d',strtotime(str_replace('/','-',$cab['dDtPrevisao']))):null,(float)($cab['nValorTotal']??0),(string)($cab['cStatus']??'ATIVO'),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
+  if($m==='orders'){
+   $period=self::syncWindow('orders',$page);
+   $d=$o->call('orders','ListarPedidos',[
+    'pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N',
+    'filtrar_por_data_de'=>$period['start'],'filtrar_por_data_ate'=>$period['end']
+   ]);
+   $it=self::pick($d,['pedido_venda_produto']);
+   foreach($it as $r){
+    $cab=$r['cabecalho']??[];$info=$r['infoCadastro']??[];$add=$r['informacoes_adicionais']??[];$tot=$r['total_pedido']??[];
+    $code=(string)($cab['codigo_pedido']??'');if($code==='')continue;
+    $status=(($info['cancelado']??'N')==='S')?'CANCELADO':((($info['faturado']??'N')==='S')?'FATURADO':'ATIVO');
+    DB::exec("INSERT INTO orders(omie_code,number,client_omie_code,seller_omie_code,order_date,forecast_date,total,status,stage_code,raw_json,updated_at)
+              VALUES(?,?,?,?,?,?,?,?,?,?,NOW())
+              ON DUPLICATE KEY UPDATE number=VALUES(number),client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
+              order_date=VALUES(order_date),forecast_date=VALUES(forecast_date),total=VALUES(total),status=VALUES(status),stage_code=VALUES(stage_code),raw_json=VALUES(raw_json),updated_at=NOW()",
+      [$code,$cab['numero_pedido']??null,(string)($cab['codigo_cliente']??''),(string)($add['codVend']??''),
+       !empty($info['dInc'])?date('Y-m-d',strtotime(str_replace('/','-',(string)$info['dInc']))):null,
+       !empty($cab['data_previsao'])?date('Y-m-d',strtotime(str_replace('/','-',(string)$cab['data_previsao']))):null,
+       (float)($tot['valor_total_pedido']??0),$status,(string)($cab['etapa']??''),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+   }
+   return self::finishWindow('orders',$d,$page,count($it),$period);
+  }
+  if($m==='services'){
+   $period=self::syncWindow('services',$page);
+   $d=$o->call('services','ListarOS',[
+    'pagina'=>$page,'registros_por_pagina'=>100,
+    'filtrar_por_data_de'=>$period['start'],'filtrar_por_data_ate'=>$period['end'],
+    'filtrar_apenas_inclusao'=>'N'
+   ]);
+   $it=self::pick($d,['osCadastro','ordens_servico']);
+   foreach($it as $r){
+    $cab=$r['Cabecalho']??$r['cabecalho']??$r;
+    $code=(string)($cab['nCodOS']??$cab['codigo_os']??'');if($code==='')continue;
+    DB::exec("INSERT INTO service_orders(omie_code,client_omie_code,seller_omie_code,service_date,total,status,raw_json,updated_at)
+              VALUES(?,?,?,?,?,?,?,NOW())
+              ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
+              service_date=VALUES(service_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
+      [$code,(string)($cab['nCodCli']??''),(string)($cab['nCodVend']??''),
+       !empty($cab['dDtPrevisao'])?date('Y-m-d',strtotime(str_replace('/','-',(string)$cab['dDtPrevisao']))):null,
+       (float)($cab['nValorTotal']??0),(string)($cab['cStatus']??'ATIVO'),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+   }
+   return self::finishWindow('services',$d,$page,count($it),$period);
+  }
   if($m==='financial'){return self::financial($o,$page);}
   throw new RuntimeException('Módulo não implementado.');
  }
