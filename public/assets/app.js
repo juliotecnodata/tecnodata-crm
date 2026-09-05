@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(n.length<=11)return n.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
       return n.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
     };
-    const formatPhoneNumber=v=>onlyDigits(v).slice(0,9);
+    const formatPhoneNumber=v=>{const n=onlyDigits(v).slice(0,9);return n.length>8?n.replace(/(\\d{5})(\\d{1,4})$/,'$1-$2'):n.replace(/(\\d{4})(\\d{1,4})$/,'$1-$2');};
     const formatCep=v=>onlyDigits(v).slice(0,8).replace(/(\d{5})(\d)/,'$1-$2');
     const setStatus=(el,msg,type='')=>{if(!el)return;el.textContent=msg;el.classList.remove('ok','error','loading');if(type)el.classList.add(type);};
     const setLoading=(btn,on)=>{if(!btn)return;btn.disabled=on;btn.classList.toggle('loading',on);btn.innerHTML=on?'<i class="fa-solid fa-spinner fa-spin"></i>':btn.dataset.icon||btn.innerHTML;};
