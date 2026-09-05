@@ -33,7 +33,7 @@ function render(string $name,array $vars=[]): void{
       <div class="client-form-grid">
        <div class="span-2"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
        <div><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
-       <div><label>CPF / CNPJ</label><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required></div>
+       <div><label>CPF / CNPJ</label><div class="lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button class="lookup-action" type="button" data-cnpj-lookup title="Buscar dados pelo CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="field-hint" data-cnpj-status>Ao informar um CNPJ, o CRM pode preencher os dados automaticamente.</small></div>
       </div>
      </section>
 
@@ -48,7 +48,7 @@ function render(string $name,array $vars=[]): void{
      <section class="panel client-form-section">
       <div class="client-section-title"><div class="client-section-icon blue"><i class="fa-solid fa-location-dot"></i></div><div><span>Endereço</span><small>Cadastro enxuto para faturamento e logística.</small></div></div>
       <div class="client-address-grid">
-       <div><label>CEP</label><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"></div>
+       <div><label>CEP</label><div class="lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"><button class="lookup-action" type="button" data-cep-lookup title="Buscar endereço pelo CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="field-hint" data-cep-status>Digite o CEP para preencher endereço, bairro, cidade e UF.</small></div>
        <div class="address-wide"><label>Endereço</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1"></div>
        <div><label>Número</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
        <div><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
