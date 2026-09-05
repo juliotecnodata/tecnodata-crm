@@ -121,7 +121,9 @@ $router->post('/clients/{id}/delete',function($p){
    'type'=>'success',
    'message'=>($result['status']??'')==='local_deleted'
     ?'Cliente local removido com sucesso. Como ainda não estava integrado, nenhuma chamada à Omie foi necessária.'
-    :'Cliente excluído com sucesso na Omie e removido do CRM local.'
+    :(!empty($result['corrected_code'])
+      ?'Cliente localizado pelo CPF/CNPJ, código Omie corrigido e exclusão concluída com sucesso na Omie e no CRM.'
+      :'Cliente excluído com sucesso na Omie e removido do CRM local.')
   ];
   redirect('/clients');
  }catch(Throwable $e){
