@@ -240,3 +240,53 @@
  .omie-order-footer{align-items:stretch;flex-direction:column}.omie-order-footer-actions{width:100%}.omie-order-footer-actions .btn{flex:1}
 }
 @media(max-width:540px){.omie-order-kpis,.freight-grid{grid-template-columns:1fr}.omie-tab-content{padding:14px}}
+
+/* Cadastro de cliente */
+.page-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.client-create-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
+.client-create-main{display:flex;flex-direction:column;gap:14px}
+.client-form-section{padding:18px}
+.client-section-title{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.client-section-title>div:last-child{display:flex;flex-direction:column}
+.client-section-title span{font-size:14px;font-weight:800;color:var(--navy)}
+.client-section-title small{font-size:10px;color:var(--muted);margin-top:2px}
+.client-section-icon{width:38px;height:38px;border-radius:10px;background:#F2F7DF;color:#687A00;display:grid;place-items:center}
+.client-section-icon.green{background:#EAF7F1;color:var(--green)}
+.client-section-icon.blue{background:#EAF5FB;color:var(--blue)}
+.client-section-icon.orange{background:#FFF0EA;color:var(--orange)}
+.client-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.client-form-grid .span-2{grid-column:1/-1}
+.client-address-grid{display:grid;grid-template-columns:160px minmax(0,1.6fr) 130px minmax(180px,1fr) minmax(180px,1fr) 90px;gap:13px}
+.client-address-grid .address-wide{min-width:0}
+.client-form-section label{display:block;font-size:10px;font-weight:750;color:#4E5D65;margin-bottom:5px}
+.client-fixed-seller{min-height:42px;border:1px solid var(--line-strong);border-radius:10px;background:#F7F8F8;display:flex;align-items:center;gap:8px;padding:0 12px;color:#47565E}
+.client-preview-card{position:sticky;top:78px;padding:18px;border-top:4px solid var(--lime)}
+.client-preview-status,.client-preview-success{display:flex;align-items:flex-start;gap:10px}
+.client-preview-status>div,.client-preview-success>div{display:flex;flex-direction:column}
+.client-preview-status strong,.client-preview-success strong{font-size:13px;color:var(--navy)}
+.client-preview-status small,.client-preview-success small{font-size:9px;color:var(--muted);margin-top:2px}
+.preview-dot{width:10px;height:10px;border-radius:50%;background:var(--green);margin-top:4px;box-shadow:0 0 0 4px rgba(0,150,87,.09)}
+.client-preview-success{margin-top:16px;padding:11px;border:1px solid #CFE9DC;background:#F1F9F5;border-radius:10px;color:var(--green)}
+.client-preview-summary{display:grid;grid-template-columns:1fr;gap:7px;margin:14px 0}
+.client-preview-summary>div{display:flex;flex-direction:column;padding:9px 10px;background:#F7F9F9;border:1px solid var(--line);border-radius:8px}
+.client-preview-summary span{font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:800}
+.client-preview-summary strong{font-size:11px;color:var(--navy);margin-top:2px;word-break:break-word}
+.client-api-preview{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.client-api-head{display:flex;justify-content:space-between;gap:8px;padding:9px 10px;background:var(--navy);color:#fff}
+.client-api-head span{font-size:10px;font-weight:800}.client-api-head small{font-size:8px;color:#B5C0C5}
+.client-api-preview pre{margin:0;background:#111A22;color:#DCE5E9;padding:12px;font-size:9px;max-height:320px;overflow:auto}
+.client-preview-empty{min-height:270px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--muted)}
+.client-preview-empty i{width:44px;height:44px;border-radius:10px;background:#EEF4F6;color:var(--blue);display:grid;place-items:center;font-size:18px;margin-bottom:10px}
+.client-preview-empty strong{color:var(--navy);font-size:14px}
+.client-preview-empty span{font-size:10px;line-height:1.5;margin-top:5px}
+.client-preview-help{font-size:9px;line-height:1.45;color:var(--muted);margin:10px 0 0;text-align:center}
+@media(max-width:1180px){
+ .client-create-layout{grid-template-columns:1fr}
+ .client-preview-card{position:static}
+ .client-address-grid{grid-template-columns:1fr 2fr 1fr}
+}
+@media(max-width:720px){
+ .client-form-grid,.client-address-grid{grid-template-columns:1fr}
+ .client-form-grid .span-2{grid-column:auto}
+ .page-head-actions{width:100%}.page-head-actions .btn{flex:1}
+}
