@@ -566,3 +566,6 @@ body{background:var(--bg)}
  .client-editor-legend .legend-copy small{display:none}
  .client-editor-legend .client-omie-code,.client-editor-legend .client-preview-badge{display:none}
 }
+
+.required-mark{color:#C55252;margin-left:4px;font-weight:900}
+.client-editor-card .field>label{display:flex;align-items:center}
