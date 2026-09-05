@@ -29,6 +29,39 @@ $router->post('/clients/preview',function(){
  redirect('/clients/new');
 });
 
+$router->post('/clients/test-create',function(){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ try{
+  $test=[
+   'legal_name'=>'TECNODATA CLIENTE TESTE LTDA',
+   'trade_name'=>'CLIENTE TESTE CRM',
+   'document'=>'12345678000195',
+   'email'=>'teste.crm@exemplo.com',
+   'contact_name'=>'JOAO TESTE',
+   'phone_ddd'=>'41',
+   'phone_number'=>'999999999',
+   'zip_code'=>'80010000',
+   'address'=>'RUA XV DE NOVEMBRO',
+   'address_number'=>'9999',
+   'complement'=>'SALA TESTE',
+   'neighborhood'=>'CENTRO',
+   'city'=>'CURITIBA',
+   'uf'=>'PR',
+   'seller_omie_code'=>'',
+   'tags'=>'CLIENTE, CFC',
+   'notes'=>'Cadastro ficticio criado exclusivamente para validar o fluxo CRM -> Omie.',
+  ];
+  $existing=DB::one("SELECT id FROM clients WHERE document='12345678000195' AND active=1 LIMIT 1");
+  if($existing){redirect('/clients/'.(int)$existing['id']);}
+  $result=ClientService::createLocal($test,Auth::user());
+  $_SESSION['client_flash']=['type'=>'success','message'=>'Cliente de teste criado somente no CRM. Agora clique em “Sincronizar Omie” para validar a integração.'];
+  redirect('/clients/'.(int)$result['client']['id']);
+ }catch(Throwable $e){
+  $_SESSION['clients_flash']=['type'=>'danger','message'=>'Não foi possível preparar o cliente de teste: '.$e->getMessage()];
+  redirect('/clients');
+ }
+});
+
 $router->post('/clients/save-local',function(){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
  try{
