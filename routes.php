@@ -83,8 +83,8 @@ $router->post('/clients/{id}/update',function($p){
 $router->post('/clients/{id}/delete',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
-  $result=ClientService::deleteFromOmie($id,Auth::user());
-  $_SESSION['clients_flash']=['type'=>'success','message'=>($result['status']??'')==='local_deleted'?'Cliente local excluído com sucesso. Nenhuma chamada foi feita à Omie.':'Cliente excluído da Omie e removido da carteira ativa do CRM.'];
+  ClientService::deleteFromOmie($id,Auth::user());
+  $_SESSION['clients_flash']=['type'=>'success','message'=>'Cliente removido somente do CRM local. O cadastro na Omie foi preservado e nenhuma exclusão foi enviada para a Omie.'];
   redirect('/clients');
  }catch(Throwable $e){
   $_SESSION['client_flash']=['type'=>'danger','message'=>$e->getMessage()];
