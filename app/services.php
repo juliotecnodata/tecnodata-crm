@@ -390,15 +390,9 @@ final class ClientService {
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
 
-  if(str_starts_with((string)$client['omie_code'],'LOCAL-')){
-   DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
-   return ['status'=>'local_deleted','client'=>$client,'response'=>null];
-  }
-
-  $omie=new OmieClient();
-  $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$client['omie_code']]);
+  // Exclusão do CRM é sempre local. Nunca remove o cliente na Omie por esta ação.
   DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
-  return ['status'=>'omie_deleted','client'=>$client,'response'=>$response];
+  return ['status'=>'local_deleted','client'=>$client,'response'=>null];
  }
 
 }
