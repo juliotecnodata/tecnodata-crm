@@ -3,7 +3,7 @@ function render(string $name,array $vars=[]): void{
  extract($vars,EXTR_SKIP);$u=Auth::user();ob_start();
  switch($name){
   case 'login':?>
-   <div class="login-page"><div class="login-card"><div class="login-brand"><span>T</span><div><strong>Tecnodata</strong><small>CRM</small></div></div><h1>Acessar</h1><p>Carteira, pedidos, agenda e cobrança.</p><?php if(!empty($error)):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?><form method="post" action="<?=APP_URL?>/login"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>E-mail</label><input class="form-control" type="email" name="email" required autofocus><label>Senha</label><input class="form-control" type="password" name="password" required><button class="btn btn-primary w-100">Entrar</button></form></div></div>
+   <div class="login-page"><div class="login-card"><div class="login-brand"><span>T</span><div><strong>Tecnodata</strong><small>CRM</small></div></div><h1>Acessar</h1><p>Carteira, pedidos, agenda e cobrança.</p><?php if(!empty($error)):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?><form method="post" action="<?=APP_URL?>/login"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>E-mail<span class="required-mark">*</span></label><input class="form-control" type="email" name="email" required autofocus><label>Senha</label><input class="form-control" type="password" name="password" required><button class="btn btn-primary w-100">Entrar</button></form></div></div>
   <?php break;
   case 'dashboard':
    $data=is_array($data??null)?$data:[];
@@ -42,20 +42,20 @@ function render(string $name,array $vars=[]): void{
      </legend>
      <div class="client-fields-grid">
       <div class="field span-4">
-       <label>CPF / CNPJ</label>
+       <label>CPF / CNPJ<span class="required-mark">*</span></label>
        <div class="lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button class="lookup-action" type="button" data-cnpj-lookup title="Buscar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div>
        <small class="field-hint" data-cnpj-status>CNPJ completo busca e preenche os dados disponíveis.</small>
       </div>
-      <div class="field span-5"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
-      <div class="field span-3"><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
+      <div class="field span-5"><label>Razão social / Nome<span class="required-mark">*</span></label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
+      <div class="field span-3"><label>Nome fantasia<span class="required-mark">*</span></label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>" required></div>
 
-      <div class="field span-5"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
-      <div class="field span-5"><label>Nome do contato</label><input class="form-control" name="contact_name" value="<?=e((string)($old['contact_name']??''))?>" autocomplete="name"></div>
+      <div class="field span-5"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email" required></div>
+      <div class="field span-5"><label>Nome do contato<span class="required-mark">*</span></label><input class="form-control" name="contact_name" value="<?=e((string)($old['contact_name']??''))?>" autocomplete="name" required></div>
       <div class="field span-2 client-phone-inline">
-       <label>Telefone</label>
+       <label>Telefone<span class="required-mark">*</span></label>
        <div class="client-phone-compact">
-        <input class="form-control ddd" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="DDD">
-        <input class="form-control number" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="Número">
+        <input class="form-control ddd" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="DDD" required>
+        <input class="form-control number" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="Número" required>
        </div>
       </div>
      </div>
@@ -68,17 +68,17 @@ function render(string $name,array $vars=[]): void{
      </legend>
      <div class="client-fields-grid">
       <div class="field span-2">
-       <label>CEP</label>
-       <div class="lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code"><button class="lookup-action" type="button" data-cep-lookup title="Buscar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div>
+       <label>CEP<span class="required-mark">*</span></label>
+       <div class="lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code" required><button class="lookup-action" type="button" data-cep-lookup title="Buscar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div>
        <small class="field-hint" data-cep-status>Busca automática ao completar.</small>
       </div>
-      <div class="field span-5"><label>Endereço</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1"></div>
-      <div class="field span-2"><label>Número</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
+      <div class="field span-5"><label>Endereço<span class="required-mark">*</span></label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1" required></div>
+      <div class="field span-2"><label>Número<span class="required-mark">*</span></label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>" required></div>
       <div class="field span-3"><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>" placeholder="Opcional"></div>
 
-      <div class="field span-4"><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
-      <div class="field span-6"><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2"></div>
-      <div class="field span-2"><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1"></div>
+      <div class="field span-4"><label>Bairro<span class="required-mark">*</span></label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>" required></div>
+      <div class="field span-6"><label>Cidade<span class="required-mark">*</span></label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2" required></div>
+      <div class="field span-2"><label>UF<span class="required-mark">*</span></label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1" required></div>
      </div>
     </fieldset>
 
@@ -94,8 +94,8 @@ function render(string $name,array $vars=[]): void{
        <?php else:?><div class="client-fixed-seller"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?>
       </div>
       <div class="field span-8">
-       <label>Tags</label>
-       <div class="tag-editor" data-tag-editor><div class="tag-chips" data-tag-chips></div><input class="form-control" type="text" data-tag-input placeholder="Digite uma tag e pressione Enter"><input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??''))?>"></div>
+       <label>Tags<span class="required-mark">*</span></label>
+       <div class="tag-editor" data-tag-editor><div class="tag-chips" data-tag-chips></div><input class="form-control" type="text" data-tag-input placeholder="Digite uma tag e pressione Enter"><input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??($editClient?'':'CLIENTE, CFC')))?>"></div>
        <small class="field-hint">Ex.: CFC, Parceiro, PR, EAD.</small>
       </div>
       <div class="field span-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
