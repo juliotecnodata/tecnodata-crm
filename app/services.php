@@ -197,11 +197,40 @@ final class ClientService {
   ];
  }
 
+ private static function findExistingInOmieByDocument(string $document): ?array{
+  $document=preg_replace('/\D+/','',$document);
+  if(!in_array(strlen($document),[11,14],true))return null;
+
+  $omie=new OmieClient();
+  $data=$omie->call('clients','ListarClientes',[
+   'pagina'=>1,
+   'registros_por_pagina'=>50,
+   'apenas_importado_api'=>'N',
+   'clientesFiltro'=>['cnpj_cpf'=>$document],
+  ]);
+
+  $rows=(array)($data['clientes_cadastro']??[]);
+  foreach($rows as $row){
+   if(!is_array($row))continue;
+   $remoteDocument=preg_replace('/\D+/','',(string)($row['cnpj_cpf']??''));
+   if($remoteDocument===$document)return $row;
+  }
+  return null;
+ }
+
  public static function createInOmie(array $i,array $u): array{
   $built=self::buildOmiePreview($i,$u);
   $document=(string)$built['summary']['document'];
   $existing=$document!==''?DB::one("SELECT id,omie_code,name FROM clients WHERE document=? LIMIT 1",[$document]):null;
   if($existing)throw new RuntimeException('Este CPF/CNPJ já existe no CRM como cliente "'.$existing['name'].'".');
+
+  // Confirma também diretamente na Omie. A base local pode estar desatualizada entre sincronizações.
+  $remoteExisting=self::findExistingInOmieByDocument($document);
+  if($remoteExisting){
+   $remoteName=(string)($remoteExisting['nome_fantasia']??$remoteExisting['razao_social']??'cliente existente');
+   $remoteCode=(string)($remoteExisting['codigo_cliente_omie']??'');
+   throw new RuntimeException('Este CPF/CNPJ já existe na Omie como "'.$remoteName.'"'.($remoteCode!==''?' (código '.$remoteCode.')':'.').' O cadastro foi cancelado para evitar duplicidade.');
+  }
 
   $omie=new OmieClient();
   $response=$omie->call('clients','IncluirCliente',$built['payload']);
