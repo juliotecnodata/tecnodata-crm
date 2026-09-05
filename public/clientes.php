@@ -29,9 +29,10 @@ $stats=DB::fetch("SELECT COUNT(*) total,
  WHERE c.active=1",[$month])??[];
 
 include '_layout.php';?>
+<?php if(isset($_GET['deleted'])):?><div class="alert alert-success alert-modern"><i class="fa-solid fa-circle-check"></i>Cliente excluído da Omie e desativado no CRM.</div><?php endif;?>
 <div class="page-heading">
  <div><div class="eyebrow">CLIENTES • <?=date('m/Y',strtotime($month.'-01'))?></div><h1>Clientes</h1><p>Consulte a base e distribua a carteira mensal sem alterar o cadastro da Omie.</p></div>
- <div class="compact-page-stats"><span><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><small>ativos</small></span><span class="<?=($stats['unassigned']??0)>0?'is-alert':''?>"><strong><?=number_format((int)($stats['unassigned']??0),0,',','.')?></strong><small>sem vendedor</small></span></div>
+ <div class="d-flex align-items-center gap-2 flex-wrap"><a class="btn btn-primary" href="<?=APP_URL?>/cliente-cadastro.php"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><div class="compact-page-stats"><span><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><small>ativos</small></span><span class="<?=($stats['unassigned']??0)>0?'is-alert':''?>"><strong><?=number_format((int)($stats['unassigned']??0),0,',','.')?></strong><small>sem vendedor</small></span></div></div>
 </div>
 
 <div class="panel-card mb-3">
