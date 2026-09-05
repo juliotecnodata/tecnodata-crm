@@ -29,75 +29,154 @@ function render(string $name,array $vars=[]): void{
    <div class="table-card"><table class="table"><thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead><tbody><?php foreach($rows as $row):?><tr><td><strong><?=e($row['omie_code'])?></strong></td><td><?=e($row['client_name']??$row['client_omie_code']??'—')?></td><td><?=e($row['seller_name']??$row['seller_omie_code']??'—')?></td><td><?=brdate($row['service_date'])?></td><td><?=e($row['status']??'—')?></td><td class="text-end"><strong><?=money($row['total'])?></strong></td></tr><?php endforeach;?></tbody></table></div>
   <?php break;
   case 'order_new':$error=$_SESSION['error']??null;$preview=$_SESSION['preview']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['old']);$d=$ready['defaults'];?>
-   <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1>Novo pedido</h1><p>Modelo operacional: vários itens, regras por item e todos os campos importantes da Omie em uma única operação.</p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
+   <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1>Novo pedido</h1><p>Fluxo inspirado no Omie: cabeçalho operacional fixo e conteúdo organizado por abas horizontais.</p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
    <?php if(!$ready['ok']):?><div class="alert alert-warning">Configuração incompleta: <?=e(implode(', ',$ready['missing']))?>.</div><?php endif;?><?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
-   <form method="post" action="<?=APP_URL?>/orders" id="orderForm">
+
+   <form method="post" action="<?=APP_URL?>/orders" id="orderForm" class="omie-order-form">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
     <input type="hidden" name="request_token" value="<?=e((string)($old['request_token']??(date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8)))))?>">
     <input type="hidden" name="client_id" id="clientId" value="<?=e((string)($old['client_id']??$prefill))?>">
     <input type="hidden" name="items_json" id="itemsJson" value="<?=e((string)($old['items_json']??'[]'))?>">
-    <div class="order-workbench">
-     <div class="order-workbench-main">
-      <div class="panel mb-3">
-       <div class="panel-title-row"><div><span class="eyebrow">OPERAÇÃO</span><h2>Tipo de pedido</h2></div><small>Aplica regras iniciais; cada item pode ser ajustado individualmente.</small></div>
-       <select class="form-select" id="orderProfile">
-        <?php foreach($profiles as $p):?><option value="<?=e($p['code'])?>" data-no-stock="<?=e($p['default_no_stock'])?>" data-no-finance="<?=e($p['default_no_finance'])?>" data-no-total="<?=e($p['default_no_total'])?>" data-reserve="<?=e($p['default_reserve_stock'])?>"><?=e($p['name'])?></option><?php endforeach;?>
-       </select>
-      </div>
-      <div class="panel mb-3"><div class="panel-title-row"><div><span class="eyebrow">1</span><h2>Cliente</h2></div></div><div class="search-box"><input class="form-control" id="clientSearch" placeholder="Nome, documento ou código"><div class="search-results" id="clientResults"></div></div><div id="clientSelected" class="selected-box"></div></div>
-      <div class="panel"><div class="panel-title-row"><div><span class="eyebrow">2</span><h2>Itens do pedido</h2></div><small>Até 199 itens por pedido Omie.</small></div><div class="search-box"><input class="form-control" id="productSearch" placeholder="Produto ou código"><div class="search-results" id="productResults"></div></div><div id="orderItems"></div></div>
-     </div>
-     <aside class="panel order-summary">
-      <div class="panel-title-row"><div><span class="eyebrow">3</span><h2>Dados do pedido</h2></div></div>
-      <?php if(Auth::can('admin','supervisor')):?><label>Vendedor</label><select class="form-select" name="seller_omie_code" required><option value="">Selecione</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=($old['seller_omie_code']??'')===$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select><?php endif;?>
-      <label>Previsão de faturamento</label><input class="form-control" type="date" name="forecast_date" min="<?=date('Y-m-d')?>" value="<?=e((string)($old['forecast_date']??date('Y-m-d')))?>">
-      <div class="order-tabs" data-order-tabs>
-       <div class="order-tab-nav" role="tablist" aria-label="Seções do pedido">
-        <button type="button" class="active" data-order-tab="commercial"><i class="fa-solid fa-briefcase"></i><span>Comercial</span></button>
-        <button type="button" data-order-tab="fiscal"><i class="fa-solid fa-file-invoice"></i><span>Fiscal</span></button>
-        <button type="button" data-order-tab="freight"><i class="fa-solid fa-truck"></i><span>Frete</span></button>
-        <button type="button" data-order-tab="references"><i class="fa-solid fa-link"></i><span>Referências</span></button>
+
+    <section class="panel omie-order-header">
+     <div class="omie-order-header-grid">
+      <div class="omie-client-block">
+       <div class="omie-avatar"><i class="fa-solid fa-building"></i></div>
+       <div class="omie-client-main">
+        <label>Cliente</label>
+        <div class="search-box"><input class="form-control" id="clientSearch" placeholder="Nome, documento ou código"><div class="search-results" id="clientResults"></div></div>
+        <div id="clientSelected" class="selected-box"></div>
        </div>
-
-       <section class="order-tab-panel active" data-order-panel="commercial">
-        <div class="order-tab-head"><span>Dados comerciais</span><small>Condições que comandam o pedido.</small></div>
-        <label>Etapa</label><select class="form-select" name="stage" required><?php foreach($stages as $r):?><option value="<?=e($r['code'])?>" <?=($old['stage']??$d['stage']??'')===$r['code']?'selected':''?>><?=e($r['code'].' • '.$r['name'])?></option><?php endforeach;?></select>
-        <label>Categoria geral</label><select class="form-select" name="category" required><?php foreach($categories as $r):?><option value="<?=e($r['code'])?>" <?=($old['category']??$d['category']??'')===$r['code']?'selected':''?>><?=e($r['description'])?></option><?php endforeach;?></select>
-        <label>Conta corrente</label><select class="form-select" name="account" required><?php foreach($accounts as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['account']??$d['account']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select>
-        <label>Condição de pagamento</label><select class="form-select" name="payment_term" required><option value="">Selecione</option><?php foreach($terms as $t):?><option value="<?=e($t['code'])?>" <?=($old['payment_term']??$d['payment_term']??'')===$t['code']?'selected':''?>><?=e($t['description'])?><?=$t['days_list']?' • '.e($t['days_list']):''?></option><?php endforeach;?></select>
-        <label>Meio de pagamento</label><select class="form-select" name="payment_method"><option value="">Padrão Omie</option><?php foreach($methods as $m):?><option value="<?=e($m['code'])?>" <?=($old['payment_method']??$d['payment_method']??'')===$m['code']?'selected':''?>><?=e($m['description'])?></option><?php endforeach;?></select>
-       </section>
-
-       <section class="order-tab-panel" data-order-panel="fiscal">
-        <div class="order-tab-head"><span>Fiscal e estoque</span><small>Parâmetros padrão do pedido.</small></div>
-        <label>Tipo de documento</label><select class="form-select" name="document_type"><option value="">Padrão Omie</option><?php foreach($documents as $r):?><option value="<?=e($r['code'])?>" <?=($old['document_type']??$d['document_type']??'')===$r['code']?'selected':''?>><?=e($r['description'])?></option><?php endforeach;?></select>
-        <label>Cenário fiscal geral</label><select class="form-select" name="tax_scenario"><option value="">Padrão Omie</option><?php foreach($taxes as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['tax_scenario']??$d['tax_scenario']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select>
-        <label>Local de estoque geral</label><select class="form-select" name="stock_location"><option value="">Padrão Omie</option><?php foreach($stocks as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['stock_location']??$d['stock_location']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select>
-        <div class="mini-grid"><div><label>Consumidor final</label><select class="form-select" name="consumer_final"><option value="S" <?=($old['consumer_final']??$d['consumer_final']??'S')==='S'?'selected':''?>>Sim</option><option value="N" <?=($old['consumer_final']??$d['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></div><div><label>Envio Omie</label><select class="form-select" name="send_email"><option value="N" <?=($old['send_email']??$d['send_email']??'N')==='N'?'selected':''?>>Não enviar e-mail</option><option value="S" <?=($old['send_email']??$d['send_email']??'N')==='S'?'selected':''?>>Enviar e-mail</option></select></div></div>
-       </section>
-
-       <section class="order-tab-panel" data-order-panel="freight">
-        <div class="order-tab-head"><span>Frete e entrega</span><small>Preparado para receber a futura cotação por API.</small></div>
-        <label>Modalidade</label><select class="form-select" name="freight_mode"><?php foreach(['9'=>'Sem frete','0'=>'CIF • remetente','1'=>'FOB • destinatário','2'=>'Terceiros','3'=>'Próprio • remetente','4'=>'Próprio • destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=($old['freight_mode']??$d['freight_mode']??'9')===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select>
-        <div class="mini-grid"><div><label>Cód. transportadora</label><input class="form-control" name="carrier_code" value="<?=e((string)($old['carrier_code']??''))?>"></div><div><label>Valor frete</label><input class="form-control" name="freight_value" inputmode="decimal" value="<?=e((string)($old['freight_value']??''))?>"></div><div><label>Seguro</label><input class="form-control" name="insurance_value" inputmode="decimal" value="<?=e((string)($old['insurance_value']??''))?>"></div><div><label>Outras despesas</label><input class="form-control" name="other_expenses" inputmode="decimal" value="<?=e((string)($old['other_expenses']??''))?>"></div><div><label>Volumes</label><input class="form-control" type="number" name="volumes" value="<?=e((string)($old['volumes']??''))?>"></div><div><label>Espécie</label><input class="form-control" name="volume_type" value="<?=e((string)($old['volume_type']??''))?>"></div><div><label>Peso líquido</label><input class="form-control" name="net_weight" inputmode="decimal" value="<?=e((string)($old['net_weight']??''))?>"></div><div><label>Peso bruto</label><input class="form-control" name="gross_weight" inputmode="decimal" value="<?=e((string)($old['gross_weight']??''))?>"></div><div><label>Placa</label><input class="form-control" name="plate" value="<?=e((string)($old['plate']??''))?>"></div><div><label>UF placa</label><input class="form-control" name="plate_state" maxlength="2" value="<?=e((string)($old['plate_state']??''))?>"></div><div><label>RNTRC</label><input class="form-control" name="rntrc" value="<?=e((string)($old['rntrc']??''))?>"></div><div><label>Entrega</label><input class="form-control" type="date" name="delivery_date" value="<?=e((string)($old['delivery_date']??''))?>"></div></div>
-        <label class="check"><input type="checkbox" name="own_vehicle" value="1" <?=!empty($old['own_vehicle'])?'checked':''?>> Veículo próprio</label>
-        <label>Código de rastreio</label><input class="form-control" name="tracking_code" value="<?=e((string)($old['tracking_code']??''))?>">
-       </section>
-
-       <section class="order-tab-panel" data-order-panel="references">
-        <div class="order-tab-head"><span>Referências e NF-e</span><small>Informações complementares do cliente e da operação.</small></div>
-        <label>Pedido do cliente</label><input class="form-control" name="customer_order" value="<?=e((string)($old['customer_order']??''))?>">
-        <label>Contato</label><input class="form-control" name="contact" value="<?=e((string)($old['contact']??''))?>">
-        <label>Contrato</label><input class="form-control" name="contract" value="<?=e((string)($old['contract']??''))?>">
-        <label>Dados adicionais NF-e</label><textarea class="form-control" name="additional_nf" rows="3"><?=e((string)($old['additional_nf']??''))?></textarea>
-        <label>Observação interna da venda</label><textarea class="form-control" name="notes" rows="3"><?=e((string)($old['notes']??''))?></textarea>
-       </section>
       </div>
-      <div class="order-totals"><div><span>Comercial</span><strong id="grandTotal">R$ 0,00</strong></div><div><span>Financeiro</span><strong id="financialTotal">R$ 0,00</strong></div><div><span>Total NF-e</span><strong id="fiscalTotal">R$ 0,00</strong></div></div>
-      <button class="btn btn-outline-secondary w-100 mb-2" name="submit_mode" value="preview" <?=$ready['ok']?'':'disabled'?>>Validar sem enviar</button><button class="btn btn-primary w-100" name="submit_mode" value="send" <?=$ready['ok']?'':'disabled'?>>Enviar para Omie</button>
-     </aside>
+      <div>
+       <label>Previsão de faturamento</label>
+       <input class="form-control" type="date" name="forecast_date" min="<?=date('Y-m-d')?>" value="<?=e((string)($old['forecast_date']??date('Y-m-d')))?>">
+      </div>
+     </div>
+
+     <div class="omie-order-kpis">
+      <div><span>Total mercadorias</span><strong id="grandTotal">R$ 0,00</strong></div>
+      <div><span>Desconto</span><strong id="discountTotal">R$ 0,00</strong></div>
+      <div><span>Total financeiro</span><strong id="financialTotal">R$ 0,00</strong></div>
+      <div><span>Total fiscal</span><strong id="fiscalTotal">R$ 0,00</strong></div>
+      <div><span>Valor total do pedido</span><strong id="orderGrandTotal">R$ 0,00</strong></div>
+     </div>
+
+     <div class="omie-order-header-fields">
+      <div>
+       <label>Vendedor</label>
+       <?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code" required><option value="">Selecione</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=($old['seller_omie_code']??'')===$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select><?php else:?><div class="omie-readonly-field"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?>
+      </div>
+      <div>
+       <label>Número de parcelas / condição</label>
+       <select class="form-select" name="payment_term" required><option value="">Selecione</option><?php foreach($terms as $t):?><option value="<?=e($t['code'])?>" <?=($old['payment_term']??$d['payment_term']??'')===$t['code']?'selected':''?>><?=e($t['description'])?><?=$t['days_list']?' • '.e($t['days_list']):''?></option><?php endforeach;?></select>
+      </div>
+      <div>
+       <label>Cenário fiscal</label>
+       <select class="form-select" name="tax_scenario"><option value="">Padrão Omie</option><?php foreach($taxes as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['tax_scenario']??$d['tax_scenario']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select>
+      </div>
+     </div>
+    </section>
+
+    <section class="panel omie-order-body" data-order-tabs>
+     <div class="omie-main-tabs" role="tablist" aria-label="Seções do pedido">
+      <button type="button" class="active" data-order-tab="items">Itens da Venda</button>
+      <button type="button" data-order-tab="departments">Departamentos</button>
+      <button type="button" data-order-tab="freight">Frete e Outras Despesas</button>
+      <button type="button" data-order-tab="additional">Informações Adicionais</button>
+      <button type="button" data-order-tab="installments">Parcelas</button>
+      <button type="button" data-order-tab="notes">Observações</button>
+      <button type="button" data-order-tab="email">E-mail para o Cliente</button>
+     </div>
+
+     <div class="omie-tab-content">
+      <section class="order-tab-panel active" data-order-panel="items">
+       <div class="omie-tab-toolbar">
+        <div>
+         <label>Tipo de pedido</label>
+         <select class="form-select" id="orderProfile"><?php foreach($profiles as $p):?><option value="<?=e($p['code'])?>" data-no-stock="<?=e($p['default_no_stock'])?>" data-no-finance="<?=e($p['default_no_finance'])?>" data-no-total="<?=e($p['default_no_total'])?>" data-reserve="<?=e($p['default_reserve_stock'])?>"><?=e($p['name'])?></option><?php endforeach;?></select>
+        </div>
+        <div class="omie-product-search">
+         <label>Novo item</label>
+         <div class="search-box"><input class="form-control" id="productSearch" placeholder="Digite produto, SKU ou código"><div class="search-results" id="productResults"></div></div>
+        </div>
+       </div>
+       <div id="orderItems"></div>
+      </section>
+
+      <section class="order-tab-panel" data-order-panel="departments">
+       <div class="omie-empty-tab"><i class="fa-solid fa-diagram-project"></i><strong>Departamentos</strong><span>A distribuição por departamentos ainda não faz parte do fluxo do CRM. A aba foi mantida para preservar a organização visual do pedido.</span></div>
+      </section>
+
+      <section class="order-tab-panel" data-order-panel="freight">
+       <div class="omie-tab-grid freight-grid">
+        <div><label>Transportadora</label><input class="form-control" name="carrier_code" value="<?=e((string)($old['carrier_code']??''))?>"></div>
+        <div><label>Tipo do frete</label><select class="form-select" name="freight_mode"><?php foreach(['9'=>'Sem frete','0'=>'CIF • remetente','1'=>'FOB • destinatário','2'=>'Terceiros','3'=>'Próprio • remetente','4'=>'Próprio • destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=($old['freight_mode']??$d['freight_mode']??'9')===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select></div>
+        <div><label>Placa do veículo</label><input class="form-control" name="plate" value="<?=e((string)($old['plate']??''))?>"></div>
+        <div><label>UF</label><input class="form-control" name="plate_state" maxlength="2" value="<?=e((string)($old['plate_state']??''))?>"></div>
+        <div><label>RNTRC (ANTT)</label><input class="form-control" name="rntrc" value="<?=e((string)($old['rntrc']??''))?>"></div>
+        <div><label>Quantidade de volumes</label><input class="form-control" type="number" name="volumes" value="<?=e((string)($old['volumes']??''))?>"></div>
+        <div><label>Espécie dos volumes</label><input class="form-control" name="volume_type" value="<?=e((string)($old['volume_type']??''))?>"></div>
+        <div><label>Marca dos volumes</label><input class="form-control" name="volume_brand" value="<?=e((string)($old['volume_brand']??''))?>"></div>
+        <div><label>Numeração dos volumes</label><input class="form-control" name="volume_numbering" value="<?=e((string)($old['volume_numbering']??''))?>"></div>
+        <div><label>Peso líquido (kg)</label><input class="form-control" name="net_weight" inputmode="decimal" value="<?=e((string)($old['net_weight']??''))?>"></div>
+        <div><label>Peso bruto (kg)</label><input class="form-control" name="gross_weight" inputmode="decimal" value="<?=e((string)($old['gross_weight']??''))?>"></div>
+        <div><label>Valor do frete</label><input class="form-control" name="freight_value" inputmode="decimal" value="<?=e((string)($old['freight_value']??''))?>"></div>
+        <div><label>Valor do seguro</label><input class="form-control" name="insurance_value" inputmode="decimal" value="<?=e((string)($old['insurance_value']??''))?>"></div>
+        <div><label>Outras despesas acessórias</label><input class="form-control" name="other_expenses" inputmode="decimal" value="<?=e((string)($old['other_expenses']??''))?>"></div>
+        <div><label>Previsão de entrega</label><input class="form-control" type="date" name="delivery_date" value="<?=e((string)($old['delivery_date']??''))?>"></div>
+        <div><label>Código de rastreio</label><input class="form-control" name="tracking_code" value="<?=e((string)($old['tracking_code']??''))?>"></div>
+       </div>
+       <label class="check mt-3"><input type="checkbox" name="own_vehicle" value="1" <?=!empty($old['own_vehicle'])?'checked':''?>> O transporte será realizado com veículo próprio</label>
+       <div class="freight-api-placeholder"><i class="fa-solid fa-truck-fast"></i><div><strong>Cotação de frete</strong><span>Aqui entraremos depois com a API usando endereço do cliente, peso, valor da nota e volumes.</span></div><button type="button" class="btn btn-outline-secondary" disabled>Calcular frete</button></div>
+      </section>
+
+      <section class="order-tab-panel" data-order-panel="additional">
+       <div class="omie-tab-grid additional-grid">
+        <div><label>Categoria</label><select class="form-select" name="category" required><?php foreach($categories as $r):?><option value="<?=e($r['code'])?>" <?=($old['category']??$d['category']??'')===$r['code']?'selected':''?>><?=e($r['description'])?></option><?php endforeach;?></select></div>
+        <div><label>Conta corrente</label><select class="form-select" name="account" required><?php foreach($accounts as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['account']??$d['account']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select></div>
+        <div><label>Etapa</label><select class="form-select" name="stage" required><?php foreach($stages as $r):?><option value="<?=e($r['code'])?>" <?=($old['stage']??$d['stage']??'')===$r['code']?'selected':''?>><?=e($r['code'].' • '.$r['name'])?></option><?php endforeach;?></select></div>
+        <div><label>Nº do pedido do cliente</label><input class="form-control" name="customer_order" value="<?=e((string)($old['customer_order']??''))?>"></div>
+        <div><label>Nº do contrato de venda</label><input class="form-control" name="contract" value="<?=e((string)($old['contract']??''))?>"></div>
+        <div><label>Contato</label><input class="form-control" name="contact" value="<?=e((string)($old['contact']??''))?>"></div>
+        <div><label>Tipo de documento</label><select class="form-select" name="document_type"><option value="">Padrão Omie</option><?php foreach($documents as $r):?><option value="<?=e($r['code'])?>" <?=($old['document_type']??$d['document_type']??'')===$r['code']?'selected':''?>><?=e($r['description'])?></option><?php endforeach;?></select></div>
+        <div><label>Local de estoque</label><select class="form-select" name="stock_location"><option value="">Padrão Omie</option><?php foreach($stocks as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['stock_location']??$d['stock_location']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select></div>
+       </div>
+       <label>Dados adicionais para a Nota Fiscal</label><textarea class="form-control" name="additional_nf" rows="4"><?=e((string)($old['additional_nf']??''))?></textarea>
+       <label class="check mt-3"><input type="checkbox" name="consumer_final" value="S" <?=($old['consumer_final']??$d['consumer_final']??'S')==='S'?'checked':''?>> Nota Fiscal para Consumidor Final</label>
+       <input type="hidden" name="consumer_final_fallback" value="N">
+      </section>
+
+      <section class="order-tab-panel" data-order-panel="installments">
+       <div class="omie-tab-grid installments-grid">
+        <div><label>Condição de pagamento</label><div class="omie-readonly-field" data-payment-summary>Definida no cabeçalho do pedido.</div></div>
+        <div><label>Meio de pagamento</label><select class="form-select" name="payment_method"><option value="">Padrão Omie</option><?php foreach($methods as $m):?><option value="<?=e($m['code'])?>" <?=($old['payment_method']??$d['payment_method']??'')===$m['code']?'selected':''?>><?=e($m['description'])?></option><?php endforeach;?></select></div>
+       </div>
+       <div class="omie-empty-tab compact"><i class="fa-solid fa-calendar-days"></i><strong>Parcelamento</strong><span>A condição vem da Omie. Quando habilitarmos condição manual, as parcelas serão exibidas aqui.</span></div>
+      </section>
+
+      <section class="order-tab-panel" data-order-panel="notes">
+       <label>Observação interna da venda</label><textarea class="form-control" name="notes" rows="7"><?=e((string)($old['notes']??''))?></textarea>
+      </section>
+
+      <section class="order-tab-panel" data-order-panel="email">
+       <div class="omie-email-panel">
+        <label>Utilizar os seguintes endereços de e-mail</label>
+        <textarea class="form-control" rows="4" id="clientEmailPreview" readonly placeholder="Selecione um cliente para carregar o e-mail cadastrado."></textarea>
+        <label class="check mt-3"><input type="checkbox" name="send_email" value="S" <?=($old['send_email']??$d['send_email']??'N')==='S'?'checked':''?>> Enviar documentos pela Omie ao cliente</label>
+        <input type="hidden" name="send_email_fallback" value="N">
+        <div class="omie-email-note"><i class="fa-solid fa-circle-info"></i>O envio efetivo segue as opções aceitas pela Omie no pedido.</div>
+       </div>
+      </section>
+     </div>
+    </section>
+
+    <div class="omie-order-footer">
+     <div class="omie-order-footer-total"><span>Total do pedido</span><strong id="footerGrandTotal">R$ 0,00</strong></div>
+     <div class="omie-order-footer-actions"><button class="btn btn-outline-secondary" name="submit_mode" value="preview" <?=$ready['ok']?'':'disabled'?>>Validar sem enviar</button><button class="btn btn-primary" name="submit_mode" value="send" <?=$ready['ok']?'':'disabled'?>>Enviar para Omie</button></div>
     </div>
    </form>
+
    <?php if($preview):?><div class="panel mt-3"><h2>Payload validado — não enviado</h2><pre class="payload"><?=e(json_encode($preview,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE))?></pre></div><?php endif;?>
    <script>
    window.ORDER_PREFILL_CLIENT=<?=json_encode((int)($old['client_id']??$prefill))?>;
@@ -105,6 +184,7 @@ function render(string $name,array $vars=[]): void{
    window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'stocks'=>$stocks,'profiles'=>$profiles],JSON_UNESCAPED_UNICODE)?>;
    </script>
   <?php break;
+
   case 'collection':?>
    <div class="page-head"><div><span class="eyebrow">COBRANÇA</span><h1>Carteira</h1><p>Saldo, atraso e responsável.</p></div><div class="tabs"><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></div></div><div class="table-card"><table class="table"><thead><tr><th>Cliente</th><th>UF</th><th>Atraso</th><th>Responsável</th><th class="text-end">Saldo</th><th></th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e($r['uf']??'—')?></td><td><?=$r['max_overdue_days']?> dias</td><td><?=e($r['assigned_name']??'Não atribuído')?></td><td class="text-end"><strong><?=money($r['open_amount'])?></strong><?php if((float)$r['partial_paid']>0):?><small><?=money($r['partial_paid'])?> pago</small><?php endif;?></td><td><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/collection/<?=$r['client_id']?>">Abrir</a></td></tr><?php endforeach;?></tbody></table></div>
   <?php break;
