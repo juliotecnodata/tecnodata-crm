@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const profileSelect=document.getElementById('orderProfile');
   const clientSearch=document.getElementById('clientSearch'),clientResults=document.getElementById('clientResults'),clientId=document.getElementById('clientId'),clientSelected=document.getElementById('clientSelected');
   const productSearch=document.getElementById('productSearch'),productResults=document.getElementById('productResults'),itemsJson=document.getElementById('itemsJson'),itemsEl=document.getElementById('orderItems');
-  const grandTotal=document.getElementById('grandTotal'),financialTotal=document.getElementById('financialTotal'),fiscalTotal=document.getElementById('fiscalTotal');
+  const grandTotal=document.getElementById('grandTotal'),discountTotal=document.getElementById('discountTotal'),orderGrandTotal=document.getElementById('orderGrandTotal'),footerGrandTotal=document.getElementById('footerGrandTotal'),financialTotal=document.getElementById('financialTotal'),fiscalTotal=document.getElementById('fiscalTotal'),clientEmailPreview=document.getElementById('clientEmailPreview');
 
   let items=Array.isArray(window.ORDER_OLD_ITEMS)?window.ORDER_OLD_ITEMS:[];
   let clientTimer,productTimer;
@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   function chooseClient(client){
     clientId.value=client.id;
     clientSelected.innerHTML='<strong>'+esc(client.name)+'</strong><small>'+esc([client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small>';
+    if(clientEmailPreview)clientEmailPreview.value=client.email||'';
     clientResults.innerHTML='';clientSearch.value='';
   }
   async function findClients(){
@@ -238,10 +239,15 @@ document.addEventListener('DOMContentLoaded',()=>{
       row.querySelector('.duplicate')?.addEventListener('click',()=>{items.splice(index+1,0,JSON.parse(JSON.stringify(item)));render();});
     });
 
+    const gross=items.reduce((sum,item)=>sum+lineGross(item),0);
+    const discount=items.reduce((sum,item)=>sum+lineDiscount(item),0);
     const commercial=items.reduce((sum,item)=>sum+lineNet(item),0);
     const financial=items.reduce((sum,item)=>sum+(item.no_finance?0:lineNet(item)),0);
     const fiscal=items.reduce((sum,item)=>sum+(item.no_total?0:lineNet(item)),0);
-    grandTotal.textContent=money(commercial);
+    grandTotal.textContent=money(gross);
+    if(discountTotal)discountTotal.textContent=money(discount);
+    if(orderGrandTotal)orderGrandTotal.textContent=money(commercial);
+    if(footerGrandTotal)footerGrandTotal.textContent=money(commercial);
     financialTotal.textContent=money(financial);
     fiscalTotal.textContent=money(fiscal);
     itemsJson.value=JSON.stringify(items);
