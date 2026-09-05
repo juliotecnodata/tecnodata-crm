@@ -69,6 +69,7 @@ include '_layout.php';?>
   <p><?=e($c['seller_name']??'Sem responsável')?><?=$c['city']?' • '.e($c['city']):''?></p>
  </div>
  <div class="client-work-actions">
+  <?php if(Auth::can('supervisor','admin')):?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/cliente-cadastro.php?id=<?=$c['id']?>"><i class="fa-regular fa-pen-to-square"></i>Editar cadastro</a><?php endif;?>
   <a class="btn btn-primary" href="<?=APP_URL?>/pedido-novo.php?client_id=<?=$c['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a>
   <?php if($c['phone']):?><a class="btn btn-outline-secondary" href="tel:<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-solid fa-phone"></i>Ligar</a><a class="btn btn-outline-secondary" target="_blank" href="https://wa.me/55<?=preg_replace('/\D/','',$c['phone'])?>"><i class="fa-brands fa-whatsapp"></i>WhatsApp</a><?php endif;?>
  </div>
