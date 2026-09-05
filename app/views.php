@@ -143,8 +143,8 @@ function render(string $name,array $vars=[]): void{
         <div><label>Local de estoque</label><select class="form-select" name="stock_location"><option value="">Padrão Omie</option><?php foreach($stocks as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['stock_location']??$d['stock_location']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select></div>
        </div>
        <label>Dados adicionais para a Nota Fiscal</label><textarea class="form-control" name="additional_nf" rows="4"><?=e((string)($old['additional_nf']??''))?></textarea>
+       <input type="hidden" name="consumer_final" value="N">
        <label class="check mt-3"><input type="checkbox" name="consumer_final" value="S" <?=($old['consumer_final']??$d['consumer_final']??'S')==='S'?'checked':''?>> Nota Fiscal para Consumidor Final</label>
-       <input type="hidden" name="consumer_final_fallback" value="N">
       </section>
 
       <section class="order-tab-panel" data-order-panel="installments">
@@ -163,8 +163,8 @@ function render(string $name,array $vars=[]): void{
        <div class="omie-email-panel">
         <label>Utilizar os seguintes endereços de e-mail</label>
         <textarea class="form-control" rows="4" id="clientEmailPreview" readonly placeholder="Selecione um cliente para carregar o e-mail cadastrado."></textarea>
+        <input type="hidden" name="send_email" value="N">
         <label class="check mt-3"><input type="checkbox" name="send_email" value="S" <?=($old['send_email']??$d['send_email']??'N')==='S'?'checked':''?>> Enviar documentos pela Omie ao cliente</label>
-        <input type="hidden" name="send_email_fallback" value="N">
         <div class="omie-email-note"><i class="fa-solid fa-circle-info"></i>O envio efetivo segue as opções aceitas pela Omie no pedido.</div>
        </div>
       </section>
