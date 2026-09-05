@@ -49,9 +49,15 @@ function render(string $name,array $vars=[]): void{
       <div class="field span-5"><label>Razão social / Nome</label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
       <div class="field span-3"><label>Nome fantasia</label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>"></div>
 
-      <div class="field span-7"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
-      <div class="field span-1"><label>DDD</label><input class="form-control text-center" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="41"></div>
-      <div class="field span-4"><label>Telefone / WhatsApp</label><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="999999999"></div>
+      <div class="field span-5"><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email"></div>
+      <div class="field span-5"><label>Nome do contato</label><input class="form-control" name="contact_name" value="<?=e((string)($old['contact_name']??''))?>" autocomplete="name"></div>
+      <div class="field span-2 client-phone-inline">
+       <label>Telefone</label>
+       <div class="client-phone-compact">
+        <input class="form-control ddd" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="DDD">
+        <input class="form-control number" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="Número">
+       </div>
+      </div>
      </div>
     </section>
 
