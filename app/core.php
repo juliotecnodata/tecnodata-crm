@@ -15,10 +15,21 @@ final class DB {
    return self::$pdo;
   }catch(Throwable $e){throw new \RuntimeException('Falha ao conectar ao banco: '.$e->getMessage(),0,$e);}
  }
- public static function all(string $sql,array $p=[]): array{$s=self::conn()->prepare($sql);$s->execute($p);return $s->fetchAll();}
- public static function one(string $sql,array $p=[]): ?array{$s=self::conn()->prepare($sql);$s->execute($p);$r=$s->fetch();return $r?:null;}
- public static function exec(string $sql,array $p=[]): int{$s=self::conn()->prepare($sql);$s->execute($p);return $s->rowCount();}
- public static function scalar(string $sql,array $p=[]): mixed{$s=self::conn()->prepare($sql);$s->execute($p);return $s->fetchColumn();}
+ public static function prefix(): string{
+  $p=(string)($GLOBALS['config']['database']['table_prefix']??'tdcrm_');
+  return preg_replace('/[^A-Za-z0-9_]/','',$p)?:'tdcrm_';
+ }
+ public static function sql(string $sql): string{
+  $prefix=self::prefix();
+  $tables=['users','sellers','clients','client_metrics','products','categories','financial_accounts','order_stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state','omie_order_logs','goals','collection_assignment_log'];
+  usort($tables,fn($a,$b)=>strlen($b)<=>strlen($a));
+  foreach($tables as $table)$sql=preg_replace('/(?<![A-Za-z0-9_])'.preg_quote($table,'/').'(?![A-Za-z0-9_])/i',$prefix.$table,$sql);
+  return $sql;
+ }
+ public static function all(string $sql,array $p=[]): array{$s=self::conn()->prepare(self::sql($sql));$s->execute($p);return $s->fetchAll();}
+ public static function one(string $sql,array $p=[]): ?array{$s=self::conn()->prepare(self::sql($sql));$s->execute($p);$r=$s->fetch();return $r?:null;}
+ public static function exec(string $sql,array $p=[]): int{$s=self::conn()->prepare(self::sql($sql));$s->execute($p);return $s->rowCount();}
+ public static function scalar(string $sql,array $p=[]): mixed{$s=self::conn()->prepare(self::sql($sql));$s->execute($p);return $s->fetchColumn();}
 }
 
 final class Auth {
