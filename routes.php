@@ -10,6 +10,23 @@ $router->get('/result',function(){
  else render('result',['result'=>GoalService::userMonth(Auth::id(),$month),'month'=>$month]);
 });
 
+$router->get('/clients/new',function(){
+ Auth::requireRole('admin','supervisor','seller');
+ $preview=$_SESSION['client_preview']??null;$error=$_SESSION['client_preview_error']??null;$old=$_SESSION['client_preview_old']??[];
+ unset($_SESSION['client_preview'],$_SESSION['client_preview_error'],$_SESSION['client_preview_old']);
+ render('client_new',[
+  'preview'=>$preview,'error'=>$error,'old'=>$old,
+  'sellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[]
+ ]);
+});
+$router->post('/clients/preview',function(){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ try{$_SESSION['client_preview']=ClientService::buildOmiePreview($_POST,Auth::user());}
+ catch(Throwable $e){$_SESSION['client_preview_error']=$e->getMessage();}
+ $_SESSION['client_preview_old']=$_POST;
+ redirect('/clients/new');
+});
+
 $router->get('/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$w=['c.active=1'];$p=[];if($u['role']==='seller'){$w[]='c.seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}$rows=DB::all("SELECT c.*,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE ".implode(' AND ',$w)." ORDER BY c.name LIMIT 300",$p);foreach($rows as &$r)$r['cycle']=CRMService::cycle($r['last_purchase_at']??null,(float)($r['avg_interval_days']??0));unset($r);render('clients',['rows'=>$rows,'q'=>$q]);});
 $router->get('/clients/{id}',function($p){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];$c=DB::one("SELECT c.*,m.* FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=?",[$id]);if(!$c){http_response_code(404);exit('Cliente não encontrado.');}if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Cliente fora da sua carteira.');}$a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);$o=DB::all("SELECT * FROM orders WHERE client_omie_code=? ORDER BY order_date DESC,id DESC LIMIT 20",[$c['omie_code']]);render('client',['client'=>$c,'activities'=>$a,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0))]);});
 $router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão.');}DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),trim((string)($_POST['notes']??'')),($_POST['next_at']??'')?:null]);if(!empty($_POST['next_at']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales','Retorno comercial',?,'pending',NOW())",[$id,(int)$u['id'],$_POST['next_at']]);redirect('/clients/'.$id);});
