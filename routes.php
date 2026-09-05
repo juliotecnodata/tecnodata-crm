@@ -71,8 +71,8 @@ $router->get('/clients/{id}/edit',function($p){
 $router->post('/clients/{id}/update',function($p){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
-  ClientService::updateInOmie($id,$_POST,Auth::user());
-  $_SESSION['client_flash']=['type'=>'success','message'=>'Cliente atualizado na Omie e no CRM.'];
+  $result=ClientService::updateInOmie($id,$_POST,Auth::user());
+  $_SESSION['client_flash']=['type'=>'success','message'=>($result['status']??'')==='local_updated'?'Cliente local atualizado com sucesso. A Omie ainda não foi alterada.':'Cliente atualizado com sucesso no CRM e na Omie.'];
   redirect('/clients/'.$id);
  }catch(Throwable $e){
   $_SESSION['client_edit_error']=$e->getMessage();
@@ -83,8 +83,8 @@ $router->post('/clients/{id}/update',function($p){
 $router->post('/clients/{id}/delete',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
-  ClientService::deleteFromOmie($id,Auth::user());
-  $_SESSION['clients_flash']=['type'=>'success','message'=>'Cliente excluído da Omie e removido da carteira ativa do CRM.'];
+  $result=ClientService::deleteFromOmie($id,Auth::user());
+  $_SESSION['clients_flash']=['type'=>'success','message'=>($result['status']??'')==='local_deleted'?'Cliente local excluído com sucesso. Nenhuma chamada foi feita à Omie.':'Cliente excluído da Omie e removido da carteira ativa do CRM.'];
   redirect('/clients');
  }catch(Throwable $e){
   $_SESSION['client_flash']=['type'=>'danger','message'=>$e->getMessage()];
