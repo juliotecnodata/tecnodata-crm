@@ -339,3 +339,6 @@
  .client-id-grid,.client-contact-grid,.client-commercial-grid,.client-address-grid{grid-template-columns:1fr}
  .client-id-grid .client-legal,.client-commercial-grid .span-2{grid-column:auto}
 }
+
+.client-phone-group{display:grid;grid-template-columns:82px minmax(160px,1fr);gap:8px}
+@media(max-width:720px){.client-phone-group{grid-template-columns:80px 1fr}}
