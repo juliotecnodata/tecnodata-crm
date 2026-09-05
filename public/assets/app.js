@@ -41,6 +41,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     const doc=clientCreateForm.querySelector('[data-document]');
     const phone=clientCreateForm.querySelector('[data-phone]');
     const cep=clientCreateForm.querySelector('[data-cep]');
+    const cnpjBtn=clientCreateForm.querySelector('[data-cnpj-lookup]');
+    const cepBtn=clientCreateForm.querySelector('[data-cep-lookup]');
+    const cnpjStatus=clientCreateForm.querySelector('[data-cnpj-status]');
+    const cepStatus=clientCreateForm.querySelector('[data-cep-status]');
+    const fields=name=>clientCreateForm.querySelector('[name="'+name+'"]');
     const formatDoc=v=>{
       const n=onlyDigits(v).slice(0,14);
       if(n.length<=11)return n.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
@@ -52,9 +57,65 @@ document.addEventListener('DOMContentLoaded',()=>{
       return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
     };
     const formatCep=v=>onlyDigits(v).slice(0,8).replace(/(\d{5})(\d)/,'$1-$2');
-    if(doc){doc.value=formatDoc(doc.value);doc.addEventListener('input',()=>doc.value=formatDoc(doc.value));}
+    const setStatus=(el,msg,type='')=>{if(!el)return;el.textContent=msg;el.classList.remove('ok','error','loading');if(type)el.classList.add(type);};
+    const setLoading=(btn,on)=>{if(!btn)return;btn.disabled=on;btn.classList.toggle('loading',on);btn.innerHTML=on?'<i class="fa-solid fa-spinner fa-spin"></i>':btn.dataset.icon||btn.innerHTML;};
+    if(cnpjBtn)cnpjBtn.dataset.icon=cnpjBtn.innerHTML;
+    if(cepBtn)cepBtn.dataset.icon=cepBtn.innerHTML;
+    const fetchJson=async path=>{
+      const res=await fetch(window.APP_URL+path,{credentials:'same-origin'});
+      const data=await res.json().catch(()=>({ok:false,error:'Resposta inválida.'}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'Falha na consulta.');
+      return data.data;
+    };
+    const fill=(name,value,overwrite=true)=>{
+      const el=fields(name);if(!el||value===undefined||value===null||String(value).trim()==='')return;
+      if(!overwrite&&String(el.value).trim()!=='')return;
+      el.value=String(value);
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.classList.add('lookup-filled');
+      setTimeout(()=>el.classList.remove('lookup-filled'),1400);
+    };
+    const lookupCep=async(auto=false)=>{
+      const digits=onlyDigits(cep?.value);
+      if(digits.length!==8){if(!auto)setStatus(cepStatus,'Informe um CEP com 8 dígitos.','error');return;}
+      try{
+        setLoading(cepBtn,true);setStatus(cepStatus,'Consultando CEP...','loading');
+        const d=await fetchJson('/api/public/cep?value='+encodeURIComponent(digits));
+        fill('address',d.address,false);fill('neighborhood',d.neighborhood,false);fill('city',d.city,false);fill('uf',d.uf,false);
+        setStatus(cepStatus,'Endereço localizado e preenchido.','ok');
+      }catch(e){setStatus(cepStatus,e.message,'error');}
+      finally{setLoading(cepBtn,false);}
+    };
+    const lookupCnpj=async(auto=false)=>{
+      const digits=onlyDigits(doc?.value);
+      if(digits.length!==14){if(!auto&&digits.length!==11)setStatus(cnpjStatus,'Informe um CNPJ com 14 dígitos.','error');return;}
+      try{
+        setLoading(cnpjBtn,true);setStatus(cnpjStatus,'Consultando CNPJ...','loading');
+        const d=await fetchJson('/api/public/cnpj?value='+encodeURIComponent(digits));
+        fill('legal_name',d.legal_name);fill('trade_name',d.trade_name);fill('email',d.email,false);
+        if(d.phone){const p=fields('phone');if(p&&!p.value){p.value=formatPhone(d.phone);p.classList.add('lookup-filled');setTimeout(()=>p.classList.remove('lookup-filled'),1400);}}
+        if(d.zip_code){const z=fields('zip_code');if(z&&!z.value){z.value=formatCep(d.zip_code);z.classList.add('lookup-filled');setTimeout(()=>z.classList.remove('lookup-filled'),1400);}}
+        fill('address',d.address,false);fill('address_number',d.address_number,false);fill('neighborhood',d.neighborhood,false);fill('city',d.city,false);fill('uf',d.uf,false);
+        setStatus(cnpjStatus,'CNPJ localizado. Dados cadastrais preenchidos.','ok');
+        if(d.zip_code)setStatus(cepStatus,'Endereço preenchido a partir do cadastro do CNPJ.','ok');
+      }catch(e){setStatus(cnpjStatus,e.message,'error');}
+      finally{setLoading(cnpjBtn,false);}
+    };
+    if(doc){
+      doc.value=formatDoc(doc.value);
+      let prev=onlyDigits(doc.value);
+      doc.addEventListener('input',()=>{doc.value=formatDoc(doc.value);const n=onlyDigits(doc.value);if(n.length===14&&n!==prev){prev=n;lookupCnpj(true);}});
+      doc.addEventListener('blur',()=>{const n=onlyDigits(doc.value);if(n.length===14&&n!==prev){prev=n;lookupCnpj(true);}});
+    }
     if(phone){phone.value=formatPhone(phone.value);phone.addEventListener('input',()=>phone.value=formatPhone(phone.value));}
-    if(cep){cep.value=formatCep(cep.value);cep.addEventListener('input',()=>cep.value=formatCep(cep.value));}
+    if(cep){
+      cep.value=formatCep(cep.value);
+      let prevCep=onlyDigits(cep.value);
+      cep.addEventListener('input',()=>{cep.value=formatCep(cep.value);const n=onlyDigits(cep.value);if(n.length===8&&n!==prevCep){prevCep=n;lookupCep(true);}});
+      cep.addEventListener('blur',()=>{const n=onlyDigits(cep.value);if(n.length===8&&n!==prevCep){prevCep=n;lookupCep(true);}});
+    }
+    cnpjBtn?.addEventListener('click',()=>lookupCnpj(false));
+    cepBtn?.addEventListener('click',()=>lookupCep(false));
   }
 
 
