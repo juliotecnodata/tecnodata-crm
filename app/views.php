@@ -31,7 +31,7 @@ function render(string $name,array $vars=[]): void{
    <?php if($createError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($createError)?></div><?php endif;?>
    <?php if($createSuccess):?><div class="alert alert-success client-created-alert"><i class="fa-solid fa-circle-check"></i><div><strong>Cliente criado com sucesso.</strong><span><?=e((string)($createSuccess['client']['name']??''))?> • Omie <?=e((string)($createSuccess['client']['omie_code']??''))?></span></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=e((string)($createSuccess['client']['id']??''))?>">Abrir cliente</a></div><?php endif;?>
 
-   <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/preview'?>" id="clientCreateForm" class="client-editor">
+   <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/save-local'?>" id="clientCreateForm" class="client-editor">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
 
     <fieldset class="client-editor-card client-editor-group client-group-main">
@@ -119,14 +119,13 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
 
     <div class="client-editor-actions">
-     <div class="client-editor-actions-info"><i class="fa-solid fa-cloud"></i><span><?=$editClient?'Salvar atualiza Omie e CRM após confirmação.':'Você pode simular antes de cadastrar de verdade.'?></span></div>
+     <div class="client-editor-actions-info"><i class="fa-solid fa-database"></i><span><?=$editClient?'Salvar atualiza os dados deste cliente.':'Primeiro salvamos no CRM. Depois você verifica e integra com a Omie.'?></span></div>
      <div class="client-editor-actions-buttons">
       <?php if($editClient):?>
        <?php if(Auth::can('admin','supervisor')):?><button class="btn btn-outline-danger" type="submit" formaction="<?=APP_URL?>/clients/<?=(int)$editClient['id']?>/delete" formnovalidate data-confirm="Excluir este cliente também na Omie? Esta operação pode ser recusada se houver vínculos."><i class="fa-regular fa-trash-can"></i>Excluir</button><?php endif;?>
        <button class="btn btn-primary" type="submit" data-confirm="Salvar estas alterações também na Omie?"><i class="fa-solid fa-check"></i>Salvar alterações</button>
       <?php else:?>
-       <button class="btn btn-outline-secondary" type="submit" formaction="<?=APP_URL?>/clients/preview"><i class="fa-solid fa-flask"></i>Simular</button>
-       <button class="btn btn-primary" type="submit" formaction="<?=APP_URL?>/clients/send" data-real-client-send><i class="fa-solid fa-cloud-arrow-up"></i>Cadastrar na Omie</button>
+       <button class="btn btn-primary" type="submit" formaction="<?=APP_URL?>/clients/save-local"><i class="fa-solid fa-floppy-disk"></i>Salvar cliente</button>
       <?php endif;?>
      </div>
     </div>
