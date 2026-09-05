@@ -88,6 +88,28 @@ $router->post('/goals/{id}',function($p){
  GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
  redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
 });
+$router->get('/test-data',function(){
+ Auth::requireRole('admin');
+ $flash=$_SESSION['test_flash']??null;unset($_SESSION['test_flash']);
+ render('test_data',['snapshot'=>TestDataService::snapshot(),'flash'=>$flash]);
+});
+$router->post('/test-data/import',function(){
+ Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ try{
+  $r=TestDataService::importMinimal($_POST);
+  $_SESSION['test_flash']=['type'=>'success','message'=>'Carga de teste concluída.','client'=>$r['client'],'products'=>$r['products']];
+ }catch(Throwable $e){$_SESSION['test_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ redirect('/test-data');
+});
+$router->post('/test-data/references',function(){
+ Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ try{
+  $r=TestDataService::prepareReferences();
+  $_SESSION['test_flash']=['type'=>'success','message'=>'Parâmetros auxiliares sincronizados sem carregar toda a base de clientes/produtos.','references'=>$r];
+ }catch(Throwable $e){$_SESSION['test_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ redirect('/test-data');
+});
+
 $router->get('/sync',function(){Auth::requireRole('admin');render('sync',['modules'=>SyncService::modules(),'states'=>DB::all("SELECT * FROM sync_state ORDER BY module_key")]);});
 $router->post('/api/sync',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);try{json_response(['ok'=>true]+SyncService::run((string)($_POST['module']??''),(int)($_POST['page']??1)));}catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}});
 $router->get('/api/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$w=['active=1'];$p=[];if($u['role']==='seller'){$w[]='seller_omie_code=?';$p[]=$u['seller_omie_code'];}if($q!==''){$w[]='(name LIKE ? OR document LIKE ? OR CAST(id AS CHAR)=?)';$x='%'.$q.'%';array_push($p,$x,$x,$q);}json_response(['items'=>DB::all("SELECT id,omie_code,name,document,city,uf FROM clients WHERE ".implode(' AND ',$w)." ORDER BY name LIMIT 25",$p)]);});
