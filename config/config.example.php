@@ -8,6 +8,8 @@ return [
   'session_name'=>'tecnodata_crm_clean',
  ],
  'database'=>[
+  // Use o MESMO banco já usado pelo CRM atual. As tabelas novas ficam isoladas por prefixo.
+  'table_prefix'=>'tdcrm_',
   'local'=>['host'=>'127.0.0.1','port'=>3306,'database'=>'crm_tecnodata_clean','username'=>'root','password'=>'','charset'=>'utf8mb4'],
   'production'=>['host'=>'SEU_HOST','port'=>3306,'database'=>'SEU_BANCO','username'=>'SEU_USUARIO','password'=>'SUA_SENHA','charset'=>'utf8mb4'],
  ],
