@@ -15,6 +15,14 @@ $router->get('/clients/{id}',function($p){Auth::requireRole('admin','supervisor'
 $router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão.');}DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),trim((string)($_POST['notes']??'')),($_POST['next_at']??'')?:null]);if(!empty($_POST['next_at']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales','Retorno comercial',?,'pending',NOW())",[$id,(int)$u['id'],$_POST['next_at']]);redirect('/clients/'.$id);});
 
 $router->get('/orders',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$w=[];$p=[];if($u['role']==='seller'){$w[]='o.seller_omie_code=?';$p[]=$u['seller_omie_code'];}$sql="SELECT o.*,c.name client_name FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code".($w?' WHERE '.implode(' AND ',$w):'')." ORDER BY o.order_date DESC,o.id DESC LIMIT 500";render('orders',['orders'=>DB::all($sql,$p)]);});
+$router->get('/services',function(){
+ Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$month=(string)($_GET['month']??date('Y-m'));if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
+ $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));$w=['so.service_date>=?','so.service_date<?'];$p=[$start,$next];
+ if($u['role']==='seller'){$w[]='so.seller_omie_code=?';$p[]=(string)$u['seller_omie_code'];}
+ $rows=DB::all("SELECT so.*,c.name client_name,s.name seller_name FROM service_orders so LEFT JOIN clients c ON c.omie_code=so.client_omie_code LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code WHERE ".implode(' AND ',$w)." ORDER BY so.service_date DESC,so.id DESC LIMIT 500",$p);
+ $total=0.0;foreach($rows as $row)if(!str_contains(mb_strtoupper((string)($row['status']??'')),'CANCEL'))$total+=(float)$row['total'];
+ render('services',['rows'=>$rows,'month'=>$month,'total'=>$total]);
+});
 $router->get('/orders/new',function(){
  Auth::requireRole('admin','supervisor','seller');$r=OrderService::ready();
  render('order_new',[
