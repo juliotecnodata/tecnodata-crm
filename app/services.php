@@ -202,13 +202,24 @@ final class ClientService {
   if(!in_array(strlen($document),[11,14],true))return null;
 
   $omie=new OmieClient();
-  $data=$omie->call('clients','ListarClientes',[
-   'pagina'=>1,
-   'registros_por_pagina'=>50,
-   'apenas_importado_api'=>'N',
-   'clientesFiltro'=>['cnpj_cpf'=>$document],
-  ]);
+  try{
+   $data=$omie->call('clients','ListarClientes',[
+    'pagina'=>1,
+    'registros_por_pagina'=>50,
+    'apenas_importado_api'=>'N',
+    'clientesFiltro'=>['cnpj_cpf'=>$document],
+   ]);
+  }catch(Throwable $e){
+   $message=$e->getMessage();
+   // A Omie pode devolver 5113 quando o filtro não encontra nenhum cliente.
+   // Para a regra do CRM isso significa "não existe" e não deve interromper a integração.
+   if(str_contains($message,'5113')||str_contains(mb_strtolower($message),'não existem registros para a página')||str_contains(mb_strtolower($message),'nao existem registros para a pagina')){
+    return null;
+   }
+   throw $e;
+  }
 
+  if((int)($data['total_de_registros']??0)===0||empty($data['clientes_cadastro']))return null;
   $rows=(array)($data['clientes_cadastro']??[]);
   foreach($rows as $row){
    if(!is_array($row))continue;
