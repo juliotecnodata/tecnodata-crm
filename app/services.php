@@ -331,7 +331,8 @@ final class SyncService {
   $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
   $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
   if($page===1||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
-   $first=empty($state['last_success_at']);
+   $table=$module==='orders'?'orders':'service_orders';
+   $first=empty($state['last_success_at'])||(int)(DB::scalar("SELECT COUNT(*) FROM {$table}")??0)===0;
    $start=$first?date('01/01/Y'):date('d/m/Y',strtotime('-5 days'));
    $end=date('d/m/Y');
    $ctx=['start'=>$start,'end'=>$end,'mode'=>$first?'current_year':'last_5_days'];
