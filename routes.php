@@ -11,7 +11,23 @@ $router->get('/clients/{id}',function($p){Auth::requireRole('admin','supervisor'
 $router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão.');}DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),trim((string)($_POST['notes']??'')),($_POST['next_at']??'')?:null]);if(!empty($_POST['next_at']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales','Retorno comercial',?,'pending',NOW())",[$id,(int)$u['id'],$_POST['next_at']]);redirect('/clients/'.$id);});
 
 $router->get('/orders',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$w=[];$p=[];if($u['role']==='seller'){$w[]='o.seller_omie_code=?';$p[]=$u['seller_omie_code'];}$sql="SELECT o.*,c.name client_name FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code".($w?' WHERE '.implode(' AND ',$w):'')." ORDER BY o.order_date DESC,o.id DESC LIMIT 500";render('orders',['orders'=>DB::all($sql,$p)]);});
-$router->get('/orders/new',function(){Auth::requireRole('admin','supervisor','seller');$r=OrderService::ready();render('order_new',['ready'=>$r,'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'sellers'=>Auth::can('admin','supervisor')?DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"):[],'prefill'=>(int)($_GET['client_id']??0)]);});
+$router->get('/orders/new',function(){
+ Auth::requireRole('admin','supervisor','seller');$r=OrderService::ready();
+ render('order_new',[
+  'ready'=>$r,
+  'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),
+  'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),
+  'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),
+  'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),
+  'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
+  'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),
+  'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),
+  'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),
+  'profiles'=>OrderService::profiles(),
+  'sellers'=>Auth::can('admin','supervisor')?DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"):[],
+  'prefill'=>(int)($_GET['client_id']??0)
+ ]);
+});
 $router->post('/orders',function(){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);try{if(($_POST['submit_mode']??'send')==='preview'){$b=OrderService::build($_POST,Auth::user());$_SESSION['preview']=$b['payload'];$_SESSION['old']=$_POST;redirect('/orders/new?client_id='.(int)($_POST['client_id']??0));}$r=OrderService::send($_POST,Auth::user());$_SESSION['success']='Pedido enviado para Omie'.($r['number']?' • nº '.$r['number']:'').' • '.money($r['total']);redirect('/orders');}catch(Throwable $e){$_SESSION['error']=$e->getMessage();$_SESSION['old']=$_POST;redirect('/orders/new?client_id='.(int)($_POST['client_id']??0));}});
 
 $router->get('/collection',function(){Auth::requireRole('admin','supervisor','collector');$view=(string)($_GET['view']??'open');$rows=DB::all("SELECT cc.*,c.name,c.document,c.uf,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.status=? ORDER BY cc.open_amount DESC LIMIT 500",[$view==='settled'?'settled':'open']);render('collection',['rows'=>$rows,'view'=>$view]);});
@@ -37,8 +53,9 @@ $router->post('/collection/{id}/action',function($p){Auth::requireRole('admin','
 $router->get('/agenda',function(){Auth::requireLogin();render('agenda',['rows'=>DB::all("SELECT t.*,c.name,c.uf FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.assigned_user_id=? AND t.status='pending' ORDER BY t.due_at",[Auth::id()])]);});
 $router->post('/agenda/{id}/done',function($p){Auth::requireLogin();CSRF::require($_POST['_token']??null);DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND assigned_user_id=?",[(int)$p['id'],Auth::id()]);redirect('/agenda');});
 
-$router->get('/settings',function(){Auth::requireRole('admin');render('settings',['defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 AND sale_enabled=1 ORDER BY is_default DESC,name")]);});
+$router->get('/settings',function(){Auth::requireRole('admin');render('settings',['defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),'profiles'=>OrderService::profiles()]);});
 $router->post('/settings',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveDefaults($_POST);DB::exec("UPDATE financial_accounts SET selected=0");foreach((array)($_POST['collection_accounts']??[]) as $c)DB::exec("UPDATE financial_accounts SET selected=1 WHERE omie_code=?",[(string)$c]);redirect('/settings');});
+$router->post('/settings/order-profile',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveProfile($_POST);redirect('/settings');});
 $router->get('/users',function(){
  Auth::requireRole('admin');
  $editId=(int)($_GET['edit']??0);
