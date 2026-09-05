@@ -88,7 +88,7 @@ try{
      $revenue,
      $financeHtml,
      '<span class="status-pill '.$statusClass.'">'.e($labels[$r['commercial_status']]??'—').'</span>',
-     '<a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/cliente.php?id='.(int)$r['id'].'"><i class="fa-regular fa-eye"></i>Ver</a>'
+     '<div class="d-flex gap-1 justify-content-end"><a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/cliente.php?id='.(int)$r['id'].'" title="Ver"><i class="fa-regular fa-eye"></i></a><a class="btn btn-outline-secondary btn-sm" href="'.APP_URL.'/cliente-cadastro.php?id='.(int)$r['id'].'" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a></div>'
    ];
  }
  echo json_encode(['draw'=>$draw,'recordsTotal'=>$total,'recordsFiltered'=>$filtered,'data'=>$data],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
