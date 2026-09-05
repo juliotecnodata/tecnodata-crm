@@ -342,3 +342,10 @@
 
 .client-phone-group{display:grid;grid-template-columns:82px minmax(160px,1fr);gap:8px}
 @media(max-width:720px){.client-phone-group{grid-template-columns:80px 1fr}}
+
+.client-preview-actions{display:flex;flex-direction:column;gap:8px}
+.client-created-alert{display:flex;align-items:center;gap:12px}
+.client-created-alert>i{font-size:20px}
+.client-created-alert>div{display:flex;flex-direction:column;flex:1}
+.client-created-alert span{font-size:10px;margin-top:2px}
+@media(max-width:720px){.client-created-alert{align-items:flex-start;flex-direction:column}.client-created-alert .btn{width:100%}}
