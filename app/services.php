@@ -342,22 +342,30 @@ final class ClientService {
   $built=self::buildOmiePreview($i,$u);
   $duplicate=DB::one("SELECT id,name FROM clients WHERE document=? AND id<>? AND active=1 LIMIT 1",[(string)$built['summary']['document'],$id]);
   if($duplicate)throw new RuntimeException('Este CPF/CNPJ já pertence ao cliente "'.$duplicate['name'].'".');
+
   $p=$built['payload'];
+  $name=(string)($p['nome_fantasia']??$p['razao_social']??$client['name']);
+  $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
+  $seller=(string)($p['codigo_vendedor']??'');
+
+  if(str_starts_with((string)$client['omie_code'],'LOCAL-')){
+   $raw=['request'=>$p,'source'=>'local_pending','omie_status'=>'pending'];
+   DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",
+    [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
+  }
+
   unset($p['codigo_cliente_integracao']);
   $p['codigo_cliente_omie']=(int)$client['omie_code'];
 
   $omie=new OmieClient();
   $response=$omie->call('clients','AlterarCliente',$p);
-
-  $name=(string)($p['nome_fantasia']??$p['razao_social']??$client['name']);
-  $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
-  $seller=(string)($p['codigo_vendedor']??'');
-  $raw=['request'=>$p,'response'=>$response,'source'=>'crm_update'];
+  $raw=['request'=>$p,'response'=>$response,'source'=>'crm_update','omie_status'=>'linked'];
 
   DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",
    [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
 
-  return ['client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'response'=>$response,'payload'=>$p];
+  return ['status'=>'omie_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'response'=>$response,'payload'=>$p];
  }
 
  public static function deleteFromOmie(int $id,array $u): array{
@@ -365,10 +373,15 @@ final class ClientService {
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
 
+  if(str_starts_with((string)$client['omie_code'],'LOCAL-')){
+   DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
+   return ['status'=>'local_deleted','client'=>$client,'response'=>null];
+  }
+
   $omie=new OmieClient();
   $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$client['omie_code']]);
   DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
-  return ['client'=>$client,'response'=>$response];
+  return ['status'=>'omie_deleted','client'=>$client,'response'=>$response];
  }
 
 }
