@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         fill('legal_name',d.legal_name);fill('trade_name',d.trade_name);fill('email',d.email,false);
         if(d.phone){const p=fields('phone');if(p&&!p.value){p.value=formatPhone(d.phone);p.classList.add('lookup-filled');setTimeout(()=>p.classList.remove('lookup-filled'),1400);}}
         if(d.zip_code){const z=fields('zip_code');if(z&&!z.value){z.value=formatCep(d.zip_code);z.classList.add('lookup-filled');setTimeout(()=>z.classList.remove('lookup-filled'),1400);}}
-        fill('address',d.address,false);fill('address_number',d.address_number,false);fill('neighborhood',d.neighborhood,false);fill('city',d.city,false);fill('uf',d.uf,false);
+        fill('address',d.address,false);fill('address_number',d.address_number,false);fill('complement',d.complement,false);fill('neighborhood',d.neighborhood,false);fill('city',d.city,false);fill('uf',d.uf,false);
         setStatus(cnpjStatus,'CNPJ localizado. Dados cadastrais preenchidos.','ok');
         if(d.zip_code)setStatus(cepStatus,'Endereço preenchido a partir do cadastro do CNPJ.','ok');
       }catch(e){setStatus(cnpjStatus,e.message,'error');}
@@ -116,6 +116,34 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     cnpjBtn?.addEventListener('click',()=>lookupCnpj(false));
     cepBtn?.addEventListener('click',()=>lookupCep(false));
+
+    const tagEditor=clientCreateForm.querySelector('[data-tag-editor]');
+    if(tagEditor){
+      const input=tagEditor.querySelector('[data-tag-input]');
+      const hidden=tagEditor.querySelector('[data-tag-hidden]');
+      const chips=tagEditor.querySelector('[data-tag-chips]');
+      let tags=String(hidden?.value||'').split(/[,;\n]+/).map(v=>v.trim()).filter(Boolean);
+      tags=[...new Map(tags.map(tag=>[tag.toLocaleLowerCase('pt-BR'),tag])).values()].slice(0,20);
+      const syncTags=()=>{
+        if(hidden)hidden.value=tags.join(', ');
+        if(chips)chips.innerHTML=tags.map((tag,index)=>'<span class="tag-chip">'+escHtml(tag)+'<button type="button" data-tag-remove="'+index+'" aria-label="Remover tag">×</button></span>').join('');
+        chips?.querySelectorAll('[data-tag-remove]').forEach(btn=>btn.addEventListener('click',()=>{tags.splice(Number(btn.dataset.tagRemove),1);syncTags();}));
+      };
+      const escHtml=value=>{const d=document.createElement('div');d.textContent=value;return d.innerHTML;};
+      const addTag=value=>{
+        const tag=String(value||'').trim().replace(/^#+/,'');
+        if(!tag)return;
+        if(!tags.some(v=>v.toLocaleLowerCase('pt-BR')===tag.toLocaleLowerCase('pt-BR'))&&tags.length<20)tags.push(tag);
+        if(input)input.value='';
+        syncTags();
+      };
+      input?.addEventListener('keydown',e=>{
+        if(e.key==='Enter'||e.key===','||e.key===';'){e.preventDefault();addTag(input.value);}
+        if(e.key==='Backspace'&&input.value===''&&tags.length){tags.pop();syncTags();}
+      });
+      input?.addEventListener('blur',()=>addTag(input.value));
+      syncTags();
+    }
   }
 
 
