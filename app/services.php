@@ -194,6 +194,32 @@ final class ClientService {
    ]
   ];
  }
+
+ public static function createInOmie(array $i,array $u): array{
+  $built=self::buildOmiePreview($i,$u);
+  $document=(string)$built['summary']['document'];
+  $existing=$document!==''?DB::one("SELECT id,omie_code,name FROM clients WHERE document=? LIMIT 1",[$document]):null;
+  if($existing)throw new RuntimeException('Este CPF/CNPJ já existe no CRM como cliente "'.$existing['name'].'".');
+
+  $omie=new OmieClient();
+  $response=$omie->call('clients','IncluirCliente',$built['payload']);
+  $omieCode=(string)($response['codigo_cliente_omie']??$response['codigo_cliente']??$response['nCodCli']??'');
+  if($omieCode==='')throw new RuntimeException('A Omie confirmou a operação, mas não retornou o código do cliente.');
+
+  $p=$built['payload'];
+  $name=(string)($p['nome_fantasia']??$p['razao_social']??$document);
+  $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
+  $seller=(string)($p['codigo_vendedor']??'');
+  $raw=['request'=>$p,'response'=>$response,'source'=>'crm_create'];
+
+  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())
+            ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),seller_omie_code=VALUES(seller_omie_code),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
+   [$omieCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
+
+  $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$omieCode]);
+  return ['client'=>$client,'response'=>$response,'payload'=>$p];
+ }
 }
 
 final class OrderService {
