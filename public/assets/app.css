@@ -781,3 +781,9 @@ body{background:var(--bg)}
  .services-current-period{align-items:flex-start}
  .services-period-popover{left:0;right:auto;width:min(300px,90vw)}
 }
+
+
+.services-health-strip{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+.services-health-strip>div{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+.services-health-strip span{font-size:8px;color:var(--muted);font-weight:700}
+.services-health-strip strong{font-size:10px;color:var(--text)}
