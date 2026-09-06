@@ -97,6 +97,9 @@ if(isset($c['omie_order_code'])&&isset($c['omie_code'])){
 if(isset($c['omie_code'])&&!idxExists($pdo,$t,'uq_orders_omie')){
  execStep($pdo,$log,'índice único de pedidos','ALTER TABLE '.qi($t).' ADD UNIQUE KEY uq_orders_omie(omie_code)');
 }
+if(isset($c['omie_order_code'])){
+ modifyCol($pdo,$log,$t,'omie_order_code','VARCHAR(120) NULL');
+}
 
 $t=$prefix.'service_orders';
 addCol($pdo,$log,$t,'omie_code','VARCHAR(80) NULL');
@@ -110,6 +113,9 @@ if(isset($c['inclusion_date'])&&isset($c['service_date'])){
 }
 if(isset($c['omie_code'])&&!idxExists($pdo,$t,'uq_service_orders_omie')){
  execStep($pdo,$log,'índice único de serviços','ALTER TABLE '.qi($t).' ADD UNIQUE KEY uq_service_orders_omie(omie_code)');
+}
+if(isset($c['omie_service_order_code'])){
+ modifyCol($pdo,$log,$t,'omie_service_order_code','VARCHAR(120) NULL');
 }
 
 $t=$prefix.'financial_movements';
@@ -127,6 +133,8 @@ addCol($pdo,$log,$t,'next_at','DATETIME NULL');
 $c=cols($pdo,$t);
 if(isset($c['type'])&&isset($c['channel']))execStep($pdo,$log,'migrar canal de atividades','UPDATE '.qi($t).' SET channel=COALESCE(NULLIF(channel,\'\'),type)');
 modifyCol($pdo,$log,$t,'result','VARCHAR(40) NOT NULL');
+$c=cols($pdo,$t);
+if(isset($c['type']))modifyCol($pdo,$log,$t,'type','VARCHAR(30) NULL');
 
 $t=$prefix.'tasks';
 addCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NULL');
@@ -134,6 +142,8 @@ addCol($pdo,$log,$t,'type',"ENUM('sales','collection') NOT NULL DEFAULT 'sales'"
 $c=cols($pdo,$t);
 if(isset($c['user_id'])&&isset($c['assigned_user_id']))execStep($pdo,$log,'migrar responsável de tarefas','UPDATE '.qi($t).' SET assigned_user_id=COALESCE(assigned_user_id,user_id)');
 modifyCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NOT NULL');
+$c=cols($pdo,$t);
+if(isset($c['user_id']))modifyCol($pdo,$log,$t,'user_id','INT UNSIGNED NULL');
 
 $t=$prefix.'collection_actions';
 addCol($pdo,$log,$t,'author_user_id','INT UNSIGNED NULL');
@@ -146,6 +156,9 @@ modifyCol($pdo,$log,$t,'channel','VARCHAR(30) NOT NULL');
 modifyCol($pdo,$log,$t,'result','VARCHAR(40) NOT NULL');
 modifyCol($pdo,$log,$t,'author_user_id','INT UNSIGNED NOT NULL');
 modifyCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NOT NULL');
+$c=cols($pdo,$t);
+if(isset($c['user_id']))modifyCol($pdo,$log,$t,'user_id','INT UNSIGNED NULL');
+if(isset($c['action_type']))modifyCol($pdo,$log,$t,'action_type','VARCHAR(30) NULL');
 
 // Normaliza valores legados para os valores usados pela rebuild-clean.
 if(tableExists($pdo,$t)){
