@@ -205,6 +205,12 @@ function render(string $name,array $vars=[]): void{
     </div>
    </div>
 
+   <?php if(!empty($serviceError)):?>
+   <div class="alert alert-danger"><strong>Erro ao carregar Serviços:</strong> <?=e($serviceError)?></div>
+   <?php elseif(!empty($serviceSchema)):?>
+   <div class="alert alert-info"><strong>Estrutura detectada:</strong> código <code><?=e($serviceSchema['code'])?></code> • data <code><?=e($serviceSchema['date'])?></code></div>
+   <?php endif;?>
+
    <?php if(!empty($health)):?>
    <div class="services-health-strip">
     <div><span>Base local</span><strong><?=number_format((int)($health['total_table']??0),0,',','.')?></strong></div>
