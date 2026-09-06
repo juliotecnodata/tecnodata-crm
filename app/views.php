@@ -183,7 +183,77 @@ function render(string $name,array $vars=[]): void{
    </div>
   <?php break;
   case 'orders':$success=$_SESSION['success']??null;unset($_SESSION['success']);?>
-   <div class="page-head"><div><span class="eyebrow">COMERCIAL</span><h1>Pedidos</h1><p>Pedidos sincronizados da Omie.</p></div><a class="btn btn-primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a></div><?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?><div class="table-card"><table class="table"><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th></tr></thead><tbody><?php foreach($orders as $o):?><tr><td><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></td><td><?=e($o['client_name']??$o['client_omie_code'])?></td><td><?=brdate($o['order_date'])?></td><td><?=e($o['stage_code']??'—')?></td><td><?=e($o['status']??'—')?></td><td class="text-end"><strong><?=money($o['total'])?></strong></td></tr><?php endforeach;?></tbody></table></div>
+   <div class="page-head orders-page-head">
+    <div>
+     <span class="eyebrow">COMERCIAL / PEDIDOS</span>
+     <h1>Pedidos de venda</h1>
+     <p>Acompanhe pedidos sincronizados da Omie, evolução por etapa, vendedor e valor do período.</p>
+    </div>
+    <div class="orders-head-actions">
+     <div class="orders-current-period">
+      <span>Período exibido</span>
+      <strong><?=$month==='all'?'Todos os períodos':date('m/Y',strtotime($month.'-01'))?></strong>
+     </div>
+     <details class="orders-period-picker">
+      <summary class="btn btn-outline-secondary"><i class="fa-regular fa-calendar"></i>Escolher mês</summary>
+      <form method="get" class="orders-period-popover">
+       <label>Mês desejado</label>
+       <input class="form-control" type="month" name="month" value="<?=e($month==='all'?$currentMonth:$month)?>">
+       <div class="orders-period-buttons">
+        <button class="btn btn-primary" type="submit">Aplicar</button>
+        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders?month=<?=e($currentMonth)?>">Mês atual</a>
+        <a class="btn btn-light" href="<?=APP_URL?>/orders?month=all">Todos</a>
+       </div>
+      </form>
+     </details>
+     <a class="btn btn-primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a>
+    </div>
+   </div>
+
+   <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
+
+   <div class="orders-summary-grid">
+    <div><span class="orders-kpi-icon blue"><i class="fa-solid fa-receipt"></i></span><p>Pedidos encontrados</p><strong><?=number_format((int)$totalRows,0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
+    <div><span class="orders-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>sem pedidos cancelados</small></div>
+    <div><span class="orders-kpi-icon teal"><i class="fa-solid fa-circle-check"></i></span><p>Faturados</p><strong><?=(int)$billed?></strong><small>pedidos já faturados</small></div>
+    <div><span class="orders-kpi-icon yellow"><i class="fa-solid fa-clock"></i></span><p>Em andamento</p><strong><?=(int)$active?></strong><small>ativos no período</small></div>
+    <div><span class="orders-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Cancelados</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
+   </div>
+
+   <?php if(!$orders):?>
+    <div class="orders-empty-state">
+     <span><i class="fa-solid fa-receipt"></i></span>
+     <div><strong>Nenhum pedido encontrado neste período</strong><p>Escolha outro mês ou consulte todos os períodos. Se necessário, atualize Pedidos pela Central de Sincronização.</p></div>
+     <a class="btn btn-outline-secondary" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a>
+    </div>
+   <?php else:?>
+    <div class="orders-table-toolbar">
+     <div><i class="fa-solid fa-table-list"></i><span><strong>Pedidos sincronizados</strong><small>Use a busca para localizar pedido, cliente, vendedor, etapa ou status.</small></span></div>
+     <?php if($withoutSeller>0):?><div class="orders-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> pedido(s) sem vendedor</div><?php endif;?>
+    </div>
+
+    <div class="table-card orders-table-card">
+     <table class="table orders-datatable">
+      <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
+      <tbody>
+      <?php foreach($orders as $o):
+       $status=(string)($o['status']??'ATIVO');$upper=mb_strtoupper($status);
+       $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');
+      ?>
+       <tr>
+        <td><div class="order-code-cell"><span class="order-code-icon"><i class="fa-solid fa-receipt"></i></span><span><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></span></div></td>
+        <td><strong><?=e($o['client_name']??($o['client_omie_code']??'—'))?></strong><?php if(!empty($o['client_name'])&&!empty($o['client_omie_code'])):?><small><?=e($o['client_omie_code'])?></small><?php endif;?></td>
+        <td><?php if(!empty($o['seller_name'])):?><strong><?=e($o['seller_name'])?></strong><small><?=e($o['seller_omie_code'])?></small><?php elseif(!empty($o['seller_omie_code'])):?><strong><?=e($o['seller_omie_code'])?></strong><small>código do vendedor</small><?php else:?><span class="order-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
+        <td data-order="<?=e((string)$o['order_date'])?>"><?=brdate($o['order_date'])?></td>
+        <td><span class="order-stage"><strong><?=e($o['stage_name']??($o['stage_code']??'—'))?></strong><?php if(!empty($o['stage_name'])&&!empty($o['stage_code'])):?><small><?=e($o['stage_code'])?></small><?php endif;?></span></td>
+        <td><span class="order-status order-status-<?=$statusClass?>"><?=e($status)?></span></td>
+        <td class="text-end"><strong class="<?=$statusClass==='cancelled'?'text-secondary':''?>"><?=money($o['total'])?></strong></td>
+       </tr>
+      <?php endforeach;?>
+      </tbody>
+     </table>
+    </div>
+   <?php endif;?>
   <?php break;
   case 'services':?>
    <div class="page-head services-page-head">
