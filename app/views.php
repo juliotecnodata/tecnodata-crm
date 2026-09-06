@@ -186,9 +186,57 @@ function render(string $name,array $vars=[]): void{
    <div class="page-head"><div><span class="eyebrow">COMERCIAL</span><h1>Pedidos</h1><p>Pedidos sincronizados da Omie.</p></div><a class="btn btn-primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a></div><?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?><div class="table-card"><table class="table"><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th></tr></thead><tbody><?php foreach($orders as $o):?><tr><td><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></td><td><?=e($o['client_name']??$o['client_omie_code'])?></td><td><?=brdate($o['order_date'])?></td><td><?=e($o['stage_code']??'—')?></td><td><?=e($o['status']??'—')?></td><td class="text-end"><strong><?=money($o['total'])?></strong></td></tr><?php endforeach;?></tbody></table></div>
   <?php break;
   case 'services':?>
-   <div class="page-head"><div><span class="eyebrow">SERVIÇOS • <?=e($month)?></span><h1>Ordens de serviço</h1><p>Serviços sincronizados da Omie e considerados no resultado comercial quando vinculados ao vendedor.</p></div><form method="get"><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></form></div>
-   <div class="metric-row service-metrics"><div><span>Total válido no mês</span><strong><?=money($total)?></strong></div><div><span>Ordens</span><strong><?=count($rows)?></strong></div></div>
-   <div class="table-card"><table class="table"><thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead><tbody><?php foreach($rows as $row):?><tr><td><strong><?=e($row['omie_code'])?></strong></td><td><?=e($row['client_name']??$row['client_omie_code']??'—')?></td><td><?=e($row['seller_name']??$row['seller_omie_code']??'—')?></td><td><?=brdate($row['service_date'])?></td><td><?=e($row['status']??'—')?></td><td class="text-end"><strong><?=money($row['total'])?></strong></td></tr><?php endforeach;?></tbody></table></div>
+   <div class="page-head services-page-head">
+    <div><span class="eyebrow">COMERCIAL / SERVIÇOS</span><h1>Ordens de serviço</h1><p>Acompanhe OS sincronizadas da Omie, valores, vendedores e reflexo direto nos resultados comerciais.</p></div>
+    <form method="get" class="services-period-filter">
+     <label>Período</label>
+     <select class="form-select" name="month" onchange="this.form.submit()">
+      <option value="all" <?=$month==='all'?'selected':''?>>Todos os períodos</option>
+      <?php foreach($months as $m):?><option value="<?=e($m['month_ref'])?>" <?=$month===$m['month_ref']?'selected':''?>><?=date('m/Y',strtotime($m['month_ref'].'-01'))?> • <?=(int)$m['total']?> OS</option><?php endforeach;?>
+     </select>
+    </form>
+   </div>
+
+   <div class="services-summary-grid">
+    <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format(count($rows),0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
+    <div><span class="services-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>desconsiderando canceladas</small></div>
+    <div><span class="services-kpi-icon slate"><i class="fa-solid fa-circle-check"></i></span><p>Válidas</p><strong><?=(int)$valid?></strong><small>ativas ou faturadas</small></div>
+    <div><span class="services-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Canceladas</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
+    <div><span class="services-kpi-icon yellow"><i class="fa-solid fa-user-slash"></i></span><p>Sem vendedor</p><strong><?=(int)$withoutSeller?></strong><small>não entram no resultado individual</small></div>
+   </div>
+
+   <?php if(!$rows):?>
+    <div class="services-empty-state">
+     <span><i class="fa-solid fa-magnifying-glass-chart"></i></span>
+     <div><strong>Nenhuma ordem de serviço encontrada neste período</strong><p>Existem dados em outro mês? Selecione “Todos os períodos”. Se a base estiver vazia, sincronize Serviços novamente na Central de Sincronização.</p></div>
+     <a class="btn btn-outline-secondary" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Ir para sincronização</a>
+    </div>
+   <?php else:?>
+    <div class="services-table-toolbar">
+     <div><i class="fa-solid fa-table-list"></i><span><strong>Base sincronizada</strong><small>Use a busca do DataTable para localizar OS, cliente, vendedor ou status.</small></span></div>
+     <?php if($withoutSeller>0):?><div class="services-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> OS sem vendedor vinculado</div><?php endif;?>
+    </div>
+    <div class="table-card services-table-card">
+     <table class="table services-datatable">
+      <thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
+      <tbody>
+      <?php foreach($rows as $row):
+       $status=(string)($row['status']??'ATIVO');$upper=mb_strtoupper($status);
+       $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');
+      ?>
+       <tr>
+        <td><div class="service-os-cell"><span class="service-os-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><span><strong><?=e($row['omie_code'])?></strong><small>código Omie</small></span></div></td>
+        <td><strong><?=e($row['client_name']??'Cliente não sincronizado')?></strong><small><?=e($row['client_omie_code']??'—')?></small></td>
+        <td><?php if(!empty($row['seller_name'])):?><strong><?=e($row['seller_name'])?></strong><small><?=e($row['seller_omie_code'])?></small><?php elseif(!empty($row['seller_omie_code'])):?><strong>Código <?=e($row['seller_omie_code'])?></strong><small>vendedor não sincronizado</small><?php else:?><span class="service-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
+        <td data-order="<?=e((string)$row['service_date'])?>"><?=brdate($row['service_date'])?></td>
+        <td><span class="service-status service-status-<?=$statusClass?>"><?=e($status)?></span></td>
+        <td class="text-end"><strong class="<?=$statusClass==='cancelled'?'text-secondary':''?>"><?=money($row['total'])?></strong></td>
+       </tr>
+      <?php endforeach;?>
+      </tbody>
+     </table>
+    </div>
+   <?php endif;?>
   <?php break;
   case 'order_new':$error=$_SESSION['error']??null;$preview=$_SESSION['preview']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['old']);$d=$ready['defaults'];?>
    <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1>Novo pedido</h1><p>Fluxo inspirado no Omie: cabeçalho operacional fixo e conteúdo organizado por abas horizontais.</p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
