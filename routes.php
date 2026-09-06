@@ -268,8 +268,25 @@ $router->post('/test-data/references',function(){
  redirect('/test-data');
 });
 
-$router->get('/sync',function(){Auth::requireRole('admin');render('sync',['modules'=>SyncService::modules(),'states'=>DB::all("SELECT * FROM sync_state ORDER BY module_key")]);});
-$router->post('/api/sync',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);try{json_response(['ok'=>true]+SyncService::run((string)($_POST['module']??''),(int)($_POST['page']??1)));}catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}});
+$router->get('/sync',function(){
+ Auth::requireRole('admin');
+ render('sync',['sync'=>SyncService::overview()]);
+});
+$router->post('/api/sync',function(){
+ Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ $module=(string)($_POST['module']??'');$action=(string)($_POST['action']??'sync');$page=(int)($_POST['page']??1);
+ try{
+  if($action==='reset')json_response(['ok'=>true]+SyncService::resetState($module));
+  if($action==='last5'&&$page<=1){SyncService::prepareLastFiveDays($module);$page=1;}
+  if($action==='full'&&$page<=1){SyncService::prepareFull($module);$page=1;}
+  if($action==='resume'&&$page<=0)$page=SyncService::resumePage($module);
+  $result=SyncService::run($module,max(1,$page));
+  json_response(['ok'=>true,'action'=>$action]+$result);
+ }catch(Throwable $e){
+  SyncService::recordError($module,$e->getMessage());
+  json_response(['ok'=>false,'module'=>$module,'action'=>$action,'error'=>$e->getMessage()],422);
+ }
+});
 $router->get('/api/public/cnpj',function(){
  Auth::requireRole('admin','supervisor','seller');
  try{json_response(['ok'=>true,'data'=>BrasilApiService::cnpj((string)($_GET['value']??''))]);}
