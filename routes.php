@@ -378,10 +378,10 @@ $router->get('/goals',function(){
  $management=GoalService::managementMonth($month);
  render('goals',['rows'=>$management['rows'],'month'=>$month,'management'=>$management]);
 });
-$router->post('/goals/{id}',function($p){
+$router->post('/goals/general',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
- GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
- redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
+ $month=(string)($_POST['month']??date('Y-m'));GoalService::saveGeneral($month,$_POST);
+ redirect('/goals?month='.urlencode($month));
 });
 $router->post('/goals/virtual/{code}',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
@@ -389,11 +389,10 @@ $router->post('/goals/virtual/{code}',function($p){
  GoalService::saveVirtual((string)$p['code'],$month,$_POST,Auth::id());
  redirect('/goals?month='.urlencode($month));
 });
-
-$router->post('/goals/general',function(){
+$router->post('/goals/{id}',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
- $month=(string)($_POST['month']??date('Y-m'));GoalService::saveGeneral($month,$_POST);
- redirect('/goals?month='.urlencode($month));
+ GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
+ redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
 });
 $router->get('/test-data',function(){
  Auth::requireRole('admin');
