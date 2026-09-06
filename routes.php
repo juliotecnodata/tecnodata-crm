@@ -5,7 +5,8 @@ $router->post('/logout',function(){CSRF::require($_POST['_token']??null);Auth::l
 
 $router->get('/',function(){Auth::requireLogin();$u=Auth::user();render('dashboard',['u'=>$u,'data'=>CRMService::dashboard($u)]);});
 $router->get('/result',function(){
- Auth::requireLogin();$month=(string)($_GET['month']??date('Y-m'));$u=Auth::user();
+ Auth::requireLogin();
+ SchemaGuard::requireReady();$month=(string)($_GET['month']??date('Y-m'));$u=Auth::user();
  if(in_array($u['role'],['admin','supervisor'],true))render('management_result',['management'=>GoalService::managementMonth($month),'month'=>$month]);
  else render('result',['result'=>GoalService::userMonth(Auth::id(),$month),'month'=>$month]);
 });
@@ -159,6 +160,7 @@ $router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','s
 $router->get('/orders',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$w=[];$p=[];if($u['role']==='seller'){$w[]='o.seller_omie_code=?';$p[]=$u['seller_omie_code'];}$sql="SELECT o.*,c.name client_name FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code".($w?' WHERE '.implode(' AND ',$w):'')." ORDER BY o.order_date DESC,o.id DESC LIMIT 500";render('orders',['orders'=>DB::all($sql,$p)]);});
 $router->get('/services',function(){
  Auth::requireRole('admin','supervisor','seller');
+ SchemaGuard::requireReady();
  $u=Auth::user();
  $currentMonth=date('Y-m');
  $month=(string)($_GET['month']??$currentMonth);
@@ -346,6 +348,7 @@ $router->post('/test-data/references',function(){
 
 $router->get('/sync',function(){
  Auth::requireRole('admin');
+ SchemaGuard::requireReady();
  render('sync',['sync'=>SyncService::overview()]);
 });
 $router->post('/api/sync',function(){
