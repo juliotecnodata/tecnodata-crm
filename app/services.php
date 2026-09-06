@@ -837,7 +837,7 @@ final class SyncService {
    $hasError=$state&&!empty($state['last_error']);if($hasError)$errors++;
    if($state&&!empty($state['last_success_at'])){$synced++;if($lastSuccess===null||$state['last_success_at']>$lastSuccess)$lastSuccess=$state['last_success_at'];}
    $lastPage=(int)($state['last_page']??0);$totalPages=(int)($state['total_pages']??0);
-   $resumable=!empty($state)&&!empty($state['context_json'])&&($totalPages===0||$lastPage<$totalPages);
+   $resumable=!empty($state)&&$lastPage>0&&(!empty($state['last_error'])||$totalPages===0||$lastPage<$totalPages);
    $items[$key]=[
     'key'=>$key,'label'=>$label,'local_count'=>$local,'state'=>$state,'context'=>$ctx,
     'has_error'=>$hasError,'resumable'=>$resumable,
