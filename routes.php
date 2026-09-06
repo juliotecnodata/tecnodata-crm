@@ -171,16 +171,21 @@ $router->get('/services',function(){
  }
  if($u['role']==='seller'){$w[]='so.seller_omie_code=?';$p[]=(string)$u['seller_omie_code'];}
  $where=$w?' WHERE '.implode(' AND ',$w):'';
- $rows=DB::all("SELECT so.*,c.name client_name,s.name seller_name FROM service_orders so LEFT JOIN clients c ON c.omie_code=so.client_omie_code LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code".$where." ORDER BY COALESCE(so.service_date,'1900-01-01') DESC,so.id DESC LIMIT 2000",$p);
+ $rows=DB::all("SELECT so.*,c.name client_name,s.name seller_name FROM service_orders so LEFT JOIN clients c ON c.omie_code=so.client_omie_code LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code".$where." ORDER BY COALESCE(so.service_date,'1900-01-01') DESC,so.id DESC LIMIT 1000",$p);
 
- $total=0.0;$valid=0;$cancelled=0;$withoutSeller=0;
- foreach($rows as $row){
-  $isCancelled=str_contains(mb_strtoupper((string)($row['status']??'')),'CANCEL');
-  if($isCancelled)$cancelled++;else{$valid++;$total+=(float)$row['total'];}
-  if(empty($row['seller_omie_code']))$withoutSeller++;
- }
+ $stats=DB::one("SELECT COUNT(*) total_rows,
+  COALESCE(SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN so.total ELSE 0 END),0) total_value,
+  SUM(CASE WHEN UPPER(COALESCE(so.status,'')) LIKE '%CANCEL%' THEN 1 ELSE 0 END) cancelled_rows,
+  SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN 1 ELSE 0 END) valid_rows,
+  SUM(CASE WHEN so.seller_omie_code IS NULL OR so.seller_omie_code='' THEN 1 ELSE 0 END) without_seller
+  FROM service_orders so".$where,$p)?:[];
  $months=DB::all("SELECT DATE_FORMAT(service_date,'%Y-%m') month_ref,COUNT(*) total FROM service_orders WHERE service_date IS NOT NULL GROUP BY DATE_FORMAT(service_date,'%Y-%m') ORDER BY month_ref DESC LIMIT 36");
- render('services',['rows'=>$rows,'month'=>$month,'latestMonth'=>$latestMonth,'months'=>$months,'total'=>$total,'valid'=>$valid,'cancelled'=>$cancelled,'withoutSeller'=>$withoutSeller]);
+ render('services',[
+  'rows'=>$rows,'month'=>$month,'latestMonth'=>$latestMonth,'months'=>$months,
+  'total'=>(float)($stats['total_value']??0),'valid'=>(int)($stats['valid_rows']??0),
+  'cancelled'=>(int)($stats['cancelled_rows']??0),'withoutSeller'=>(int)($stats['without_seller']??0),
+  'totalRows'=>(int)($stats['total_rows']??count($rows))
+ ]);
 });
 $router->get('/orders/new',function(){
  Auth::requireRole('admin','supervisor','seller');$r=OrderService::ready();
