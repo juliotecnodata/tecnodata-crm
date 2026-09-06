@@ -763,3 +763,21 @@ body{background:var(--bg)}
  .services-empty-state{grid-template-columns:1fr}.services-empty-state .btn{width:100%}
 }
 @media(max-width:520px){.services-summary-grid{grid-template-columns:1fr}.services-table-card .dt-search input{min-width:0;width:100%}}
+
+
+.services-period-actions{display:flex;align-items:center;gap:10px;position:relative}
+.services-current-period{display:flex;flex-direction:column;align-items:flex-end}
+.services-current-period span{font-size:8px;color:var(--muted);font-weight:700}
+.services-current-period strong{font-size:12px;color:var(--text)}
+.services-period-picker{position:relative}
+.services-period-picker>summary{list-style:none;cursor:pointer}
+.services-period-picker>summary::-webkit-details-marker{display:none}
+.services-period-popover{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:290px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}
+.services-period-popover label{font-size:9px;font-weight:800;color:var(--muted);margin-bottom:6px}
+.services-period-buttons{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.virtual-highlight{background:#F4F8E8!important;border-color:#D8E4AA!important}
+@media(max-width:800px){
+ .services-period-actions{width:100%;justify-content:space-between}
+ .services-current-period{align-items:flex-start}
+ .services-period-popover{left:0;right:auto;width:min(300px,90vw)}
+}
