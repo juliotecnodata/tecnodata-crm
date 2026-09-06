@@ -210,8 +210,11 @@ $router->get('/orders',function(){
    LIMIT 36"
  );
 
+ $drafts=OrderService::drafts($u);
+
  render('orders',[
   'orders'=>$orders,
+  'drafts'=>$drafts,
   'month'=>$month,
   'currentMonth'=>$currentMonth,
   'months'=>$months,
@@ -309,8 +312,14 @@ $router->get('/services',function(){
 });
 $router->get('/orders/new',function(){
  Auth::requireRole('admin','supervisor','seller');$r=OrderService::ready();
+ $draftId=(int)($_GET['draft_id']??0);$draft=null;
+ if($draftId>0){
+  try{$draft=OrderService::draft($draftId,Auth::user());$_SESSION['old']=$draft['form']??[];}
+  catch(Throwable $e){$_SESSION['error']=$e->getMessage();}
+ }
  render('order_new',[
   'ready'=>$r,
+  'draft'=>$draft,
   'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),
   'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),
   'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),
@@ -325,7 +334,36 @@ $router->get('/orders/new',function(){
   'prefill'=>(int)($_GET['client_id']??0)
  ]);
 });
-$router->post('/orders',function(){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);try{if(($_POST['submit_mode']??'send')==='preview'){$b=OrderService::build($_POST,Auth::user());$_SESSION['preview']=$b['payload'];$_SESSION['old']=$_POST;redirect('/orders/new?client_id='.(int)($_POST['client_id']??0));}$r=OrderService::send($_POST,Auth::user());$_SESSION['success']='Pedido enviado para Omie'.($r['number']?' • nº '.$r['number']:'').' • '.money($r['total']);redirect('/orders');}catch(Throwable $e){$_SESSION['error']=$e->getMessage();$_SESSION['old']=$_POST;redirect('/orders/new?client_id='.(int)($_POST['client_id']??0));}});
+$router->post('/orders',function(){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ $mode=(string)($_POST['submit_mode']??'send');
+ try{
+  if($mode==='draft'){
+   $draft=OrderService::saveDraft($_POST,Auth::user());
+   $_SESSION['success']='Rascunho salvo localmente.';
+   redirect('/orders/new?draft_id='.(int)$draft['id']);
+  }
+  if($mode==='preview'){
+   $b=OrderService::build($_POST,Auth::user());
+   $_SESSION['preview']=$b['payload'];$_SESSION['old']=$_POST;
+   $q=(int)($_POST['draft_id']??0)>0?'?draft_id='.(int)$_POST['draft_id']:'?client_id='.(int)($_POST['client_id']??0);
+   redirect('/orders/new'.$q);
+  }
+  $r=OrderService::send($_POST,Auth::user());
+  $_SESSION['success']='Pedido enviado para Omie'.($r['number']?' • nº '.$r['number']:'').' • '.money($r['total']);
+  redirect('/orders');
+ }catch(Throwable $e){
+  $_SESSION['error']=$e->getMessage();$_SESSION['old']=$_POST;
+  $q=(int)($_POST['draft_id']??0)>0?'?draft_id='.(int)$_POST['draft_id']:'?client_id='.(int)($_POST['client_id']??0);
+  redirect('/orders/new'.$q);
+ }
+});
+$router->post('/orders/drafts/{id}/delete',function($p){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ OrderService::deleteDraft((int)$p['id'],Auth::user());
+ $_SESSION['success']='Rascunho excluído.';
+ redirect('/orders');
+});
 
 $router->get('/collection',function(){Auth::requireRole('admin','supervisor','collector');$view=(string)($_GET['view']??'open');$rows=DB::all("SELECT cc.*,c.name,c.document,c.uf,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.status=? ORDER BY cc.open_amount DESC LIMIT 500",[$view==='settled'?'settled':'open']);render('collection',['rows'=>$rows,'view'=>$view]);});
 $router->get('/collection/{id}',function($p){Auth::requireRole('admin','supervisor','collector');$id=(int)$p['id'];$c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}$a=DB::all("SELECT ca.*,ua.name author_name,ur.name assigned_name FROM collection_actions ca JOIN users ua ON ua.id=ca.author_user_id JOIN users ur ON ur.id=ca.assigned_user_id WHERE ca.client_id=? ORDER BY ca.created_at DESC",[$id]);render('collection_case',['case'=>$c,'actions'=>$a,'collectors'=>Auth::can('admin','supervisor')?DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name"):[]]);});
