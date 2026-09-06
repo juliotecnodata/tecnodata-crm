@@ -36,6 +36,17 @@ CREATE TABLE IF NOT EXISTS goals(
  FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS virtual_seller_goals(
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ seller_omie_code VARCHAR(80) NOT NULL,
+ month_ref CHAR(7) NOT NULL,
+ sales_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
+ updated_by INT UNSIGNED NULL,
+ updated_at DATETIME NOT NULL,
+ UNIQUE KEY uq_virtual_seller_goal(seller_omie_code,month_ref),
+ FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS collection_assignment_log(
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  client_id BIGINT UNSIGNED NOT NULL,
