@@ -445,7 +445,7 @@ function render(string $name,array $vars=[]): void{
    ?>
    <div class="page-head sync-page-head">
     <div><span class="eyebrow">OMIE / OPERAÇÃO</span><h1>Central de sincronização</h1><p>Controle cada integração separadamente, acompanhe progresso, erros e retome processos interrompidos sem perder o que já foi importado.</p></div>
-    <div class="sync-page-head-note"><i class="fa-solid fa-shield-halved"></i><span><strong>Zerar é seguro</strong><small>Reinicia apenas o controle de progresso. Não apaga os dados locais.</small></span></div>
+    <div class="sync-page-head-note"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>Zerar apaga os dados locais</strong><small>Depois você escolhe manualmente qual sincronização deseja executar.</small></span></div>
    </div>
 
    <div class="sync-summary">
@@ -502,13 +502,14 @@ function render(string $name,array $vars=[]): void{
      </div>
 
      <footer class="sync-module-actions">
-      <button class="btn btn-primary btn-sm" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar</button>
       <?php if(in_array($key,['orders','services'],true)):?>
-       <button class="btn btn-outline-secondary btn-sm" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
+       <button class="btn btn-primary btn-sm" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
        <button class="btn btn-outline-secondary btn-sm" data-sync-action="full" data-module="<?=$key?>" data-sync-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
+      <?php else:?>
+       <button class="btn btn-primary btn-sm" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar</button>
       <?php endif;?>
       <button class="btn btn-outline-secondary btn-sm" data-sync-action="resume" data-module="<?=$key?>" <?=$item['resumable']?'':'disabled'?>><i class="fa-solid fa-play"></i>Retomar</button>
-      <button class="btn btn-outline-danger btn-sm" data-sync-action="reset" data-module="<?=$key?>" data-sync-confirm="Zerar o estado de sincronização de <?=e($item['label'])?>? Os dados locais serão preservados."><i class="fa-solid fa-rotate-left"></i>Zerar</button>
+      <button class="btn btn-outline-danger btn-sm" data-sync-action="reset" data-module="<?=$key?>" data-sync-confirm="Zerar <?=e($item['label'])?>? TODOS os dados locais deste módulo serão excluídos. Depois você escolherá manualmente uma nova sincronização."><i class="fa-solid fa-rotate-left"></i>Zerar</button>
      </footer>
     </article>
    <?php endforeach;?>
@@ -520,7 +521,7 @@ function render(string $name,array $vars=[]): void{
      <div><i class="fa-solid fa-arrows-rotate"></i><strong>Sincronizar</strong><span>Executa a regra padrão do módulo e percorre todas as páginas necessárias.</span></div>
      <div><i class="fa-regular fa-calendar-days"></i><strong>Últimos 5 dias</strong><span>Força Pedidos ou Serviços para a janela móvel de hoje + 4 dias anteriores, atualizando registros existentes.</span></div>
      <div><i class="fa-solid fa-play"></i><strong>Retomar</strong><span>Continua da próxima página salva após uma interrupção ou erro.</span></div>
-     <div><i class="fa-solid fa-rotate-left"></i><strong>Zerar</strong><span>Apaga somente o progresso salvo daquele módulo; nenhum cadastro local é removido.</span></div>
+     <div><i class="fa-solid fa-rotate-left"></i><strong>Zerar</strong><span>Exclui todos os dados locais daquele módulo e limpa o progresso. Nenhuma nova carga começa automaticamente.</span></div>
     </div>
    </div>
   <?php break;
