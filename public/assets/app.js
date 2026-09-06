@@ -304,9 +304,70 @@ document.addEventListener('DOMContentLoaded',()=>{
   const clientSearch=document.getElementById('clientSearch'),clientResults=document.getElementById('clientResults'),clientId=document.getElementById('clientId'),clientSelected=document.getElementById('clientSelected');
   const productSearch=document.getElementById('productSearch'),productResults=document.getElementById('productResults'),itemsJson=document.getElementById('itemsJson'),itemsEl=document.getElementById('orderItems');
   const grandTotal=document.getElementById('grandTotal'),discountTotal=document.getElementById('discountTotal'),orderGrandTotal=document.getElementById('orderGrandTotal'),footerGrandTotal=document.getElementById('footerGrandTotal'),financialTotal=document.getElementById('financialTotal'),fiscalTotal=document.getElementById('fiscalTotal'),clientEmailPreview=document.getElementById('clientEmailPreview');
+  const departmentsJson=document.getElementById('departmentsJson'),departmentDistribution=document.getElementById('departmentDistribution'),departmentTotal=document.getElementById('departmentTotal'),addDepartment=document.getElementById('addDepartment');
+  const departmentCatalog=Array.isArray(window.ORDER_DEPARTMENTS)?window.ORDER_DEPARTMENTS:[];
 
   let items=Array.isArray(window.ORDER_OLD_ITEMS)?window.ORDER_OLD_ITEMS:[];
   let clientTimer,productTimer;
+
+  let departmentRows=[];
+  try{
+    const parsed=JSON.parse(departmentsJson?.value||'[]');
+    if(Array.isArray(parsed))departmentRows=parsed.filter(r=>r&&r.code);
+  }catch(e){}
+  if(!departmentRows.length&&departmentCatalog.length){
+    departmentRows=[{code:String(departmentCatalog[0].code),percent:100}];
+  }
+
+  function syncDepartments(){
+    if(departmentsJson)departmentsJson.value=JSON.stringify(departmentRows.map(r=>({code:String(r.code||''),percent:Number(r.percent||0)})));
+    if(!departmentDistribution)return;
+    const availableOptions=current=>{
+      let html='<option value="">Selecione</option>';
+      departmentCatalog.forEach(d=>{
+        const code=String(d.code||'');
+        html+='<option value="'+esc(code)+'" '+(String(current||'')===code?'selected':'')+'>'+esc(d.description||code)+'</option>';
+      });
+      return html;
+    };
+    departmentDistribution.innerHTML=departmentRows.map((row,index)=>
+      '<div class="department-row">'+
+       '<div><label>Departamento</label><select class="form-select" data-department-code="'+index+'">'+availableOptions(row.code)+'</select></div>'+
+       '<div><label>Percentual</label><div class="department-percent-field"><input class="form-control" type="number" min="0.01" max="100" step="0.01" value="'+esc(Number(row.percent||0))+'" data-department-percent="'+index+'"><span>%</span></div></div>'+
+       '<button type="button" class="btn btn-light department-remove" data-department-remove="'+index+'" title="Remover"><i class="fa-regular fa-trash-can"></i></button>'+
+      '</div>'
+    ).join('');
+    departmentDistribution.querySelectorAll('[data-department-code]').forEach(el=>el.addEventListener('change',()=>{
+      departmentRows[Number(el.dataset.departmentCode)].code=el.value;syncDepartments();
+    }));
+    departmentDistribution.querySelectorAll('[data-department-percent]').forEach(el=>el.addEventListener('input',()=>{
+      departmentRows[Number(el.dataset.departmentPercent)].percent=Number(el.value||0);
+      updateDepartmentTotal();
+      if(departmentsJson)departmentsJson.value=JSON.stringify(departmentRows.map(r=>({code:String(r.code||''),percent:Number(r.percent||0)})));
+    }));
+    departmentDistribution.querySelectorAll('[data-department-remove]').forEach(el=>el.addEventListener('click',()=>{
+      departmentRows.splice(Number(el.dataset.departmentRemove),1);
+      if(!departmentRows.length&&departmentCatalog.length)departmentRows=[{code:String(departmentCatalog[0].code),percent:100}];
+      syncDepartments();
+    }));
+    updateDepartmentTotal();
+  }
+  function updateDepartmentTotal(){
+    const total=departmentRows.reduce((sum,row)=>sum+Number(row.percent||0),0);
+    if(departmentTotal){
+      departmentTotal.textContent=total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+      departmentTotal.classList.toggle('is-valid',Math.abs(total-100)<=0.01);
+      departmentTotal.classList.toggle('is-invalid',Math.abs(total-100)>0.01);
+    }
+  }
+  addDepartment?.addEventListener('click',()=>{
+    const used=new Set(departmentRows.map(r=>String(r.code)));
+    const next=departmentCatalog.find(d=>!used.has(String(d.code)))||departmentCatalog[0];
+    if(!next)return;
+    departmentRows.push({code:String(next.code),percent:0});
+    syncDepartments();
+  });
+  syncDepartments();
 
   function currentProfile(){
     const opt=profileSelect?.selectedOptions?.[0];
