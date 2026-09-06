@@ -815,6 +815,75 @@ final class TestDataService {
 
 final class SyncService {
  public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
+
+ public static function tableMap(): array{
+  return [
+   'sellers'=>'sellers','clients'=>'clients','products'=>'products','categories'=>'categories',
+   'accounts'=>'financial_accounts','stages'=>'order_stages','payment_terms'=>'payment_terms',
+   'tax_scenarios'=>'tax_scenarios','stock_locations'=>'stock_locations',
+   'payment_methods'=>'payment_methods','document_types'=>'document_types',
+   'orders'=>'orders','services'=>'service_orders','financial'=>'financial_movements'
+  ];
+ }
+ public static function overview(): array{
+  $states=[];foreach(DB::all("SELECT * FROM sync_state ORDER BY module_key") as $row)$states[(string)$row['module_key']]=$row;
+  $tables=self::tableMap();$items=[];$errors=0;$synced=0;$totalLocal=0;$lastSuccess=null;
+  foreach(self::modules() as $key=>$label){
+   $state=$states[$key]??null;$table=$tables[$key]??null;$local=0;
+   if($table)$local=(int)(DB::scalar("SELECT COUNT(*) FROM ".$table)??0);
+   $totalLocal+=$local;
+   $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+   if(!is_array($ctx))$ctx=[];
+   $hasError=$state&&!empty($state['last_error']);if($hasError)$errors++;
+   if($state&&!empty($state['last_success_at'])){$synced++;if($lastSuccess===null||$state['last_success_at']>$lastSuccess)$lastSuccess=$state['last_success_at'];}
+   $lastPage=(int)($state['last_page']??0);$totalPages=(int)($state['total_pages']??0);
+   $resumable=!empty($state)&&!empty($state['context_json'])&&($totalPages===0||$lastPage<$totalPages);
+   $items[$key]=[
+    'key'=>$key,'label'=>$label,'local_count'=>$local,'state'=>$state,'context'=>$ctx,
+    'has_error'=>$hasError,'resumable'=>$resumable,
+    'mode'=>(string)($ctx['mode']??($state&&!empty($state['last_success_at'])?'incremental':'initial')),
+    'period_start'=>$ctx['start']??null,'period_end'=>$ctx['end']??null
+   ];
+  }
+  return ['items'=>$items,'summary'=>['modules'=>count(self::modules()),'synced'=>$synced,'errors'=>$errors,'local_total'=>$totalLocal,'last_success'=>$lastSuccess]];
+ }
+ public static function resetState(string $module): array{
+  if(!isset(self::modules()[$module]))throw new RuntimeException('Módulo inválido.');
+  DB::exec("DELETE FROM sync_state WHERE module_key=?",[$module]);
+  return ['module'=>$module,'action'=>'reset','done'=>true,'message'=>'Estado de sincronização zerado. Os dados locais foram preservados.'];
+ }
+ public static function prepareLastFiveDays(string $module): array{
+  if(!in_array($module,['orders','services'],true))throw new RuntimeException('A busca dos últimos 5 dias está disponível somente para Pedidos e Serviços.');
+  $ctx=['start'=>date('d/m/Y',strtotime('-4 days')),'end'=>date('d/m/Y'),'mode'=>'forced_last_5_days','forced'=>true];
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   [$module,json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  return $ctx;
+ }
+ public static function prepareFull(string $module): array{
+  if(!in_array($module,['orders','services'],true))throw new RuntimeException('Carga completa manual disponível somente para Pedidos e Serviços.');
+  $ctx=['start'=>date('01/01/Y'),'end'=>date('d/m/Y'),'mode'=>'manual_full_current_year','forced'=>true];
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   [$module,json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  return $ctx;
+ }
+ public static function resumePage(string $module): int{
+  if(!isset(self::modules()[$module]))throw new RuntimeException('Módulo inválido.');
+  $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
+  if(!$state||empty($state['context_json']))throw new RuntimeException('Não existe sincronização interrompida para retomar.');
+  $last=max(0,(int)($state['last_page']??0));$total=max(0,(int)($state['total_pages']??0));
+  if($total>0&&$last>=$total)throw new RuntimeException('A última sincronização deste módulo já foi concluída.');
+  return $last+1;
+ }
+ public static function recordError(string $module,string $message): void{
+  if(!isset(self::modules()[$module]))return;
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,0,0,0,NULL,NULL,?)
+            ON DUPLICATE KEY UPDATE last_error=VALUES(last_error)",[$module,mb_substr($message,0,1000)]);
+ }
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
  private static function purgeOldYearData(string $module): void{
   $year=(int)date('Y');
@@ -829,7 +898,8 @@ final class SyncService {
   $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
   $hasInitialLoad=$state&&!empty($state['last_success_at']);
 
-  if($page===1||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
+  $forced=is_array($ctx)&&!empty($ctx['forced'])&&!empty($ctx['start'])&&!empty($ctx['end']);
+  if((($page===1)&&!$forced)||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
    if($hasInitialLoad){
     // Depois da primeira carga concluída, Pedidos e Serviços trabalham em janela móvel de 5 dias.
     // Inclui hoje + 4 dias anteriores; o UPSERT abaixo atualiza registros que já existirem.
