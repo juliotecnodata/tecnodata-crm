@@ -707,3 +707,59 @@ body{background:var(--bg)}
  .sync-module-actions .btn{width:100%}
  .sync-help-grid{grid-template-columns:1fr}
 }
+
+
+/* Tela premium de Serviços */
+.services-page-head{align-items:flex-end}
+.services-period-filter{display:flex;align-items:end;gap:8px;min-width:250px}
+.services-period-filter label{font-size:9px;color:var(--muted);font-weight:800}
+.services-period-filter .form-select{min-width:220px}
+
+.services-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0}
+.services-summary-grid>div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.services-kpi-icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px}
+.services-kpi-icon.blue{background:#EAF3F9;color:#2D7DB5}
+.services-kpi-icon.green{background:#EAF5F0;color:#2F7D64}
+.services-kpi-icon.red{background:#FCEDEA;color:#C55252}
+.services-kpi-icon.yellow{background:#FBF5E4;color:#A47A16}
+.services-kpi-icon.slate{background:#EEF2F4;color:#596970}
+.services-summary-grid p{margin:0 0 2px;font-size:9px;color:var(--muted);font-weight:750}
+.services-summary-grid strong{font-size:18px;color:var(--text);display:block}
+.services-summary-grid small{font-size:8px;color:#87939A;margin-top:3px;display:block}
+
+.services-table-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px 10px 0 0;padding:11px 13px;border-bottom:0}
+.services-table-toolbar>div:first-child{display:flex;align-items:center;gap:9px}
+.services-table-toolbar>div:first-child>i{color:var(--blue)}
+.services-table-toolbar>div:first-child>span{display:flex;flex-direction:column}
+.services-table-toolbar strong{font-size:10px;color:var(--text)}
+.services-table-toolbar small{font-size:8px;color:var(--muted);margin-top:1px}
+.services-warning{display:flex;align-items:center;gap:6px;background:#FFF8E7;color:#80651F;border:1px solid #EADAA9;border-radius:8px;padding:6px 8px;font-size:8px;font-weight:750}
+.services-table-card{border-radius:0 0 10px 10px!important}
+.services-table-card .dt-container{padding:0}
+.services-table-card .dt-layout-row:first-child{padding:10px 12px;border-bottom:1px solid var(--line);background:#FAFBFB}
+.services-table-card .dt-search input{min-width:260px;border-radius:9px!important;border:1px solid var(--line-strong)!important;padding:7px 10px!important}
+.services-table-card table.dataTable tbody td{vertical-align:middle!important}
+.service-os-cell{display:flex;align-items:center;gap:8px}
+.service-os-icon{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:#EDF4F8;color:var(--blue);flex:0 0 30px}
+.service-os-cell>span:last-child,.services-table-card td>span:not(.service-status):not(.service-no-seller){display:flex;flex-direction:column}
+.services-table-card td strong{font-size:10px;color:#344148}
+.services-table-card td small{display:block;font-size:8px;color:var(--muted);margin-top:2px}
+.service-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;font-size:8px;font-weight:800;border:1px solid}
+.service-status-active{background:#EDF5FA;color:#35647C;border-color:#CFE1EA}
+.service-status-billed{background:#EDF7F2;color:#34705A;border-color:#CFE5DA}
+.service-status-cancelled{background:#FCEDEA;color:#9C4646;border-color:#EDC9C9}
+.service-no-seller{display:inline-flex!important;align-items:center;gap:5px;color:#A67719;font-size:8px;font-weight:800}
+.services-empty-state{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:22px}
+.services-empty-state>span{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:#EEF4F7;color:var(--blue)}
+.services-empty-state strong{font-size:12px;color:var(--text)}
+.services-empty-state p{font-size:9px;color:var(--muted);margin:4px 0 0;line-height:1.5}
+
+@media(max-width:1180px){.services-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:800px){
+ .services-page-head{align-items:flex-start}
+ .services-period-filter{width:100%;min-width:0}.services-period-filter .form-select{width:100%;min-width:0}
+ .services-summary-grid{grid-template-columns:1fr 1fr}
+ .services-table-toolbar{align-items:flex-start;flex-direction:column}
+ .services-empty-state{grid-template-columns:1fr}.services-empty-state .btn{width:100%}
+}
+@media(max-width:520px){.services-summary-grid{grid-template-columns:1fr}.services-table-card .dt-search input{min-width:0;width:100%}}
