@@ -5,6 +5,7 @@ final class OmieClient {
   'sellers'=>'https://app.omie.com.br/api/v1/geral/vendedores/',
   'products'=>'https://app.omie.com.br/api/v1/geral/produtos/',
   'categories'=>'https://app.omie.com.br/api/v1/geral/categorias/',
+  'departments'=>'https://app.omie.com.br/api/v1/geral/departamentos/',
   'accounts'=>'https://app.omie.com.br/api/v1/geral/contacorrente/',
   'stages'=>'https://app.omie.com.br/api/v1/produtos/etapafat/',
   'payment_terms'=>'https://app.omie.com.br/api/v1/produtos/formaspagvendas/',
@@ -474,6 +475,7 @@ final class OrderService {
   $checks=[
    'stages'=>"SELECT COUNT(*) FROM order_stages WHERE active=1",
    'categories'=>"SELECT COUNT(*) FROM categories WHERE active=1",
+   'departments'=>"SELECT COUNT(*) FROM departments WHERE active=1",
    'accounts'=>"SELECT COUNT(*) FROM financial_accounts WHERE active=1",
    'payment_terms'=>"SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999'",
   ];
@@ -696,7 +698,25 @@ final class OrderService {
   foreach($freightMap as $from=>$to){$v=trim((string)($i[$from]??''));if($v==='')continue;if(in_array($from,['carrier_code','volumes'],true))$freight[$to]=(int)$v;elseif(in_array($from,['net_weight','gross_weight','freight_value','insurance_value','other_expenses'],true))$freight[$to]=(float)str_replace(',','.',$v);elseif($from==='delivery_date'&&strtotime($v))$freight[$to]=date('d/m/Y',strtotime($v));else $freight[$to]=$v;}
   if(!empty($i['own_vehicle']))$freight['veiculo_proprio']='S';
 
-  $payload=['cabecalho'=>$cab,'det'=>$det,'frete'=>$freight,'informacoes_adicionais'=>$info];
+  $departmentsRaw=json_decode((string)($i['departments_json']??'[]'),true);
+  if(!is_array($departmentsRaw))$departmentsRaw=[];
+  $departments=[];$departmentPercent=0.0;
+  foreach($departmentsRaw as $dep){
+   if(!is_array($dep))continue;
+   $code=trim((string)($dep['code']??''));
+   $percent=(float)str_replace(',','.',(string)($dep['percent']??0));
+   if($code===''||$percent<=0)continue;
+   if(!DB::one("SELECT 1 FROM departments WHERE code=? AND active=1",[$code]))throw new RuntimeException('Departamento inválido no rateio do pedido.');
+   $departmentPercent+=$percent;
+   $departments[]=[
+    'codigo_departamento'=>$code,
+    'percentual'=>$percent
+   ];
+  }
+  if(!$departments)throw new RuntimeException('Selecione ao menos um departamento para o pedido.');
+  if(abs($departmentPercent-100)>0.01)throw new RuntimeException('O rateio por departamentos deve totalizar 100%. Total atual: '.number_format($departmentPercent,2,',','.').'%.');
+
+  $payload=['cabecalho'=>$cab,'det'=>$det,'departamentos'=>$departments,'frete'=>$freight,'informacoes_adicionais'=>$info];
   $notes=trim((string)($i['notes']??''));if($notes!=='')$payload['observacoes']=['obs_venda'=>$notes];
   return ['payload'=>$payload,'client'=>$client,'seller'=>$seller,'total'=>$commercialTotal,'fiscal_total'=>$fiscalTotal,'financial_total'=>$financialTotal,'integration'=>$integration];
  }
@@ -1033,7 +1053,7 @@ final class TestDataService {
  }
 
  public static function prepareReferences(): array{
-  $modules=['sellers','categories','accounts','stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types'];
+  $modules=['sellers','categories','departments','accounts','stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types'];
   $result=[];
   foreach($modules as $module){
    $page=1;$processed=0;
@@ -1051,6 +1071,7 @@ final class TestDataService {
    'products'=>(int)(DB::scalar("SELECT COUNT(*) FROM products")??0),
    'sellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM sellers WHERE active=1")??0),
    'categories'=>(int)(DB::scalar("SELECT COUNT(*) FROM categories WHERE active=1")??0),
+   'departments'=>(int)(DB::scalar("SELECT COUNT(*) FROM departments WHERE active=1")??0),
    'accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM financial_accounts WHERE active=1")??0),
    'stages'=>(int)(DB::scalar("SELECT COUNT(*) FROM order_stages WHERE active=1")??0),
    'terms'=>(int)(DB::scalar("SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999'")??0),
@@ -1059,11 +1080,11 @@ final class TestDataService {
 }
 
 final class SyncService {
- public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
+ public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','departments'=>'Departamentos','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
 
  public static function tableMap(): array{
   return [
-   'sellers'=>'sellers','clients'=>'clients','products'=>'products','categories'=>'categories',
+   'sellers'=>'sellers','clients'=>'clients','products'=>'products','categories'=>'categories','departments'=>'departments',
    'accounts'=>'financial_accounts','stages'=>'order_stages','payment_terms'=>'payment_terms',
    'tax_scenarios'=>'tax_scenarios','stock_locations'=>'stock_locations',
    'payment_methods'=>'payment_methods','document_types'=>'document_types',
@@ -1292,6 +1313,22 @@ final class SyncService {
   if($m==='clients'){$d=$o->call('clients','ListarClientes',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['clientes_cadastro']);foreach($it as $r){$c=(string)($r['codigo_cliente_omie']??'');if($c==='')continue;$phone=trim((string)($r['telefone1_ddd']??'').' '.(string)($r['telefone1_numero']??''));DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['nome_fantasia']??$r['razao_social']??$c),$r['razao_social']??null,$r['cnpj_cpf']??null,$r['email']??null,$phone,$r['cidade']??null,$r['estado']??null,$r['codigo_vendedor']??null,json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='products'){$d=$o->call('products','ListarProdutos',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','filtrar_apenas_omiepdv'=>'N']);$it=self::pick($d,['produto_servico_cadastro']);foreach($it as $r){$c=(string)($r['codigo_produto']??'');if($c==='')continue;DB::exec("INSERT INTO products(omie_code,sku,description,unit,ncm,unit_price,stock_qty,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE sku=VALUES(sku),description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),unit_price=VALUES(unit_price),stock_qty=VALUES(stock_qty),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,$r['codigo']??null,(string)($r['descricao']??$c),$r['unidade']??null,$r['ncm']??null,(float)($r['valor_unitario']??0),isset($r['quantidade_estoque'])?(float)$r['quantidade_estoque']:null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='categories'){$d=$o->call('categories','ListarCategorias',['pagina'=>$page,'registros_por_pagina'=>100]);$it=self::pick($d,['categoria_cadastro']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO categories(code,description,active,raw_json,updated_at) VALUES(?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),(($r['conta_inativa']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
+  if($m==='departments'){
+   DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+   $d=$o->call('departments','ListarDepartamentos',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);
+   $it=self::pick($d,['departamentos','cadastros','departamento_cadastro','requisicaoCadastro']);
+   if(isset($d['codigo']))$it=[$d];
+   foreach($it as $r){
+    if(!is_array($r))continue;
+    $c=(string)($r['codigo']??$r['cCodigo']??'');
+    if($c==='')continue;
+    $desc=(string)($r['descricao']??$r['cDescricao']??$c);
+    $structure=(string)($r['estrutura']??'');
+    $active=mb_strtoupper((string)($r['inativo']??'N'))==='S'?0:1;
+    DB::exec("INSERT INTO departments(code,description,structure,active,raw_json,updated_at) VALUES(?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),structure=VALUES(structure),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,$desc,$structure,$active,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+   }
+   return self::finish($m,$d,$page,count($it));
+  }
   if($m==='accounts'){$d=$o->call('accounts','ListarContasCorrentes',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['ListarContasCorrentes','conta_corrente_lista']);foreach($it as $r){$c=(string)($r['nCodCC']??'');if($c==='')continue;DB::exec("INSERT INTO financial_accounts(omie_code,name,account_type,active,selected,raw_json,updated_at) VALUES(?,?,?,?,0,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),account_type=VALUES(account_type),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),$r['tipo_conta_corrente']??null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='stages'){
    $d=$o->call('stages','ListarEtapasFaturamento',['pagina'=>$page,'registros_por_pagina'=>100]);
