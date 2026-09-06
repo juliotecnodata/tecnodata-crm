@@ -198,7 +198,7 @@ function render(string $name,array $vars=[]): void{
    </div>
 
    <div class="services-summary-grid">
-    <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format(count($rows),0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
+    <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format((int)($totalRows??count($rows)),0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
     <div><span class="services-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>desconsiderando canceladas</small></div>
     <div><span class="services-kpi-icon slate"><i class="fa-solid fa-circle-check"></i></span><p>Válidas</p><strong><?=(int)$valid?></strong><small>ativas ou faturadas</small></div>
     <div><span class="services-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Canceladas</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
