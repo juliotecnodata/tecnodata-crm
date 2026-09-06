@@ -470,6 +470,33 @@ final class ClientService {
 }
 
 final class OrderService {
+ public static function ensureCoreCatalogs(): array{
+  $checks=[
+   'stages'=>"SELECT COUNT(*) FROM order_stages WHERE active=1",
+   'categories'=>"SELECT COUNT(*) FROM categories WHERE active=1",
+   'accounts'=>"SELECT COUNT(*) FROM financial_accounts WHERE active=1",
+   'payment_terms'=>"SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999'",
+  ];
+  $synced=[];$errors=[];
+  foreach($checks as $module=>$sql){
+   $count=(int)(DB::scalar($sql)??0);
+   if($count>0)continue;
+   try{
+    $page=1;$guard=0;
+    do{
+     $result=SyncService::run($module,$page);
+     $synced[$module]=($synced[$module]??0)+(int)($result['count']??0);
+     $done=!empty($result['done']);
+     $page=(int)($result['page']??$page)+1;
+     $guard++;
+    }while(!$done&&$guard<25);
+   }catch(Throwable $e){
+    $errors[$module]=$e->getMessage();
+   }
+  }
+  return ['synced'=>$synced,'errors'=>$errors];
+ }
+
  public static function defaults(): array{
   $j=DB::scalar("SELECT value_json FROM settings WHERE setting_key='order_defaults'");
   $d=$j?json_decode((string)$j,true):[];
@@ -558,6 +585,7 @@ final class OrderService {
   if(!in_array((string)($d['freight_mode']??'9'),['0','1','2','3','4','9'],true))throw new RuntimeException('Modalidade de frete inválida.');
  }
  public static function ready(): array{
+  self::ensureCoreCatalogs();
   $d=self::defaults();$m=[];
   foreach(['stage','category','account','payment_term'] as $k)if(empty($d[$k]))$m[]=$k;
   if((int)(DB::scalar("SELECT COUNT(*) FROM products WHERE active=1 AND unit_price>0")??0)===0)$m[]='products';
