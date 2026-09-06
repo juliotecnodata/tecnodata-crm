@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
           if(!response.ok||!data.ok)throw new Error(data.error||'Falha na sincronização.');
           if(action==='reset'){
-            setSyncAlert(card,'success','Estado zerado',data.message||'O progresso foi reiniciado e os dados locais foram preservados.');
+            setSyncAlert(card,'success','Módulo zerado',data.message||'Os dados locais do módulo foram excluídos e nenhuma nova sincronização foi iniciada.');
             setTimeout(()=>location.reload(),650);
             return;
           }
