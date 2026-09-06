@@ -646,6 +646,21 @@ final class OrderService {
 }
 
 final class GoalService {
+ private static bool $virtualGoalTableReady=false;
+ private static function ensureVirtualGoalTable(): void{
+  if(self::$virtualGoalTableReady)return;
+  DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS virtual_seller_goals(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   seller_omie_code VARCHAR(80) NOT NULL,
+   month_ref CHAR(7) NOT NULL,
+   sales_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
+   updated_by INT UNSIGNED NULL,
+   updated_at DATETIME NOT NULL,
+   UNIQUE KEY uq_virtual_seller_goal(seller_omie_code,month_ref),
+   INDEX idx_virtual_goal_month(month_ref)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+  self::$virtualGoalTableReady=true;
+ }
  public static function isVirtualSellerName(string $name): bool{
   $n=mb_strtoupper(trim($name));
   return $n==='EAD RECICLAGEM'||$n==='SUPORTE - PET CURSOS'||$n==='SUPORTE PET CURSOS';
@@ -715,6 +730,7 @@ final class GoalService {
   $goals=[];
   foreach($goalsRaw as $g)$goals[(int)$g['user_id']]=$g;
 
+  self::ensureVirtualGoalTable();
   $virtualGoalsRaw=DB::all("SELECT * FROM virtual_seller_goals WHERE month_ref=?",[$month]);
   $virtualGoals=[];
   foreach($virtualGoalsRaw as $g)$virtualGoals[(string)$g['seller_omie_code']]=$g;
@@ -863,6 +879,7 @@ final class GoalService {
  }
 
  public static function saveVirtual(string $sellerCode,string $month,array $i,int $actor): void{
+  self::ensureVirtualGoalTable();
   if(!preg_match('/^\d{4}-\d{2}$/',$month))throw new RuntimeException('Mês inválido.');
   $seller=DB::one("SELECT omie_code,name,active FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]);
   if(!$seller||!self::isVirtualSellerName((string)$seller['name']))throw new RuntimeException('Vendedor virtual inválido.');
