@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(!module)return;
       if(btn.dataset.syncConfirm&&!(await askConfirm(btn.dataset.syncConfirm)))return;
       const card=btn.closest('[data-sync-card]');
-      const labels={sync:'Sincronizando',last5:'Buscando últimos 5 dias',resume:'Retomando',reset:'Zerando estado',full:'Executando carga completa'};
+      const labels={sync:'Sincronizando',catchup:'Atualizando lacuna',last5:'Buscando últimos 5 dias',resume:'Retomando',reset:'Zerando estado',full:'Executando carga completa'};
       let page=action==='resume'?0:1;
       setCardBusy(card,true);
       setSyncAlert(card,'info',labels[action]||'Processando','A operação foi iniciada. Aguarde o processamento deste módulo.');
