@@ -471,6 +471,120 @@ final class ClientService {
 }
 
 final class OrderService {
+ private static bool $draftTableReady=false;
+ private static function ensureDraftTable(): void{
+  if(self::$draftTableReady)return;
+  DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS local_order_drafts(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   request_token VARCHAR(80) NOT NULL,
+   created_by INT UNSIGNED NOT NULL,
+   client_id BIGINT UNSIGNED NULL,
+   seller_omie_code VARCHAR(80) NULL,
+   status ENUM('draft','sent') NOT NULL DEFAULT 'draft',
+   total DECIMAL(15,2) NOT NULL DEFAULT 0,
+   form_json JSON NOT NULL,
+   omie_code VARCHAR(80) NULL,
+   omie_number VARCHAR(30) NULL,
+   created_at DATETIME NOT NULL,
+   updated_at DATETIME NOT NULL,
+   sent_at DATETIME NULL,
+   UNIQUE KEY uq_local_order_draft_token(request_token),
+   INDEX idx_local_order_draft_user_status(created_by,status),
+   INDEX idx_local_order_draft_updated(updated_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+  self::$draftTableReady=true;
+ }
+
+ public static function saveDraft(array $i,array $u): array{
+  self::ensureDraftTable();
+  $id=(int)($i['draft_id']??0);
+  $token=preg_replace('/[^A-Za-z0-9_-]/','',(string)($i['request_token']??''));
+  if($token==='')$token=date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
+
+  $items=json_decode((string)($i['items_json']??'[]'),true);
+  $total=0.0;
+  if(is_array($items)){
+   foreach($items as $it){
+    if(!is_array($it))continue;
+    $q=max(0,(float)($it['quantity']??0));
+    $price=max(0,(float)($it['unit_price']??0));
+    $discountType=(string)($it['discount_type']??'V');
+    $discountValue=max(0,(float)($it['discount_value']??$it['discount']??0));
+    $line=$q*$price;
+    $discount=$discountType==='P'?($line*min(100,$discountValue)/100):$discountValue;
+    $total+=max(0,$line-$discount);
+   }
+  }
+
+  $clientId=(int)($i['client_id']??0);
+  if($clientId<=0)$clientId=null;
+  $seller=($u['role']??'')==='seller'
+   ? trim((string)($u['seller_omie_code']??''))
+   : trim((string)($i['seller_omie_code']??''));
+  $seller=$seller!==''?$seller:null;
+
+  $safe=$i;
+  unset($safe['_token'],$safe['submit_mode']);
+  $safe['request_token']=$token;
+
+  if($id>0){
+   $draft=DB::one("SELECT * FROM local_order_drafts WHERE id=?",[$id]);
+   if(!$draft)throw new RuntimeException('Rascunho não encontrado.');
+   if(($u['role']??'')==='seller'&&(int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para editar este rascunho.');
+   if((string)$draft['status']!=='draft')throw new RuntimeException('Este rascunho já foi enviado.');
+   DB::exec("UPDATE local_order_drafts SET request_token=?,client_id=?,seller_omie_code=?,total=?,form_json=?,updated_at=NOW() WHERE id=?",
+    [$token,$clientId,$seller,$total,json_encode($safe,JSON_UNESCAPED_UNICODE),$id]);
+  }else{
+   DB::exec("INSERT INTO local_order_drafts(request_token,created_by,client_id,seller_omie_code,status,total,form_json,created_at,updated_at)
+             VALUES(?,?,?,?, 'draft',?,?,NOW(),NOW())
+             ON DUPLICATE KEY UPDATE client_id=VALUES(client_id),seller_omie_code=VALUES(seller_omie_code),total=VALUES(total),form_json=VALUES(form_json),updated_at=NOW()",
+    [$token,(int)$u['id'],$clientId,$seller,$total,json_encode($safe,JSON_UNESCAPED_UNICODE)]);
+   $id=(int)(DB::scalar("SELECT id FROM local_order_drafts WHERE request_token=?",[$token])??0);
+  }
+
+  return DB::one("SELECT * FROM local_order_drafts WHERE id=?",[$id])??[];
+ }
+
+ public static function draft(int $id,array $u): array{
+  self::ensureDraftTable();
+  $draft=DB::one("SELECT d.*,c.name client_name FROM local_order_drafts d LEFT JOIN clients c ON c.id=d.client_id WHERE d.id=?",[$id]);
+  if(!$draft)throw new RuntimeException('Rascunho não encontrado.');
+  if(($u['role']??'')==='seller'&&(int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para acessar este rascunho.');
+  $form=json_decode((string)$draft['form_json'],true);
+  $draft['form']=is_array($form)?$form:[];
+  return $draft;
+ }
+
+ public static function drafts(array $u): array{
+  self::ensureDraftTable();
+  $where="d.status='draft'";$p=[];
+  if(($u['role']??'')==='seller'){$where.=" AND d.created_by=?";$p[]=(int)$u['id'];}
+  return DB::all("SELECT d.*,c.name client_name,s.name seller_name,u.name author_name
+                  FROM local_order_drafts d
+                  LEFT JOIN clients c ON c.id=d.client_id
+                  LEFT JOIN sellers s ON s.omie_code=d.seller_omie_code
+                  LEFT JOIN users u ON u.id=d.created_by
+                  WHERE ".$where."
+                  ORDER BY d.updated_at DESC LIMIT 200",$p);
+ }
+
+ public static function deleteDraft(int $id,array $u): void{
+  self::ensureDraftTable();
+  $draft=DB::one("SELECT * FROM local_order_drafts WHERE id=?",[$id]);
+  if(!$draft)return;
+  if(($u['role']??'')==='seller'&&(int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para excluir este rascunho.');
+  if((string)$draft['status']!=='draft')throw new RuntimeException('Pedido já enviado não pode ser excluído como rascunho.');
+  DB::exec("DELETE FROM local_order_drafts WHERE id=?",[$id]);
+ }
+
+ private static function markDraftSent(array $i,string $code,string $number): void{
+  self::ensureDraftTable();
+  $id=(int)($i['draft_id']??0);
+  if($id<=0)return;
+  DB::exec("UPDATE local_order_drafts SET status='sent',omie_code=?,omie_number=?,sent_at=NOW(),updated_at=NOW() WHERE id=?",
+   [$code?:null,$number?:null,$id]);
+ }
+
  public static function ensureCoreCatalogs(): array{
   DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
   $checks=[
