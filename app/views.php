@@ -505,10 +505,10 @@ function render(string $name,array $vars=[]): void{
       <button class="btn btn-primary btn-sm" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar</button>
       <?php if(in_array($key,['orders','services'],true)):?>
        <button class="btn btn-outline-secondary btn-sm" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
-       <button class="btn btn-outline-secondary btn-sm" data-sync-action="full" data-module="<?=$key?>" data-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
+       <button class="btn btn-outline-secondary btn-sm" data-sync-action="full" data-module="<?=$key?>" data-sync-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
       <?php endif;?>
       <button class="btn btn-outline-secondary btn-sm" data-sync-action="resume" data-module="<?=$key?>" <?=$item['resumable']?'':'disabled'?>><i class="fa-solid fa-play"></i>Retomar</button>
-      <button class="btn btn-outline-danger btn-sm" data-sync-action="reset" data-module="<?=$key?>" data-confirm="Zerar o estado de sincronização de <?=e($item['label'])?>? Os dados locais serão preservados."><i class="fa-solid fa-rotate-left"></i>Zerar</button>
+      <button class="btn btn-outline-danger btn-sm" data-sync-action="reset" data-module="<?=$key?>" data-sync-confirm="Zerar o estado de sincronização de <?=e($item['label'])?>? Os dados locais serão preservados."><i class="fa-solid fa-rotate-left"></i>Zerar</button>
      </footer>
     </article>
    <?php endforeach;?>
