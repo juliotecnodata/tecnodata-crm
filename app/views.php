@@ -285,6 +285,31 @@ function render(string $name,array $vars=[]): void{
 
    <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
 
+   <?php if(!empty($drafts)):?>
+    <section class="orders-drafts-panel">
+     <div class="orders-drafts-head">
+      <div><span class="orders-kpi-icon yellow"><i class="fa-regular fa-floppy-disk"></i></span><span><strong>Rascunhos locais</strong><small>Pedidos ainda não enviados para a Omie.</small></span></div>
+      <b><?=count($drafts)?></b>
+     </div>
+     <div class="orders-drafts-list">
+      <?php foreach($drafts as $d):?>
+       <div class="orders-draft-row">
+        <div class="orders-draft-main">
+         <strong><?=e($d['client_name']??'Pedido sem cliente definido')?></strong>
+         <small>Salvo por <?=e($d['author_name']??'—')?> • atualizado <?=date('d/m/Y H:i',strtotime($d['updated_at']))?></small>
+        </div>
+        <div><span>Vendedor</span><strong><?=e($d['seller_name']??($d['seller_omie_code']??'Não definido'))?></strong></div>
+        <div><span>Total estimado</span><strong><?=money($d['total'])?></strong></div>
+        <div class="orders-draft-actions">
+         <a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/orders/new?draft_id=<?=(int)$d['id']?>"><i class="fa-regular fa-pen-to-square"></i>Continuar</a>
+         <form method="post" action="<?=APP_URL?>/orders/drafts/<?=(int)$d['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" data-confirm="Excluir este rascunho local?"><i class="fa-regular fa-trash-can"></i></button></form>
+        </div>
+       </div>
+      <?php endforeach;?>
+     </div>
+    </section>
+   <?php endif;?>
+
    <div class="orders-summary-grid">
     <div><span class="orders-kpi-icon blue"><i class="fa-solid fa-receipt"></i></span><p>Pedidos encontrados</p><strong><?=number_format((int)$totalRows,0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
     <div><span class="orders-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>sem pedidos cancelados</small></div>
@@ -403,12 +428,14 @@ function render(string $name,array $vars=[]): void{
     </div>
    <?php endif;?>
   <?php break;
-  case 'order_new':$error=$_SESSION['error']??null;$preview=$_SESSION['preview']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['old']);$d=$ready['defaults'];?>
-   <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1>Novo pedido</h1><p>Fluxo inspirado no Omie: cabeçalho operacional fixo e conteúdo organizado por abas horizontais.</p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
+  case 'order_new':$error=$_SESSION['error']??null;$preview=$_SESSION['preview']??null;$success=$_SESSION['success']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['success'],$_SESSION['old']);$d=$ready['defaults'];$draftId=(int)($draft['id']??$old['draft_id']??0);?>
+   <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1><?=$draftId>0?'Editar rascunho':'Novo pedido'?></h1><p><?=$draftId>0?'Pedido salvo localmente. Continue a edição e envie para a Omie quando estiver pronto.':'Fluxo inspirado no Omie: cabeçalho operacional fixo e conteúdo organizado por abas horizontais.'?></p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
+   <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
    <?php if(!$ready['ok']):$missingLabels=['stage'=>'Etapas','category'=>'Categorias','account'=>'Contas correntes','payment_term'=>'Condições de pagamento','products'=>'Produtos com preço','payment_terms'=>'Condições de pagamento'];$missingText=array_map(fn($k)=>$missingLabels[$k]??$k,$ready['missing']);?><div class="alert alert-warning"><strong>Faltam dados para criar pedidos:</strong> <?=e(implode(', ',$missingText))?>. <a href="<?=APP_URL?>/sync">Abra a Central de Sincronização</a> e sincronize somente os módulos indicados.</div><?php endif;?><?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
 
    <form method="post" action="<?=APP_URL?>/orders" id="orderForm" class="omie-order-form">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+    <input type="hidden" name="draft_id" value="<?=$draftId?>">
     <input type="hidden" name="request_token" value="<?=e((string)($old['request_token']??(date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8)))))?>">
     <input type="hidden" name="client_id" id="clientId" value="<?=e((string)($old['client_id']??$prefill))?>">
     <input type="hidden" name="items_json" id="itemsJson" value="<?=e((string)($old['items_json']??'[]'))?>">
@@ -561,7 +588,7 @@ function render(string $name,array $vars=[]): void{
 
     <div class="omie-order-footer">
      <div class="omie-order-footer-total"><span>Total do pedido</span><strong id="footerGrandTotal">R$ 0,00</strong></div>
-     <div class="omie-order-footer-actions"><button class="btn btn-outline-secondary" name="submit_mode" value="preview" <?=$ready['ok']?'':'disabled'?>>Validar sem enviar</button><button class="btn btn-primary" name="submit_mode" value="send" <?=$ready['ok']?'':'disabled'?>>Enviar para Omie</button></div>
+     <div class="omie-order-footer-actions"><button class="btn btn-light order-save-draft" name="submit_mode" value="draft"><i class="fa-regular fa-floppy-disk"></i><?=$draftId>0?'Salvar alterações':'Salvar rascunho'?></button><button class="btn btn-outline-secondary" name="submit_mode" value="preview" <?=$ready['ok']?'':'disabled'?>>Validar sem enviar</button><button class="btn btn-primary" name="submit_mode" value="send" <?=$ready['ok']?'':'disabled'?>>Enviar para Omie</button></div>
     </div>
    </form>
 
