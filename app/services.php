@@ -849,8 +849,33 @@ final class SyncService {
  }
  public static function resetState(string $module): array{
   if(!isset(self::modules()[$module]))throw new RuntimeException('Módulo inválido.');
+
+  $tables=self::tableMap();
+  $table=$tables[$module]??null;
+  if(!$table)throw new RuntimeException('Tabela local do módulo não identificada.');
+
+  // Limpa também dados derivados que dependem diretamente do módulo sincronizado.
+  if($module==='financial'){
+   DB::exec("DELETE FROM collection_cases");
+   DB::exec("DELETE FROM financial_movements");
+  }elseif($module==='orders'){
+   DB::exec("DELETE FROM orders");
+   DB::exec("DELETE FROM client_metrics");
+  }elseif($module==='clients'){
+   // As tabelas relacionadas a client_id usam ON DELETE CASCADE no schema.
+   DB::exec("DELETE FROM clients");
+  }else{
+   DB::exec("DELETE FROM ".$table);
+  }
+
   DB::exec("DELETE FROM sync_state WHERE module_key=?",[$module]);
-  return ['module'=>$module,'action'=>'reset','done'=>true,'message'=>'Estado de sincronização zerado. Os dados locais foram preservados.'];
+
+  return [
+   'module'=>$module,
+   'action'=>'reset',
+   'done'=>true,
+   'message'=>'Módulo zerado: todos os dados locais desta sincronização foram excluídos. Nenhuma nova sincronização foi iniciada.'
+  ];
  }
  public static function prepareLastFiveDays(string $module): array{
   if(!in_array($module,['orders','services'],true))throw new RuntimeException('A busca dos últimos 5 dias está disponível somente para Pedidos e Serviços.');
