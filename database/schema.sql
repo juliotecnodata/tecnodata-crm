@@ -13,6 +13,24 @@ CREATE TABLE IF NOT EXISTS stock_locations(omie_code VARCHAR(80) PRIMARY KEY,nam
 CREATE TABLE IF NOT EXISTS payment_methods(code VARCHAR(4) PRIMARY KEY,description VARCHAR(100) NOT NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL);
 CREATE TABLE IF NOT EXISTS document_types(code VARCHAR(8) PRIMARY KEY,description VARCHAR(100) NOT NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL);
 CREATE TABLE IF NOT EXISTS orders(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(80) NOT NULL,number VARCHAR(30) NULL,client_omie_code VARCHAR(80) NULL,seller_omie_code VARCHAR(80) NULL,order_date DATE NULL,forecast_date DATE NULL,total DECIMAL(15,2) NOT NULL DEFAULT 0,status VARCHAR(30) NULL,stage_code VARCHAR(10) NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_orders_omie(omie_code),INDEX idx_orders_seller_date(seller_omie_code,order_date));
+CREATE TABLE IF NOT EXISTS local_order_drafts(
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ request_token VARCHAR(80) NOT NULL,
+ created_by INT UNSIGNED NOT NULL,
+ client_id BIGINT UNSIGNED NULL,
+ seller_omie_code VARCHAR(80) NULL,
+ status ENUM('draft','sent') NOT NULL DEFAULT 'draft',
+ total DECIMAL(15,2) NOT NULL DEFAULT 0,
+ form_json JSON NOT NULL,
+ omie_code VARCHAR(80) NULL,
+ omie_number VARCHAR(30) NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NOT NULL,
+ sent_at DATETIME NULL,
+ UNIQUE KEY uq_local_order_draft_token(request_token),
+ INDEX idx_local_order_draft_user_status(created_by,status),
+ INDEX idx_local_order_draft_updated(updated_at)
+);
 CREATE TABLE IF NOT EXISTS service_orders(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(80) NOT NULL,client_omie_code VARCHAR(80) NULL,seller_omie_code VARCHAR(80) NULL,service_date DATE NULL,total DECIMAL(15,2) NOT NULL DEFAULT 0,status VARCHAR(40) NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_service_orders_omie(omie_code));
 CREATE TABLE IF NOT EXISTS financial_movements(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(100) NOT NULL,client_omie_code VARCHAR(80) NULL,account_omie_code VARCHAR(80) NULL,seller_omie_code VARCHAR(80) NULL,due_date DATE NULL,open_amount DECIMAL(15,2) NOT NULL DEFAULT 0,paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,status VARCHAR(30) NOT NULL,last_seen_token VARCHAR(64) NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_fin_omie(omie_code),INDEX idx_fin_client_status(client_omie_code,status),INDEX idx_fin_seen(last_seen_token));
 CREATE TABLE IF NOT EXISTS activities(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,user_id INT UNSIGNED NOT NULL,channel VARCHAR(30) NOT NULL,result VARCHAR(40) NOT NULL,notes TEXT NULL,next_at DATETIME NULL,created_at DATETIME NOT NULL,FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(user_id) REFERENCES users(id),INDEX idx_activities_client_date(client_id,created_at));
