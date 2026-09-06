@@ -516,14 +516,33 @@ final class OrderService {
   return $d;
  }
  public static function saveDefaults(array $i): void{
+  $pickValid=static function(string $value,string $validSql,string $fallbackSql,string $field): string{
+   $value=trim($value);
+   if($value!==''&&DB::one($validSql,[$value]))return $value;
+   $row=DB::one($fallbackSql);
+   return $row&&!empty($row[$field])?(string)$row[$field]:'';
+  };
+
   $d=[
-   'stage'=>(string)($i['stage']??''),'category'=>(string)($i['category']??''),'account'=>(string)($i['account']??''),
-   'payment_term'=>(string)($i['payment_term']??''),'payment_method'=>(string)($i['payment_method']??''),
-   'document_type'=>(string)($i['document_type']??''),'tax_scenario'=>(string)($i['tax_scenario']??''),
-   'stock_location'=>(string)($i['stock_location']??''),'consumer_final'=>(string)($i['consumer_final']??'S')==='N'?'N':'S',
-   'send_email'=>!empty($i['send_email'])?'S':'N','freight_mode'=>(string)($i['freight_mode']??'9')
+   'stage'=>$pickValid((string)($i['stage']??''),"SELECT 1 FROM order_stages WHERE code=? AND active=1","SELECT code FROM order_stages WHERE active=1 ORDER BY code LIMIT 1",'code'),
+   'category'=>$pickValid((string)($i['category']??''),"SELECT 1 FROM categories WHERE code=? AND active=1","SELECT code FROM categories WHERE active=1 ORDER BY code LIMIT 1",'code'),
+   'account'=>$pickValid((string)($i['account']??''),"SELECT 1 FROM financial_accounts WHERE omie_code=? AND active=1","SELECT omie_code FROM financial_accounts WHERE active=1 ORDER BY selected DESC,name,omie_code LIMIT 1",'omie_code'),
+   'payment_term'=>$pickValid((string)($i['payment_term']??''),"SELECT 1 FROM payment_terms WHERE code=? AND active=1 AND code<>'999'","SELECT code FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY code LIMIT 1",'code'),
+   'payment_method'=>$pickValid((string)($i['payment_method']??''),"SELECT 1 FROM payment_methods WHERE code=?","SELECT code FROM payment_methods ORDER BY description,code LIMIT 1",'code'),
+   'document_type'=>$pickValid((string)($i['document_type']??''),"SELECT 1 FROM document_types WHERE code=?","SELECT code FROM document_types ORDER BY description,code LIMIT 1",'code'),
+   'tax_scenario'=>$pickValid((string)($i['tax_scenario']??''),"SELECT 1 FROM tax_scenarios WHERE omie_code=? AND active=1","SELECT omie_code FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1",'omie_code'),
+   'stock_location'=>$pickValid((string)($i['stock_location']??''),"SELECT 1 FROM stock_locations WHERE omie_code=? AND active=1","SELECT omie_code FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1",'omie_code'),
+   'consumer_final'=>(string)($i['consumer_final']??'S')==='N'?'N':'S',
+   'send_email'=>!empty($i['send_email'])?'S':'N',
+   'freight_mode'=>in_array((string)($i['freight_mode']??'9'),['0','1','2','3','4','9'],true)?(string)$i['freight_mode']:'9'
   ];
-  self::validateHeaderChoices($d,true);
+
+  $missing=[];
+  foreach(['stage'=>'Etapa','category'=>'Categoria','account'=>'Conta corrente','payment_term'=>'Condição de pagamento'] as $key=>$label){
+   if($d[$key]==='')$missing[]=$label;
+  }
+  if($missing)throw new RuntimeException('Não existem opções sincronizadas para: '.implode(', ',$missing).'. Sincronize esses módulos antes de salvar as configurações.');
+
   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('order_defaults',?,NOW())
             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode($d,JSON_UNESCAPED_UNICODE)]);
  }
