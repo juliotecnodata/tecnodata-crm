@@ -316,6 +316,7 @@ $router->get('/orders/new',function(){
   'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),
   'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),
   'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
+  'departments'=>DB::all("SELECT * FROM departments WHERE active=1 ORDER BY description"),
   'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),
   'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),
   'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),
