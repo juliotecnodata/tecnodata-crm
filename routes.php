@@ -156,7 +156,73 @@ $router->get('/clients/{id}',function($p){
 });
 $router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');if($u['role']==='seller'&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão.');}DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),trim((string)($_POST['notes']??'')),($_POST['next_at']??'')?:null]);if(!empty($_POST['next_at']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales','Retorno comercial',?,'pending',NOW())",[$id,(int)$u['id'],$_POST['next_at']]);redirect('/clients/'.$id);});
 
-$router->get('/orders',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$w=[];$p=[];if($u['role']==='seller'){$w[]='o.seller_omie_code=?';$p[]=$u['seller_omie_code'];}$sql="SELECT o.*,c.name client_name FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code".($w?' WHERE '.implode(' AND ',$w):'')." ORDER BY o.order_date DESC,o.id DESC LIMIT 500";render('orders',['orders'=>DB::all($sql,$p)]);});
+$router->get('/orders',function(){
+ Auth::requireRole('admin','supervisor','seller');
+ $u=Auth::user();
+ $currentMonth=date('Y-m');
+ $month=(string)($_GET['month']??$currentMonth);
+ if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$currentMonth;
+
+ $where=[];$params=[];
+ if($month!=='all'){
+  $start=$month.'-01';
+  $next=date('Y-m-d',strtotime($start.' +1 month'));
+  $where[]='o.order_date>=?';
+  $where[]='o.order_date<?';
+  $params[]=$start;$params[]=$next;
+ }
+ if(($u['role']??'')==='seller'){
+  $where[]='o.seller_omie_code=?';
+  $params[]=(string)($u['seller_omie_code']??'');
+ }
+ $sqlWhere=$where?' WHERE '.implode(' AND ',$where):'';
+
+ $orders=DB::all(
+  "SELECT o.id,o.omie_code,o.number,o.client_omie_code,o.seller_omie_code,o.order_date,o.forecast_date,o.total,o.status,o.stage_code,
+          c.name client_name,s.name seller_name,os.name stage_name
+   FROM orders o
+   LEFT JOIN clients c ON c.omie_code=o.client_omie_code
+   LEFT JOIN sellers s ON s.omie_code=o.seller_omie_code
+   LEFT JOIN order_stages os ON os.code=o.stage_code".
+   $sqlWhere."
+   ORDER BY o.order_date DESC,o.id DESC
+   LIMIT 1500",
+  $params
+ );
+
+ $stats=DB::one(
+  "SELECT COUNT(*) total_rows,
+          COALESCE(SUM(CASE WHEN UPPER(COALESCE(o.status,'')) NOT LIKE '%CANCEL%' THEN o.total ELSE 0 END),0) total_value,
+          SUM(CASE WHEN UPPER(COALESCE(o.status,'')) LIKE '%CANCEL%' THEN 1 ELSE 0 END) cancelled_rows,
+          SUM(CASE WHEN UPPER(COALESCE(o.status,'')) LIKE '%FATUR%' THEN 1 ELSE 0 END) billed_rows,
+          SUM(CASE WHEN UPPER(COALESCE(o.status,'')) NOT LIKE '%CANCEL%' AND UPPER(COALESCE(o.status,'')) NOT LIKE '%FATUR%' THEN 1 ELSE 0 END) active_rows,
+          SUM(CASE WHEN o.seller_omie_code IS NULL OR o.seller_omie_code='' THEN 1 ELSE 0 END) without_seller
+   FROM orders o".$sqlWhere,
+  $params
+ )?:[];
+
+ $months=DB::all(
+  "SELECT DATE_FORMAT(order_date,'%Y-%m') month_ref,COUNT(*) total
+   FROM orders
+   WHERE order_date IS NOT NULL
+   GROUP BY DATE_FORMAT(order_date,'%Y-%m')
+   ORDER BY month_ref DESC
+   LIMIT 36"
+ );
+
+ render('orders',[
+  'orders'=>$orders,
+  'month'=>$month,
+  'currentMonth'=>$currentMonth,
+  'months'=>$months,
+  'totalRows'=>(int)($stats['total_rows']??0),
+  'total'=>(float)($stats['total_value']??0),
+  'billed'=>(int)($stats['billed_rows']??0),
+  'active'=>(int)($stats['active_rows']??0),
+  'cancelled'=>(int)($stats['cancelled_rows']??0),
+  'withoutSeller'=>(int)($stats['without_seller']??0)
+ ]);
+});
 $router->get('/services',function(){
  Auth::requireRole('admin','supervisor','seller');
  $u=Auth::user();
