@@ -235,8 +235,8 @@ function render(string $name,array $vars=[]): void{
        <tr>
         <td><div class="service-os-cell"><span class="service-os-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><span><strong><?=e($row['omie_code'])?></strong><small>código Omie</small></span></div></td>
         <td><strong><?=e($row['client_name']??'Cliente não sincronizado')?></strong><small><?=e($row['client_omie_code']??'—')?></small></td>
-        <td><?php if(!empty($row['seller_name'])):?><strong><?=e($row['seller_name'])?></strong><small><?=e($row['seller_omie_code'])?></small><?php elseif(!empty($row['seller_omie_code'])):?><strong>Código <?=e($row['seller_omie_code'])?></strong><small>vendedor não sincronizado</small><?php else:?><span class="service-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
-        <td data-order="<?=e((string)$row['service_date'])?>"><?=brdate($row['service_date'])?></td>
+        <td><?php $effectiveSeller=(string)($row['effective_seller_code']??$row['seller_omie_code']??''); if(!empty($row['seller_name'])):?><strong><?=e($row['seller_name'])?></strong><small><?=e($effectiveSeller)?></small><?php elseif($effectiveSeller!==''):?><strong>Código <?=e($effectiveSeller)?></strong><small>vendedor não sincronizado</small><?php else:?><span class="service-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
+        <td data-order="<?=e((string)($row['effective_date']??$row['service_date']))?>"><?=brdate($row['effective_date']??$row['service_date'])?></td>
         <td><span class="service-status service-status-<?=$statusClass?>"><?=e($status)?></span></td>
         <td class="text-end"><strong class="<?=$statusClass==='cancelled'?'text-secondary':''?>"><?=money($row['total'])?></strong></td>
        </tr>
