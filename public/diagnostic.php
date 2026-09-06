@@ -22,6 +22,12 @@ $config=null;$pdo=null;$dbInfo='';$prefix='';
 if(is_file($configFile)){
  try{
   $config=require $configFile;
+  $expectedToken=(string)($config['installer']['token']??'');
+  $givenToken=(string)($_GET['token']??'');
+  if($expectedToken===''||$givenToken===''||!hash_equals($expectedToken,$givenToken)){
+   http_response_code(403);
+   exit('Token inválido.');
+  }
   $host=$_SERVER['HTTP_HOST']??'localhost';
   $local=strpos($host,'localhost')!==false||strpos($host,'127.0.0.1')!==false;
   $db=$config['database'][$local?'local':'production']??null;
