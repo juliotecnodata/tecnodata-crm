@@ -192,23 +192,88 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
 
-  document.querySelectorAll('[data-sync]').forEach(btn=>btn.addEventListener('click',async()=>{
-    const module=btn.dataset.sync;let page=1;btn.disabled=true;
-    const state=document.getElementById('sync-state-'+module);
-    try{
-      while(true){
-        state.textContent='Página '+page;
-        const body=new URLSearchParams({_token:window.CSRF,module,page:String(page)});
-        const response=await fetch(window.APP_URL+'/api/sync',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-        const data=await response.json();
-        if(!response.ok||!data.ok)throw new Error(data.error||'Falha na sincronização');
-        state.textContent=data.done?'Concluído':(data.total_pages?'Página '+data.page+'/'+data.total_pages:'Processando...');
-        if(data.done)break;
-        page++;
+  const syncButtons=document.querySelectorAll('[data-sync-action]');
+  if(syncButtons.length){
+    const setCardBusy=(card,busy)=>{
+      card?.classList.toggle('is-running',busy);
+      card?.querySelectorAll('[data-sync-action]').forEach(b=>{
+        if(busy){b.dataset.wasDisabled=b.disabled?'1':'0';b.disabled=true;}
+        else if(b.dataset.wasDisabled!=='1')b.disabled=false;
+      });
+    };
+    const setSyncAlert=(card,type,title,message)=>{
+      const alert=card?.querySelector('[data-sync-alert]');
+      if(!alert)return;
+      alert.className='sync-flow-alert sync-flow-alert-'+type;
+      const icon=alert.querySelector('i');
+      if(icon)icon.className='fa-solid '+(type==='error'?'fa-circle-exclamation':type==='success'?'fa-circle-check':'fa-circle-info');
+      const t=alert.querySelector('[data-sync-alert-title]');
+      const m=alert.querySelector('[data-sync-alert-message]');
+      if(t)t.textContent=title;
+      if(m)m.textContent=message;
+      const badge=card.querySelector('[data-sync-badge]');
+      if(badge){
+        badge.className='sync-status sync-status-'+(type==='error'?'error':type==='success'?'success':'idle');
+        badge.textContent=type==='error'?'Erro':type==='success'?'Sincronizado':'Processando';
       }
-      setTimeout(()=>location.reload(),500);
-    }catch(error){state.textContent=error.message;btn.disabled=false;}
-  }));
+    };
+    const updateProgress=(card,data,label)=>{
+      const wrap=card?.querySelector('[data-sync-progress-wrap]');
+      if(!wrap)return;
+      wrap.hidden=false;
+      const total=Math.max(0,Number(data.total_pages||0));
+      const page=Math.max(0,Number(data.page||0));
+      const percent=data.done?100:(total>0?Math.min(99,Math.round((page/total)*100)):Math.min(95,page*8));
+      const txt=card.querySelector('[data-sync-progress-label]');
+      const pct=card.querySelector('[data-sync-progress-percent]');
+      const bar=card.querySelector('[data-sync-progress-bar]');
+      if(txt)txt.textContent=data.done?'Concluído':(total>0?label+' • página '+page+' de '+total:label+' • página '+page);
+      if(pct)pct.textContent=percent+'%';
+      if(bar)bar.style.width=percent+'%';
+    };
+    syncButtons.forEach(btn=>btn.addEventListener('click',async e=>{
+      e.preventDefault();
+      const module=btn.dataset.module;
+      const action=btn.dataset.syncAction||'sync';
+      if(!module)return;
+      if(btn.dataset.syncConfirm&&!(await askConfirm(btn.dataset.syncConfirm)))return;
+      const card=btn.closest('[data-sync-card]');
+      const labels={sync:'Sincronizando',last5:'Buscando últimos 5 dias',resume:'Retomando',reset:'Zerando estado',full:'Executando carga completa'};
+      let page=action==='resume'?0:1;
+      setCardBusy(card,true);
+      setSyncAlert(card,'info',labels[action]||'Processando','A operação foi iniciada. Aguarde o processamento deste módulo.');
+      try{
+        while(true){
+          const body=new URLSearchParams({_token:window.CSRF,module,action,page:String(page)});
+          const response=await fetch(window.APP_URL+'/api/sync',{
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body
+          });
+          const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
+          if(!response.ok||!data.ok)throw new Error(data.error||'Falha na sincronização.');
+          if(action==='reset'){
+            setSyncAlert(card,'success','Estado zerado',data.message||'O progresso foi reiniciado e os dados locais foram preservados.');
+            setTimeout(()=>location.reload(),650);
+            return;
+          }
+          updateProgress(card,data,labels[action]||'Processando');
+          if(data.done){
+            const count=Number(data.count||0);
+            setSyncAlert(card,'success','Sincronização concluída',count+' registro(s) processado(s) no último lote. O estado do módulo foi atualizado.');
+            setTimeout(()=>location.reload(),850);
+            return;
+          }
+          page=Number(data.page||page)+1;
+        }
+      }catch(error){
+        setSyncAlert(card,'error','Falha na sincronização',error.message||'O fluxo foi interrompido. Use Retomar após corrigir a causa.');
+        const wrap=card?.querySelector('[data-sync-progress-wrap]');
+        if(wrap)wrap.hidden=true;
+        setCardBusy(card,false);
+      }
+    }));
+  }
 
   const form=document.getElementById('orderForm');
   if(!form)return;
