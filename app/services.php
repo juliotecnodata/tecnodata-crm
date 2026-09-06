@@ -1293,7 +1293,51 @@ final class SyncService {
   if($m==='products'){$d=$o->call('products','ListarProdutos',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','filtrar_apenas_omiepdv'=>'N']);$it=self::pick($d,['produto_servico_cadastro']);foreach($it as $r){$c=(string)($r['codigo_produto']??'');if($c==='')continue;DB::exec("INSERT INTO products(omie_code,sku,description,unit,ncm,unit_price,stock_qty,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE sku=VALUES(sku),description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),unit_price=VALUES(unit_price),stock_qty=VALUES(stock_qty),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,$r['codigo']??null,(string)($r['descricao']??$c),$r['unidade']??null,$r['ncm']??null,(float)($r['valor_unitario']??0),isset($r['quantidade_estoque'])?(float)$r['quantidade_estoque']:null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='categories'){$d=$o->call('categories','ListarCategorias',['pagina'=>$page,'registros_por_pagina'=>100]);$it=self::pick($d,['categoria_cadastro']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO categories(code,description,active,raw_json,updated_at) VALUES(?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),(($r['conta_inativa']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='accounts'){$d=$o->call('accounts','ListarContasCorrentes',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['ListarContasCorrentes','conta_corrente_lista']);foreach($it as $r){$c=(string)($r['nCodCC']??'');if($c==='')continue;DB::exec("INSERT INTO financial_accounts(omie_code,name,account_type,active,selected,raw_json,updated_at) VALUES(?,?,?,?,0,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),account_type=VALUES(account_type),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),$r['tipo_conta_corrente']??null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
-  if($m==='stages'){$d=$o->call('stages','ListarEtapasFaturamento',['pagina'=>$page,'registros_por_pagina'=>100]);$it=self::pick($d,['etapasFaturamento','cadastros','etapas']);foreach($it as $r){$c=(string)($r['codigo']??$r['cCodigo']??'');if($c==='')continue;DB::exec("INSERT INTO order_stages(code,name,active,raw_json,updated_at) VALUES(?,?,1,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$r['cDescricao']??$c),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
+  if($m==='stages'){
+   $d=$o->call('stages','ListarEtapasFaturamento',['pagina'=>$page,'registros_por_pagina'=>100]);
+
+   // A Omie retorna operações de faturamento e, dentro de cada operação, o array "etapas".
+   // Para Pedidos de Venda usamos a operação de venda de produto. Mantemos fallback para
+   // variações de nomenclatura/estrutura sem misturar etapas de serviços no cadastro.
+   $groups=self::pick($d,['etapasFaturamento','cadastros','lista','operacoes']);
+   if(!$groups&&isset($d['cCodOperacao']))$groups=[$d];
+
+   $it=[];
+   foreach($groups as $group){
+    if(!is_array($group))continue;
+    $op=mb_strtoupper(trim((string)($group['cDescOperacao']??$group['descricao_operacao']??'')));
+    $isProduct=$op===''||str_contains($op,'PRODUTO')||str_contains($op,'PEDIDO DE VENDA')||str_contains($op,'VENDA DE PROD');
+    if(!$isProduct)continue;
+
+    $nested=$group['etapas']??$group['Etapas']??[];
+    if(is_array($nested)){
+     foreach($nested as $stage){
+      if(is_array($stage))$it[]=$stage+[
+       '_cCodOperacao'=>$group['cCodOperacao']??null,
+       '_cDescOperacao'=>$group['cDescOperacao']??null
+      ];
+     }
+    }
+   }
+
+   // Compatibilidade com eventual retorno já plano.
+   if(!$it){
+    $flat=self::pick($d,['etapas']);
+    foreach($flat as $stage)if(is_array($stage))$it[]=$stage;
+   }
+
+   foreach($it as $r){
+    $c=(string)($r['cCodigo']??$r['codigo']??'');
+    if($c==='')continue;
+    $inactive=mb_strtoupper((string)($r['cInativo']??$r['inativo']??'N'))==='S';
+    $name=(string)($r['cDescricao']??$r['cDescrPadrao']??$r['descricao']??$c);
+    DB::exec("INSERT INTO order_stages(code,name,active,raw_json,updated_at)
+              VALUES(?,?,?,?,NOW())
+              ON DUPLICATE KEY UPDATE name=VALUES(name),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+      [$c,$name,$inactive?0:1,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+   }
+   return self::finish($m,$d,$page,count($it));
+  }
   if($m==='payment_terms'){$d=$o->call('payment_terms','ListarFormasPagVendas',['pagina'=>$page,'registros_por_pagina'=>100]);$it=self::pick($d,['cadastros']);foreach($it as $r){$c=(string)($r['nCodigo']??$r['cCodigo']??'');if($c==='')continue;DB::exec("INSERT INTO payment_terms(code,description,installments,days_list,active,raw_json,updated_at) VALUES(?,?,?,?,1,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),installments=VALUES(installments),days_list=VALUES(days_list),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['cDescricao']??$c),(int)($r['nQtdeParc']??0),(string)($r['cListaParc']??''),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='tax_scenarios'){$d=$o->call('tax_scenarios','ListarCenarios',['nPagina'=>$page,'nRegPorPagina'=>100,'cNome'=>'']);$it=self::pick($d,['cenariosEncontrados']);foreach($it as $r){$c=(string)($r['nCodigo']??'');if($c==='')continue;DB::exec("INSERT INTO tax_scenarios(omie_code,name,is_default,active,raw_json,updated_at) VALUES(?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),is_default=VALUES(is_default),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['cNome']??$c),!empty($r['padrao'])?1:0,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='stock_locations'){$d=$o->call('stock_locations','ListarLocaisEstoque',['nPagina'=>$page,'nRegPorPagina'=>100]);$it=self::pick($d,['locaisEncontrados']);foreach($it as $r){$c=(string)($r['codigo_local_estoque']??'');if($c==='')continue;DB::exec("INSERT INTO stock_locations(omie_code,name,sale_enabled,is_default,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),sale_enabled=VALUES(sale_enabled),is_default=VALUES(is_default),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),(($r['dispVenda']??'N')==='S'?1:0),(($r['padrao']??'N')==='S'?1:0),(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
