@@ -161,24 +161,54 @@ $router->get('/services',function(){
  Auth::requireRole('admin','supervisor','seller');$u=Auth::user();
  $currentMonth=date('Y-m');
  $month=(string)($_GET['month']??$currentMonth);
- if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$currentMonth;
+ if($month!=='all'&&!preg_match('/^\\d{4}-\\d{2}$/',$month))$month=$currentMonth;
 
+ $dateExpr="COALESCE(
+   STR_TO_DATE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.InfoCadastro.dDtInc')),''),'%d/%m/%Y'),
+   STR_TO_DATE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.infoCadastro.dDtInc')),''),'%d/%m/%Y'),
+   STR_TO_DATE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.InfoCadastro.dDtInclusao')),''),'%d/%m/%Y'),
+   so.service_date,
+   DATE(so.updated_at)
+ )";
+ $sellerExpr="COALESCE(
+   NULLIF(so.seller_omie_code,''),
+   NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.Cabecalho.nCodVend')),''),
+   NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.Cabecalho.nCodVendedor')),''),
+   NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.InformacoesAdicionais.nCodVend')),''),
+   NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.InformacoesAdicionais.nCodVendedor')),''),
+   NULLIF(JSON_UNQUOTE(JSON_EXTRACT(so.raw_json,'$.InformacoesAdicionais.cCodVendedor')),'')
+ )";
+
+ $base="SELECT so.*,".$dateExpr." effective_date,".$sellerExpr." effective_seller_code
+        FROM service_orders so";
  $w=[];$p=[];
  if($month!=='all'){
-  $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
-  $w[]='so.service_date>=?';$w[]='so.service_date<?';array_push($p,$start,$next);
+  $startDate=$month.'-01';$next=date('Y-m-d',strtotime($startDate.' +1 month'));
+  $w[]='x.effective_date>=?';$w[]='x.effective_date<?';array_push($p,$startDate,$next);
  }
- if($u['role']==='seller'){$w[]='so.seller_omie_code=?';$p[]=(string)$u['seller_omie_code'];}
+ if($u['role']==='seller'){$w[]='x.effective_seller_code=?';$p[]=(string)$u['seller_omie_code'];}
  $where=$w?' WHERE '.implode(' AND ',$w):'';
- $rows=DB::all("SELECT so.*,c.name client_name,s.name seller_name FROM service_orders so LEFT JOIN clients c ON c.omie_code=so.client_omie_code LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code".$where." ORDER BY COALESCE(so.service_date,'1900-01-01') DESC,so.id DESC LIMIT 1000",$p);
+
+ $rows=DB::all("SELECT x.*,c.name client_name,s.name seller_name
+                FROM (".$base.") x
+                LEFT JOIN clients c ON c.omie_code=x.client_omie_code
+                LEFT JOIN sellers s ON s.omie_code=x.effective_seller_code".
+                $where."
+                ORDER BY x.effective_date DESC,x.id DESC LIMIT 1000",$p);
 
  $stats=DB::one("SELECT COUNT(*) total_rows,
-  COALESCE(SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN so.total ELSE 0 END),0) total_value,
-  SUM(CASE WHEN UPPER(COALESCE(so.status,'')) LIKE '%CANCEL%' THEN 1 ELSE 0 END) cancelled_rows,
-  SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN 1 ELSE 0 END) valid_rows,
-  SUM(CASE WHEN so.seller_omie_code IS NULL OR so.seller_omie_code='' THEN 1 ELSE 0 END) without_seller
-  FROM service_orders so".$where,$p)?:[];
- $months=DB::all("SELECT DATE_FORMAT(service_date,'%Y-%m') month_ref,COUNT(*) total FROM service_orders WHERE service_date IS NOT NULL GROUP BY DATE_FORMAT(service_date,'%Y-%m') ORDER BY month_ref DESC LIMIT 36");
+   COALESCE(SUM(CASE WHEN UPPER(COALESCE(x.status,'')) NOT LIKE '%CANCEL%' THEN x.total ELSE 0 END),0) total_value,
+   SUM(CASE WHEN UPPER(COALESCE(x.status,'')) LIKE '%CANCEL%' THEN 1 ELSE 0 END) cancelled_rows,
+   SUM(CASE WHEN UPPER(COALESCE(x.status,'')) NOT LIKE '%CANCEL%' THEN 1 ELSE 0 END) valid_rows,
+   SUM(CASE WHEN x.effective_seller_code IS NULL OR x.effective_seller_code='' THEN 1 ELSE 0 END) without_seller
+   FROM (".$base.") x".$where,$p)?:[];
+
+ $months=DB::all("SELECT DATE_FORMAT(x.effective_date,'%Y-%m') month_ref,COUNT(*) total
+                  FROM (".$base.") x
+                  WHERE x.effective_date IS NOT NULL
+                  GROUP BY DATE_FORMAT(x.effective_date,'%Y-%m')
+                  ORDER BY month_ref DESC LIMIT 36");
+
  render('services',[
   'rows'=>$rows,'month'=>$month,'currentMonth'=>$currentMonth,'months'=>$months,
   'total'=>(float)($stats['total_value']??0),'valid'=>(int)($stats['valid_rows']??0),
