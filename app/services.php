@@ -647,66 +647,161 @@ final class GoalService {
   $n=mb_strtoupper(trim($name));
   return str_contains($n,'EAD RECICLAGEM')||str_contains($n,'EAD')||str_contains($n,'SUPORTE JUMPER');
  }
+
  private static function sellerProduction(string $sellerCode,string $start,string $next): array{
   $orders=(float)(DB::scalar(
    "SELECT COALESCE(SUM(total),0) FROM orders
     WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",
    [$sellerCode,$start,$next]
   )??0);
-
   $services=(float)(DB::scalar(
    "SELECT COALESCE(SUM(total),0) FROM service_orders
-    WHERE seller_omie_code=?
-      AND service_date>=?
-      AND service_date<?
+    WHERE seller_omie_code=? AND service_date>=? AND service_date<?
       AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",
    [$sellerCode,$start,$next]
   )??0);
-
   return ['orders'=>$orders,'services'=>$services,'total'=>$orders+$services];
  }
+
  public static function userMonth(int $userId,string $month): array{
+  if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
   $u=DB::one("SELECT * FROM users WHERE id=?",[$userId]);if(!$u)return [];
-  $g=DB::one("SELECT * FROM goals WHERE user_id=? AND month_ref=?",[$userId,$month])?:['month_ref'=>$month,'sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0];
+  $g=DB::one("SELECT * FROM goals WHERE user_id=? AND month_ref=?",[$userId,$month])?:[
+   'month_ref'=>$month,'sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0
+  ];
   $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
-  $sales=0.0;$recovered=0.0;$contacts=0;
-  $ordersSales=0.0;$servicesSales=0.0;
+  $sales=0.0;$recovered=0.0;$contacts=0;$ordersSales=0.0;$servicesSales=0.0;
+
   if($u['role']==='seller'&&!empty($u['seller_omie_code'])){
    $prod=self::sellerProduction((string)$u['seller_omie_code'],$start,$next);
    $ordersSales=$prod['orders'];$servicesSales=$prod['services'];$sales=$prod['total'];
+   $contacts=(int)(DB::scalar(
+    "SELECT COUNT(*) FROM activities WHERE user_id=? AND created_at>=? AND created_at<?",
+    [$userId,$start,$next]
+   )??0);
   }
-  if($u['role']==='collector')$recovered=(float)(DB::scalar("SELECT COALESCE(SUM(amount),0) FROM collection_actions WHERE assigned_user_id=? AND result='payment' AND created_at>=? AND created_at<?",[$userId,$start,$next])??0);
-  if($u['role']==='seller')$contacts=(int)(DB::scalar("SELECT COUNT(*) FROM activities WHERE user_id=? AND created_at>=? AND created_at<?",[$userId,$start,$next])??0);
-  if($u['role']==='collector')$contacts=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions WHERE assigned_user_id=? AND created_at>=? AND created_at<?",[$userId,$start,$next])??0);
-  return ['user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'services_sales'=>$servicesSales,'recovered'=>$recovered,'contacts'=>$contacts,
+
+  if($u['role']==='collector'){
+   $summary=DB::one(
+    "SELECT
+      COALESCE(SUM(CASE WHEN result='payment' THEN amount ELSE 0 END),0) recovered,
+      COUNT(*) contacts
+     FROM collection_actions
+     WHERE assigned_user_id=? AND created_at>=? AND created_at<?",
+    [$userId,$start,$next]
+   )?:[];
+   $recovered=(float)($summary['recovered']??0);
+   $contacts=(int)($summary['contacts']??0);
+  }
+
+  return [
+   'user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'services_sales'=>$servicesSales,
+   'recovered'=>$recovered,'contacts'=>$contacts,
    'sales_percent'=>(float)$g['sales_goal']>0?min(999,$sales/(float)$g['sales_goal']*100):0,
    'collection_percent'=>(float)$g['collection_goal']>0?min(999,$recovered/(float)$g['collection_goal']*100):0,
-   'contact_percent'=>(int)$g['contact_goal']>0?min(999,$contacts/(int)$g['contact_goal']*100):0];
+   'contact_percent'=>(int)$g['contact_goal']>0?min(999,$contacts/(int)$g['contact_goal']*100):0
+  ];
  }
 
  public static function managementMonth(string $month): array{
   if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
   $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
+
   $users=DB::all("SELECT * FROM users WHERE active=1 AND role IN('seller','collector') ORDER BY role,name");
-  $rows=[];$sellerRows=[];$collectorRows=[];$linkedSellerCodes=[];
+  $goalsRaw=DB::all("SELECT * FROM goals WHERE month_ref=?",[$month]);
+  $goals=[];
+  foreach($goalsRaw as $g)$goals[(int)$g['user_id']]=$g;
+
+  $ordersMap=[];
+  foreach(DB::all(
+   "SELECT seller_omie_code,COALESCE(SUM(total),0) total
+    FROM orders
+    WHERE order_date>=? AND order_date<? AND status<>'CANCELADO'
+      AND seller_omie_code IS NOT NULL AND seller_omie_code<>''
+    GROUP BY seller_omie_code",[$start,$next]
+  ) as $r)$ordersMap[(string)$r['seller_omie_code']]=(float)$r['total'];
+
+  $servicesMap=[];
+  foreach(DB::all(
+   "SELECT seller_omie_code,COALESCE(SUM(total),0) total
+    FROM service_orders
+    WHERE service_date>=? AND service_date<?
+      AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'
+      AND seller_omie_code IS NOT NULL AND seller_omie_code<>''
+    GROUP BY seller_omie_code",[$start,$next]
+  ) as $r)$servicesMap[(string)$r['seller_omie_code']]=(float)$r['total'];
+
+  $activityMap=[];
+  foreach(DB::all(
+   "SELECT user_id,COUNT(*) total
+    FROM activities
+    WHERE created_at>=? AND created_at<?
+    GROUP BY user_id",[$start,$next]
+  ) as $r)$activityMap[(int)$r['user_id']]=(int)$r['total'];
+
+  $collectionMap=[];
+  foreach(DB::all(
+   "SELECT assigned_user_id,
+           COALESCE(SUM(CASE WHEN result='payment' THEN amount ELSE 0 END),0) recovered,
+           COUNT(*) contacts
+    FROM collection_actions
+    WHERE created_at>=? AND created_at<?
+    GROUP BY assigned_user_id",[$start,$next]
+  ) as $r)$collectionMap[(int)$r['assigned_user_id']]=[
+   'recovered'=>(float)$r['recovered'],'contacts'=>(int)$r['contacts']
+  ];
+
+  $rows=[];$sellerRows=[];$collectorRows=[];
   $recovered=0.0;$contacts=0;$salesGoals=0.0;$collectionGoals=0.0;$contactGoals=0;
+
   foreach($users as $u){
-   $row=self::userMonth((int)$u['id'],$month);if(!$row)continue;$rows[]=$row;
-   $contacts+=(int)$row['contacts'];$contactGoals+=(int)$row['goal']['contact_goal'];
+   $uid=(int)$u['id'];
+   $g=$goals[$uid]??[
+    'month_ref'=>$month,'sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0
+   ];
+   $sales=0.0;$ordersSales=0.0;$servicesSales=0.0;$userRecovered=0.0;$userContacts=0;
+
    if($u['role']==='seller'){
-    $salesGoals+=(float)$row['goal']['sales_goal'];$sellerRows[]=$row;
-    if(!empty($u['seller_omie_code']))$linkedSellerCodes[(string)$u['seller_omie_code']]=true;
+    $code=(string)($u['seller_omie_code']??'');
+    $ordersSales=$code!==''?($ordersMap[$code]??0.0):0.0;
+    $servicesSales=$code!==''?($servicesMap[$code]??0.0):0.0;
+    $sales=$ordersSales+$servicesSales;
+    $userContacts=$activityMap[$uid]??0;
+    $salesGoals+=(float)($g['sales_goal']??0);
+   }else{
+    $userRecovered=(float)($collectionMap[$uid]['recovered']??0);
+    $userContacts=(int)($collectionMap[$uid]['contacts']??0);
+    $collectionGoals+=(float)($g['collection_goal']??0);
+    $recovered+=$userRecovered;
    }
-   if($u['role']==='collector'){$recovered+=(float)$row['recovered'];$collectionGoals+=(float)$row['goal']['collection_goal'];$collectorRows[]=$row;}
+
+   $contacts+=$userContacts;
+   $contactGoals+=(int)($g['contact_goal']??0);
+
+   $row=[
+    'user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'services_sales'=>$servicesSales,
+    'recovered'=>$userRecovered,'contacts'=>$userContacts,
+    'sales_percent'=>(float)($g['sales_goal']??0)>0?min(999,$sales/(float)$g['sales_goal']*100):0,
+    'collection_percent'=>(float)($g['collection_goal']??0)>0?min(999,$userRecovered/(float)$g['collection_goal']*100):0,
+    'contact_percent'=>(int)($g['contact_goal']??0)>0?min(999,$userContacts/(int)$g['contact_goal']*100):0
+   ];
+   $rows[]=$row;
+   if($u['role']==='seller')$sellerRows[]=$row;else $collectorRows[]=$row;
   }
 
   $allSellers=DB::all("SELECT omie_code,name,active FROM sellers WHERE active=1 ORDER BY name");
   $sales=0.0;$orderSales=0.0;$serviceSales=0.0;$virtualRows=[];
   foreach($allSellers as $seller){
-   $prod=self::sellerProduction((string)$seller['omie_code'],$start,$next);
-   $sales+=$prod['total'];$orderSales+=$prod['orders'];$serviceSales+=$prod['services'];
+   $code=(string)$seller['omie_code'];
+   $o=(float)($ordersMap[$code]??0);
+   $sv=(float)($servicesMap[$code]??0);
+   $tot=$o+$sv;
+   $sales+=$tot;$orderSales+=$o;$serviceSales+=$sv;
    if(self::isVirtualSellerName((string)$seller['name'])){
-    $virtualRows[]=['seller'=>$seller,'orders'=>$prod['orders'],'services'=>$prod['services'],'sales'=>$prod['total'],'virtual'=>true,'ead_reciclagem'=>str_contains(mb_strtoupper((string)$seller['name']),'EAD RECICLAGEM')];
+    $virtualRows[]=[
+     'seller'=>$seller,'orders'=>$o,'services'=>$sv,'sales'=>$tot,'virtual'=>true,
+     'ead_reciclagem'=>str_contains(mb_strtoupper((string)$seller['name']),'EAD RECICLAGEM')
+    ];
    }
   }
 
@@ -718,18 +813,21 @@ final class GoalService {
   $general=$raw?json_decode((string)$raw,true):[];
   if(!is_array($general))$general=[];
   $general+=['sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0];
+
   $effectiveSalesGoal=(float)$general['sales_goal']>0?(float)$general['sales_goal']:$salesGoals;
   $effectiveCollectionGoal=(float)$general['collection_goal']>0?(float)$general['collection_goal']:$collectionGoals;
   $effectiveContactGoal=(int)$general['contact_goal']>0?(int)$general['contact_goal']:$contactGoals;
 
   return [
-   'month'=>$month,'rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'virtual_sellers'=>$virtualRows,'general_goal'=>$general,
-   'sales'=>$sales,'order_sales'=>$orderSales,'service_sales'=>$serviceSales,'recovered'=>$recovered,'contacts'=>$contacts,
-   'sales_goal_sum'=>$salesGoals,'collection_goal_sum'=>$collectionGoals,'contact_goal_sum'=>$contactGoals,
-   'effective_sales_goal'=>$effectiveSalesGoal,'effective_collection_goal'=>$effectiveCollectionGoal,'effective_contact_goal'=>$effectiveContactGoal,
+   'month'=>$month,'rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'virtual_sellers'=>$virtualRows,
+   'general_goal'=>$general,'sales'=>$sales,'order_sales'=>$orderSales,'service_sales'=>$serviceSales,
+   'recovered'=>$recovered,'contacts'=>$contacts,'sales_goal_sum'=>$salesGoals,
+   'collection_goal_sum'=>$collectionGoals,'contact_goal_sum'=>$contactGoals,
+   'effective_sales_goal'=>$effectiveSalesGoal,'effective_collection_goal'=>$effectiveCollectionGoal,
+   'effective_contact_goal'=>$effectiveContactGoal,
    'sales_percent'=>$effectiveSalesGoal>0?min(999,$sales/$effectiveSalesGoal*100):0,
    'collection_percent'=>$effectiveCollectionGoal>0?min(999,$recovered/$effectiveCollectionGoal*100):0,
-   'contact_percent'=>$effectiveContactGoal>0?min(999,$contacts/$effectiveContactGoal*100):0,
+   'contact_percent'=>$effectiveContactGoal>0?min(999,$contacts/$effectiveContactGoal*100):0
   ];
  }
 
@@ -740,8 +838,10 @@ final class GoalService {
   $collection=max(0,(float)str_replace(',','.',(string)($i['collection_goal']??0)));
   if($u['role']==='seller')$collection=0;
   if($u['role']==='collector')$sales=0;
-  DB::exec("INSERT INTO goals(user_id,month_ref,sales_goal,collection_goal,contact_goal,updated_by,updated_at) VALUES(?,?,?,?,?,?,NOW())
-            ON DUPLICATE KEY UPDATE sales_goal=VALUES(sales_goal),collection_goal=VALUES(collection_goal),contact_goal=VALUES(contact_goal),updated_by=VALUES(updated_by),updated_at=NOW()",
+  DB::exec("INSERT INTO goals(user_id,month_ref,sales_goal,collection_goal,contact_goal,updated_by,updated_at)
+            VALUES(?,?,?,?,?,?,NOW())
+            ON DUPLICATE KEY UPDATE sales_goal=VALUES(sales_goal),collection_goal=VALUES(collection_goal),
+            contact_goal=VALUES(contact_goal),updated_by=VALUES(updated_by),updated_at=NOW()",
    [$userId,$month,$sales,$collection,max(0,(int)($i['contact_goal']??0)),$actor]);
  }
 
@@ -750,7 +850,7 @@ final class GoalService {
   $g=[
    'sales_goal'=>max(0,(float)str_replace(',','.',(string)($i['sales_goal']??0))),
    'collection_goal'=>max(0,(float)str_replace(',','.',(string)($i['collection_goal']??0))),
-   'contact_goal'=>max(0,(int)($i['contact_goal']??0)),
+   'contact_goal'=>max(0,(int)($i['contact_goal']??0))
   ];
   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES(?,?,NOW())
             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
