@@ -648,7 +648,7 @@ final class OrderService {
 final class GoalService {
  public static function isVirtualSellerName(string $name): bool{
   $n=mb_strtoupper(trim($name));
-  return str_contains($n,'EAD RECICLAGEM')||str_contains($n,'EAD')||str_contains($n,'SUPORTE JUMPER');
+  return $n==='EAD RECICLAGEM'||$n==='SUPORTE - PET CURSOS'||$n==='SUPORTE PET CURSOS';
  }
 
  private static function sellerProduction(string $sellerCode,string $start,string $next): array{
@@ -714,6 +714,10 @@ final class GoalService {
   $goalsRaw=DB::all("SELECT * FROM goals WHERE month_ref=?",[$month]);
   $goals=[];
   foreach($goalsRaw as $g)$goals[(int)$g['user_id']]=$g;
+
+  $virtualGoalsRaw=DB::all("SELECT * FROM virtual_seller_goals WHERE month_ref=?",[$month]);
+  $virtualGoals=[];
+  foreach($virtualGoalsRaw as $g)$virtualGoals[(string)$g['seller_omie_code']]=$g;
 
   $ordersMap=[];
   foreach(DB::all(
@@ -801,9 +805,19 @@ final class GoalService {
    $tot=$o+$sv;
    $sales+=$tot;$orderSales+=$o;$serviceSales+=$sv;
    if(self::isVirtualSellerName((string)$seller['name'])){
+    $vg=$virtualGoals[$code]??['month_ref'=>$month,'sales_goal'=>0];
+    $goalValue=(float)($vg['sales_goal']??0);
+    $salesGoals+=$goalValue;
     $virtualRows[]=[
-     'seller'=>$seller,'orders'=>$o,'services'=>$sv,'sales'=>$tot,'virtual'=>true,
-     'ead_reciclagem'=>str_contains(mb_strtoupper((string)$seller['name']),'EAD RECICLAGEM')
+     'seller'=>$seller,
+     'goal'=>$vg,
+     'orders'=>$o,
+     'services'=>$sv,
+     'sales'=>$tot,
+     'sales_percent'=>$goalValue>0?min(999,$tot/$goalValue*100):0,
+     'virtual'=>true,
+     'ead_reciclagem'=>mb_strtoupper(trim((string)$seller['name']))==='EAD RECICLAGEM',
+     'pet_cursos'=>in_array(mb_strtoupper(trim((string)$seller['name'])),['SUPORTE - PET CURSOS','SUPORTE PET CURSOS'],true)
     ];
    }
   }
@@ -846,6 +860,17 @@ final class GoalService {
             ON DUPLICATE KEY UPDATE sales_goal=VALUES(sales_goal),collection_goal=VALUES(collection_goal),
             contact_goal=VALUES(contact_goal),updated_by=VALUES(updated_by),updated_at=NOW()",
    [$userId,$month,$sales,$collection,max(0,(int)($i['contact_goal']??0)),$actor]);
+ }
+
+ public static function saveVirtual(string $sellerCode,string $month,array $i,int $actor): void{
+  if(!preg_match('/^\d{4}-\d{2}$/',$month))throw new RuntimeException('Mês inválido.');
+  $seller=DB::one("SELECT omie_code,name,active FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]);
+  if(!$seller||!self::isVirtualSellerName((string)$seller['name']))throw new RuntimeException('Vendedor virtual inválido.');
+  $sales=max(0,(float)str_replace(',','.',(string)($i['sales_goal']??0)));
+  DB::exec("INSERT INTO virtual_seller_goals(seller_omie_code,month_ref,sales_goal,updated_by,updated_at)
+            VALUES(?,?,?,?,NOW())
+            ON DUPLICATE KEY UPDATE sales_goal=VALUES(sales_goal),updated_by=VALUES(updated_by),updated_at=NOW()",
+   [$sellerCode,$month,$sales,$actor]);
  }
 
  public static function saveGeneral(string $month,array $i): void{
