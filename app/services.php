@@ -472,6 +472,7 @@ final class ClientService {
 
 final class OrderService {
  public static function ensureCoreCatalogs(): array{
+  DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
   $checks=[
    'stages'=>"SELECT COUNT(*) FROM order_stages WHERE active=1",
    'categories'=>"SELECT COUNT(*) FROM categories WHERE active=1",
