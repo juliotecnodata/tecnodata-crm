@@ -164,70 +164,72 @@ $router->get('/services',function(){
  $month=(string)($_GET['month']??$currentMonth);
  if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$currentMonth;
 
- // Fluxo mínimo e seguro: uma única leitura da tabela local já sincronizada.
- $allRows=DB::all("SELECT id,omie_code,client_omie_code,seller_omie_code,service_date,total,status,updated_at
-                   FROM service_orders
-                   ORDER BY id DESC
-                   LIMIT 1000");
+ try{
+  $codeCol=ServiceOrderCompat::codeColumn();
+  $dateCol=ServiceOrderCompat::dateColumn();
 
- $rows=[];$monthsMap=[];$total=0.0;$valid=0;$cancelled=0;$withoutSeller=0;
- $nullDates=0;$nullSellers=0;
+  $allRows=DB::all(
+   "SELECT id,".$codeCol." AS omie_code,client_omie_code,seller_omie_code,".$dateCol." AS service_date,total,status,updated_at
+    FROM service_orders
+    ORDER BY id DESC
+    LIMIT 1000"
+  );
 
- foreach($allRows as $row){
-  $date=(string)($row['service_date']??'');
-  if($date===''||$date==='0000-00-00'){
-   $nullDates++;
-   $date=!empty($row['updated_at'])?substr((string)$row['updated_at'],0,10):'';
-  }
+  $rows=[];$monthsMap=[];$total=0.0;$valid=0;$cancelled=0;$withoutSeller=0;
+  $nullDates=0;$nullSellers=0;
 
-  $sellerCode=(string)($row['seller_omie_code']??'');
-  if($sellerCode==='')$nullSellers++;
-
-  if($date!==''){
-   $rowMonth=substr($date,0,7);
-   if(preg_match('/^\d{4}-\d{2}$/',$rowMonth)){
-    $monthsMap[$rowMonth]=($monthsMap[$rowMonth]??0)+1;
+  foreach($allRows as $row){
+   $date=(string)($row['service_date']??'');
+   if($date===''||$date==='0000-00-00'){
+    $nullDates++;
+    $date=!empty($row['updated_at'])?substr((string)$row['updated_at'],0,10):'';
    }
+
+   $sellerCode=(string)($row['seller_omie_code']??'');
+   if($sellerCode==='')$nullSellers++;
+
+   if($date!==''){
+    $rowMonth=substr($date,0,7);
+    if(preg_match('/^\d{4}-\d{2}$/',$rowMonth))$monthsMap[$rowMonth]=($monthsMap[$rowMonth]??0)+1;
+   }
+
+   if($month!=='all'&&substr($date,0,7)!==$month)continue;
+   if(($u['role']??'')==='seller'&&$sellerCode!==(string)($u['seller_omie_code']??''))continue;
+
+   $row['effective_date']=$date;
+   $row['effective_seller_code']=$sellerCode;
+   $row['seller_name']=null;
+   $row['client_name']=null;
+
+   $statusUpper=strtoupper((string)($row['status']??''));
+   $isCancelled=strpos($statusUpper,'CANCEL')!==false;
+   if($isCancelled)$cancelled++;else{$valid++;$total+=(float)($row['total']??0);}
+   if($sellerCode==='')$withoutSeller++;
+
+   $rows[]=$row;
   }
 
-  if($month!=='all'&&substr($date,0,7)!==$month)continue;
-  if(($u['role']??'')==='seller'&&$sellerCode!==(string)($u['seller_omie_code']??''))continue;
+  krsort($monthsMap);
+  $months=[];
+  foreach(array_slice($monthsMap,0,36,true) as $ref=>$count)$months[]=['month_ref'=>$ref,'total'=>$count];
 
-  $row['effective_date']=$date;
-  $row['effective_seller_code']=$sellerCode;
-  $row['seller_name']=null;
-  $row['client_name']=null;
-
-  $isCancelled=str_contains(mb_strtoupper((string)($row['status']??'')),'CANCEL');
-  if($isCancelled)$cancelled++;
-  else{$valid++;$total+=(float)($row['total']??0);}
-  if($sellerCode==='')$withoutSeller++;
-
-  $rows[]=$row;
+  render('services',[
+   'rows'=>$rows,'month'=>$month,'currentMonth'=>$currentMonth,'months'=>$months,
+   'total'=>$total,'valid'=>$valid,'cancelled'=>$cancelled,'withoutSeller'=>$withoutSeller,
+   'totalRows'=>count($rows),
+   'health'=>['total_table'=>count($allRows),'null_dates'=>$nullDates,'null_sellers'=>$nullSellers],
+   'serviceSchema'=>['code'=>$codeCol,'date'=>$dateCol],
+   'serviceError'=>null
+  ]);
+ }catch(Throwable $e){
+  render('services',[
+   'rows'=>[],'month'=>$month,'currentMonth'=>$currentMonth,'months'=>[],
+   'total'=>0,'valid'=>0,'cancelled'=>0,'withoutSeller'=>0,'totalRows'=>0,
+   'health'=>['total_table'=>0,'null_dates'=>0,'null_sellers'=>0],
+   'serviceSchema'=>null,
+   'serviceError'=>$e->getMessage()
+  ]);
  }
-
- krsort($monthsMap);
- $months=[];
- foreach(array_slice($monthsMap,0,36,true) as $ref=>$count){
-  $months[]=['month_ref'=>$ref,'total'=>$count];
- }
-
- render('services',[
-  'rows'=>$rows,
-  'month'=>$month,
-  'currentMonth'=>$currentMonth,
-  'months'=>$months,
-  'total'=>$total,
-  'valid'=>$valid,
-  'cancelled'=>$cancelled,
-  'withoutSeller'=>$withoutSeller,
-  'totalRows'=>count($rows),
-  'health'=>[
-   'total_table'=>count($allRows),
-   'null_dates'=>$nullDates,
-   'null_sellers'=>$nullSellers
-  ]
- ]);
 });
 $router->get('/orders/new',function(){
  Auth::requireRole('admin','supervisor','seller');$r=OrderService::ready();
