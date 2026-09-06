@@ -909,6 +909,50 @@ final class SyncService {
             VALUES(?,0,0,0,NULL,NULL,?)
             ON DUPLICATE KEY UPDATE last_error=VALUES(last_error)",[$module,mb_substr($message,0,1000)]);
  }
+ public static function repairStoredServices(): int{
+  $rows=DB::all("SELECT id,raw_json FROM service_orders WHERE raw_json IS NOT NULL");
+  $updated=0;
+  foreach($rows as $row){
+   $r=json_decode((string)$row['raw_json'],true);
+   if(!is_array($r))continue;
+   $n=self::normalizeServiceRecord($r);
+   if(!$n||$n['code']==='')continue;
+   DB::exec("UPDATE service_orders SET client_omie_code=?,seller_omie_code=?,service_date=?,total=?,status=?,updated_at=NOW() WHERE id=?",
+    [$n['client'],$n['seller']!==''?$n['seller']:null,$n['date'],$n['total'],$n['status'],(int)$row['id']]);
+   $updated++;
+  }
+  return $updated;
+ }
+ private static function normalizeServiceRecord(array $r): ?array{
+  $cab=(array)($r['Cabecalho']??$r['cabecalho']??[]);
+  $add=(array)($r['InformacoesAdicionais']??$r['informacoesAdicionais']??$r['informacoes_adicionais']??[]);
+  $info=(array)($r['InfoCadastro']??$r['infoCadastro']??[]);
+  $services=(array)($r['ServicosPrestados']??$r['servicosPrestados']??[]);
+
+  $code=(string)($cab['nCodOS']??$r['nCodOS']??$cab['codigo_os']??'');
+  if($code==='')return null;
+  $client=(string)($cab['nCodCli']??$r['nCodCli']??'');
+  $seller=(string)($cab['nCodVend']??$cab['nCodVendedor']??$add['nCodVend']??$add['nCodVendedor']??$info['nCodVend']??$info['nCodVendedor']??$r['nCodVend']??'');
+
+  $dateRaw=(string)($cab['dDtPrevisao']??$info['dDtFat']??$info['dDtInc']??$r['dDtPrevisao']??'');
+  $serviceDate=$dateRaw!==''?date('Y-m-d',strtotime(str_replace('/','-',$dateRaw))):null;
+
+  $total=(float)($cab['nValorTotal']??$cab['nValorTot']??$info['nValorTot']??$info['nValorTotal']??$r['nValorTot']??0);
+  if($total<=0&&$services){
+   foreach($services as $srv){
+    if(!is_array($srv))continue;
+    $qty=(float)($srv['nQtde']??1);$unit=(float)($srv['nValUnit']??$srv['nValorUnitario']??0);
+    $total+=($qty>0?$qty:1)*$unit;
+   }
+  }
+
+  $cancelled=strtoupper((string)($info['cCancelada']??$cab['cCancelada']??'N'))==='S';
+  $billed=strtoupper((string)($info['cFaturada']??$cab['cFaturada']??'N'))==='S';
+  $status=(string)($cab['cStatus']??$info['cStatus']??$r['cStatus']??'');
+  if($cancelled)$status='CANCELADO';elseif($billed)$status='FATURADO';elseif($status==='')$status='ATIVO';
+
+  return ['code'=>$code,'client'=>$client,'seller'=>$seller,'date'=>$serviceDate,'total'=>$total,'status'=>$status];
+ }
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
  private static function purgeOldYearData(string $module): void{
   $year=(int)date('Y');
@@ -1003,42 +1047,12 @@ final class SyncService {
    $it=self::pick($d,['osCadastro','ordens_servico','cadastros']);
    foreach($it as $r){
     if(!is_array($r))continue;
-    $cab=(array)($r['Cabecalho']??$r['cabecalho']??[]);
-    $add=(array)($r['InformacoesAdicionais']??$r['informacoesAdicionais']??$r['informacoes_adicionais']??[]);
-    $info=(array)($r['InfoCadastro']??$r['infoCadastro']??[]);
-    $services=(array)($r['ServicosPrestados']??$r['servicosPrestados']??[]);
-
-    $code=(string)($cab['nCodOS']??$r['nCodOS']??$cab['codigo_os']??'');
-    if($code==='')continue;
-
-    $client=(string)($cab['nCodCli']??$r['nCodCli']??'');
-    $seller=(string)($cab['nCodVend']??$cab['nCodVendedor']??$add['nCodVend']??$add['nCodVendedor']??$info['nCodVend']??$info['nCodVendedor']??$r['nCodVend']??'');
-
-    $dateRaw=(string)($cab['dDtPrevisao']??$info['dDtFat']??$info['dDtInc']??$r['dDtPrevisao']??'');
-    $serviceDate=$dateRaw!==''?date('Y-m-d',strtotime(str_replace('/','-',$dateRaw))):null;
-
-    $total=(float)($cab['nValorTotal']??$cab['nValorTot']??$info['nValorTot']??$info['nValorTotal']??$r['nValorTot']??0);
-    if($total<=0&&$services){
-     foreach($services as $srv){
-      if(!is_array($srv))continue;
-      $qty=(float)($srv['nQtde']??1);
-      $unit=(float)($srv['nValUnit']??$srv['nValorUnitario']??0);
-      $total+=($qty>0?$qty:1)*$unit;
-     }
-    }
-
-    $cancelled=strtoupper((string)($info['cCancelada']??$cab['cCancelada']??'N'))==='S';
-    $billed=strtoupper((string)($info['cFaturada']??$cab['cFaturada']??'N'))==='S';
-    $status=(string)($cab['cStatus']??$info['cStatus']??$r['cStatus']??'');
-    if($cancelled)$status='CANCELADO';
-    elseif($billed)$status='FATURADO';
-    elseif($status==='')$status='ATIVO';
-
+    $n=self::normalizeServiceRecord($r);if(!$n)continue;
     DB::exec("INSERT INTO service_orders(omie_code,client_omie_code,seller_omie_code,service_date,total,status,raw_json,updated_at)
               VALUES(?,?,?,?,?,?,?,NOW())
               ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
               service_date=VALUES(service_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
-      [$code,$client,$seller!==''?$seller:null,$serviceDate,$total,$status,json_encode($r,JSON_UNESCAPED_UNICODE)]);
+      [$n['code'],$n['client'],$n['seller']!==''?$n['seller']:null,$n['date'],$n['total'],$n['status'],json_encode($r,JSON_UNESCAPED_UNICODE)]);
    }
    return self::finishWindow('services',$d,$page,count($it),$period);
   }
