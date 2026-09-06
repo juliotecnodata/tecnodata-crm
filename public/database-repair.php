@@ -192,6 +192,32 @@ if($prefix!==''){
   }
  }
 
+ // Cadastros auxiliares legados.
+ $auxImports=[
+  ['sales_categories','categories','code,description,active,raw_json,updated_at','code,description,active,raw_json,updated_at'],
+  ['sales_payment_terms','payment_terms','code,description,installments,days_list,active,raw_json,updated_at','code,description,installments,days_list,active,raw_json,updated_at'],
+  ['financial_accounts','financial_accounts','omie_code,name,account_type,active,selected,updated_at','omie_code,name,account_type,active,selected,updated_at'],
+  ['tax_scenarios','tax_scenarios','omie_code,name,is_default,active,raw_json,updated_at','omie_code,name,is_default,active,raw_json,updated_at'],
+  ['stock_locations','stock_locations','omie_code,name,sale_enabled,is_default,active,raw_json,updated_at','omie_code,name,sale_enabled,is_default,active,raw_json,updated_at'],
+  ['payment_methods','payment_methods','code,description,raw_json,updated_at','code,description,raw_json,updated_at'],
+  ['document_types','document_types','code,description,raw_json,updated_at','code,description,raw_json,updated_at']
+ ];
+ foreach($auxImports as [$src,$logical,$colsList,$selectList]){
+  $dst=$prefix.$logical;
+  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+   execStep($pdo,$log,'importar '.$logical.' auxiliar',
+    'INSERT IGNORE INTO '.qi($dst).'('.$colsList.') SELECT '.$selectList.' FROM '.qi($src));
+  }
+ }
+
+ // Etapas antigas.
+ $src='order_stage_catalog';$dst=$prefix.'order_stages';
+ if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+  execStep($pdo,$log,'importar etapas legadas',
+   'INSERT IGNORE INTO '.qi($dst).'(code,name,active,raw_json,updated_at)
+    SELECT stage_code,stage_name,active,NULL,updated_at FROM '.qi($src));
+ }
+
  // Pedidos: aceita schema legado.
  $src='orders';$dst=$prefix.'orders';
  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
@@ -223,7 +249,48 @@ if($prefix!==''){
  }
 }
 
-// 5) Marca versão do schema.
+// 5) Migra metas legadas para o modelo atual quando possível.
+$goalsTable=$prefix.'goals';
+$usersTable=$prefix.'users';
+if(tableExists($pdo,$goalsTable)&&tableExists($pdo,$usersTable)){
+ // Metas de vendedores por seller_omie_code.
+ foreach([[$prefix.'seller_goals',true],['seller_goals',false]] as [$srcGoals,$sameFamily]){
+  if(tableExists($pdo,$srcGoals)){
+   execStep($pdo,$log,'migrar metas de vendedores de '.$srcGoals,
+    'INSERT INTO '.qi($goalsTable).'(user_id,month_ref,sales_goal,collection_goal,contact_goal,updated_by,updated_at)
+     SELECT u.id,g.month_ref,COALESCE(g.goal1,0),0,COALESCE(g.debtor_contact_goal,0),NULL,NOW()
+     FROM '.qi($srcGoals).' g JOIN '.qi($usersTable).' u ON u.seller_omie_code=g.seller_omie_code AND u.role=\'seller\'
+     ON DUPLICATE KEY UPDATE sales_goal=GREATEST(sales_goal,VALUES(sales_goal)),contact_goal=GREATEST(contact_goal,VALUES(contact_goal)),updated_at=NOW()');
+  }
+ }
+
+ // Metas de cobrança por usuário.
+ foreach([$prefix.'collection_user_goals','collection_user_goals'] as $srcGoals){
+  if(tableExists($pdo,$srcGoals)){
+   execStep($pdo,$log,'migrar metas de cobrança de '.$srcGoals,
+    'INSERT INTO '.qi($goalsTable).'(user_id,month_ref,sales_goal,collection_goal,contact_goal,updated_by,updated_at)
+     SELECT user_id,month_ref,0,COALESCE(amount_goal,0),COALESCE(contact_goal,0),NULL,NOW()
+     FROM '.qi($srcGoals).'
+     ON DUPLICATE KEY UPDATE collection_goal=GREATEST(collection_goal,VALUES(collection_goal)),contact_goal=GREATEST(contact_goal,VALUES(contact_goal)),updated_at=NOW()');
+  }
+ }
+}
+
+// Meta geral mensal antiga -> settings.
+$settingsTable=$prefix.'settings';
+foreach([$prefix.'monthly_goals','monthly_goals'] as $srcMonthly){
+ if(tableExists($pdo,$srcMonthly)&&tableExists($pdo,$settingsTable)){
+  $rows=$pdo->query('SELECT month_ref,general_goal FROM '.qi($srcMonthly))->fetchAll();
+  $st=$pdo->prepare('INSERT INTO '.qi($settingsTable).'(setting_key,value_json,updated_at) VALUES(?,?,NOW())
+                     ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()');
+  foreach($rows as $g){
+   $st->execute(['general_goal_'.(string)$g['month_ref'],json_encode(['sales_goal'=>(float)$g['general_goal'],'collection_goal'=>0,'contact_goal'=>0],JSON_UNESCAPED_UNICODE)]);
+  }
+  $log[]=['ok'=>true,'label'=>'migrar metas gerais de '.$srcMonthly];
+ }
+}
+
+// 6) Marca versão do schema.
 $settings=$prefix.'settings';
 if(tableExists($pdo,$settings)){
  $st=$pdo->prepare('INSERT INTO '.qi($settings)."(setting_key,value_json,updated_at) VALUES('schema_version',?,NOW())
@@ -231,7 +298,7 @@ if(tableExists($pdo,$settings)){
  $st->execute([json_encode(['version'=>'2026-09-06.1','repaired_at'=>date('c')],JSON_UNESCAPED_UNICODE)]);
 }
 
-// 6) Diagnóstico final.
+// 7) Diagnóstico final.
 $expected=[
  'users'=>['id','name','email','password_hash','role','seller_omie_code','active'],
  'sellers'=>['omie_code','name','active'],
