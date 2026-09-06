@@ -60,7 +60,7 @@ $logicalTables=[
  'users','sellers','clients','client_metrics','products','categories','financial_accounts','order_stages',
  'payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders',
  'financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state',
- 'omie_order_logs','goals','collection_assignment_log','order_profiles'
+ 'omie_order_logs','goals','virtual_seller_goals','collection_assignment_log','order_profiles'
 ];
 
 // 1) Cria tudo que estiver realmente ausente a partir do schema oficial da rebuild-clean.
@@ -365,6 +365,7 @@ $expected=[
  'sync_state'=>['module_key','last_page','total_pages','last_count','context_json','last_success_at','last_error'],
  'omie_order_logs'=>['id','integration_code','status'],
  'goals'=>['id','user_id','month_ref','sales_goal','collection_goal','contact_goal'],
+ 'virtual_seller_goals'=>['id','seller_omie_code','month_ref','sales_goal','updated_by','updated_at'],
  'collection_assignment_log'=>['id','client_id','to_user_id','changed_by'],
  'order_profiles'=>['id','code','name','active']
 ];
