@@ -45,6 +45,31 @@ if(class_exists('DB')){
  },$tests);
 }
 
+if(class_exists('DB')){
+ runTest('Distribuição mensal dos serviços',function(){
+  return DB::all("SELECT DATE_FORMAT(service_date,'%Y-%m') mes,COUNT(*) qtd,MIN(service_date) primeira,MAX(service_date) ultima,COALESCE(SUM(total),0) total
+                  FROM service_orders
+                  GROUP BY DATE_FORMAT(service_date,'%Y-%m')
+                  ORDER BY mes DESC
+                  LIMIT 24");
+ },$tests);
+ runTest('Serviços EAD Reciclagem por mês',function(){
+  return DB::all("SELECT DATE_FORMAT(service_date,'%Y-%m') mes,COUNT(*) qtd,COALESCE(SUM(total),0) total
+                  FROM service_orders
+                  WHERE seller_omie_code='594326005'
+                  GROUP BY DATE_FORMAT(service_date,'%Y-%m')
+                  ORDER BY mes DESC
+                  LIMIT 24");
+ },$tests);
+ runTest('Amostra raw_json de serviços',function(){
+  return DB::all("SELECT id,omie_code,seller_omie_code,service_date,total,status,raw_json
+                  FROM service_orders
+                  WHERE raw_json IS NOT NULL
+                  ORDER BY id DESC
+                  LIMIT 3");
+ },$tests);
+}
+
 if(class_exists('GoalService')){
  runTest('GoalService managementMonth',fn()=>GoalService::managementMonth(date('Y-m')),$tests);
 }
