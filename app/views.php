@@ -188,13 +188,21 @@ function render(string $name,array $vars=[]): void{
   case 'services':?>
    <div class="page-head services-page-head">
     <div><span class="eyebrow">COMERCIAL / SERVIÇOS</span><h1>Ordens de serviço</h1><p>Acompanhe OS sincronizadas da Omie, valores, vendedores e reflexo direto nos resultados comerciais.</p></div>
-    <form method="get" class="services-period-filter">
-     <label>Período</label>
-     <select class="form-select" name="month" onchange="this.form.submit()">
-      <option value="all" <?=$month==='all'?'selected':''?>>Todos os períodos</option>
-      <?php foreach($months as $m):?><option value="<?=e($m['month_ref'])?>" <?=$month===$m['month_ref']?'selected':''?>><?=date('m/Y',strtotime($m['month_ref'].'-01'))?> • <?=(int)$m['total']?> OS</option><?php endforeach;?>
-     </select>
-    </form>
+    <div class="services-period-actions">
+     <div class="services-current-period"><span>Período exibido</span><strong><?=$month==='all'?'Todos os períodos':date('m/Y',strtotime($month.'-01'))?></strong></div>
+     <details class="services-period-picker">
+      <summary class="btn btn-outline-secondary"><i class="fa-regular fa-calendar"></i>Escolher mês</summary>
+      <form method="get" class="services-period-popover">
+       <label>Mês desejado</label>
+       <input class="form-control" type="month" name="month" value="<?=e($month==='all'?$currentMonth:$month)?>">
+       <div class="services-period-buttons">
+        <button class="btn btn-primary" type="submit">Aplicar</button>
+        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/services?month=<?=e($currentMonth)?>">Mês atual</a>
+        <a class="btn btn-light" href="<?=APP_URL?>/services?month=all">Todos</a>
+       </div>
+      </form>
+     </details>
+    </div>
    </div>
 
    <div class="services-summary-grid">
@@ -415,7 +423,7 @@ function render(string $name,array $vars=[]): void{
     <div class="panel"><div class="panel-title-row"><div><span class="eyebrow">COMERCIAL</span><h2>Vendedores</h2></div><small>Somam na meta geral de vendas.</small></div><div class="result-ranking"><?php foreach($management['sellers'] as $row):$usr=$row['user'];?><div><span><strong><?=e($usr['name'])?></strong><small><?=money($row['sales'])?> de <?=money($row['goal']['sales_goal'])?></small></span><div><b><?=number_format($row['sales_percent'],1,',','.')?>%</b><div class="mini-progress"><span style="width:<?=min(100,$row['sales_percent'])?>%"></span></div></div></div><?php endforeach;?></div></div>
     <div class="panel"><div class="panel-title-row"><div><span class="eyebrow">COBRANÇA</span><h2>Recuperação</h2></div><small>Somam na meta geral de recuperação.</small></div><div class="result-ranking"><?php foreach($management['collectors'] as $row):$usr=$row['user'];?><div><span><strong><?=e($usr['name'])?></strong><small><?=money($row['recovered'])?> de <?=money($row['goal']['collection_goal'])?></small></span><div><b><?=number_format($row['collection_percent'],1,',','.')?>%</b><div class="mini-progress"><span style="width:<?=min(100,$row['collection_percent'])?>%"></span></div></div></div><?php endforeach;?></div></div>
    </div>
-   <?php if(!empty($management['virtual_sellers'])):?><div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">VENDEDORES VIRTUAIS</span><h2>Canais que também fecham a meta</h2></div><small>EAD e Suporte Jumper entram no consolidado mesmo sem usuário operacional.</small></div><div class="result-ranking"><?php foreach($management['virtual_sellers'] as $row):?><div><span><strong><?=e($row['seller']['name'])?></strong><small>pedidos <?=money($row['orders'])?> • serviços <?=money($row['services'])?></small></span><div><b><?=money($row['sales'])?></b></div></div><?php endforeach;?></div></div><?php endif;?>
+   <?php if(!empty($management['virtual_sellers'])):?><div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">VENDEDORES VIRTUAIS</span><h2>Canais que também fecham a meta</h2></div><small>EAD, EAD RECICLAGEM e Suporte Jumper entram no consolidado mesmo sem usuário operacional.</small></div><div class="result-ranking"><?php foreach($management['virtual_sellers'] as $row):?><div class="<?=!empty($row['ead_reciclagem'])?'virtual-highlight':''?>"><span><strong><?=e($row['seller']['name'])?></strong><small>pedidos <?=money($row['orders'])?> • serviços <?=money($row['services'])?><?php if(!empty($row['ead_reciclagem'])):?> • soma no realizado da meta<?php endif;?></small></span><div><b><?=money($row['sales'])?></b></div></div><?php endforeach;?></div></div><?php endif;?>
   <?php break;
   case 'result':$u=$result['user'];$g=$result['goal'];?>
    <div class="page-head"><div><span class="eyebrow">RESULTADO • <?=e((string)($g['month_ref']??date('Y-m')))?></span><h1>Meu resultado</h1><p>Meta e realizado sem relatórios desnecessários.</p></div></div>
