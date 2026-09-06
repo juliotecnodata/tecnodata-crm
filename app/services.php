@@ -1087,11 +1087,22 @@ final class SyncService {
   $forced=is_array($ctx)&&!empty($ctx['forced'])&&!empty($ctx['start'])&&!empty($ctx['end']);
   if((($page===1)&&!$forced)||!is_array($ctx)||empty($ctx['start'])||empty($ctx['end'])){
    if($hasInitialLoad){
-    // Depois da primeira carga concluída, Pedidos e Serviços trabalham em janela móvel de 5 dias.
-    // Inclui hoje + 4 dias anteriores; o UPSERT abaixo atualiza registros que já existirem.
-    $start=date('d/m/Y',strtotime('-4 days'));
-    $end=date('d/m/Y');
-    $ctx=['start'=>$start,'end'=>$end,'mode'=>'incremental_5_days'];
+    // Incremental inteligente: se a base local ficou atrasada, recupera todo o intervalo faltante.
+    // Só usa a janela móvel de 5 dias quando a última data local já está recente.
+    $dateColumn=$module==='orders'?'order_date':'service_date';
+    $table=$module==='orders'?'orders':'service_orders';
+    $lastLocal=(string)(DB::scalar("SELECT MAX(".$dateColumn.") FROM ".$table." WHERE ".$dateColumn." IS NOT NULL")??'');
+    $rollingStart=date('Y-m-d',strtotime('-4 days'));
+    if($lastLocal!==''&&strtotime($lastLocal)<strtotime($rollingStart)){
+     $startIso=date('Y-m-d',strtotime($lastLocal.' +1 day'));
+     $start=date('d/m/Y',strtotime($startIso));
+     $end=date('d/m/Y');
+     $ctx=['start'=>$start,'end'=>$end,'mode'=>'catchup_missing_period','last_local_date'=>$lastLocal];
+    }else{
+     $start=date('d/m/Y',strtotime('-4 days'));
+     $end=date('d/m/Y');
+     $ctx=['start'=>$start,'end'=>$end,'mode'=>'incremental_5_days'];
+    }
    }else{
     // Primeira carga: mantém a carga histórica do ano corrente.
     self::purgeOldYearData($module);
