@@ -231,6 +231,34 @@ if($prefix!==''){
     SELECT stage_code,stage_name,active,NULL,updated_at FROM '.qi($src));
  }
 
+ // Configuração de pedido legada -> settings.order_defaults.
+ $legacySettings='sales_order_settings';$newSettings=$prefix.'settings';
+ if(tableExists($pdo,$legacySettings)&&tableExists($pdo,$newSettings)){
+  $exists=$pdo->prepare('SELECT 1 FROM '.qi($newSettings).' WHERE setting_key=\'order_defaults\' LIMIT 1');
+  $exists->execute();
+  if(!$exists->fetchColumn()){
+   $row=$pdo->query('SELECT * FROM '.qi($legacySettings).' ORDER BY id LIMIT 1')->fetch();
+   if($row){
+    $defaults=[
+     'stage'=>(string)($row['default_stage_code']??''),
+     'category'=>(string)($row['default_category_code']??''),
+     'account'=>(string)($row['default_account_code']??''),
+     'payment_term'=>(string)($row['default_payment_term_code']??''),
+     'payment_method'=>(string)($row['default_payment_method_code']??''),
+     'document_type'=>(string)($row['default_document_type_code']??''),
+     'tax_scenario'=>(string)($row['default_tax_scenario_code']??''),
+     'stock_location'=>(string)($row['default_stock_location_code']??''),
+     'consumer_final'=>(string)($row['consumer_final']??'S'),
+     'send_email'=>(string)($row['send_email']??'N'),
+     'freight_mode'=>(string)($row['freight_mode']??'9')
+    ];
+    $st=$pdo->prepare('INSERT INTO '.qi($newSettings)."(setting_key,value_json,updated_at) VALUES('order_defaults',?,NOW())");
+    $st->execute([json_encode($defaults,JSON_UNESCAPED_UNICODE)]);
+    $log[]=['ok'=>true,'label'=>'migrar configuração padrão de pedidos'];
+   }
+  }
+ }
+
  // Pedidos: aceita schema legado.
  $src='orders';$dst=$prefix.'orders';
  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
