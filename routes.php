@@ -165,60 +165,70 @@ $router->get('/services',function(){
  if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$currentMonth;
 
  try{
-  $codeCol=ServiceOrderCompat::codeColumn();
-  $dateCol=ServiceOrderCompat::dateColumn();
+  $where=[];$params=[];
+  if($month!=='all'){
+   $startDate=$month.'-01';
+   $nextDate=date('Y-m-d',strtotime($startDate.' +1 month'));
+   $where[]='so.service_date>=?';
+   $where[]='so.service_date<?';
+   $params[]=$startDate;$params[]=$nextDate;
+  }
+  if(($u['role']??'')==='seller'){
+   $where[]='so.seller_omie_code=?';
+   $params[]=(string)($u['seller_omie_code']??'');
+  }
+  $sqlWhere=$where?' WHERE '.implode(' AND ',$where):'';
 
-  $allRows=DB::all(
-   "SELECT id,".$codeCol." AS omie_code,client_omie_code,seller_omie_code,".$dateCol." AS service_date,total,status,updated_at
-    FROM service_orders
-    ORDER BY id DESC
-    LIMIT 1000"
+  $rows=DB::all(
+   "SELECT so.id,so.omie_code,so.client_omie_code,so.seller_omie_code,so.service_date,so.total,so.status,so.updated_at,
+           c.name AS client_name,s.name AS seller_name
+    FROM service_orders so
+    LEFT JOIN clients c ON c.omie_code=so.client_omie_code
+    LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code".
+    $sqlWhere."
+    ORDER BY so.service_date DESC,so.id DESC
+    LIMIT 1500",
+   $params
   );
 
-  $rows=[];$monthsMap=[];$total=0.0;$valid=0;$cancelled=0;$withoutSeller=0;
-  $nullDates=0;$nullSellers=0;
+  $stats=DB::one(
+   "SELECT COUNT(*) total_rows,
+           COALESCE(SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN so.total ELSE 0 END),0) total_value,
+           SUM(CASE WHEN UPPER(COALESCE(so.status,'')) LIKE '%CANCEL%' THEN 1 ELSE 0 END) cancelled_rows,
+           SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN 1 ELSE 0 END) valid_rows,
+           SUM(CASE WHEN so.seller_omie_code IS NULL OR so.seller_omie_code='' THEN 1 ELSE 0 END) without_seller
+    FROM service_orders so".$sqlWhere,
+   $params
+  )?:[];
 
-  foreach($allRows as $row){
-   $date=(string)($row['service_date']??'');
-   if($date===''||$date==='0000-00-00'){
-    $nullDates++;
-    $date=!empty($row['updated_at'])?substr((string)$row['updated_at'],0,10):'';
-   }
+  $months=DB::all(
+   "SELECT DATE_FORMAT(service_date,'%Y-%m') month_ref,COUNT(*) total
+    FROM service_orders
+    WHERE service_date IS NOT NULL
+    GROUP BY DATE_FORMAT(service_date,'%Y-%m')
+    ORDER BY month_ref DESC
+    LIMIT 36"
+  );
 
-   $sellerCode=(string)($row['seller_omie_code']??'');
-   if($sellerCode==='')$nullSellers++;
-
-   if($date!==''){
-    $rowMonth=substr($date,0,7);
-    if(preg_match('/^\d{4}-\d{2}$/',$rowMonth))$monthsMap[$rowMonth]=($monthsMap[$rowMonth]??0)+1;
-   }
-
-   if($month!=='all'&&substr($date,0,7)!==$month)continue;
-   if(($u['role']??'')==='seller'&&$sellerCode!==(string)($u['seller_omie_code']??''))continue;
-
-   $row['effective_date']=$date;
-   $row['effective_seller_code']=$sellerCode;
-   $row['seller_name']=null;
-   $row['client_name']=null;
-
-   $statusUpper=strtoupper((string)($row['status']??''));
-   $isCancelled=strpos($statusUpper,'CANCEL')!==false;
-   if($isCancelled)$cancelled++;else{$valid++;$total+=(float)($row['total']??0);}
-   if($sellerCode==='')$withoutSeller++;
-
-   $rows[]=$row;
-  }
-
-  krsort($monthsMap);
-  $months=[];
-  foreach(array_slice($monthsMap,0,36,true) as $ref=>$count)$months[]=['month_ref'=>$ref,'total'=>$count];
+  $health=DB::one(
+   "SELECT COUNT(*) total_table,
+           SUM(CASE WHEN service_date IS NULL THEN 1 ELSE 0 END) null_dates,
+           SUM(CASE WHEN seller_omie_code IS NULL OR seller_omie_code='' THEN 1 ELSE 0 END) null_sellers
+    FROM service_orders"
+  )?:[];
 
   render('services',[
-   'rows'=>$rows,'month'=>$month,'currentMonth'=>$currentMonth,'months'=>$months,
-   'total'=>$total,'valid'=>$valid,'cancelled'=>$cancelled,'withoutSeller'=>$withoutSeller,
-   'totalRows'=>count($rows),
-   'health'=>['total_table'=>count($allRows),'null_dates'=>$nullDates,'null_sellers'=>$nullSellers],
-   'serviceSchema'=>['code'=>$codeCol,'date'=>$dateCol],
+   'rows'=>$rows,
+   'month'=>$month,
+   'currentMonth'=>$currentMonth,
+   'months'=>$months,
+   'total'=>(float)($stats['total_value']??0),
+   'valid'=>(int)($stats['valid_rows']??0),
+   'cancelled'=>(int)($stats['cancelled_rows']??0),
+   'withoutSeller'=>(int)($stats['without_seller']??0),
+   'totalRows'=>(int)($stats['total_rows']??0),
+   'health'=>$health,
+   'serviceSchema'=>['code'=>'omie_code','date'=>'service_date'],
    'serviceError'=>null
   ]);
  }catch(Throwable $e){
