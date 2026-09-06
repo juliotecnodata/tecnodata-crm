@@ -960,3 +960,27 @@ body{background:var(--bg)}
  .results-rank-row{grid-template-columns:28px minmax(0,1fr)}.rank-value{grid-column:2;text-align:left}
  .dashboard-performance-card footer{flex-direction:column;gap:5px}
 }
+
+
+/* Rateio de departamentos no pedido */
+.departments-panel-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;margin-bottom:16px}
+.departments-panel-head h3{margin:2px 0 4px;color:var(--navy);font-size:18px}
+.departments-panel-head p{margin:0;color:var(--muted);font-size:12px}
+.department-distribution{display:flex;flex-direction:column;gap:8px}
+.department-row{display:grid;grid-template-columns:minmax(240px,1fr) 180px auto;gap:10px;align-items:end;background:#FAFBFB;border:1px solid var(--line);border-radius:10px;padding:12px}
+.department-row label{font-size:10px;font-weight:800;color:var(--muted);margin-bottom:5px}
+.department-percent-field{position:relative}
+.department-percent-field input{padding-right:34px}
+.department-percent-field span{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:800;color:var(--muted)}
+.department-remove{width:38px;height:38px;display:grid;place-items:center}
+.department-total-line{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.department-total-line span{font-size:11px;color:var(--muted);font-weight:700}
+.department-total-line strong{font-size:16px;color:var(--navy)}
+.department-total-line strong.is-valid{color:#009657}
+.department-total-line strong.is-invalid{color:#C55252}
+@media(max-width:700px){
+ .departments-panel-head{align-items:flex-start;flex-direction:column}
+ .departments-panel-head .btn{width:100%}
+ .department-row{grid-template-columns:1fr}
+ .department-remove{width:100%}
+}
