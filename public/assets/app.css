@@ -984,3 +984,35 @@ body{background:var(--bg)}
  .department-row{grid-template-columns:1fr}
  .department-remove{width:100%}
 }
+
+
+/* Rascunhos locais de pedidos */
+.orders-drafts-panel{background:#fff;border:1px solid var(--line);border-left:4px solid #FECC00;border-radius:10px;margin-bottom:14px;overflow:hidden}
+.orders-drafts-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:#FFFDF5}
+.orders-drafts-head>div{display:flex;align-items:center;gap:10px}
+.orders-drafts-head>div>span:last-child{display:flex;flex-direction:column}
+.orders-drafts-head strong{font-size:14px;color:var(--navy)}
+.orders-drafts-head small{font-size:11px;color:var(--muted);margin-top:2px}
+.orders-drafts-head>b{min-width:28px;height:28px;border-radius:8px;background:#FFF3BF;color:#7A5B00;display:grid;place-items:center;font-size:12px}
+.orders-drafts-list{display:flex;flex-direction:column}
+.orders-draft-row{display:grid;grid-template-columns:minmax(240px,1.4fr) minmax(160px,.8fr) 150px auto;gap:14px;align-items:center;padding:13px 16px;border-top:1px solid var(--line)}
+.orders-draft-row:first-child{border-top:0}
+.orders-draft-main{display:flex;flex-direction:column}
+.orders-draft-main strong{font-size:13px;color:var(--navy)}
+.orders-draft-main small,.orders-draft-row>div:not(.orders-draft-main):not(.orders-draft-actions)>span{font-size:10px;color:var(--muted)}
+.orders-draft-row>div:not(.orders-draft-main):not(.orders-draft-actions){display:flex;flex-direction:column}
+.orders-draft-row>div:not(.orders-draft-main):not(.orders-draft-actions)>strong{font-size:12px;color:var(--navy);margin-top:2px}
+.orders-draft-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.orders-draft-actions form{margin:0}
+.order-save-draft{border:1px solid #E4C65C!important;background:#FFF8D7!important;color:#6E5500!important}
+.order-save-draft:hover{background:#FFF1A8!important;color:#4F3D00!important}
+@media(max-width:900px){
+ .orders-draft-row{grid-template-columns:1fr 1fr}
+ .orders-draft-main{grid-column:1/-1}
+ .orders-draft-actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media(max-width:560px){
+ .orders-draft-row{grid-template-columns:1fr}
+ .orders-draft-main,.orders-draft-actions{grid-column:auto}
+ .orders-draft-actions .btn{flex:1}
+}
