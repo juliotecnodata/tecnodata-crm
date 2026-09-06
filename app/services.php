@@ -642,43 +642,6 @@ final class OrderService {
  }
 }
 
-final class ServiceOrderCompat {
- private static ?array $columns=null;
- public static function columns(): array{
-  if(self::$columns!==null)return self::$columns;
-  $rows=DB::all("SHOW COLUMNS FROM service_orders");
-  self::$columns=array_map(static fn($r)=>(string)($r['Field']??''),$rows);
-  return self::$columns;
- }
- public static function codeColumn(): string{
-  return in_array('omie_code',self::columns(),true)?'omie_code':'omie_service_order_code';
- }
- public static function dateColumn(): string{
-  return in_array('service_date',self::columns(),true)?'service_date':'inclusion_date';
- }
- public static function has(string $column): bool{
-  return in_array($column,self::columns(),true);
- }
- public static function upsert(array $n,array $raw): void{
-  $codeCol=self::codeColumn();
-  $dateCol=self::dateColumn();
-  if(self::has('display_number')){
-   DB::exec("INSERT INTO service_orders(".$codeCol.",display_number,client_omie_code,seller_omie_code,".$dateCol.",total,status,raw_json,updated_at)
-             VALUES(?,?,?,?,?,?,?,?,NOW())
-             ON DUPLICATE KEY UPDATE display_number=VALUES(display_number),client_omie_code=VALUES(client_omie_code),
-             seller_omie_code=VALUES(seller_omie_code),".$dateCol."=VALUES(".$dateCol."),
-             total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
-    [$n['code'],$n['number']??null,$n['client'],$n['seller']!==''?$n['seller']:null,$n['date'],$n['total'],$n['status'],json_encode($raw,JSON_UNESCAPED_UNICODE)]);
-  }else{
-   DB::exec("INSERT INTO service_orders(".$codeCol.",client_omie_code,seller_omie_code,".$dateCol.",total,status,raw_json,updated_at)
-             VALUES(?,?,?,?,?,?,?,NOW())
-             ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
-             ".$dateCol."=VALUES(".$dateCol."),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
-    [$n['code'],$n['client'],$n['seller']!==''?$n['seller']:null,$n['date'],$n['total'],$n['status'],json_encode($raw,JSON_UNESCAPED_UNICODE)]);
-  }
- }
-}
-
 final class GoalService {
  public static function isVirtualSellerName(string $name): bool{
   $n=mb_strtoupper(trim($name));
@@ -691,12 +654,11 @@ final class GoalService {
    [$sellerCode,$start,$next]
   )??0);
 
-  $serviceDateCol=ServiceOrderCompat::dateColumn();
   $services=(float)(DB::scalar(
    "SELECT COALESCE(SUM(total),0) FROM service_orders
     WHERE seller_omie_code=?
-      AND COALESCE(".$serviceDateCol.",DATE(updated_at))>=?
-      AND COALESCE(".$serviceDateCol.",DATE(updated_at))<?
+      AND service_date>=?
+      AND service_date<?
       AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",
    [$sellerCode,$start,$next]
   )??0);
@@ -968,8 +930,7 @@ final class SyncService {
    if(!is_array($r))continue;
    $n=self::normalizeServiceRecord($r);
    if(!$n||$n['code']==='')continue;
-   $dateCol=ServiceOrderCompat::dateColumn();
-   DB::exec("UPDATE service_orders SET client_omie_code=?,seller_omie_code=?,".$dateCol."=?,total=?,status=?,updated_at=NOW() WHERE id=?",
+   DB::exec("UPDATE service_orders SET client_omie_code=?,seller_omie_code=?,service_date=?,total=?,status=?,updated_at=NOW() WHERE id=?",
     [$n['client'],$n['seller']!==''?$n['seller']:null,$n['date'],$n['total'],$n['status'],(int)$row['id']]);
    $updated++;
   }
@@ -1012,8 +973,7 @@ final class SyncService {
   if($module==='orders'){
    DB::exec("DELETE FROM orders WHERE order_date IS NOT NULL AND YEAR(order_date)<>?",[$year]);
   }elseif($module==='services'){
-   $dateCol=ServiceOrderCompat::dateColumn();
-   DB::exec("DELETE FROM service_orders WHERE ".$dateCol." IS NOT NULL AND YEAR(".$dateCol.")<>?",[$year]);
+   DB::exec("DELETE FROM service_orders WHERE service_date IS NOT NULL AND YEAR(service_date)<>?",[$year]);
   }
  }
  private static function syncWindow(string $module,int $page): array{
@@ -1102,7 +1062,11 @@ final class SyncService {
    foreach($it as $r){
     if(!is_array($r))continue;
     $n=self::normalizeServiceRecord($r);if(!$n)continue;
-    ServiceOrderCompat::upsert($n,$r);
+    DB::exec("INSERT INTO service_orders(omie_code,client_omie_code,seller_omie_code,service_date,total,status,raw_json,updated_at)
+              VALUES(?,?,?,?,?,?,?,NOW())
+              ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
+              service_date=VALUES(service_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
+      [$n['code'],$n['client'],$n['seller']!==''?$n['seller']:null,$n['date'],$n['total'],$n['status'],json_encode($r,JSON_UNESCAPED_UNICODE)]);
    }
    return self::finishWindow('services',$d,$page,count($it),$period);
   }
