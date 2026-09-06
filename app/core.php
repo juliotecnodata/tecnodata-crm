@@ -96,7 +96,12 @@ final class Router {
  public function post(string $p,callable $h): void{$this->add('POST',$p,$h);}
  private function add(string $m,string $p,callable $h): void{
   $rx=preg_replace('#\{([a-zA-Z_][a-zA-Z0-9_]*)\}#','(?P<$1>[^/]+)',$p);
-  $this->routes[]=[$m,'#^'.$rx.'$#',$h];
+  $dynamic=str_contains($p,'{');
+  $this->routes[]=[$m,'#^'.$rx.'$#',$h,$dynamic];
+  usort($this->routes,static function($a,$b){
+   if($a[0]!==$b[0])return 0;
+   return ((int)$a[3])<=>((int)$b[3]);
+  });
  }
  public function dispatch(string $method,string $path): void{
   foreach($this->routes as [$m,$rx,$h]){
