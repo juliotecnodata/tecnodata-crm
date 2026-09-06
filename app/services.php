@@ -993,6 +993,33 @@ final class SyncService {
    'message'=>'Módulo zerado: todos os dados locais desta sincronização foram excluídos. Nenhuma nova sincronização foi iniciada.'
   ];
  }
+ public static function prepareCatchup(string $module): array{
+  if(!in_array($module,['orders','services'],true))throw new RuntimeException('Atualização de lacuna disponível somente para Pedidos e Serviços.');
+  $table=$module==='orders'?'orders':'service_orders';
+  $dateColumn=$module==='orders'?'order_date':'service_date';
+  $lastLocal=(string)(DB::scalar("SELECT MAX(".$dateColumn.") FROM ".$table." WHERE ".$dateColumn." IS NOT NULL")??'');
+  if($lastLocal===''){
+   $startIso=date('Y-01-01');
+  }else{
+   $startIso=date('Y-m-d',strtotime($lastLocal.' +1 day'));
+  }
+  $today=date('Y-m-d');
+  if(strtotime($startIso)>strtotime($today)){
+   $startIso=date('Y-m-d',strtotime('-4 days'));
+  }
+  $ctx=[
+   'start'=>date('d/m/Y',strtotime($startIso)),
+   'end'=>date('d/m/Y',strtotime($today)),
+   'mode'=>'catchup_missing_period',
+   'forced'=>true,
+   'last_local_date'=>$lastLocal?:null
+  ];
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   [$module,json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  return $ctx;
+ }
  public static function prepareLastFiveDays(string $module): array{
   if(!in_array($module,['orders','services'],true))throw new RuntimeException('A busca dos últimos 5 dias está disponível somente para Pedidos e Serviços.');
   $ctx=['start'=>date('d/m/Y',strtotime('-4 days')),'end'=>date('d/m/Y'),'mode'=>'forced_last_5_days','forced'=>true];
