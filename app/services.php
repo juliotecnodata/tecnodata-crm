@@ -41,9 +41,12 @@ final class CRMService {
  public static function dashboard(array $u): array{
   $start=date('Y-m-01');$next=date('Y-m-d',strtotime($start.' +1 month'));
   if($u['role']==='seller'){
-   $sales=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$u['seller_omie_code'],$start,$next])??0);
+   $orders=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$u['seller_omie_code'],$start,$next])??0);
+   $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$u['seller_omie_code'],$start,$next])??0);
+   $sales=$orders+$services;
    $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE seller_omie_code=? AND active=1",[$u['seller_omie_code']])??0);
-   $tasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending'",[(int)$u['id']])??0);return compact('sales','clients','tasks');
+   $tasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending'",[(int)$u['id']])??0);
+   return compact('sales','orders','services','clients','tasks');
   }
   if($u['role']==='collector'){
    $debt=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
