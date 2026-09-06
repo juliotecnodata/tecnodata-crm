@@ -7,12 +7,85 @@ function render(string $name,array $vars=[]): void{
   <?php break;
   case 'dashboard':
    $data=is_array($data??null)?$data:[];
-   $data+=['sales'=>0.0,'debt'=>0.0,'clients'=>0,'late'=>0,'tasks'=>0,'worked'=>0,'recovered'=>0.0];
+   $data+=['sales'=>0.0,'orders'=>0.0,'services'=>0.0,'debt'=>0.0,'clients'=>0,'late'=>0,'tasks'=>0,'worked'=>0,'recovered'=>0.0];
+   $firstName=e(explode(' ',trim((string)$u['name']))[0]??'');
    ?>
-   <div class="page-head"><div><span class="eyebrow">HOJE</span><h1><?=e(explode(' ',trim((string)$u['name']))[0]??'')?></h1><p>Somente o que precisa de atenção agora.</p></div></div>
-   <?php if($u['role']==='seller'):?><div class="metric-row"><div><span>Vendas no mês</span><strong><?=money($data['sales'])?></strong></div><div><span>Clientes</span><strong><?=$data['clients']?></strong></div><div><span>Retornos</span><strong><?=$data['tasks']?></strong></div></div><div class="quick-actions"><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i><div><strong>Novo pedido</strong><small>Enviar para Omie</small></div></a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><div><strong>Clientes</strong><small>Trabalhar carteira</small></div></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><div><strong>Agenda</strong><small>Retornos</small></div></a></div>
-   <?php elseif($u['role']==='collector'):?><div class="metric-row"><div><span>Saldo em cobrança</span><strong><?=money($data['debt'])?></strong></div><div><span>Trabalhados</span><strong><?=$data['worked']?></strong></div><div><span>Recuperado</span><strong><?=money($data['recovered'])?></strong></div></div><div class="quick-actions"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><div><strong>Cobrança</strong><small>Priorizar carteira</small></div></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><div><strong>Agenda</strong><small>Promessas</small></div></a></div>
-   <?php else:?><div class="metric-row management-metrics"><div><span>Vendas no mês</span><strong><?=money($data['sales'])?></strong><small><?=number_format($data['sales_percent'],1,',','.')?>% da meta geral</small></div><div><span>Recuperado no mês</span><strong><?=money($data['recovered'])?></strong><small><?=number_format($data['collection_percent'],1,',','.')?>% da meta de cobrança</small></div><div><span>Saldo cobrança</span><strong><?=money($data['debt'])?></strong></div><div><span>Clientes</span><strong><?=$data['clients']?></strong><small><?=$data['late']?> retorno(s) atrasado(s)</small></div></div><div class="quick-actions"><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><div><strong>Resultados</strong><small>Equipe, metas e atingimento</small></div></a><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i><div><strong>Novo pedido</strong><small>Operação comercial</small></div></a><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><div><strong>Cobrança</strong><small>Carteira financeira</small></div></a></div><?php endif;?>
+   <div class="dashboard-hero">
+    <div>
+     <span class="dashboard-kicker"><i class="fa-solid fa-sparkles"></i> VISÃO DE HOJE</span>
+     <h1>Olá, <?=$firstName?></h1>
+     <p>Uma leitura rápida do que está acontecendo agora na operação.</p>
+    </div>
+    <div class="dashboard-date">
+     <span><?=date('d/m/Y')?></span>
+     <small><?=date('H:i')?></small>
+    </div>
+   </div>
+
+   <?php if($u['role']==='seller'):?>
+    <div class="dashboard-kpis">
+     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-chart-line"></i></span><div><small>Vendas + serviços</small><strong><?=money($data['sales'])?></strong><span>resultado do mês</span></div></div>
+     <div class="dashboard-kpi kpi-blue"><span class="dashboard-kpi-icon"><i class="fa-solid fa-receipt"></i></span><div><small>Pedidos</small><strong><?=money($data['orders']??0)?></strong><span>pedidos do mês</span></div></div>
+     <div class="dashboard-kpi kpi-cyan"><span class="dashboard-kpi-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><small>Serviços</small><strong><?=money($data['services']??0)?></strong><span>serviços do mês</span></div></div>
+     <div class="dashboard-kpi kpi-yellow"><span class="dashboard-kpi-icon"><i class="fa-solid fa-users"></i></span><div><small>Minha carteira</small><strong><?=number_format((int)$data['clients'],0,',','.')?></strong><span>clientes ativos</span></div></div>
+     <div class="dashboard-kpi kpi-orange"><span class="dashboard-kpi-icon"><i class="fa-regular fa-calendar-check"></i></span><div><small>Retornos</small><strong><?=number_format((int)$data['tasks'],0,',','.')?></strong><span>tarefas pendentes</span></div></div>
+    </div>
+    <div class="dashboard-section-head"><div><span>AÇÕES RÁPIDAS</span><h2>O que você quer fazer?</h2></div></div>
+    <div class="dashboard-actions">
+     <a class="action-green" href="<?=APP_URL?>/orders/new"><span><i class="fa-solid fa-plus"></i></span><div><strong>Novo pedido</strong><small>Criar e enviar para Omie</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-blue" href="<?=APP_URL?>/clients"><span><i class="fa-solid fa-users"></i></span><div><strong>Clientes</strong><small>Trabalhar minha carteira</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Ver retornos e compromissos</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-orange" href="<?=APP_URL?>/result"><span><i class="fa-solid fa-bullseye"></i></span><div><strong>Meu resultado</strong><small>Acompanhar meta e atingimento</small></div><i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+
+   <?php elseif($u['role']==='collector'):?>
+    <div class="dashboard-kpis dashboard-kpis-collector">
+     <div class="dashboard-kpi kpi-red"><span class="dashboard-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Saldo em cobrança</small><strong><?=money($data['debt'])?></strong><span>carteira aberta</span></div></div>
+     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-money-bill-trend-up"></i></span><div><small>Recuperado</small><strong><?=money($data['recovered'])?></strong><span>resultado do mês</span></div></div>
+     <div class="dashboard-kpi kpi-blue"><span class="dashboard-kpi-icon"><i class="fa-solid fa-user-check"></i></span><div><small>Trabalhados</small><strong><?=number_format((int)$data['worked'],0,',','.')?></strong><span>clientes acionados</span></div></div>
+    </div>
+    <div class="dashboard-section-head"><div><span>AÇÕES RÁPIDAS</span><h2>Prioridades de cobrança</h2></div></div>
+    <div class="dashboard-actions">
+     <a class="action-red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Priorizar carteira de devedores</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Promessas e retornos</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-green" href="<?=APP_URL?>/result"><span><i class="fa-solid fa-chart-line"></i></span><div><strong>Meu resultado</strong><small>Recuperação e meta</small></div><i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+
+   <?php else:
+    $mg=$data['management']??[];
+   ?>
+    <div class="dashboard-kpis">
+     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-chart-column"></i></span><div><small>Vendas + serviços</small><strong><?=money($data['sales'])?></strong><span><?=number_format((float)$data['sales_percent'],1,',','.')?>% da meta geral</span></div></div>
+     <div class="dashboard-kpi kpi-blue"><span class="dashboard-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Recuperado</small><strong><?=money($data['recovered'])?></strong><span><?=number_format((float)$data['collection_percent'],1,',','.')?>% da meta</span></div></div>
+     <div class="dashboard-kpi kpi-red"><span class="dashboard-kpi-icon"><i class="fa-solid fa-circle-dollar-to-slot"></i></span><div><small>Saldo cobrança</small><strong><?=money($data['debt'])?></strong><span>em aberto</span></div></div>
+     <div class="dashboard-kpi kpi-yellow"><span class="dashboard-kpi-icon"><i class="fa-solid fa-users"></i></span><div><small>Clientes</small><strong><?=number_format((int)$data['clients'],0,',','.')?></strong><span><?=number_format((int)$data['late'],0,',','.')?> retorno(s) atrasado(s)</span></div></div>
+    </div>
+
+    <?php if(!empty($mg)):?>
+    <div class="dashboard-performance-grid">
+     <div class="dashboard-performance-card performance-sales">
+      <header><span><i class="fa-solid fa-bullseye"></i></span><div><small>META COMERCIAL</small><strong>Vendas + serviços</strong></div><b><?=number_format((float)$mg['sales_percent'],1,',','.')?>%</b></header>
+      <div class="dashboard-performance-value"><strong><?=money($mg['sales'])?></strong><span>de <?=money($mg['effective_sales_goal'])?></span></div>
+      <div class="dashboard-progress"><span style="width:<?=min(100,(float)$mg['sales_percent'])?>%"></span></div>
+      <footer><span>Pedidos <strong><?=money($mg['order_sales'])?></strong></span><span>Serviços <strong><?=money($mg['service_sales'])?></strong></span></footer>
+     </div>
+     <div class="dashboard-performance-card performance-collection">
+      <header><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>META DE COBRANÇA</small><strong>Recuperação</strong></div><b><?=number_format((float)$mg['collection_percent'],1,',','.')?>%</b></header>
+      <div class="dashboard-performance-value"><strong><?=money($mg['recovered'])?></strong><span>de <?=money($mg['effective_collection_goal'])?></span></div>
+      <div class="dashboard-progress"><span style="width:<?=min(100,(float)$mg['collection_percent'])?>%"></span></div>
+      <footer><span>Contatos <strong><?=number_format((int)$mg['contacts'],0,',','.')?></strong></span><span>Meta contatos <strong><?=number_format((int)$mg['effective_contact_goal'],0,',','.')?></strong></span></footer>
+     </div>
+    </div>
+    <?php endif;?>
+
+    <div class="dashboard-section-head"><div><span>GESTÃO</span><h2>Acessos principais</h2></div></div>
+    <div class="dashboard-actions">
+     <a class="action-green" href="<?=APP_URL?>/result"><span><i class="fa-solid fa-chart-column"></i></span><div><strong>Resultados</strong><small>Equipe, metas e atingimento</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-blue" href="<?=APP_URL?>/orders"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Pedidos</strong><small>Produção comercial</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-cyan" href="<?=APP_URL?>/services"><span><i class="fa-solid fa-screwdriver-wrench"></i></span><div><strong>Serviços</strong><small>Ordens de serviço Omie</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="action-red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Carteira financeira</small></div><i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+   <?php endif;?>
   <?php break;
   case 'clients':?>
    <div class="page-head"><div><span class="eyebrow">COMERCIAL</span><h1>Clientes</h1><p>Cadastro, consulta e manutenção da carteira sincronizada com a Omie.</p></div><div class="page-head-actions"><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/test-create"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-secondary" type="submit" data-confirm="Criar um cliente fictício somente no CRM para testar a integração com a Omie?"><i class="fa-solid fa-flask"></i>Cliente de teste</button></form><?php endif;?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-receipt"></i>Novo pedido</a><a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div></div>
@@ -497,22 +570,127 @@ function render(string $name,array $vars=[]): void{
    <div class="page-head"><div><span class="eyebrow">AGENDA</span><h1>Retornos</h1><p>Em ordem de horário.</p></div></div><div class="agenda-list"><?php foreach($rows as $r):?><div class="agenda-item <?=strtotime($r['due_at'])<time()?'late':''?>"><div><strong><?=date('H:i',strtotime($r['due_at']))?></strong><small><?=date('d/m',strtotime($r['due_at']))?></small></div><div><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/<?=$r['type']==='collection'?'collection':'clients'?>/<?=$r['client_id']?>">Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light">Concluir</button></form></div><?php endforeach;?></div>
   <?php break;
   case 'management_result':$g=$management['general_goal'];?>
-   <div class="page-head"><div><span class="eyebrow">GESTÃO • <?=e($month)?></span><h1>Resultados da operação</h1><p>Admin e supervisor enxergam o consolidado e cada responsável que compõe a meta geral.</p></div><form method="get"><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></form></div>
-   <div class="management-summary">
-    <div class="management-kpi primary"><span>Vendas + serviços</span><strong><?=money($management['sales'])?></strong><small>pedidos <?=money($management['order_sales'])?> • serviços <?=money($management['service_sales'])?> • meta geral <?=money($management['effective_sales_goal'])?></small><div class="progress-line"><span style="width:<?=min(100,$management['sales_percent'])?>%"></span></div><b><?=number_format($management['sales_percent'],1,',','.')?>%</b></div>
-    <div class="management-kpi"><span>Recuperado</span><strong><?=money($management['recovered'])?></strong><small>meta <?=money($management['effective_collection_goal'])?></small><div class="progress-line light"><span style="width:<?=min(100,$management['collection_percent'])?>%"></span></div><b><?=number_format($management['collection_percent'],1,',','.')?>%</b></div>
-    <div class="management-kpi"><span>Contatos / ações</span><strong><?=$management['contacts']?></strong><small>meta <?=$management['effective_contact_goal']?></small><div class="progress-line light"><span style="width:<?=min(100,$management['contact_percent'])?>%"></span></div><b><?=number_format($management['contact_percent'],1,',','.')?>%</b></div>
+   <div class="results-hero">
+    <div>
+     <span class="results-kicker"><i class="fa-solid fa-chart-line"></i> PERFORMANCE DA OPERAÇÃO</span>
+     <h1>Resultados</h1>
+     <p>Visão consolidada de vendas, serviços, cobrança e atingimento das metas.</p>
+    </div>
+    <form method="get" class="results-period">
+     <label>Período</label>
+     <input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()">
+    </form>
    </div>
-   <div class="management-columns mt-3">
-    <div class="panel"><div class="panel-title-row"><div><span class="eyebrow">COMERCIAL</span><h2>Vendedores</h2></div><small>Somam na meta geral de vendas.</small></div><div class="result-ranking"><?php foreach($management['sellers'] as $row):$usr=$row['user'];?><div><span><strong><?=e($usr['name'])?></strong><small><?=money($row['sales'])?> de <?=money($row['goal']['sales_goal'])?></small></span><div><b><?=number_format($row['sales_percent'],1,',','.')?>%</b><div class="mini-progress"><span style="width:<?=min(100,$row['sales_percent'])?>%"></span></div></div></div><?php endforeach;?></div></div>
-    <div class="panel"><div class="panel-title-row"><div><span class="eyebrow">COBRANÇA</span><h2>Recuperação</h2></div><small>Somam na meta geral de recuperação.</small></div><div class="result-ranking"><?php foreach($management['collectors'] as $row):$usr=$row['user'];?><div><span><strong><?=e($usr['name'])?></strong><small><?=money($row['recovered'])?> de <?=money($row['goal']['collection_goal'])?></small></span><div><b><?=number_format($row['collection_percent'],1,',','.')?>%</b><div class="mini-progress"><span style="width:<?=min(100,$row['collection_percent'])?>%"></span></div></div></div><?php endforeach;?></div></div>
+
+   <div class="results-kpis">
+    <div class="results-kpi result-green">
+     <div class="results-kpi-head"><span><i class="fa-solid fa-sack-dollar"></i></span><b><?=number_format($management['sales_percent'],1,',','.')?>%</b></div>
+     <small>VENDAS + SERVIÇOS</small><strong><?=money($management['sales'])?></strong>
+     <p>Meta <?=money($management['effective_sales_goal'])?></p>
+     <div class="results-progress"><span style="width:<?=min(100,$management['sales_percent'])?>%"></span></div>
+    </div>
+    <div class="results-kpi result-blue">
+     <div class="results-kpi-head"><span><i class="fa-solid fa-receipt"></i></span><b>Pedidos</b></div>
+     <small>PRODUÇÃO EM PEDIDOS</small><strong><?=money($management['order_sales'])?></strong>
+     <p>Componente do realizado comercial</p>
+    </div>
+    <div class="results-kpi result-cyan">
+     <div class="results-kpi-head"><span><i class="fa-solid fa-screwdriver-wrench"></i></span><b>Serviços</b></div>
+     <small>PRODUÇÃO EM SERVIÇOS</small><strong><?=money($management['service_sales'])?></strong>
+     <p>Componente do realizado comercial</p>
+    </div>
+    <div class="results-kpi result-orange">
+     <div class="results-kpi-head"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><b><?=number_format($management['collection_percent'],1,',','.')?>%</b></div>
+     <small>RECUPERADO</small><strong><?=money($management['recovered'])?></strong>
+     <p>Meta <?=money($management['effective_collection_goal'])?></p>
+     <div class="results-progress"><span style="width:<?=min(100,$management['collection_percent'])?>%"></span></div>
+    </div>
    </div>
-   <?php if(!empty($management['virtual_sellers'])):?><div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">VENDEDORES VIRTUAIS</span><h2>Canais que também fecham a meta</h2></div><small>EAD Reciclagem e Suporte - Pet Cursos entram no consolidado mesmo sem usuário operacional.</small></div><div class="result-ranking"><?php foreach($management['virtual_sellers'] as $row):?><div class="<?=!empty($row['ead_reciclagem'])?'virtual-highlight':''?>"><span><strong><?=e($row['seller']['name'])?></strong><small>pedidos <?=money($row['orders'])?> • serviços <?=money($row['services'])?><?php if(!empty($row['ead_reciclagem'])):?> • soma no realizado da meta<?php endif;?></small></span><div><b><?=money($row['sales'])?></b></div></div><?php endforeach;?></div></div><?php endif;?>
+
+   <div class="results-columns">
+    <section class="results-panel">
+     <header class="results-panel-head">
+      <div><span class="results-panel-icon green"><i class="fa-solid fa-user-tie"></i></span><div><small>COMERCIAL</small><h2>Vendedores</h2><p>Produção individual e avanço sobre a meta.</p></div></div>
+     </header>
+     <div class="results-ranking">
+      <?php foreach($management['sellers'] as $idx=>$row):$usr=$row['user'];?>
+       <div class="results-rank-row">
+        <span class="rank-number"><?=($idx+1)?></span>
+        <div class="rank-person"><strong><?=e($usr['name'])?></strong><small><?=money($row['sales'])?> de <?=money($row['goal']['sales_goal'])?></small></div>
+        <div class="rank-value"><strong><?=number_format($row['sales_percent'],1,',','.')?>%</strong><div class="rank-progress green"><span style="width:<?=min(100,$row['sales_percent'])?>%"></span></div></div>
+       </div>
+      <?php endforeach;?>
+      <?php if(!$management['sellers']):?><div class="results-empty">Nenhum vendedor com usuário vinculado.</div><?php endif;?>
+     </div>
+    </section>
+
+    <section class="results-panel">
+     <header class="results-panel-head">
+      <div><span class="results-panel-icon orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>COBRANÇA</small><h2>Recuperação</h2><p>Resultado individual da equipe de cobrança.</p></div></div>
+     </header>
+     <div class="results-ranking">
+      <?php foreach($management['collectors'] as $idx=>$row):$usr=$row['user'];?>
+       <div class="results-rank-row">
+        <span class="rank-number"><?=($idx+1)?></span>
+        <div class="rank-person"><strong><?=e($usr['name'])?></strong><small><?=money($row['recovered'])?> de <?=money($row['goal']['collection_goal'])?></small></div>
+        <div class="rank-value"><strong><?=number_format($row['collection_percent'],1,',','.')?>%</strong><div class="rank-progress orange"><span style="width:<?=min(100,$row['collection_percent'])?>%"></span></div></div>
+       </div>
+      <?php endforeach;?>
+      <?php if(!$management['collectors']):?><div class="results-empty">Nenhum responsável de cobrança encontrado.</div><?php endif;?>
+     </div>
+    </section>
+   </div>
+
+   <?php if(!empty($management['virtual_sellers'])):?>
+   <section class="results-panel virtual-results-panel">
+    <header class="results-panel-head">
+     <div><span class="results-panel-icon blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><h2>Canais automáticos</h2><p>EAD Reciclagem e Suporte - Pet Cursos também possuem meta própria.</p></div></div>
+    </header>
+    <div class="virtual-results-grid">
+     <?php foreach($management['virtual_sellers'] as $row):$goal=(float)($row['goal']['sales_goal']??0);?>
+      <div class="virtual-result-card <?=!empty($row['ead_reciclagem'])?'ead':'pet'?>">
+       <header><span><i class="fa-solid <?=!empty($row['ead_reciclagem'])?'fa-graduation-cap':'fa-headset'?>"></i></span><div><small>VENDEDOR VIRTUAL</small><strong><?=e($row['seller']['name'])?></strong></div><b><?=number_format($row['sales_percent']??0,1,',','.')?>%</b></header>
+       <div class="virtual-result-value"><strong><?=money($row['sales'])?></strong><span>de <?=money($goal)?></span></div>
+       <div class="rank-progress <?=!empty($row['ead_reciclagem'])?'green':'blue'?>"><span style="width:<?=min(100,$row['sales_percent']??0)?>%"></span></div>
+       <footer><span><i class="fa-solid fa-receipt"></i> Pedidos <strong><?=money($row['orders'])?></strong></span><span><i class="fa-solid fa-screwdriver-wrench"></i> Serviços <strong><?=money($row['services'])?></strong></span></footer>
+      </div>
+     <?php endforeach;?>
+    </div>
+   </section>
+   <?php endif;?>
   <?php break;
   case 'result':$u=$result['user'];$g=$result['goal'];?>
-   <div class="page-head"><div><span class="eyebrow">RESULTADO • <?=e((string)($g['month_ref']??date('Y-m')))?></span><h1>Meu resultado</h1><p>Meta e realizado sem relatórios desnecessários.</p></div></div>
-   <?php if($u['role']==='seller'):?><div class="result-focus"><div class="result-main"><span>Vendas + serviços</span><strong><?=money($result['sales'])?></strong><small>pedidos <?=money($result['orders_sales']??0)?> • serviços <?=money($result['services_sales']??0)?> • meta <?=money($g['sales_goal'])?></small><div class="progress-line"><span style="width:<?=min(100,$result['sales_percent'])?>%"></span></div></div><div><span>Atingimento</span><strong><?=number_format($result['sales_percent'],1,',','.')?>%</strong></div><div><span>Contatos</span><strong><?=$result['contacts']?></strong><small>meta <?=(int)$g['contact_goal']?></small></div></div>
-   <?php elseif($u['role']==='collector'):?><div class="result-focus"><div class="result-main"><span>Recuperado</span><strong><?=money($result['recovered'])?></strong><small>meta <?=money($g['collection_goal'])?></small><div class="progress-line"><span style="width:<?=min(100,$result['collection_percent'])?>%"></span></div></div><div><span>Atingimento</span><strong><?=number_format($result['collection_percent'],1,',','.')?>%</strong></div><div><span>Ações</span><strong><?=$result['contacts']?></strong><small>meta <?=(int)$g['contact_goal']?></small></div></div><?php endif;?>
+   <div class="results-hero personal-result-hero">
+    <div>
+     <span class="results-kicker"><i class="fa-solid fa-bullseye"></i> RESULTADO PESSOAL</span>
+     <h1>Meu resultado</h1>
+     <p>Acompanhe seu realizado, meta e ritmo do mês em uma única visão.</p>
+    </div>
+    <div class="personal-period"><span>Período</span><strong><?=e((string)($g['month_ref']??date('Y-m')))?></strong></div>
+   </div>
+
+   <?php if($u['role']==='seller'):?>
+    <div class="personal-result-grid">
+     <div class="personal-main-card seller-main">
+      <header><span><i class="fa-solid fa-chart-line"></i></span><div><small>REALIZADO COMERCIAL</small><strong>Vendas + serviços</strong></div><b><?=number_format($result['sales_percent'],1,',','.')?>%</b></header>
+      <div class="personal-main-value"><strong><?=money($result['sales'])?></strong><span>de <?=money($g['sales_goal'])?></span></div>
+      <div class="personal-progress"><span style="width:<?=min(100,$result['sales_percent'])?>%"></span></div>
+      <footer><div><small>Pedidos</small><strong><?=money($result['orders_sales']??0)?></strong></div><div><small>Serviços</small><strong><?=money($result['services_sales']??0)?></strong></div></footer>
+     </div>
+     <div class="personal-side-card blue"><span><i class="fa-solid fa-address-book"></i></span><small>CONTATOS</small><strong><?=$result['contacts']?></strong><p>meta <?=(int)$g['contact_goal']?></p></div>
+     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['sales_percent'],1,',','.')?>%</strong><p>da meta comercial</p></div>
+    </div>
+   <?php elseif($u['role']==='collector'):?>
+    <div class="personal-result-grid">
+     <div class="personal-main-card collector-main">
+      <header><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>RECUPERAÇÃO</small><strong>Valor recuperado</strong></div><b><?=number_format($result['collection_percent'],1,',','.')?>%</b></header>
+      <div class="personal-main-value"><strong><?=money($result['recovered'])?></strong><span>de <?=money($g['collection_goal'])?></span></div>
+      <div class="personal-progress orange"><span style="width:<?=min(100,$result['collection_percent'])?>%"></span></div>
+     </div>
+     <div class="personal-side-card orange"><span><i class="fa-solid fa-phone"></i></span><small>AÇÕES</small><strong><?=$result['contacts']?></strong><p>meta <?=(int)$g['contact_goal']?></p></div>
+     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['collection_percent'],1,',','.')?>%</strong><p>da meta de recuperação</p></div>
+    </div>
+   <?php endif;?>
   <?php break;
   case 'users':$editing=$edit??null;?>
    <div class="page-head"><div><span class="eyebrow">SISTEMA</span><h1>Usuários</h1><p>Perfis simples e vínculo do vendedor com a Omie.</p></div><?php if($editing):?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/users">Novo usuário</a><?php endif;?></div>
