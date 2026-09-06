@@ -649,7 +649,31 @@ final class GoalService {
  }
  private static function sellerProduction(string $sellerCode,string $start,string $next): array{
   $orders=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$sellerCode,$start,$next])??0);
-  $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$sellerCode,$start,$next])??0);
+
+  $serviceDateExpr="COALESCE(
+    STR_TO_DATE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.InfoCadastro.dDtInc')),''),'%d/%m/%Y'),
+    STR_TO_DATE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.infoCadastro.dDtInc')),''),'%d/%m/%Y'),
+    STR_TO_DATE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.InfoCadastro.dDtInclusao')),''),'%d/%m/%Y'),
+    service_date,
+    DATE(updated_at)
+  )";
+  $serviceSellerExpr="COALESCE(
+    NULLIF(seller_omie_code,''),
+    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.Cabecalho.nCodVend')),''),
+    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.Cabecalho.nCodVendedor')),''),
+    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.InformacoesAdicionais.nCodVend')),''),
+    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.InformacoesAdicionais.nCodVendedor')),''),
+    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.InformacoesAdicionais.cCodVendedor')),'')
+  )";
+  $services=(float)(DB::scalar(
+    "SELECT COALESCE(SUM(total),0) FROM service_orders
+     WHERE ".$serviceSellerExpr."=?
+       AND ".$serviceDateExpr.">=?
+       AND ".$serviceDateExpr."<?
+       AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",
+    [$sellerCode,$start,$next]
+  )??0);
+
   return ['orders'=>$orders,'services'=>$services,'total'=>$orders+$services];
  }
  public static function userMonth(int $userId,string $month): array{
