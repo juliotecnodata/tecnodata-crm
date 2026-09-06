@@ -353,6 +353,7 @@ $router->post('/api/sync',function(){
  $module=(string)($_POST['module']??'');$action=(string)($_POST['action']??'sync');$page=(int)($_POST['page']??1);
  try{
   if($action==='reset')json_response(['ok'=>true]+SyncService::resetState($module));
+  if($action==='catchup'&&$page<=1){SyncService::prepareCatchup($module);$page=1;}
   if($action==='last5'&&$page<=1){SyncService::prepareLastFiveDays($module);$page=1;}
   if($action==='full'&&$page<=1){SyncService::prepareFull($module);$page=1;}
   if($action==='resume'&&$page<=0)$page=SyncService::resumePage($module);
