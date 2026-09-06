@@ -473,7 +473,61 @@ final class OrderService {
  public static function defaults(): array{
   $j=DB::scalar("SELECT value_json FROM settings WHERE setting_key='order_defaults'");
   $d=$j?json_decode((string)$j,true):[];
-  return is_array($d)?$d:[];
+  if(!is_array($d))$d=[];
+
+  $changed=false;
+
+  if(empty($d['stage'])){
+   $row=DB::one("SELECT code FROM order_stages WHERE active=1 ORDER BY code LIMIT 1");
+   if($row&&!empty($row['code'])){$d['stage']=(string)$row['code'];$changed=true;}
+  }
+
+  if(empty($d['category'])){
+   $row=DB::one("SELECT code FROM categories WHERE active=1 ORDER BY code LIMIT 1");
+   if($row&&!empty($row['code'])){$d['category']=(string)$row['code'];$changed=true;}
+  }
+
+  if(empty($d['account'])){
+   $row=DB::one("SELECT omie_code FROM financial_accounts WHERE active=1 ORDER BY selected DESC,name,omie_code LIMIT 1");
+   if($row&&!empty($row['omie_code'])){$d['account']=(string)$row['omie_code'];$changed=true;}
+  }
+
+  if(empty($d['payment_term'])){
+   $row=DB::one("SELECT code FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY code LIMIT 1");
+   if($row&&!empty($row['code'])){$d['payment_term']=(string)$row['code'];$changed=true;}
+  }
+
+  if(empty($d['payment_method'])){
+   $row=DB::one("SELECT code FROM payment_methods ORDER BY description,code LIMIT 1");
+   if($row&&!empty($row['code'])){$d['payment_method']=(string)$row['code'];$changed=true;}
+  }
+
+  if(empty($d['document_type'])){
+   $row=DB::one("SELECT code FROM document_types ORDER BY description,code LIMIT 1");
+   if($row&&!empty($row['code'])){$d['document_type']=(string)$row['code'];$changed=true;}
+  }
+
+  if(empty($d['tax_scenario'])){
+   $row=DB::one("SELECT omie_code FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1");
+   if($row&&!empty($row['omie_code'])){$d['tax_scenario']=(string)$row['omie_code'];$changed=true;}
+  }
+
+  if(empty($d['stock_location'])){
+   $row=DB::one("SELECT omie_code FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1");
+   if($row&&!empty($row['omie_code'])){$d['stock_location']=(string)$row['omie_code'];$changed=true;}
+  }
+
+  $d['consumer_final']=($d['consumer_final']??'S')==='N'?'N':'S';
+  $d['send_email']=($d['send_email']??'N')==='S'?'S':'N';
+  $d['freight_mode']=in_array((string)($d['freight_mode']??'9'),['0','1','2','3','4','9'],true)?(string)($d['freight_mode']??'9'):'9';
+
+  if($changed){
+   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('order_defaults',?,NOW())
+             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+    [json_encode($d,JSON_UNESCAPED_UNICODE)]);
+  }
+
+  return $d;
  }
  public static function saveDefaults(array $i): void{
   $d=[
