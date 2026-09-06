@@ -854,7 +854,12 @@ final class OrderService {
  }
  public static function send(array $i,array $u): array{
   $b=self::build($i,$u);
-  if(!empty($b['existing']))return ['code'=>(string)($b['existing']['omie_order_code']??''),'number'=>(string)($b['existing']['omie_order_number']??''),'total'=>$b['total'],'reused'=>true];
+  if(!empty($b['existing'])){
+   $code=(string)($b['existing']['omie_order_code']??'');
+   $number=(string)($b['existing']['omie_order_number']??'');
+   self::markDraftSent($i,$code,$number);
+   return ['code'=>$code,'number'=>$number,'total'=>$b['total'],'reused'=>true];
+  }
   $o=new OmieClient();
   try{
    $res=$o->call('orders','IncluirPedido',$b['payload']);
