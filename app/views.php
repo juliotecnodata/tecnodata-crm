@@ -405,7 +405,7 @@ function render(string $name,array $vars=[]): void{
   <?php break;
   case 'order_new':$error=$_SESSION['error']??null;$preview=$_SESSION['preview']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['old']);$d=$ready['defaults'];?>
    <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1>Novo pedido</h1><p>Fluxo inspirado no Omie: cabeçalho operacional fixo e conteúdo organizado por abas horizontais.</p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
-   <?php if(!$ready['ok']):?><div class="alert alert-warning">Configuração incompleta: <?=e(implode(', ',$ready['missing']))?>.</div><?php endif;?><?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
+   <?php if(!$ready['ok']):$missingLabels=['stage'=>'Etapas','category'=>'Categorias','account'=>'Contas correntes','payment_term'=>'Condições de pagamento','products'=>'Produtos com preço','payment_terms'=>'Condições de pagamento'];$missingText=array_map(fn($k)=>$missingLabels[$k]??$k,$ready['missing']);?><div class="alert alert-warning"><strong>Faltam dados para criar pedidos:</strong> <?=e(implode(', ',$missingText))?>. <a href="<?=APP_URL?>/sync">Abra a Central de Sincronização</a> e sincronize somente os módulos indicados.</div><?php endif;?><?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
 
    <form method="post" action="<?=APP_URL?>/orders" id="orderForm" class="omie-order-form">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
