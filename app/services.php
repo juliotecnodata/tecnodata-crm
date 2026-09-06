@@ -996,21 +996,49 @@ final class SyncService {
   if($m==='services'){
    $period=self::syncWindow('services',$page);
    $d=$o->call('services','ListarOS',[
-    'pagina'=>$page,'registros_por_pagina'=>100,
+    'pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N',
     'filtrar_por_data_de'=>$period['start'],'filtrar_por_data_ate'=>$period['end'],
-    'filtrar_apenas_inclusao'=>'N'
+    'filtrar_apenas_inclusao'=>'N','filtrar_apenas_alteracao'=>'N'
    ]);
-   $it=self::pick($d,['osCadastro','ordens_servico']);
+   $it=self::pick($d,['osCadastro','ordens_servico','cadastros']);
    foreach($it as $r){
-    $cab=$r['Cabecalho']??$r['cabecalho']??$r;
-    $code=(string)($cab['nCodOS']??$cab['codigo_os']??'');if($code==='')continue;
+    if(!is_array($r))continue;
+    $cab=(array)($r['Cabecalho']??$r['cabecalho']??[]);
+    $add=(array)($r['InformacoesAdicionais']??$r['informacoesAdicionais']??$r['informacoes_adicionais']??[]);
+    $info=(array)($r['InfoCadastro']??$r['infoCadastro']??[]);
+    $services=(array)($r['ServicosPrestados']??$r['servicosPrestados']??[]);
+
+    $code=(string)($cab['nCodOS']??$r['nCodOS']??$cab['codigo_os']??'');
+    if($code==='')continue;
+
+    $client=(string)($cab['nCodCli']??$r['nCodCli']??'');
+    $seller=(string)($cab['nCodVend']??$cab['nCodVendedor']??$add['nCodVend']??$add['nCodVendedor']??$info['nCodVend']??$info['nCodVendedor']??$r['nCodVend']??'');
+
+    $dateRaw=(string)($cab['dDtPrevisao']??$info['dDtFat']??$info['dDtInc']??$r['dDtPrevisao']??'');
+    $serviceDate=$dateRaw!==''?date('Y-m-d',strtotime(str_replace('/','-',$dateRaw))):null;
+
+    $total=(float)($cab['nValorTotal']??$cab['nValorTot']??$info['nValorTot']??$info['nValorTotal']??$r['nValorTot']??0);
+    if($total<=0&&$services){
+     foreach($services as $srv){
+      if(!is_array($srv))continue;
+      $qty=(float)($srv['nQtde']??1);
+      $unit=(float)($srv['nValUnit']??$srv['nValorUnitario']??0);
+      $total+=($qty>0?$qty:1)*$unit;
+     }
+    }
+
+    $cancelled=strtoupper((string)($info['cCancelada']??$cab['cCancelada']??'N'))==='S';
+    $billed=strtoupper((string)($info['cFaturada']??$cab['cFaturada']??'N'))==='S';
+    $status=(string)($cab['cStatus']??$info['cStatus']??$r['cStatus']??'');
+    if($cancelled)$status='CANCELADO';
+    elseif($billed)$status='FATURADO';
+    elseif($status==='')$status='ATIVO';
+
     DB::exec("INSERT INTO service_orders(omie_code,client_omie_code,seller_omie_code,service_date,total,status,raw_json,updated_at)
               VALUES(?,?,?,?,?,?,?,NOW())
               ON DUPLICATE KEY UPDATE client_omie_code=VALUES(client_omie_code),seller_omie_code=VALUES(seller_omie_code),
               service_date=VALUES(service_date),total=VALUES(total),status=VALUES(status),raw_json=VALUES(raw_json),updated_at=NOW()",
-      [$code,(string)($cab['nCodCli']??''),(string)($cab['nCodVend']??''),
-       !empty($cab['dDtPrevisao'])?date('Y-m-d',strtotime(str_replace('/','-',(string)$cab['dDtPrevisao']))):null,
-       (float)($cab['nValorTotal']??0),(string)($cab['cStatus']??'ATIVO'),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+      [$code,$client,$seller!==''?$seller:null,$serviceDate,$total,$status,json_encode($r,JSON_UNESCAPED_UNICODE)]);
    }
    return self::finishWindow('services',$d,$page,count($it),$period);
   }
