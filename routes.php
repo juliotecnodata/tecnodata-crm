@@ -164,68 +164,65 @@ $router->get('/services',function(){
  $month=(string)($_GET['month']??$currentMonth);
  if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$currentMonth;
 
- $dateExpr="COALESCE(so.service_date,DATE(so.updated_at))";
- $w=[];$p=[];
- if($month!=='all'){
-  $startDate=$month.'-01';
-  $next=date('Y-m-d',strtotime($startDate.' +1 month'));
-  $w[]=$dateExpr.'>=?';
-  $w[]=$dateExpr.'<?';
-  array_push($p,$startDate,$next);
+ // Leitura direta da tabela já sincronizada. Sem JOIN/funções SQL para evitar qualquer incompatibilidade.
+ $allRows=DB::all("SELECT * FROM service_orders ORDER BY id DESC LIMIT 3000");
+
+ $sellerMap=[];
+ foreach(DB::all("SELECT omie_code,name FROM sellers") as $seller){
+  $sellerMap[(string)$seller['omie_code']]=(string)$seller['name'];
  }
- if($u['role']==='seller'){
-  $w[]='so.seller_omie_code=?';
-  $p[]=(string)$u['seller_omie_code'];
+ $clientMap=[];
+ foreach(DB::all("SELECT omie_code,name FROM clients") as $client){
+  $clientMap[(string)$client['omie_code']]=(string)$client['name'];
  }
- $where=$w?' WHERE '.implode(' AND ',$w):'';
 
- $rows=DB::all(
-  "SELECT so.*,".$dateExpr." effective_date,c.name client_name,s.name seller_name
-   FROM service_orders so
-   LEFT JOIN clients c ON c.omie_code=so.client_omie_code
-   LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code".
-   $where."
-   ORDER BY ".$dateExpr." DESC,so.id DESC
-   LIMIT 1000",
-  $p
- );
+ $rows=[];$monthsMap=[];$total=0.0;$valid=0;$cancelled=0;$withoutSeller=0;
+ $health=['total_table'=>count($allRows),'null_dates'=>0,'null_sellers'=>0];
 
- $stats=DB::one(
-  "SELECT
-    COUNT(*) total_rows,
-    COALESCE(SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN so.total ELSE 0 END),0) total_value,
-    SUM(CASE WHEN UPPER(COALESCE(so.status,'')) LIKE '%CANCEL%' THEN 1 ELSE 0 END) cancelled_rows,
-    SUM(CASE WHEN UPPER(COALESCE(so.status,'')) NOT LIKE '%CANCEL%' THEN 1 ELSE 0 END) valid_rows,
-    SUM(CASE WHEN so.seller_omie_code IS NULL OR so.seller_omie_code='' THEN 1 ELSE 0 END) without_seller
-   FROM service_orders so".$where,
-  $p
- )?:[];
+ foreach($allRows as $row){
+  $date=(string)($row['service_date']??'');
+  if($date===''||$date==='0000-00-00'){
+   $health['null_dates']++;
+   $date=!empty($row['updated_at'])?date('Y-m-d',strtotime((string)$row['updated_at'])):'';
+  }
+  $sellerCode=(string)($row['seller_omie_code']??'');
+  if($sellerCode==='')$health['null_sellers']++;
 
- $months=DB::all(
-  "SELECT DATE_FORMAT(COALESCE(service_date,DATE(updated_at)),'%Y-%m') month_ref,COUNT(*) total
-   FROM service_orders
-   GROUP BY DATE_FORMAT(COALESCE(service_date,DATE(updated_at)),'%Y-%m')
-   ORDER BY month_ref DESC
-   LIMIT 36"
- );
+  if($date!==''){
+   $rowMonth=substr($date,0,7);
+   if(preg_match('/^\d{4}-\d{2}$/',$rowMonth))$monthsMap[$rowMonth]=($monthsMap[$rowMonth]??0)+1;
+  }
 
- $health=DB::one(
-  "SELECT COUNT(*) total_table,
-          SUM(CASE WHEN service_date IS NULL THEN 1 ELSE 0 END) null_dates,
-          SUM(CASE WHEN seller_omie_code IS NULL OR seller_omie_code='' THEN 1 ELSE 0 END) null_sellers
-   FROM service_orders"
- )?:[];
+  if($month!=='all'&&substr($date,0,7)!==$month)continue;
+  if(($u['role']??'')==='seller'&&$sellerCode!==(string)($u['seller_omie_code']??''))continue;
+
+  $row['effective_date']=$date;
+  $row['effective_seller_code']=$sellerCode;
+  $row['seller_name']=$sellerCode!==''?($sellerMap[$sellerCode]??null):null;
+  $clientCode=(string)($row['client_omie_code']??'');
+  $row['client_name']=$clientCode!==''?($clientMap[$clientCode]??null):null;
+
+  $isCancelled=str_contains(mb_strtoupper((string)($row['status']??'')),'CANCEL');
+  if($isCancelled)$cancelled++;else{$valid++;$total+=(float)($row['total']??0);}
+  if($sellerCode==='')$withoutSeller++;
+
+  $rows[]=$row;
+ }
+
+ krsort($monthsMap);
+ $months=[];
+ foreach(array_slice($monthsMap,0,36,true) as $ref=>$count)$months[]=['month_ref'=>$ref,'total'=>$count];
 
  render('services',[
   'rows'=>$rows,
   'month'=>$month,
   'currentMonth'=>$currentMonth,
   'months'=>$months,
-  'total'=>(float)($stats['total_value']??0),
-  'valid'=>(int)($stats['valid_rows']??0),
-  'cancelled'=>(int)($stats['cancelled_rows']??0),
-  'withoutSeller'=>(int)($stats['without_seller']??0),
-  'totalRows'=>(int)($stats['total_rows']??count($rows)),
+  'total'=>$total,
+  'valid'=>$valid,
+  'cancelled'=>$cancelled,
+  'withoutSeller'=>$withoutSeller,
+  'totalRows'=>count($rows),
   'health'=>$health
  ]);
 });
