@@ -159,10 +159,9 @@ $router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','s
 $router->get('/orders',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$w=[];$p=[];if($u['role']==='seller'){$w[]='o.seller_omie_code=?';$p[]=$u['seller_omie_code'];}$sql="SELECT o.*,c.name client_name FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code".($w?' WHERE '.implode(' AND ',$w):'')." ORDER BY o.order_date DESC,o.id DESC LIMIT 500";render('orders',['orders'=>DB::all($sql,$p)]);});
 $router->get('/services',function(){
  Auth::requireRole('admin','supervisor','seller');$u=Auth::user();
- $latestMonth=(string)(DB::scalar("SELECT DATE_FORMAT(MAX(service_date),'%Y-%m') FROM service_orders WHERE service_date IS NOT NULL")??'');
- if($latestMonth==='')$latestMonth=date('Y-m');
- $month=(string)($_GET['month']??$latestMonth);
- if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$latestMonth;
+ $currentMonth=date('Y-m');
+ $month=(string)($_GET['month']??$currentMonth);
+ if($month!=='all'&&!preg_match('/^\d{4}-\d{2}$/',$month))$month=$currentMonth;
 
  $w=[];$p=[];
  if($month!=='all'){
@@ -181,7 +180,7 @@ $router->get('/services',function(){
   FROM service_orders so".$where,$p)?:[];
  $months=DB::all("SELECT DATE_FORMAT(service_date,'%Y-%m') month_ref,COUNT(*) total FROM service_orders WHERE service_date IS NOT NULL GROUP BY DATE_FORMAT(service_date,'%Y-%m') ORDER BY month_ref DESC LIMIT 36");
  render('services',[
-  'rows'=>$rows,'month'=>$month,'latestMonth'=>$latestMonth,'months'=>$months,
+  'rows'=>$rows,'month'=>$month,'currentMonth'=>$currentMonth,'months'=>$months,
   'total'=>(float)($stats['total_value']??0),'valid'=>(int)($stats['valid_rows']??0),
   'cancelled'=>(int)($stats['cancelled_rows']??0),'withoutSeller'=>(int)($stats['without_seller']??0),
   'totalRows'=>(int)($stats['total_rows']??count($rows))
