@@ -477,49 +477,35 @@ final class OrderService {
 
   $changed=false;
 
-  if(empty($d['stage'])){
-   $row=DB::one("SELECT code FROM order_stages WHERE active=1 ORDER BY code LIMIT 1");
-   if($row&&!empty($row['code'])){$d['stage']=(string)$row['code'];$changed=true;}
+  $validations=[
+   'stage'=>["SELECT 1 FROM order_stages WHERE code=? AND active=1","SELECT code FROM order_stages WHERE active=1 ORDER BY code LIMIT 1",'code'],
+   'category'=>["SELECT 1 FROM categories WHERE code=? AND active=1","SELECT code FROM categories WHERE active=1 ORDER BY code LIMIT 1",'code'],
+   'account'=>["SELECT 1 FROM financial_accounts WHERE omie_code=? AND active=1","SELECT omie_code FROM financial_accounts WHERE active=1 ORDER BY selected DESC,name,omie_code LIMIT 1",'omie_code'],
+   'payment_term'=>["SELECT 1 FROM payment_terms WHERE code=? AND active=1 AND code<>'999'","SELECT code FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY code LIMIT 1",'code'],
+   'payment_method'=>["SELECT 1 FROM payment_methods WHERE code=?","SELECT code FROM payment_methods ORDER BY description,code LIMIT 1",'code'],
+   'document_type'=>["SELECT 1 FROM document_types WHERE code=?","SELECT code FROM document_types ORDER BY description,code LIMIT 1",'code'],
+   'tax_scenario'=>["SELECT 1 FROM tax_scenarios WHERE omie_code=? AND active=1","SELECT omie_code FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1",'omie_code'],
+   'stock_location'=>["SELECT 1 FROM stock_locations WHERE omie_code=? AND active=1","SELECT omie_code FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1",'omie_code'],
+  ];
+
+  foreach($validations as $key=>[$validSql,$fallbackSql,$field]){
+   $current=(string)($d[$key]??'');
+   $valid=$current!==''?DB::one($validSql,[$current]):null;
+   if(!$valid){
+    $row=DB::one($fallbackSql);
+    $new=$row&&!empty($row[$field])?(string)$row[$field]:'';
+    if($current!==$new){$d[$key]=$new;$changed=true;}
+   }
   }
 
-  if(empty($d['category'])){
-   $row=DB::one("SELECT code FROM categories WHERE active=1 ORDER BY code LIMIT 1");
-   if($row&&!empty($row['code'])){$d['category']=(string)$row['code'];$changed=true;}
-  }
+  $consumer=($d['consumer_final']??'S')==='N'?'N':'S';
+  if(($d['consumer_final']??null)!==$consumer){$d['consumer_final']=$consumer;$changed=true;}
 
-  if(empty($d['account'])){
-   $row=DB::one("SELECT omie_code FROM financial_accounts WHERE active=1 ORDER BY selected DESC,name,omie_code LIMIT 1");
-   if($row&&!empty($row['omie_code'])){$d['account']=(string)$row['omie_code'];$changed=true;}
-  }
+  $send=($d['send_email']??'N')==='S'?'S':'N';
+  if(($d['send_email']??null)!==$send){$d['send_email']=$send;$changed=true;}
 
-  if(empty($d['payment_term'])){
-   $row=DB::one("SELECT code FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY code LIMIT 1");
-   if($row&&!empty($row['code'])){$d['payment_term']=(string)$row['code'];$changed=true;}
-  }
-
-  if(empty($d['payment_method'])){
-   $row=DB::one("SELECT code FROM payment_methods ORDER BY description,code LIMIT 1");
-   if($row&&!empty($row['code'])){$d['payment_method']=(string)$row['code'];$changed=true;}
-  }
-
-  if(empty($d['document_type'])){
-   $row=DB::one("SELECT code FROM document_types ORDER BY description,code LIMIT 1");
-   if($row&&!empty($row['code'])){$d['document_type']=(string)$row['code'];$changed=true;}
-  }
-
-  if(empty($d['tax_scenario'])){
-   $row=DB::one("SELECT omie_code FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1");
-   if($row&&!empty($row['omie_code'])){$d['tax_scenario']=(string)$row['omie_code'];$changed=true;}
-  }
-
-  if(empty($d['stock_location'])){
-   $row=DB::one("SELECT omie_code FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name,omie_code LIMIT 1");
-   if($row&&!empty($row['omie_code'])){$d['stock_location']=(string)$row['omie_code'];$changed=true;}
-  }
-
-  $d['consumer_final']=($d['consumer_final']??'S')==='N'?'N':'S';
-  $d['send_email']=($d['send_email']??'N')==='S'?'S':'N';
-  $d['freight_mode']=in_array((string)($d['freight_mode']??'9'),['0','1','2','3','4','9'],true)?(string)($d['freight_mode']??'9'):'9';
+  $freight=in_array((string)($d['freight_mode']??'9'),['0','1','2','3','4','9'],true)?(string)($d['freight_mode']??'9'):'9';
+  if(($d['freight_mode']??null)!==$freight){$d['freight_mode']=$freight;$changed=true;}
 
   if($changed){
    DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('order_defaults',?,NOW())
