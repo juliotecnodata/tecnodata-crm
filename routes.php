@@ -349,7 +349,22 @@ $router->post('/collection/{id}/action',function($p){Auth::requireRole('admin','
 $router->get('/agenda',function(){Auth::requireLogin();render('agenda',['rows'=>DB::all("SELECT t.*,c.name,c.uf FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.assigned_user_id=? AND t.status='pending' ORDER BY t.due_at",[Auth::id()])]);});
 $router->post('/agenda/{id}/done',function($p){Auth::requireLogin();CSRF::require($_POST['_token']??null);DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND assigned_user_id=?",[(int)$p['id'],Auth::id()]);redirect('/agenda');});
 
-$router->get('/settings',function(){Auth::requireRole('admin');render('settings',['defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),'profiles'=>OrderService::profiles()]);});
+$router->get('/settings',function(){
+ Auth::requireRole('admin');
+ OrderService::ensureCoreCatalogs();
+ render('settings',[
+  'defaults'=>OrderService::defaults(),
+  'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),
+  'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
+  'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),
+  'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),
+  'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),
+  'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),
+  'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),
+  'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),
+  'profiles'=>OrderService::profiles()
+ ]);
+});
 $router->post('/settings',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveDefaults($_POST);DB::exec("UPDATE financial_accounts SET selected=0");foreach((array)($_POST['collection_accounts']??[]) as $c)DB::exec("UPDATE financial_accounts SET selected=1 WHERE omie_code=?",[(string)$c]);redirect('/settings');});
 $router->post('/settings/order-profile',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveProfile($_POST);redirect('/settings');});
 $router->get('/users',function(){
