@@ -199,7 +199,7 @@ if($prefix!==''){
  ];
  foreach($imports as $logical=>$map){
   $src=$logical;$dst=$prefix.$logical;
-  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)){
    execStep($pdo,$log,'importar '.$logical.' legado',
     'INSERT IGNORE INTO '.qi($dst).'('.$map['cols'].') SELECT '.$map['select'].' FROM '.qi($src));
   }
@@ -217,7 +217,7 @@ if($prefix!==''){
  ];
  foreach($auxImports as [$src,$logical,$colsList,$selectList]){
   $dst=$prefix.$logical;
-  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+  if(tableExists($pdo,$src)&&tableExists($pdo,$dst)){
    execStep($pdo,$log,'importar '.$logical.' auxiliar',
     'INSERT IGNORE INTO '.qi($dst).'('.$colsList.') SELECT '.$selectList.' FROM '.qi($src));
   }
@@ -225,7 +225,7 @@ if($prefix!==''){
 
  // Etapas antigas.
  $src='order_stage_catalog';$dst=$prefix.'order_stages';
- if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+ if(tableExists($pdo,$src)&&tableExists($pdo,$dst)){
   execStep($pdo,$log,'importar etapas legadas',
    'INSERT IGNORE INTO '.qi($dst).'(code,name,active,raw_json,updated_at)
     SELECT stage_code,stage_name,active,NULL,updated_at FROM '.qi($src));
@@ -261,7 +261,7 @@ if($prefix!==''){
 
  // Pedidos: aceita schema legado.
  $src='orders';$dst=$prefix.'orders';
- if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+ if(tableExists($pdo,$src)&&tableExists($pdo,$dst)){
   $sc=cols($pdo,$src);$code=isset($sc['omie_code'])?'omie_code':'omie_order_code';
   execStep($pdo,$log,'importar pedidos legados',
    'INSERT IGNORE INTO '.qi($dst).'(omie_code,client_omie_code,seller_omie_code,order_date,total,status,stage_code,raw_json,updated_at)
@@ -270,7 +270,7 @@ if($prefix!==''){
 
  // Serviços: aceita schema legado e atual.
  $src='service_orders';$dst=$prefix.'service_orders';
- if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+ if(tableExists($pdo,$src)&&tableExists($pdo,$dst)){
   $sc=cols($pdo,$src);
   $code=isset($sc['omie_code'])?'omie_code':'omie_service_order_code';
   $date=isset($sc['service_date'])?'service_date':'inclusion_date';
@@ -281,7 +281,7 @@ if($prefix!==''){
 
  // Financeiro legado.
  $src='financial_movements';$dst=$prefix.'financial_movements';
- if(tableExists($pdo,$src)&&tableExists($pdo,$dst)&&rowCountSafe($pdo,$dst)===0){
+ if(tableExists($pdo,$src)&&tableExists($pdo,$dst)){
   $sc=cols($pdo,$src);
   $openExpr=isset($sc['open_amount'])?'open_amount':(isset($sc['original_amount'])?'GREATEST(COALESCE(original_amount,0)-COALESCE(paid_amount,0),0)':'COALESCE(amount,0)');
   execStep($pdo,$log,'importar financeiro legado',
