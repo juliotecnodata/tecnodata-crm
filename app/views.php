@@ -205,6 +205,14 @@ function render(string $name,array $vars=[]): void{
     </div>
    </div>
 
+   <?php if(!empty($health)):?>
+   <div class="services-health-strip">
+    <div><span>Base local</span><strong><?=number_format((int)($health['total_table']??0),0,',','.')?></strong></div>
+    <div><span>Sem data</span><strong><?=number_format((int)($health['null_dates']??0),0,',','.')?></strong></div>
+    <div><span>Sem vendedor</span><strong><?=number_format((int)($health['null_sellers']??0),0,',','.')?></strong></div>
+   </div>
+   <?php endif;?>
+
    <div class="services-summary-grid">
     <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format((int)($totalRows??count($rows)),0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
     <div><span class="services-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>desconsiderando canceladas</small></div>
