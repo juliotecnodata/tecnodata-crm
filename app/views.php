@@ -439,8 +439,90 @@ function render(string $name,array $vars=[]): void{
    </div>
    <div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">FLUXO</span><h2>Teste recomendado</h2></div></div><p class="mb-0">1 cliente + 2 produtos → parâmetros auxiliares → Configurações → Novo pedido → Validar sem enviar → Enviar para Omie.</p></div>
   <?php break;
-  case 'sync':$map=[];foreach($states as $s)$map[$s['module_key']]=$s;?>
-   <div class="page-head"><div><span class="eyebrow">OMIE</span><h1>Sincronização</h1><p>Uma página por chamada.</p></div></div><div class="sync-grid"><?php foreach($modules as $key=>$label):$s=$map[$key]??null;?><div class="sync-card"><div><strong><?=e($label)?></strong><small><?=$s&&!empty($s['last_success_at'])?'Última: '.date('d/m H:i',strtotime($s['last_success_at'])):'Nunca'?></small></div><span id="sync-state-<?=$key?>">Aguardando</span><button class="btn btn-sm btn-outline-secondary" data-sync="<?=$key?>">Sincronizar</button></div><?php endforeach;?></div>
+  case 'sync':
+   $summary=$sync['summary'];$items=$sync['items'];
+   $icons=['sellers'=>'fa-user-tie','clients'=>'fa-users','products'=>'fa-boxes-stacked','categories'=>'fa-tags','accounts'=>'fa-building-columns','stages'=>'fa-layer-group','payment_terms'=>'fa-calendar-check','tax_scenarios'=>'fa-file-invoice-dollar','stock_locations'=>'fa-warehouse','payment_methods'=>'fa-credit-card','document_types'=>'fa-file-lines','orders'=>'fa-receipt','services'=>'fa-screwdriver-wrench','financial'=>'fa-hand-holding-dollar'];
+   ?>
+   <div class="page-head sync-page-head">
+    <div><span class="eyebrow">OMIE / OPERAÇÃO</span><h1>Central de sincronização</h1><p>Controle cada integração separadamente, acompanhe progresso, erros e retome processos interrompidos sem perder o que já foi importado.</p></div>
+    <div class="sync-page-head-note"><i class="fa-solid fa-shield-halved"></i><span><strong>Zerar é seguro</strong><small>Reinicia apenas o controle de progresso. Não apaga os dados locais.</small></span></div>
+   </div>
+
+   <div class="sync-summary">
+    <div><span class="sync-summary-icon blue"><i class="fa-solid fa-plug-circle-check"></i></span><p>Módulos</p><strong><?=(int)$summary['modules']?></strong><small>integrações configuradas</small></div>
+    <div><span class="sync-summary-icon green"><i class="fa-solid fa-circle-check"></i></span><p>Com sucesso</p><strong><?=(int)$summary['synced']?></strong><small>já executados</small></div>
+    <div><span class="sync-summary-icon red"><i class="fa-solid fa-triangle-exclamation"></i></span><p>Com alerta</p><strong><?=(int)$summary['errors']?></strong><small>exigem atenção</small></div>
+    <div><span class="sync-summary-icon yellow"><i class="fa-solid fa-database"></i></span><p>Registros locais</p><strong><?=number_format((int)$summary['local_total'],0,',','.')?></strong><small>somados nos módulos</small></div>
+    <div><span class="sync-summary-icon slate"><i class="fa-regular fa-clock"></i></span><p>Último sucesso</p><strong><?=$summary['last_success']?date('d/m H:i',strtotime($summary['last_success'])):'—'?></strong><small><?=$summary['last_success']?date('Y',strtotime($summary['last_success'])):'nenhuma execução'?></small></div>
+   </div>
+
+   <div class="sync-toolbar">
+    <div><i class="fa-solid fa-circle-info"></i><span>Pedidos e Serviços usam automaticamente os <strong>últimos 5 dias</strong> depois da primeira carga concluída.</span></div>
+    <div class="sync-legend"><span><i class="dot ok"></i>Sucesso</span><span><i class="dot warn"></i>Pendente</span><span><i class="dot err"></i>Erro</span></div>
+   </div>
+
+   <div class="sync-ops-grid">
+   <?php foreach($items as $key=>$item):
+    $state=$item['state'];$ctx=$item['context'];$hasError=$item['has_error'];$lastPage=(int)($state['last_page']??0);$totalPages=(int)($state['total_pages']??0);
+    $lastSuccess=$state['last_success_at']??null;$lastError=(string)($state['last_error']??'');
+    $statusClass=$hasError?'error':($lastSuccess?'success':'idle');
+    $statusLabel=$hasError?'Erro':($lastSuccess?'Sincronizado':'Aguardando');
+    $modeLabels=['forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
+    $modeLabel=$modeLabels[$item['mode']]??ucfirst(str_replace('_',' ',$item['mode']));
+   ?>
+    <article class="sync-module-card" data-sync-card="<?=$key?>">
+     <header class="sync-module-head">
+      <div class="sync-module-title">
+       <span class="sync-module-icon"><i class="fa-solid <?=e($icons[$key]??'fa-arrows-rotate')?>"></i></span>
+       <div><span class="eyebrow"><?=e(strtoupper($key))?></span><h2><?=e($item['label'])?></h2></div>
+      </div>
+      <span class="sync-status sync-status-<?=$statusClass?>" data-sync-badge><?=$statusLabel?></span>
+     </header>
+
+     <div class="sync-module-metrics">
+      <div><span>Registros locais</span><strong><?=number_format((int)$item['local_count'],0,',','.')?></strong></div>
+      <div><span>Última página</span><strong><?=$lastPage?:'—'?><?=$totalPages?' / '.$totalPages:''?></strong></div>
+      <div><span>Último lote</span><strong><?=isset($state['last_count'])?(int)$state['last_count']:'—'?></strong></div>
+      <div><span>Modo</span><strong><?=e($modeLabel)?></strong></div>
+     </div>
+
+     <div class="sync-module-meta">
+      <div><i class="fa-regular fa-clock"></i><span>Último sucesso</span><strong><?=$lastSuccess?date('d/m/Y H:i:s',strtotime($lastSuccess)):'Nunca executado'?></strong></div>
+      <?php if(!empty($item['period_start'])&&!empty($item['period_end'])):?><div><i class="fa-regular fa-calendar"></i><span>Janela atual</span><strong><?=e($item['period_start'])?> → <?=e($item['period_end'])?></strong></div><?php endif;?>
+     </div>
+
+     <div class="sync-flow-alert sync-flow-alert-<?=$hasError?'error':($lastSuccess?'success':'info')?>" data-sync-alert>
+      <i class="fa-solid <?=$hasError?'fa-circle-exclamation':($lastSuccess?'fa-circle-check':'fa-circle-info')?>"></i>
+      <div><strong data-sync-alert-title><?=$hasError?'Última execução com erro':($lastSuccess?'Última execução concluída':'Pronto para sincronizar')?></strong><span data-sync-alert-message><?=e($hasError?$lastError:($lastSuccess?'O módulo está atualizado conforme a última execução concluída.':'Nenhuma execução registrada ainda.'))?></span></div>
+     </div>
+
+     <div class="sync-progress-wrap" data-sync-progress-wrap hidden>
+      <div class="sync-progress-copy"><span data-sync-progress-label>Preparando...</span><strong data-sync-progress-percent>0%</strong></div>
+      <div class="sync-progress"><span data-sync-progress-bar style="width:0%"></span></div>
+     </div>
+
+     <footer class="sync-module-actions">
+      <button class="btn btn-primary btn-sm" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar</button>
+      <?php if(in_array($key,['orders','services'],true)):?>
+       <button class="btn btn-outline-secondary btn-sm" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
+       <button class="btn btn-outline-secondary btn-sm" data-sync-action="full" data-module="<?=$key?>" data-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
+      <?php endif;?>
+      <button class="btn btn-outline-secondary btn-sm" data-sync-action="resume" data-module="<?=$key?>" <?=$item['resumable']?'':'disabled'?>><i class="fa-solid fa-play"></i>Retomar</button>
+      <button class="btn btn-outline-danger btn-sm" data-sync-action="reset" data-module="<?=$key?>" data-confirm="Zerar o estado de sincronização de <?=e($item['label'])?>? Os dados locais serão preservados."><i class="fa-solid fa-rotate-left"></i>Zerar</button>
+     </footer>
+    </article>
+   <?php endforeach;?>
+   </div>
+
+   <div class="panel sync-help-panel">
+    <div class="panel-title-row"><div><span class="eyebrow">COMO FUNCIONA</span><h2>Regras operacionais</h2></div></div>
+    <div class="sync-help-grid">
+     <div><i class="fa-solid fa-arrows-rotate"></i><strong>Sincronizar</strong><span>Executa a regra padrão do módulo e percorre todas as páginas necessárias.</span></div>
+     <div><i class="fa-regular fa-calendar-days"></i><strong>Últimos 5 dias</strong><span>Força Pedidos ou Serviços para a janela móvel de hoje + 4 dias anteriores, atualizando registros existentes.</span></div>
+     <div><i class="fa-solid fa-play"></i><strong>Retomar</strong><span>Continua da próxima página salva após uma interrupção ou erro.</span></div>
+     <div><i class="fa-solid fa-rotate-left"></i><strong>Zerar</strong><span>Apaga somente o progresso salvo daquele módulo; nenhum cadastro local é removido.</span></div>
+    </div>
+   </div>
   <?php break;
  }
  $body=ob_get_clean();
