@@ -412,6 +412,7 @@ function render(string $name,array $vars=[]): void{
     <input type="hidden" name="request_token" value="<?=e((string)($old['request_token']??(date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8)))))?>">
     <input type="hidden" name="client_id" id="clientId" value="<?=e((string)($old['client_id']??$prefill))?>">
     <input type="hidden" name="items_json" id="itemsJson" value="<?=e((string)($old['items_json']??'[]'))?>">
+    <input type="hidden" name="departments_json" id="departmentsJson" value="<?=e((string)($old['departments_json']??''))?>">
 
     <section class="panel omie-order-header">
      <div class="omie-order-header-grid">
@@ -480,7 +481,19 @@ function render(string $name,array $vars=[]): void{
       </section>
 
       <section class="order-tab-panel" data-order-panel="departments">
-       <div class="omie-empty-tab"><i class="fa-solid fa-diagram-project"></i><strong>Departamentos</strong><span>A distribuição por departamentos ainda não faz parte do fluxo do CRM. A aba foi mantida para preservar a organização visual do pedido.</span></div>
+       <div class="departments-panel-head">
+        <div><span class="eyebrow">RATEIO DO PEDIDO</span><h3>Departamentos</h3><p>Distribua o pedido entre os departamentos sincronizados da Omie. O total precisa fechar em 100%.</p></div>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="addDepartment"><i class="fa-solid fa-plus"></i>Adicionar departamento</button>
+       </div>
+       <?php if(!$departments):?>
+        <div class="alert alert-warning mb-0"><strong>Nenhum departamento sincronizado.</strong> Vá em Sincronização → Departamentos antes de enviar pedidos.</div>
+       <?php else:?>
+        <div class="department-distribution" id="departmentDistribution"></div>
+        <div class="department-total-line">
+         <span>Total do rateio</span>
+         <strong id="departmentTotal">0,00%</strong>
+        </div>
+       <?php endif;?>
       </section>
 
       <section class="order-tab-panel" data-order-panel="freight">
@@ -556,7 +569,8 @@ function render(string $name,array $vars=[]): void{
    <script>
    window.ORDER_PREFILL_CLIENT=<?=json_encode((int)($old['client_id']??$prefill))?>;
    window.ORDER_OLD_ITEMS=<?=json_encode(json_decode((string)($old['items_json']??'[]'),true)?:[])?>;
-   window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'stocks'=>$stocks,'profiles'=>$profiles],JSON_UNESCAPED_UNICODE)?>;
+   window.ORDER_DEPARTMENTS=<?=json_encode(array_values(array_map(fn($r)=>['code'=>(string)$r['code'],'description'=>(string)$r['description']],$departments??[])),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?>;
+window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'stocks'=>$stocks,'profiles'=>$profiles],JSON_UNESCAPED_UNICODE)?>;
    </script>
   <?php break;
 
