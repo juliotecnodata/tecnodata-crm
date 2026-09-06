@@ -32,6 +32,42 @@ final class DB {
  public static function scalar(string $sql,array $p=[]): mixed{$s=self::conn()->prepare(self::sql($sql));$s->execute($p);return $s->fetchColumn();}
 }
 
+final class SchemaGuard {
+ private static ?array $status=null;
+ public static function status(): array{
+  if(self::$status!==null)return self::$status;
+  try{
+   $required=[
+    'clients'=>['id','omie_code','name','seller_omie_code','active'],
+    'orders'=>['id','omie_code','client_omie_code','seller_omie_code','order_date','total','status'],
+    'service_orders'=>['id','omie_code','client_omie_code','seller_omie_code','service_date','total','status'],
+    'financial_movements'=>['id','omie_code','client_omie_code','account_omie_code','seller_omie_code','due_date','open_amount','paid_amount','status'],
+    'activities'=>['id','client_id','user_id','channel','result','next_at','created_at'],
+    'tasks'=>['id','client_id','assigned_user_id','type','title','due_at','status'],
+    'collection_actions'=>['id','client_id','author_user_id','assigned_user_id','channel','result','amount','promise_date','created_at'],
+    'sync_state'=>['module_key','last_page','total_pages','last_count','context_json','last_success_at','last_error'],
+    'goals'=>['id','user_id','month_ref','sales_goal','collection_goal','contact_goal'],
+   ];
+   $missing=[];
+   foreach($required as $table=>$columns){
+    $rows=DB::all("SHOW COLUMNS FROM ".$table);
+    $have=array_map(static fn($r)=>(string)($r['Field']??''),$rows);
+    foreach($columns as $column)if(!in_array($column,$have,true))$missing[]=$table.'.'.$column;
+   }
+   self::$status=['ok'=>!$missing,'missing'=>$missing];
+  }catch(Throwable $e){
+   self::$status=['ok'=>false,'missing'=>[],'error'=>$e->getMessage()];
+  }
+  return self::$status;
+ }
+ public static function requireReady(): void{
+  $s=self::status();if(!empty($s['ok']))return;
+  http_response_code(503);
+  $details=!empty($s['missing'])?implode(', ',$s['missing']):(string)($s['error']??'estrutura não validada');
+  exit('<h1>Banco do CRM precisa de reparo</h1><p>'.htmlspecialchars($details,ENT_QUOTES,'UTF-8').'</p><p>Execute <strong>database-repair.php</strong> com o instalador habilitado.</p>');
+ }
+}
+
 final class Auth {
  public static function user(): ?array{return $_SESSION['user']??null;}
  public static function id(): int{return (int)(self::user()['id']??0);}
