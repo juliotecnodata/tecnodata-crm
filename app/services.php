@@ -873,7 +873,7 @@ final class SyncService {
  public static function resumePage(string $module): int{
   if(!isset(self::modules()[$module]))throw new RuntimeException('Módulo inválido.');
   $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
-  if(!$state||empty($state['context_json']))throw new RuntimeException('Não existe sincronização interrompida para retomar.');
+  if(!$state)throw new RuntimeException('Não existe sincronização anterior para retomar.');
   $last=max(0,(int)($state['last_page']??0));$total=max(0,(int)($state['total_pages']??0));
   if($total>0&&$last>=$total)throw new RuntimeException('A última sincronização deste módulo já foi concluída.');
   return $last+1;
