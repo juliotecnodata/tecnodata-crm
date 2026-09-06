@@ -787,3 +787,74 @@ body{background:var(--bg)}
 .services-health-strip>div{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 9px}
 .services-health-strip span{font-size:8px;color:var(--muted);font-weight:700}
 .services-health-strip strong{font-size:10px;color:var(--text)}
+
+
+/* Tela premium de Pedidos */
+.orders-page-head{align-items:flex-end}
+.orders-head-actions{display:flex;align-items:center;gap:10px;position:relative;flex-wrap:wrap;justify-content:flex-end}
+.orders-current-period{display:flex;flex-direction:column;align-items:flex-end}
+.orders-current-period span{font-size:11px;color:var(--muted);font-weight:700}
+.orders-current-period strong{font-size:14px;color:var(--text)}
+.orders-period-picker{position:relative}
+.orders-period-picker>summary{list-style:none;cursor:pointer}
+.orders-period-picker>summary::-webkit-details-marker{display:none}
+.orders-period-popover{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:300px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
+.orders-period-popover label{font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px}
+.orders-period-buttons{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+
+.orders-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0}
+.orders-summary-grid>div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:15px;min-width:0}
+.orders-kpi-icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px}
+.orders-kpi-icon.blue{background:#EAF3F9;color:#2D7DB5}
+.orders-kpi-icon.green{background:#EAF5F0;color:#2F7D64}
+.orders-kpi-icon.teal{background:#EAF6F5;color:#287A73}
+.orders-kpi-icon.yellow{background:#FBF5E4;color:#A47A16}
+.orders-kpi-icon.red{background:#FCEDEA;color:#C55252}
+.orders-summary-grid p{margin:0 0 3px;font-size:12px;color:var(--muted);font-weight:750}
+.orders-summary-grid strong{font-size:20px;color:var(--text);display:block}
+.orders-summary-grid small{font-size:11px;color:#87939A;margin-top:4px;display:block}
+
+.orders-table-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px 10px 0 0;padding:12px 14px;border-bottom:0}
+.orders-table-toolbar>div:first-child{display:flex;align-items:center;gap:9px}
+.orders-table-toolbar>div:first-child>i{color:var(--blue)}
+.orders-table-toolbar>div:first-child>span{display:flex;flex-direction:column}
+.orders-table-toolbar strong{font-size:13px;color:var(--text)}
+.orders-table-toolbar small{font-size:11px;color:var(--muted);margin-top:2px}
+.orders-warning{display:flex;align-items:center;gap:6px;background:#FFF8E7;color:#80651F;border:1px solid #EADAA9;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:750}
+
+.orders-table-card{border-radius:0 0 10px 10px!important}
+.orders-table-card .dt-container{padding:0}
+.orders-table-card .dt-layout-row:first-child{padding:10px 12px;border-bottom:1px solid var(--line);background:#FAFBFB}
+.orders-table-card .dt-search input{min-width:280px;border-radius:9px!important;border:1px solid var(--line-strong)!important;padding:8px 10px!important}
+.orders-table-card table.dataTable tbody td{vertical-align:middle!important}
+.orders-table-card td strong{font-size:13px;color:#344148}
+.orders-table-card td small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.order-code-cell{display:flex;align-items:center;gap:9px}
+.order-code-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:#EDF4F8;color:var(--blue);flex:0 0 32px}
+.order-code-cell>span:last-child,.order-stage{display:flex;flex-direction:column}
+.order-status{display:inline-flex;align-items:center;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:800;border:1px solid}
+.order-status-active{background:#EDF5FA;color:#35647C;border-color:#CFE1EA}
+.order-status-billed{background:#EDF7F2;color:#34705A;border-color:#CFE5DA}
+.order-status-cancelled{background:#FCEDEA;color:#9C4646;border-color:#EDC9C9}
+.order-no-seller{display:inline-flex!important;align-items:center;gap:5px;color:#A67719;font-size:11px;font-weight:800}
+.orders-empty-state{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:24px}
+.orders-empty-state>span{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;background:#EEF4F7;color:var(--blue)}
+.orders-empty-state strong{font-size:14px;color:var(--text)}
+.orders-empty-state p{font-size:12px;color:var(--muted);margin:4px 0 0;line-height:1.5}
+
+@media(max-width:1180px){.orders-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:800px){
+ .orders-page-head{align-items:flex-start}
+ .orders-head-actions{width:100%;justify-content:space-between}
+ .orders-current-period{align-items:flex-start}
+ .orders-period-popover{left:0;right:auto;width:min(300px,90vw)}
+ .orders-summary-grid{grid-template-columns:1fr 1fr}
+ .orders-table-toolbar{align-items:flex-start;flex-direction:column}
+ .orders-empty-state{grid-template-columns:1fr}.orders-empty-state .btn{width:100%}
+}
+@media(max-width:520px){
+ .orders-summary-grid{grid-template-columns:1fr}
+ .orders-table-card .dt-search input{min-width:0;width:100%}
+ .orders-head-actions{align-items:stretch;flex-direction:column}
+ .orders-head-actions .btn{width:100%}
+}
