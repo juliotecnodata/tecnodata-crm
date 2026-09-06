@@ -645,7 +645,7 @@ final class OrderService {
 final class GoalService {
  public static function isVirtualSellerName(string $name): bool{
   $n=mb_strtoupper(trim($name));
-  return str_contains($n,'EAD')||str_contains($n,'SUPORTE JUMPER');
+  return str_contains($n,'EAD RECICLAGEM')||str_contains($n,'EAD')||str_contains($n,'SUPORTE JUMPER');
  }
  private static function sellerProduction(string $sellerCode,string $start,string $next): array{
   $orders=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND status<>'CANCELADO'",[$sellerCode,$start,$next])??0);
@@ -693,7 +693,7 @@ final class GoalService {
    $prod=self::sellerProduction((string)$seller['omie_code'],$start,$next);
    $sales+=$prod['total'];$orderSales+=$prod['orders'];$serviceSales+=$prod['services'];
    if(self::isVirtualSellerName((string)$seller['name'])){
-    $virtualRows[]=['seller'=>$seller,'orders'=>$prod['orders'],'services'=>$prod['services'],'sales'=>$prod['total'],'virtual'=>true];
+    $virtualRows[]=['seller'=>$seller,'orders'=>$prod['orders'],'services'=>$prod['services'],'sales'=>$prod['total'],'virtual'=>true,'ead_reciclagem'=>str_contains(mb_strtoupper((string)$seller['name']),'EAD RECICLAGEM')];
    }
   }
 
