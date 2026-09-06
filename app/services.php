@@ -701,7 +701,10 @@ final class OrderService {
 
   $departmentsRaw=json_decode((string)($i['departments_json']??'[]'),true);
   if(!is_array($departmentsRaw))$departmentsRaw=[];
-  $departments=[];$departmentPercent=0.0;
+  $departmentBase=round($commercialTotal,2);
+  if($departmentBase<=0)throw new RuntimeException('Não é possível distribuir departamentos em um pedido com valor total zerado.');
+
+  $departmentSource=[];$departmentPercent=0.0;
   foreach($departmentsRaw as $dep){
    if(!is_array($dep))continue;
    $code=trim((string)($dep['code']??''));
@@ -709,13 +712,27 @@ final class OrderService {
    if($code===''||$percent<=0)continue;
    if(!DB::one("SELECT 1 FROM departments WHERE code=? AND active=1",[$code]))throw new RuntimeException('Departamento inválido no rateio do pedido.');
    $departmentPercent+=$percent;
+   $departmentSource[]=['code'=>$code,'percent'=>$percent];
+  }
+  if(!$departmentSource)throw new RuntimeException('Selecione ao menos um departamento para o pedido.');
+  if(abs($departmentPercent-100)>0.01)throw new RuntimeException('O rateio por departamentos deve totalizar 100%. Total atual: '.number_format($departmentPercent,2,',','.').'%.');
+
+  // A API do Pedido de Venda pode exigir tanto o percentual quanto o valor monetário
+  // da distribuição. Calculamos em centavos e deixamos o resíduo para a última linha,
+  // garantindo que a soma de nValor feche exatamente com o total do pedido.
+  $departments=[];$distributed=0.0;$lastIndex=count($departmentSource)-1;
+  foreach($departmentSource as $index=>$dep){
+   $value=$index===$lastIndex
+    ? round($departmentBase-$distributed,2)
+    : round($departmentBase*((float)$dep['percent']/100),2);
+   if($value<=0)throw new RuntimeException('Valor calculado da distribuição por departamento não pode ser zero.');
+   $distributed=round($distributed+$value,2);
    $departments[]=[
-    'cCodDepto'=>$code,
-    'nPerc'=>$percent
+    'cCodDepto'=>(string)$dep['code'],
+    'nPerc'=>round((float)$dep['percent'],4),
+    'nValor'=>$value
    ];
   }
-  if(!$departments)throw new RuntimeException('Selecione ao menos um departamento para o pedido.');
-  if(abs($departmentPercent-100)>0.01)throw new RuntimeException('O rateio por departamentos deve totalizar 100%. Total atual: '.number_format($departmentPercent,2,',','.').'%.');
 
   $payload=['cabecalho'=>$cab,'det'=>$det,'departamentos'=>$departments,'frete'=>$freight,'informacoes_adicionais'=>$info];
   $notes=trim((string)($i['notes']??''));if($notes!=='')$payload['observacoes']=['obs_venda'=>$notes];
