@@ -383,6 +383,13 @@ $router->post('/goals/{id}',function($p){
  GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
  redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
 });
+$router->post('/goals/virtual/{code}',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ $month=(string)($_POST['month']??date('Y-m'));
+ GoalService::saveVirtual((string)$p['code'],$month,$_POST,Auth::id());
+ redirect('/goals?month='.urlencode($month));
+});
+
 $router->post('/goals/general',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  $month=(string)($_POST['month']??date('Y-m'));GoalService::saveGeneral($month,$_POST);
