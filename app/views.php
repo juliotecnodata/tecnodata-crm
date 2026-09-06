@@ -537,7 +537,7 @@ function render(string $name,array $vars=[]): void{
     $lastSuccess=$state['last_success_at']??null;$lastError=(string)($state['last_error']??'');
     $statusClass=$hasError?'error':($lastSuccess?'success':'idle');
     $statusLabel=$hasError?'Erro':($lastSuccess?'Sincronizado':'Aguardando');
-    $modeLabels=['forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
+    $modeLabels=['forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
     $modeLabel=$modeLabels[$item['mode']]??ucfirst(str_replace('_',' ',$item['mode']));
    ?>
     <article class="sync-module-card" data-sync-card="<?=$key?>">
@@ -573,6 +573,7 @@ function render(string $name,array $vars=[]): void{
 
      <footer class="sync-module-actions">
       <?php if(in_array($key,['orders','services'],true)):?>
+       <button class="btn btn-primary btn-sm" data-sync-action="catchup" data-module="<?=$key?>" data-sync-confirm="Atualizar todo o intervalo faltante de <?=e($item['label'])?> desde a última data local até hoje? Os registros existentes serão preservados."><i class="fa-solid fa-forward-step"></i>Atualizar lacuna</button>
        <button class="btn btn-primary btn-sm" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
        <button class="btn btn-outline-secondary btn-sm" data-sync-action="full" data-module="<?=$key?>" data-sync-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
       <?php else:?>
@@ -589,6 +590,7 @@ function render(string $name,array $vars=[]): void{
     <div class="panel-title-row"><div><span class="eyebrow">COMO FUNCIONA</span><h2>Regras operacionais</h2></div></div>
     <div class="sync-help-grid">
      <div><i class="fa-solid fa-arrows-rotate"></i><strong>Sincronizar</strong><span>Executa a regra padrão do módulo e percorre todas as páginas necessárias.</span></div>
+     <div><i class="fa-solid fa-forward-step"></i><strong>Atualizar lacuna</strong><span>Busca automaticamente do dia seguinte ao último registro local até hoje, sem apagar dados existentes.</span></div>
      <div><i class="fa-regular fa-calendar-days"></i><strong>Últimos 5 dias</strong><span>Força Pedidos ou Serviços para a janela móvel de hoje + 4 dias anteriores, atualizando registros existentes.</span></div>
      <div><i class="fa-solid fa-play"></i><strong>Retomar</strong><span>Continua da próxima página salva após uma interrupção ou erro.</span></div>
      <div><i class="fa-solid fa-rotate-left"></i><strong>Zerar</strong><span>Exclui todos os dados locais daquele módulo e limpa o progresso. Nenhuma nova carga começa automaticamente.</span></div>
