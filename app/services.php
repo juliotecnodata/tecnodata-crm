@@ -710,8 +710,8 @@ final class OrderService {
    if(!DB::one("SELECT 1 FROM departments WHERE code=? AND active=1",[$code]))throw new RuntimeException('Departamento inválido no rateio do pedido.');
    $departmentPercent+=$percent;
    $departments[]=[
-    'codigo_departamento'=>$code,
-    'percentual'=>$percent
+    'cCodDepto'=>$code,
+    'nPerc'=>$percent
    ];
   }
   if(!$departments)throw new RuntimeException('Selecione ao menos um departamento para o pedido.');
