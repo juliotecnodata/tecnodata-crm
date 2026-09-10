@@ -89,58 +89,96 @@ function render(string $name,array $vars=[]): void{
   <?php break;
   case 'clients':?>
    <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0];?>
-   <div class="clients-topbar-tools" data-topbar-tools>
-    <a href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i><span>Novo cliente</span></a>
-   </div>
-   <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-
-   <div class="clients-summary-grid">
-    <div><span class="clients-summary-icon green"><i class="fa-solid fa-address-book"></i></span><small>CLIENTES NA CONSULTA</small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?=$uf!==''?'carteira de '.$uf.($ddds?' · DDD '.implode(', ',$ddds):''):($q!==''?'resultado do filtro atual':'carteira ativa')?></p></div>
-    <div><span class="clients-summary-icon blue"><i class="fa-solid fa-chart-line"></i></span><small>RECEITA EM 12 MESES</small><strong><?=money($clientStats['revenue'])?></strong><p>produção acumulada da carteira</p></div>
-    <div><span class="clients-summary-icon yellow"><i class="fa-solid fa-cart-shopping"></i></span><small>PEDIDOS EM 12 MESES</small><strong><?=number_format((int)$clientStats['orders'],0,',','.')?></strong><p>volume comercial recente</p></div>
-    <div><span class="clients-summary-icon orange"><i class="fa-solid fa-user-tag"></i></span><small>SEM VENDEDOR</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>precisam de distribuição</p></div>
-   </div>
-
-   <?php if(Auth::can('admin','supervisor')):?>
-    <section class="clients-portfolio-manager">
-     <div class="clients-portfolio-copy"><span><i class="fa-solid fa-users-gear"></i></span><div><small>GESTÃO DE CARTEIRA</small><strong>Vincular ou transferir por estado e DDD</strong><p>Escolha a região exata antes de mover a carteira. A alteração ocorre somente no CRM.</p></div></div>
-     <form method="post" action="<?=APP_URL?>/clients/portfolio/assign">
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <div class="clients-portfolio-region">
-       <label><span>Estado</span><select class="form-select" name="uf" required data-client-state-filter><option value="">Selecione</option><?php foreach($portfolioStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
-       <div class="clients-ddd-picker"><span>DDDs da região</span><div><?php foreach(($portfolioDddMap[$uf]??[]) as $ddd):?><label><input type="checkbox" name="ddds[]" value="<?=e($ddd)?>" <?=in_array($ddd,$ddds??[],true)?'checked':''?>><b><?=e($ddd)?></b></label><?php endforeach;?><?php if($uf===''):?><small>Selecione primeiro o estado.</small><?php endif;?></div><?php if($uf!==''):?><button class="btn btn-light" type="button" data-client-ddd-apply><i class="fa-solid fa-filter"></i>Filtrar tabela</button><?php endif;?></div>
+   <section class="clients-premium-page">
+    <header class="clients-premium-head">
+     <div class="clients-premium-title">
+      <span class="clients-premium-title-icon"><i class="fa-solid fa-users"></i></span>
+      <div>
+       <span class="eyebrow">RELACIONAMENTO / CLIENTES</span>
+       <h1>Clientes</h1>
+       <p>Carteira comercial, histórico recente e ações rápidas em uma única visão.</p>
       </div>
-      <div class="clients-portfolio-assignment">
-       <label><span>Carteira atual</span><select class="form-select" name="source_seller" required><option value="__unassigned__">Somente sem vendedor</option><option value="__all__">Todos dos DDDs</option><?php foreach($portfolioSourceSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?><?=isset($seller['active'])&&!(int)$seller['active']?' (inativo)':''?></option><?php endforeach;?></select></label>
-       <label><span>Vendedor de destino</span><select class="form-select" name="target_seller" required><option value="">Selecione</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></label>
-       <button class="btn btn-primary" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a transferência dos clientes dos DDDs selecionados para o vendedor de destino?"><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
-      </div>
-     </form>
-   </section>
-   <?php endif;?>
+     </div>
+     <div class="clients-premium-head-actions">
+      <a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients"><i class="fa-solid fa-rotate-right"></i>Atualizar</a>
+      <a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a>
+     </div>
+    </header>
 
-   <?php if(Auth::can('seller')):?>
-    <nav class="clients-scope-tabs" aria-label="Tipo de carteira">
-     <a class="<?=($clientScope??'mine')==='mine'?'active':''?>" href="<?=APP_URL?>/clients"><span><i class="fa-solid fa-briefcase"></i><strong>Minha carteira</strong><small>Prioridade de atendimento</small></span><i class="fa-solid fa-chevron-right"></i></a>
-     <a class="<?=($clientScope??'mine')==='unassigned'?'active':''?>" href="<?=APP_URL?>/clients?scope=unassigned"><span><i class="fa-solid fa-user-plus"></i><strong>Sem vendedor</strong><small><?=number_format((int)($availableClients??0),0,',','.')?> compartilhados</small></span><i class="fa-solid fa-chevron-right"></i></a>
-    </nav>
-   <?php endif;?>
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <div class="table-card clients-table-card">
-     <?php $clientDataParams=['uf'=>$uf];if($ddds)$clientDataParams['ddds']=$ddds;if(Auth::can('seller'))$clientDataParams['scope']=$clientScope??'mine';?>
-     <table class="table align-middle clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="5" data-length-change="1" data-order-column="0" data-order-direction="asc">
-      <thead><tr><th>Cliente</th><th>Localização</th><th>Vendedor vinculado</th><th>Ciclo de compra</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
-      <tbody><?php foreach($rows as $r):?><tr>
-       <td><div class="client-table-identity"><span><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
-       <td><span class="client-location"><i class="fa-solid fa-location-dot"></i><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /')?:'Não informado')?></span></td>
-       <td><?php if(!empty($r['seller_name'])):?><span class="client-seller"><i class="fa-solid fa-user-tie"></i><span><strong><?=e($r['seller_name'])?></strong><small><?=e($r['seller_omie_code'])?></small></span></span><?php else:?><span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem vendedor</strong><small><?=Auth::can('seller')?'Atendimento compartilhado':'Disponível para vincular'?></small></span></span><?php endif;?></td>
-       <td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td>
-       <td><strong><?=brdate($r['last_purchase_at']??null)?></strong><small><?=($r['orders_12m']??0)>0?(int)$r['orders_12m'].' pedido(s) em 12 meses':'Sem pedidos recentes'?></small></td>
-       <td class="text-end"><strong class="client-revenue"><?=money($r['revenue_12m']??0)?></strong></td>
-       <td class="text-end"><div class="client-action-group"><a class="client-action client-action-view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Ver cliente"><i class="fa-regular fa-eye"></i><span>Ver</span></a><?php if(Auth::can('admin','supervisor')||(Auth::can('seller')&&(string)($r['seller_omie_code']??'')===(string)(Auth::user()['seller_omie_code']??''))):?><a class="client-action client-action-edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="client-action client-action-local" type="submit" title="Remover apenas do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i><span>CRM</span></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="client-action client-action-delete" type="submit" title="Excluir do CRM e da Omie" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form><?php endif;?></div></td>
-      </tr><?php endforeach;?></tbody>
-     </table>
+    <div class="clients-premium-kpis">
+     <article class="clients-premium-kpi kpi-green">
+      <span><i class="fa-solid fa-address-book"></i></span>
+      <div><small>CLIENTES NA CONSULTA</small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?=$uf!==''?'Carteira de '.$uf.($ddds?' · DDD '.implode(', ',$ddds):''):($q!==''?'Resultado do filtro atual':'Carteira ativa')?></p></div>
+     </article>
+     <article class="clients-premium-kpi kpi-blue">
+      <span><i class="fa-solid fa-chart-line"></i></span>
+      <div><small>RECEITA EM 12 MESES</small><strong><?=money($clientStats['revenue'])?></strong><p>Produção acumulada da carteira</p></div>
+     </article>
+     <article class="clients-premium-kpi kpi-yellow">
+      <span><i class="fa-solid fa-cart-shopping"></i></span>
+      <div><small>PEDIDOS EM 12 MESES</small><strong><?=number_format((int)$clientStats['orders'],0,',','.')?></strong><p>Volume comercial recente</p></div>
+     </article>
+     <article class="clients-premium-kpi kpi-orange">
+      <span><i class="fa-solid fa-user-tag"></i></span>
+      <div><small>SEM VENDEDOR</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>Precisam de distribuição</p></div>
+     </article>
     </div>
+
+    <?php if(Auth::can('admin','supervisor')):?>
+    <section class="clients-premium-portfolio">
+     <div class="clients-premium-portfolio-head">
+      <div class="clients-premium-portfolio-copy">
+       <span><i class="fa-solid fa-users-gear"></i></span>
+       <div><small>GESTÃO DE CARTEIRA</small><strong>Distribuição comercial por região</strong><p>Selecione estado, DDD e responsável antes de transferir os clientes.</p></div>
+      </div>
+      <div class="clients-premium-portfolio-badge"><i class="fa-solid fa-shield-halved"></i>Somente CRM</div>
+     </div>
+     <form method="post" action="<?=APP_URL?>/clients/portfolio/assign" class="clients-premium-portfolio-form">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <label><span>Estado</span><select class="form-select" name="uf" required data-client-state-filter><option value="">Selecione</option><?php foreach($portfolioStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
+      <div class="clients-premium-ddd"><span>DDDs da região</span><div><?php foreach(($portfolioDddMap[$uf]??[]) as $ddd):?><label><input type="checkbox" name="ddds[]" value="<?=e($ddd)?>" <?=in_array($ddd,$ddds??[],true)?'checked':''?>><b><?=e($ddd)?></b></label><?php endforeach;?><?php if($uf===''):?><small>Selecione primeiro o estado.</small><?php endif;?></div><?php if($uf!==''):?><button class="btn btn-light" type="button" data-client-ddd-apply><i class="fa-solid fa-filter"></i>Filtrar</button><?php endif;?></div>
+      <label><span>Carteira atual</span><select class="form-select" name="source_seller" required><option value="__unassigned__">Somente sem vendedor</option><option value="__all__">Todos dos DDDs</option><?php foreach($portfolioSourceSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?><?=isset($seller['active'])&&!(int)$seller['active']?' (inativo)':''?></option><?php endforeach;?></select></label>
+      <label><span>Vendedor de destino</span><select class="form-select" name="target_seller" required><option value="">Selecione</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></label>
+      <button class="btn btn-primary clients-premium-assign" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a transferência dos clientes dos DDDs selecionados para o vendedor de destino?"><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
+     </form>
+    </section>
+    <?php endif;?>
+
+    <?php if(Auth::can('seller')):?>
+    <nav class="clients-premium-scope" aria-label="Tipo de carteira">
+     <a class="<?=($clientScope??'mine')==='mine'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-briefcase"></i><span><strong>Minha carteira</strong><small>Clientes sob sua responsabilidade</small></span><b><i class="fa-solid fa-chevron-right"></i></b></a>
+     <a class="<?=($clientScope??'mine')==='unassigned'?'active':''?>" href="<?=APP_URL?>/clients?scope=unassigned"><i class="fa-solid fa-user-plus"></i><span><strong>Sem vendedor</strong><small><?=number_format((int)($availableClients??0),0,',','.')?> disponíveis</small></span><b><i class="fa-solid fa-chevron-right"></i></b></a>
+    </nav>
+    <?php endif;?>
+
+    <section class="clients-premium-list">
+     <div class="clients-premium-list-head">
+      <div><span class="eyebrow">BASE COMERCIAL</span><h2>Carteira de clientes</h2><p>Use a busca da tabela para localizar por nome, documento, cidade ou vendedor.</p></div>
+      <div class="clients-premium-list-legend">
+       <span><i class="fa-regular fa-eye"></i>Visualizar</span>
+       <span><i class="fa-regular fa-pen-to-square"></i>Editar</span>
+       <?php if(Auth::can('admin','supervisor')):?><span><i class="fa-solid fa-database-circle-xmark"></i>Remover CRM</span><span><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?>
+      </div>
+     </div>
+     <div class="table-card clients-premium-table-wrap">
+      <?php $clientDataParams=['uf'=>$uf];if($ddds)$clientDataParams['ddds']=$ddds;if(Auth::can('seller'))$clientDataParams['scope']=$clientScope??'mine';?>
+      <table class="table align-middle clients-datatable clients-premium-table" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="10" data-length-change="1" data-order-column="0" data-order-direction="asc">
+       <thead><tr><th>Cliente</th><th>Localização</th><th>Vendedor</th><th>Ciclo</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
+       <tbody><?php foreach($rows as $r):?><tr>
+        <td><div class="client-table-identity"><span><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
+        <td><span class="client-location"><i class="fa-solid fa-location-dot"></i><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /')?:'Não informado')?></span></td>
+        <td><?php if(!empty($r['seller_name'])):?><span class="client-seller"><i class="fa-solid fa-user-tie"></i><span><strong><?=e($r['seller_name'])?></strong><small><?=e($r['seller_omie_code'])?></small></span></span><?php else:?><span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem vendedor</strong><small><?=Auth::can('seller')?'Atendimento compartilhado':'Disponível para vincular'?></small></span></span><?php endif;?></td>
+        <td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td>
+        <td><strong><?=brdate($r['last_purchase_at']??null)?></strong><small><?=($r['orders_12m']??0)>0?(int)$r['orders_12m'].' pedido(s) em 12 meses':'Sem pedidos recentes'?></small></td>
+        <td class="text-end"><strong class="client-revenue"><?=money($r['revenue_12m']??0)?></strong></td>
+        <td class="text-end"><div class="client-action-group"><a class="client-action client-action-view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar cliente"><i class="fa-regular fa-eye"></i><span>Ver</span></a><?php if(Auth::can('admin','supervisor')||(Auth::can('seller')&&(string)($r['seller_omie_code']??'')===(string)(Auth::user()['seller_omie_code']??''))):?><a class="client-action client-action-edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="client-action client-action-local" type="submit" title="Remover somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i><span>CRM</span></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="client-action client-action-delete" type="submit" title="Excluir da Omie e do CRM" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form><?php endif;?></div></td>
+       </tr><?php endforeach;?></tbody>
+      </table>
+     </div>
+    </section>
+   </section>
   <?php break;
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
    <div class="page-head client-editor-head">
