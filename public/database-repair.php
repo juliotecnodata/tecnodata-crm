@@ -97,6 +97,9 @@ if(isset($c['omie_order_code'])&&isset($c['omie_code'])){
 if(isset($c['omie_code'])&&!idxExists($pdo,$t,'uq_orders_omie')){
  execStep($pdo,$log,'índice único de pedidos','ALTER TABLE '.qi($t).' ADD UNIQUE KEY uq_orders_omie(omie_code)');
 }
+if(isset($c['order_date'])&&!idxExists($pdo,$t,'idx_orders_date')){
+ execStep($pdo,$log,'índice de período dos pedidos','ALTER TABLE '.qi($t).' ADD INDEX idx_orders_date(order_date)');
+}
 if(isset($c['omie_order_code'])){
  modifyCol($pdo,$log,$t,'omie_order_code','VARCHAR(120) NULL');
 }
@@ -113,6 +116,12 @@ if(isset($c['inclusion_date'])&&isset($c['service_date'])){
 }
 if(isset($c['omie_code'])&&!idxExists($pdo,$t,'uq_service_orders_omie')){
  execStep($pdo,$log,'índice único de serviços','ALTER TABLE '.qi($t).' ADD UNIQUE KEY uq_service_orders_omie(omie_code)');
+}
+if(isset($c['service_date'])&&!idxExists($pdo,$t,'idx_service_orders_date')){
+ execStep($pdo,$log,'índice de período dos serviços','ALTER TABLE '.qi($t).' ADD INDEX idx_service_orders_date(service_date)');
+}
+if(isset($c['seller_omie_code'])&&isset($c['service_date'])&&!idxExists($pdo,$t,'idx_service_orders_seller_date')){
+ execStep($pdo,$log,'índice de vendedor e período dos serviços','ALTER TABLE '.qi($t).' ADD INDEX idx_service_orders_seller_date(seller_omie_code,service_date)');
 }
 if(isset($c['omie_service_order_code'])){
  modifyCol($pdo,$log,$t,'omie_service_order_code','VARCHAR(120) NULL');

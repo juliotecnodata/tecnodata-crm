@@ -115,5 +115,23 @@ final class Router {
 function e(mixed $v): string{return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 function money(mixed $v): string{return 'R$ '.number_format((float)$v,2,',','.');}
 function brdate(?string $v): string{if(!$v)return '—';$t=strtotime($v);return $t?date('d/m/Y',$t):'—';}
+function selected_date_period(): array{
+ $defaultFrom=date('Y-m-01');$defaultTo=date('Y-m-t');
+ $legacy=trim((string)($_GET['month']??''));$all=(string)($_GET['period']??'')==='all'||$legacy==='all';
+ $valid=static function(string $value): bool{
+  if(!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/',$value,$match))return false;
+  return checkdate((int)$match[2],(int)$match[3],(int)$match[1]);
+ };
+ if($all)return ['all'=>true,'from'=>null,'to'=>null,'next'=>null,'label'=>'Todos os períodos','query'=>'period=all'];
+ if(preg_match('/^\d{4}-\d{2}$/',$legacy)){
+  $from=$legacy.'-01';$to=date('Y-m-t',strtotime($from));
+ }else{
+  $from=trim((string)($_GET['date_from']??$defaultFrom));$to=trim((string)($_GET['date_to']??$defaultTo));
+  if(!$valid($from))$from=$defaultFrom;if(!$valid($to))$to=$defaultTo;
+ }
+ if($from>$to)[$from,$to]=[$to,$from];
+ $label=date('d/m/Y',strtotime($from)).' – '.date('d/m/Y',strtotime($to));
+ return ['all'=>false,'from'=>$from,'to'=>$to,'next'=>date('Y-m-d',strtotime($to.' +1 day')),'label'=>$label,'query'=>'date_from='.rawurlencode($from).'&date_to='.rawurlencode($to)];
+}
 function redirect(string $path): never{header('Location: '.(str_starts_with($path,'http')?$path:APP_URL.$path));exit;}
 function json_response(array $d,int $status=200): never{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($d,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}

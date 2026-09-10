@@ -24,9 +24,9 @@ function render(string $name,array $vars=[]): void{
 
    <?php if($u['role']==='seller'):?>
     <div class="dashboard-kpis">
-     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-chart-line"></i></span><div><small>Vendas + serviços</small><strong><?=money($data['sales'])?></strong><span>resultado do mês</span></div></div>
+     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-chart-line"></i></span><div><small>Pedidos OK</small><strong><?=money($data['sales'])?></strong><span>sem PDV, orçamentos e cancelados</span></div></div>
      <div class="dashboard-kpi kpi-blue"><span class="dashboard-kpi-icon"><i class="fa-solid fa-receipt"></i></span><div><small>Pedidos</small><strong><?=money($data['orders']??0)?></strong><span>pedidos do mês</span></div></div>
-     <div class="dashboard-kpi kpi-cyan"><span class="dashboard-kpi-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><small>Serviços</small><strong><?=money($data['services']??0)?></strong><span>serviços do mês</span></div></div>
+     <div class="dashboard-kpi kpi-cyan"><span class="dashboard-kpi-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><small>Serviços</small><strong><?=money($data['services']??0)?></strong><span>acompanhamento fora do resultado</span></div></div>
      <div class="dashboard-kpi kpi-yellow"><span class="dashboard-kpi-icon"><i class="fa-solid fa-users"></i></span><div><small>Minha carteira</small><strong><?=number_format((int)$data['clients'],0,',','.')?></strong><span>clientes ativos</span></div></div>
      <div class="dashboard-kpi kpi-orange"><span class="dashboard-kpi-icon"><i class="fa-regular fa-calendar-check"></i></span><div><small>Retornos</small><strong><?=number_format((int)$data['tasks'],0,',','.')?></strong><span>tarefas pendentes</span></div></div>
     </div>
@@ -55,7 +55,7 @@ function render(string $name,array $vars=[]): void{
     $mg=$data['management']??[];
    ?>
     <div class="dashboard-kpis">
-     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-chart-column"></i></span><div><small>Vendas + serviços</small><strong><?=money($data['sales'])?></strong><span><?=number_format((float)$data['sales_percent'],1,',','.')?>% da meta geral</span></div></div>
+     <div class="dashboard-kpi kpi-green"><span class="dashboard-kpi-icon"><i class="fa-solid fa-chart-column"></i></span><div><small>Pedidos OK</small><strong><?=money($data['sales'])?></strong><span><?=number_format((float)$data['sales_percent'],1,',','.')?>% da meta geral</span></div></div>
      <div class="dashboard-kpi kpi-blue"><span class="dashboard-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Recuperado</small><strong><?=money($data['recovered'])?></strong><span><?=number_format((float)$data['collection_percent'],1,',','.')?>% da meta</span></div></div>
      <div class="dashboard-kpi kpi-red"><span class="dashboard-kpi-icon"><i class="fa-solid fa-circle-dollar-to-slot"></i></span><div><small>Saldo cobrança</small><strong><?=money($data['debt'])?></strong><span>em aberto</span></div></div>
      <div class="dashboard-kpi kpi-yellow"><span class="dashboard-kpi-icon"><i class="fa-solid fa-users"></i></span><div><small>Clientes</small><strong><?=number_format((int)$data['clients'],0,',','.')?></strong><span><?=number_format((int)$data['late'],0,',','.')?> retorno(s) atrasado(s)</span></div></div>
@@ -64,10 +64,10 @@ function render(string $name,array $vars=[]): void{
     <?php if(!empty($mg)):?>
     <div class="dashboard-performance-grid">
      <div class="dashboard-performance-card performance-sales">
-      <header><span><i class="fa-solid fa-bullseye"></i></span><div><small>META COMERCIAL</small><strong>Vendas + serviços</strong></div><b><?=number_format((float)$mg['sales_percent'],1,',','.')?>%</b></header>
+      <header><span><i class="fa-solid fa-bullseye"></i></span><div><small>META COMERCIAL</small><strong>Pedidos OK</strong></div><b><?=number_format((float)$mg['sales_percent'],1,',','.')?>%</b></header>
       <div class="dashboard-performance-value"><strong><?=money($mg['sales'])?></strong><span>de <?=money($mg['effective_sales_goal'])?></span></div>
       <div class="dashboard-progress"><span style="width:<?=min(100,(float)$mg['sales_percent'])?>%"></span></div>
-      <footer><span>Pedidos <strong><?=money($mg['order_sales'])?></strong></span><span>Serviços <strong><?=money($mg['service_sales'])?></strong></span></footer>
+      <footer><span>Sem PDV e orçamentos <strong><?=money($mg['order_sales'])?></strong></span></footer>
      </div>
      <div class="dashboard-performance-card performance-collection">
       <header><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>META DE COBRANÇA</small><strong>Recuperação</strong></div><b><?=number_format((float)$mg['collection_percent'],1,',','.')?>%</b></header>
@@ -88,15 +88,71 @@ function render(string $name,array $vars=[]): void{
    <?php endif;?>
   <?php break;
   case 'clients':?>
-   <div class="page-head"><div><span class="eyebrow">COMERCIAL</span><h1>Clientes</h1><p>Cadastro, consulta e manutenção da carteira sincronizada com a Omie.</p></div><div class="page-head-actions"><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/test-create"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-secondary" type="submit" data-confirm="Criar um cliente fictício somente no CRM para testar a integração com a Omie?"><i class="fa-solid fa-flask"></i>Cliente de teste</button></form><?php endif;?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-receipt"></i>Novo pedido</a><a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div></div>
+   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0];?>
+   <div class="clients-topbar-tools" data-topbar-tools>
+    <a href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i><span>Novo cliente</span></a>
+   </div>
    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-   <form class="filter-bar" method="get"><input class="form-control" type="search" name="q" value="<?=e($q)?>" placeholder="Nome, documento ou cidade"><button class="btn btn-dark">Buscar</button></form>
-   <div class="table-card"><table class="table align-middle"><thead><tr><th>Cliente</th><th>Local</th><th>Momento</th><th>Última compra</th><th>Receita 12m</th><th class="text-end">Ações</th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /'))?></td><td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td><td><?=brdate($r['last_purchase_at']??null)?></td><td><?=money($r['revenue_12m']??0)?></td><td class="text-end"><div class="table-actions"><a class="btn btn-sm btn-light" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Ver"><i class="fa-regular fa-eye"></i></a><a class="btn btn-sm btn-light" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local" class="d-inline"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light" type="submit" title="Excluir local" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete" class="d-inline"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" title="Excluir CRM + Omie" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td></tr><?php endforeach;?></tbody></table></div>
+
+   <div class="clients-summary-grid">
+    <div><span class="clients-summary-icon green"><i class="fa-solid fa-address-book"></i></span><small>CLIENTES NA CONSULTA</small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?=$uf!==''?'carteira de '.$uf.($ddds?' · DDD '.implode(', ',$ddds):''):($q!==''?'resultado do filtro atual':'carteira ativa')?></p></div>
+    <div><span class="clients-summary-icon blue"><i class="fa-solid fa-chart-line"></i></span><small>RECEITA EM 12 MESES</small><strong><?=money($clientStats['revenue'])?></strong><p>produção acumulada da carteira</p></div>
+    <div><span class="clients-summary-icon yellow"><i class="fa-solid fa-cart-shopping"></i></span><small>PEDIDOS EM 12 MESES</small><strong><?=number_format((int)$clientStats['orders'],0,',','.')?></strong><p>volume comercial recente</p></div>
+    <div><span class="clients-summary-icon orange"><i class="fa-solid fa-user-tag"></i></span><small>SEM VENDEDOR</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>precisam de distribuição</p></div>
+   </div>
+
+   <?php if(Auth::can('admin','supervisor')):?>
+    <section class="clients-portfolio-manager">
+     <div class="clients-portfolio-copy"><span><i class="fa-solid fa-users-gear"></i></span><div><small>GESTÃO DE CARTEIRA</small><strong>Vincular ou transferir por estado e DDD</strong><p>Escolha a região exata antes de mover a carteira. A alteração ocorre somente no CRM.</p></div></div>
+     <form method="post" action="<?=APP_URL?>/clients/portfolio/assign">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <div class="clients-portfolio-region">
+       <label><span>Estado</span><select class="form-select" name="uf" required data-client-state-filter><option value="">Selecione</option><?php foreach($portfolioStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
+       <div class="clients-ddd-picker"><span>DDDs da região</span><div><?php foreach(($portfolioDddMap[$uf]??[]) as $ddd):?><label><input type="checkbox" name="ddds[]" value="<?=e($ddd)?>" <?=in_array($ddd,$ddds??[],true)?'checked':''?>><b><?=e($ddd)?></b></label><?php endforeach;?><?php if($uf===''):?><small>Selecione primeiro o estado.</small><?php endif;?></div><?php if($uf!==''):?><button class="btn btn-light" type="button" data-client-ddd-apply><i class="fa-solid fa-filter"></i>Filtrar tabela</button><?php endif;?></div>
+      </div>
+      <div class="clients-portfolio-assignment">
+       <label><span>Carteira atual</span><select class="form-select" name="source_seller" required><option value="__unassigned__">Somente sem vendedor</option><option value="__all__">Todos dos DDDs</option><?php foreach($portfolioSourceSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?><?=isset($seller['active'])&&!(int)$seller['active']?' (inativo)':''?></option><?php endforeach;?></select></label>
+       <label><span>Vendedor de destino</span><select class="form-select" name="target_seller" required><option value="">Selecione</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></label>
+       <button class="btn btn-primary" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a transferência dos clientes dos DDDs selecionados para o vendedor de destino?"><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
+      </div>
+     </form>
+   </section>
+   <?php endif;?>
+
+   <?php if(Auth::can('seller')):?>
+    <nav class="clients-scope-tabs" aria-label="Tipo de carteira">
+     <a class="<?=($clientScope??'mine')==='mine'?'active':''?>" href="<?=APP_URL?>/clients"><span><i class="fa-solid fa-briefcase"></i><strong>Minha carteira</strong><small>Prioridade de atendimento</small></span><i class="fa-solid fa-chevron-right"></i></a>
+     <a class="<?=($clientScope??'mine')==='unassigned'?'active':''?>" href="<?=APP_URL?>/clients?scope=unassigned"><span><i class="fa-solid fa-user-plus"></i><strong>Sem vendedor</strong><small><?=number_format((int)($availableClients??0),0,',','.')?> compartilhados</small></span><i class="fa-solid fa-chevron-right"></i></a>
+    </nav>
+   <?php endif;?>
+
+    <div class="table-card clients-table-card">
+     <?php $clientDataParams=['uf'=>$uf];if($ddds)$clientDataParams['ddds']=$ddds;if(Auth::can('seller'))$clientDataParams['scope']=$clientScope??'mine';?>
+     <table class="table align-middle clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="5" data-length-change="1" data-order-column="0" data-order-direction="asc">
+      <thead><tr><th>Cliente</th><th>Localização</th><th>Vendedor vinculado</th><th>Ciclo de compra</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
+      <tbody><?php foreach($rows as $r):?><tr>
+       <td><div class="client-table-identity"><span><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
+       <td><span class="client-location"><i class="fa-solid fa-location-dot"></i><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /')?:'Não informado')?></span></td>
+       <td><?php if(!empty($r['seller_name'])):?><span class="client-seller"><i class="fa-solid fa-user-tie"></i><span><strong><?=e($r['seller_name'])?></strong><small><?=e($r['seller_omie_code'])?></small></span></span><?php else:?><span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem vendedor</strong><small><?=Auth::can('seller')?'Atendimento compartilhado':'Disponível para vincular'?></small></span></span><?php endif;?></td>
+       <td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td>
+       <td><strong><?=brdate($r['last_purchase_at']??null)?></strong><small><?=($r['orders_12m']??0)>0?(int)$r['orders_12m'].' pedido(s) em 12 meses':'Sem pedidos recentes'?></small></td>
+       <td class="text-end"><strong class="client-revenue"><?=money($r['revenue_12m']??0)?></strong></td>
+       <td class="text-end"><div class="table-actions"><a class="btn btn-sm btn-light" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Abrir cliente" aria-label="Abrir cliente"><i class="fa-regular fa-eye"></i></a><?php if(Auth::can('admin','supervisor')||(Auth::can('seller')&&(string)($r['seller_omie_code']??'')===(string)(Auth::user()['seller_omie_code']??''))):?><a class="btn btn-sm btn-light" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar cliente" aria-label="Editar cliente"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local" class="d-inline"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light" type="submit" title="Excluir somente do CRM" aria-label="Excluir somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete" class="d-inline"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" title="Excluir do CRM e da Omie" aria-label="Excluir do CRM e da Omie" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
+      </tr><?php endforeach;?></tbody>
+     </table>
+    </div>
   <?php break;
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
    <div class="page-head client-editor-head">
-    <div><span class="eyebrow"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Atualize somente o necessário. As alterações confirmadas seguem para a Omie.':'Cadastro direto, com consulta automática por CNPJ e CEP.'?></p></div>
+    <div class="clients-page-title"><span class="clients-title-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span><div><span class="eyebrow"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Revise os dados antes de salvar. As alterações confirmadas seguem para a Omie.':'Cadastre com agilidade usando as consultas automáticas de CNPJ e CEP.'?></p></div></div>
     <a class="btn btn-outline-secondary" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a>
+   </div>
+
+   <div class="client-editor-flow" aria-label="Etapas do cadastro">
+    <div class="active"><b>1</b><span><strong>Identificação</strong><small>Documento e contato</small></span></div><i></i>
+    <div><b>2</b><span><strong>Endereço</strong><small>Localização completa</small></span></div><i></i>
+    <div><b>3</b><span><strong>Comercial</strong><small>Vendedor e preferências</small></span></div><i></i>
+    <div><b>4</b><span><strong>Conferência</strong><small>Salvar e integrar</small></span></div>
    </div>
 
    <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
@@ -211,12 +267,25 @@ function render(string $name,array $vars=[]): void{
    $omieStatus=is_array($clientRaw)?(string)($clientRaw['omie_status']??''):'';
    $pendingOmie=$isLocal||in_array($omieStatus,['pending','pending_update'],true);
    ?>
-   <div class="page-head">
-    <div><a class="back" href="<?=APP_URL?>/clients">← Clientes</a><h1><?=e($client['name'])?></h1><p><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /'))?> • <?=e($client['document']??'')?> • <?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></p></div>
-    <div class="page-head-actions"><a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cadastro</a><?php if(!$isLocal):?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete-local" class="d-inline"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-secondary" type="submit" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i>Excluir local</button></form><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-outline-danger" type="submit" data-confirm="Excluir este cliente? Se ele já estiver integrado, o sistema excluirá primeiro na Omie e depois no CRM."><i class="fa-regular fa-trash-can"></i>Excluir cliente</button></form><?php endif;?></div>
+   <div class="page-head client-profile-head">
+    <div class="client-profile-identity"><span class="client-profile-avatar"><?=e(mb_strtoupper(mb_substr((string)$client['name'],0,1)))?></span><div><a class="back" href="<?=APP_URL?>/clients<?=!empty($sharedUnassigned)?'?scope=unassigned':''?>"><i class="fa-solid fa-arrow-left"></i> Carteira de clientes</a><h1><?=e($client['name'])?></h1><p><span><i class="fa-solid fa-location-dot"></i><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /')?:'Localização não informada')?></span><span><i class="fa-regular fa-id-card"></i><?=e($client['document']?:'Documento não informado')?></span><span><i class="fa-solid fa-cloud"></i><?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></span></p></div></div>
+    <div class="page-head-actions client-profile-actions">
+     <?php if(!empty($sharedUnassigned)):?>
+      <?php if(!$isLocal):?><a class="btn btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?>
+     <?php else:?>
+     <a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a>
+     <?php if(!$isLocal):?><a class="btn btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?>
+     <details class="client-more-actions"><summary class="btn btn-outline-secondary"><i class="fa-solid fa-ellipsis"></i>Mais ações</summary><div>
+      <a href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cadastro</a>
+      <?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i>Excluir somente do CRM</button></form><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="danger" type="submit" data-confirm="Excluir este cliente? Se ele já estiver integrado, o sistema excluirá primeiro na Omie e depois no CRM."><i class="fa-regular fa-trash-can"></i>Excluir cliente</button></form><?php endif;?>
+     </div></details>
+     <?php endif;?>
+    </div>
    </div>
    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-   <?php if($pendingOmie):?>
+   <?php if(!empty($sharedUnassigned)):?>
+    <div class="client-claim-banner"><span><i class="fa-solid fa-users"></i></span><div><strong>Cliente compartilhado, sem vendedor</strong><p>Qualquer vendedor pode atender, registrar contatos e criar pedidos. Somente admin ou supervisor pode vinculá-lo a uma carteira.</p></div></div>
+   <?php elseif($pendingOmie):?>
     <div class="client-omie-pending">
      <div class="client-omie-pending-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
      <div>
@@ -229,7 +298,7 @@ function render(string $name,array $vars=[]): void{
     <div class="client-omie-linked"><i class="fa-solid fa-circle-check"></i><div><strong>Sincronizado com a Omie</strong><span>Cadastro vinculado ao código Omie <?=e((string)$client['omie_code'])?>. Não há alterações locais pendentes.</span></div></div>
    <?php endif;?>
 
-   <div class="snapshot"><div><span>Momento</span><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span>Receita 12m</span><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span>Última compra</span><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span>Pedidos 12m</span><strong><?=(int)($client['orders_12m']??0)?></strong></div></div>
+   <div class="snapshot client-profile-stats"><div><span class="client-stat-icon green"><i class="fa-solid fa-wave-square"></i></span><small>Momento</small><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span class="client-stat-icon blue"><i class="fa-solid fa-chart-line"></i></span><small>Receita 12 meses</small><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span class="client-stat-icon yellow"><i class="fa-regular fa-calendar-check"></i></span><small>Última compra</small><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span class="client-stat-icon orange"><i class="fa-solid fa-cart-shopping"></i></span><small>Pedidos 12 meses</small><strong><?=(int)($client['orders_12m']??0)?></strong></div></div>
 
    <div class="client-detail-grid">
     <section class="panel client-detail-card">
@@ -247,43 +316,38 @@ function render(string $name,array $vars=[]): void{
      </div>
     </section>
 
-    <section class="panel"><h2>Registrar contato</h2><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado</label><select class="form-select" name="result"><option value="contact">Falou</option><option value="interested">Interessado</option><option value="agreement">Venda encaminhada</option><option value="no_answer">Não atendeu</option></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="btn btn-primary w-100 mt-2">Salvar contato</button></form></section>
+    <section class="panel client-contact-card"><div class="client-section-title"><div class="client-section-icon green"><i class="fa-solid fa-headset"></i></div><div><span>Registrar contato</span><small>Atualize o relacionamento e agende o próximo passo.</small></div></div><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><option value="contact">Contato realizado</option><option value="interested">Cliente interessado</option><option value="agreement">Venda encaminhada</option><option value="no_answer">Não atendeu</option></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4" placeholder="Registre contexto, objeções e próximos passos..."></textarea><button class="btn btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form></section>
    </div>
 
    <div class="management-columns mt-3">
-    <div class="panel"><h2>Últimos contatos</h2><div class="timeline"><?php foreach($activities as $a):?><div><strong><?=e($a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div class="empty-state-small">Nenhum contato registrado.</div><?php endif;?></div></div>
-    <div class="panel"><h2>Últimos pedidos</h2><div class="simple-list"><?php foreach($orders as $o):?><div><span><strong><?=brdate($o['order_date'])?></strong><small><?=e($o['number']??$o['omie_code'])?></small></span><strong><?=money($o['total'])?></strong></div><?php endforeach;?><?php if(!$orders):?><div class="empty-state-small">Nenhum pedido encontrado.</div><?php endif;?></div></div>
+    <div class="panel client-history-card"><div class="client-history-head"><span><i class="fa-regular fa-comments"></i></span><div><h2>Últimos contatos</h2><small>Histórico de relacionamento</small></div></div><div class="timeline"><?php $resultLabels=['contact'=>'Contato realizado','interested'=>'Cliente interessado','agreement'=>'Venda encaminhada','no_answer'=>'Não atendeu'];foreach($activities as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div class="empty-state-small">Nenhum contato registrado.</div><?php endif;?></div></div>
+    <div class="panel client-history-card"><div class="client-history-head"><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><h2>Últimos pedidos</h2><small>Compras mais recentes</small></div></div><div class="simple-list"><?php foreach($orders as $o):?><div><a href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><strong><?=brdate($o['order_date'])?></strong><small>Pedido <?=e($o['number']??$o['omie_code'])?> · visualizar</small></a><strong><?=money($o['total'])?></strong></div><?php endforeach;?><?php if(!$orders):?><div class="empty-state-small">Nenhum pedido encontrado.</div><?php endif;?></div></div>
    </div>
   <?php break;
-  case 'orders':$success=$_SESSION['success']??null;unset($_SESSION['success']);?>
-   <div class="page-head orders-page-head">
-    <div>
-     <span class="eyebrow">COMERCIAL / PEDIDOS</span>
-     <h1>Pedidos de venda</h1>
-     <p>Acompanhe pedidos sincronizados da Omie, evolução por etapa, vendedor e valor do período.</p>
-    </div>
-    <div class="orders-head-actions">
-     <div class="orders-current-period">
-      <span>Período exibido</span>
-      <strong><?=$month==='all'?'Todos os períodos':date('m/Y',strtotime($month.'-01'))?></strong>
+  case 'orders':$success=$_SESSION['success']??null;$error=$_SESSION['error']??null;$periodQuery=(string)($period['query']??'');unset($_SESSION['success'],$_SESSION['error']);?>
+   <div class="orders-experience">
+   <div class="orders-topbar-tools" data-topbar-tools>
+     <div class="orders-topbar-period" title="Período exibido">
+      <i class="fa-regular fa-calendar-check"></i><span><small>Período</small><strong><?=e((string)($period['label']??''))?></strong></span>
      </div>
      <details class="orders-period-picker">
-      <summary class="btn btn-outline-secondary"><i class="fa-regular fa-calendar"></i>Escolher mês</summary>
+      <summary class="orders-topbar-month-button" title="Escolher período"><i class="fa-regular fa-calendar"></i><span>Escolher período</span><i class="fa-solid fa-chevron-down"></i></summary>
       <form method="get" class="orders-period-popover">
-       <label>Mês desejado</label>
-       <input class="form-control" type="month" name="month" value="<?=e($month==='all'?$currentMonth:$month)?>">
+       <input type="hidden" name="view" value="<?=e($view)?>">
+       <input type="hidden" name="stage" value="<?=e($stageFilter??'')?>">
+       <div class="period-range-fields"><label>Data inicial<input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??date('Y-m-01')))?>" required></label><label>Data final<input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??date('Y-m-t')))?>" required></label></div>
        <div class="orders-period-buttons">
         <button class="btn btn-primary" type="submit">Aplicar</button>
-        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders?month=<?=e($currentMonth)?>">Mês atual</a>
-        <a class="btn btn-light" href="<?=APP_URL?>/orders?month=all">Todos</a>
+        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders?view=<?=e($view)?>&stage=<?=e($stageFilter??'')?>">Mês atual</a>
+        <a class="btn btn-light" href="<?=APP_URL?>/orders?period=all&view=<?=e($view)?>&stage=<?=e($stageFilter??'')?>">Todos</a>
        </div>
       </form>
      </details>
-     <a class="btn btn-primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a>
-    </div>
+     <a class="orders-topbar-new-button" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i><span>Novo pedido<small>Criar na Omie</small></span></a>
    </div>
 
    <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
+   <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
 
    <?php if(!empty($drafts)):?>
     <section class="orders-drafts-panel">
@@ -311,62 +375,98 @@ function render(string $name,array $vars=[]): void{
    <?php endif;?>
 
    <div class="orders-summary-grid">
-    <div><span class="orders-kpi-icon blue"><i class="fa-solid fa-receipt"></i></span><p>Pedidos encontrados</p><strong><?=number_format((int)$totalRows,0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
-    <div><span class="orders-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>sem pedidos cancelados</small></div>
+    <div class="orders-summary-primary"><span class="orders-kpi-icon blue"><i class="fa-solid fa-receipt"></i></span><p><?=$view==='budget'?'Orçamentos em análise':'Pedidos encontrados'?></p><strong><?=number_format((int)$totalRows,0,',','.')?></strong><small><?=e((string)($period['label']??''))?></small></div>
+    <div><span class="orders-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p><?=$view==='budget'?'Valor em orçamento':'Pedidos OK'?></p><strong><?=money($view==='budget'?$budgetValue:$total)?></strong><small><?=$view==='budget'?'fora do realizado e da meta':'sem PDV, orçamentos e cancelados'?></small></div>
     <div><span class="orders-kpi-icon teal"><i class="fa-solid fa-circle-check"></i></span><p>Faturados</p><strong><?=(int)$billed?></strong><small>pedidos já faturados</small></div>
     <div><span class="orders-kpi-icon yellow"><i class="fa-solid fa-clock"></i></span><p>Em andamento</p><strong><?=(int)$active?></strong><small>ativos no período</small></div>
     <div><span class="orders-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Cancelados</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
    </div>
 
+   <section class="orders-table-shell">
+   <div class="orders-table-head">
+    <nav class="orders-view-tabs orders-table-tabs" aria-label="Tipos de pedido">
+     <a class="<?=$view==='all'?'active':''?>" href="<?=APP_URL?>/orders?<?=e($periodQuery)?>&view=all"><span class="orders-view-icon"><i class="fa-solid fa-circle-check"></i></span><span><strong>Pedidos Confirmados</strong><small>Pedidos OK</small></span><b><?=number_format((int)$allOrders,0,',','.')?></b></a>
+     <a class="budget <?=$view==='budget'?'active':''?>" href="<?=APP_URL?>/orders?<?=e($periodQuery)?>&view=budget"><span class="orders-view-icon"><i class="fa-solid fa-file-signature"></i></span><span><strong>Em orçamento</strong><small>Propostas</small></span><span class="orders-view-metric"><b><?=number_format((int)$budgetOrders,0,',','.')?></b><small><?=money($budgetValue)?></small></span></a>
+    </nav>
+    <form class="orders-stage-filter" method="get">
+     <?php if(!empty($period['all'])):?><input type="hidden" name="period" value="all"><?php else:?><input type="hidden" name="date_from" value="<?=e((string)$period['from'])?>"><input type="hidden" name="date_to" value="<?=e((string)$period['to'])?>"><?php endif;?><input type="hidden" name="view" value="<?=e($view)?>">
+     <span><i class="fa-solid fa-filter"></i> Filtrar por etapa</span>
+     <div class="orders-stage-radios"><label class="<?=($stageFilter??'')===''?'active':''?>"><input type="radio" name="stage" value="" <?=($stageFilter??'')===''?'checked':''?> onchange="this.form.submit()"><span>Todas</span></label><?php foreach($stages??[] as $stage):$code=(string)$stage['code'];$stageIsBudget=in_array($code,$budgetCodes??['00','10'],true);if(($view==='budget'&&!$stageIsBudget)||($view==='all'&&$stageIsBudget))continue;?><label class="<?=($stageFilter??'')===$code?'active':''?>"><input type="radio" name="stage" value="<?=e($code)?>" <?=($stageFilter??'')===$code?'checked':''?> onchange="this.form.submit()"><span><b><?=e($code)?></b><?=e($stage['name'])?></span></label><?php endforeach;?></div>
+    </form>
+   </div>
+
    <?php if(!$orders):?>
     <div class="orders-empty-state">
      <span><i class="fa-solid fa-receipt"></i></span>
-     <div><strong>Nenhum pedido encontrado neste período</strong><p>Escolha outro mês ou consulte todos os períodos. Se necessário, atualize Pedidos pela Central de Sincronização.</p></div>
+     <div><strong><?=$view==='budget'?'Nenhum pedido em orçamento neste período':'Nenhum pedido encontrado neste período'?></strong><p><?=$view==='budget'?'Não há propostas na etapa de orçamento para analisar. Escolha outro mês ou volte à visão completa.':'Escolha outro mês ou consulte todos os períodos. Se necessário, atualize Pedidos pela Central de Sincronização.'?></p></div>
      <a class="btn btn-outline-secondary" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a>
     </div>
    <?php else:?>
     <div class="orders-table-toolbar">
-     <div><i class="fa-solid fa-table-list"></i><span><strong>Pedidos sincronizados</strong><small>Use a busca para localizar pedido, cliente, vendedor, etapa ou status.</small></span></div>
+     <div><i class="fa-solid <?=$view==='budget'?'fa-magnifying-glass-chart':'fa-table-list'?>"></i><span><strong><?=$view==='budget'?'Fila de análise de orçamentos':'Pedidos sincronizados'?></strong><small><?=$view==='budget'?'Revise cliente, vendedor, etapa, data e valor de cada proposta.':'Use a busca para localizar pedido, cliente, vendedor, etapa ou status.'?></small></span></div>
      <?php if($withoutSeller>0):?><div class="orders-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> pedido(s) sem vendedor</div><?php endif;?>
     </div>
 
     <div class="table-card orders-table-card">
-     <table class="table orders-datatable">
-      <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
+     <table class="table orders-datatable" data-page-length="5" data-length-change="1" data-order-column="3" data-order-direction="desc">
+      <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
       <tbody>
       <?php foreach($orders as $o):
        $status=(string)($o['status']??'ATIVO');$upper=mb_strtoupper($status);
-       $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');
+       $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':(in_array((string)($o['stage_code']??''),$budgetCodes??['00','10'],true)?'budget':'active'));
       ?>
        <tr>
-        <td><div class="order-code-cell"><span class="order-code-icon"><i class="fa-solid fa-receipt"></i></span><span><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></span></div></td>
+        <td><a class="order-code-cell" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><span class="order-code-icon"><i class="fa-solid fa-receipt"></i></span><span><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></span></a></td>
         <td><strong><?=e($o['client_name']??($o['client_omie_code']??'—'))?></strong><?php if(!empty($o['client_name'])&&!empty($o['client_omie_code'])):?><small><?=e($o['client_omie_code'])?></small><?php endif;?></td>
         <td><?php if(!empty($o['seller_name'])):?><strong><?=e($o['seller_name'])?></strong><small><?=e($o['seller_omie_code'])?></small><?php elseif(!empty($o['seller_omie_code'])):?><strong><?=e($o['seller_omie_code'])?></strong><small>código do vendedor</small><?php else:?><span class="order-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
         <td data-order="<?=e((string)$o['order_date'])?>"><?=brdate($o['order_date'])?></td>
         <td><span class="order-stage"><strong><?=e($o['stage_name']??($o['stage_code']??'—'))?></strong><?php if(!empty($o['stage_name'])&&!empty($o['stage_code'])):?><small><?=e($o['stage_code'])?></small><?php endif;?></span></td>
         <td><span class="order-status order-status-<?=$statusClass?>"><?=e($status)?></span></td>
         <td class="text-end"><strong class="<?=$statusClass==='cancelled'?'text-secondary':''?>"><?=money($o['total'])?></strong></td>
+        <td class="text-end"><div class="table-actions"><a class="btn btn-sm btn-light" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>" title="Visualizar pedido" aria-label="Visualizar pedido"><i class="fa-regular fa-eye"></i></a><?php if($statusClass==='budget'):?><a class="btn btn-sm btn-light" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/edit" title="Editar orçamento e atualizar na Omie" aria-label="Editar orçamento"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><a class="btn btn-sm btn-light" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/duplicate" title="Duplicar pedido" aria-label="Duplicar pedido"><i class="fa-regular fa-copy"></i></a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$o['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" title="Excluir pedido" aria-label="Excluir pedido" data-submit-loading="Excluindo..." data-confirm="Excluir definitivamente o pedido <?=e($o['number']??$o['omie_code'])?> da Omie e do CRM? Esta ação não pode ser desfeita."><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
        </tr>
       <?php endforeach;?>
       </tbody>
      </table>
     </div>
    <?php endif;?>
+   </section>
+   </div>
+  <?php break;
+  case 'order_detail':
+   $order=$detail['order'];$raw=$detail['raw'];$items=$detail['items'];$header=(array)($raw['cabecalho']??[]);$info=(array)($raw['informacoes_adicionais']??[]);$freight=(array)($raw['frete']??[]);$registration=(array)($raw['infoCadastro']??[]);$installments=(array)($raw['lista_parcelas']['parcela']??[]);$status=(string)($order['status']??'ATIVO');$upper=mb_strtoupper($status);$isBudget=in_array((string)($order['stage_code']??''),OrderPolicy::budgetStageCodes(),true);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')||($registration['faturado']??'N')==='S'?'billed':($isBudget?'budget':'active'));$actionError=$_SESSION['error']??null;$actionSuccess=$_SESSION['success']??null;unset($_SESSION['error'],$_SESSION['success']);?>
+   <div class="order-detail-experience">
+    <div class="order-detail-hero">
+     <div><a class="order-create-back" href="<?=APP_URL?>/orders"><i class="fa-solid fa-arrow-left"></i> Voltar aos pedidos</a><span class="order-detail-kicker"><i class="fa-solid fa-receipt"></i> PEDIDO <?=e($order['number']??$order['omie_code'])?></span><h1><?=e($order['client_name']??'Cliente não identificado')?></h1><p><span><i class="fa-solid fa-user-tie"></i><?=e($order['seller_name']??$order['seller_omie_code']??'Sem vendedor')?></span><span><i class="fa-regular fa-calendar"></i><?=brdate($order['order_date'])?></span><span><i class="fa-solid fa-cloud"></i>Omie <?=e($order['omie_code'])?></span></p></div>
+     <div class="order-detail-actions"><?php if($statusClass==='budget'):?><a class="btn btn-primary" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar orçamento</a><?php endif;?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/duplicate"><i class="fa-regular fa-copy"></i>Duplicar pedido</a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$order['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn order-delete-button" type="submit" data-submit-loading="Excluindo pedido..." data-confirm="Excluir definitivamente o pedido <?=e($order['number']??$order['omie_code'])?> da Omie e do CRM? Esta ação não pode ser desfeita."><i class="fa-regular fa-trash-can"></i>Excluir pedido</button></form><?php endif;?></div>
+    </div>
+    <?php if($actionSuccess):?><div class="alert alert-success mt-3"><?=e($actionSuccess)?></div><?php endif;?><?php if($actionError):?><div class="alert alert-danger mt-3"><?=e($actionError)?></div><?php endif;?>
+    <div class="order-detail-stage-line"><div><small>ETAPA ATUAL</small><strong><?=e($order['stage_name']??'Etapa não identificada')?></strong><span>Código <?=e($order['stage_code']??'—')?><?=$isBudget?' · orçamento fora da meta':''?></span></div><i class="fa-solid fa-arrow-right-long"></i><div><small>STATUS</small><span class="order-status order-status-<?=$statusClass?>"><?=e($status)?></span><b><?=($registration['faturado']??'N')==='S'?'Faturado na Omie':'Última atualização '.date('d/m/Y H:i',strtotime($order['updated_at']))?></b></div></div>
+    <div class="order-detail-kpis"><div><span><i class="fa-solid fa-sack-dollar"></i></span><small>VALOR TOTAL</small><strong><?=money($order['total'])?></strong></div><div><span><i class="fa-solid fa-boxes-stacked"></i></span><small>ITENS</small><strong><?=number_format(count($items),0,',','.')?></strong></div><div><span><i class="fa-regular fa-calendar-check"></i></span><small>PREVISÃO</small><strong><?=brdate($order['forecast_date'])?></strong></div><div><span><i class="fa-regular fa-credit-card"></i></span><small>PARCELAS</small><strong><?=number_format(count($installments),0,',','.')?></strong></div></div>
+
+    <section class="panel order-detail-panel"><div class="panel-title-row"><div><span class="eyebrow">COMPOSIÇÃO</span><h2>Itens do pedido</h2></div><small>Produtos e valores registrados no pedido sincronizado.</small></div><div class="order-detail-items"><div class="order-detail-item order-detail-item-head"><span>Produto</span><span>Quantidade</span><span>Unitário</span><span>Desconto</span><span>Total</span></div><?php foreach($items as $row):$p=(array)$row['product'];?><div class="order-detail-item"><span><strong><?=e($p['descricao']??'Produto')?></strong><small><?=e($p['codigo']??$p['codigo_produto']??'')?></small></span><span data-label="Quantidade"><?=number_format((float)($p['quantidade']??0),2,',','.')?> <?=e($p['unidade']??'')?></span><span data-label="Unitário"><?=money($p['valor_unitario']??0)?></span><span data-label="Desconto"><?=(float)($p['valor_desconto']??0)>0?money($p['valor_desconto']):number_format((float)($p['percentual_desconto']??0),2,',','.').'%'?></span><span data-label="Total"><strong><?=money($p['valor_total']??0)?></strong></span></div><?php endforeach;?></div></section>
+
+    <div class="order-detail-grid">
+     <section class="panel"><div class="panel-title-row"><div><span class="eyebrow">COMERCIAL</span><h2>Condições do pedido</h2></div></div><dl class="order-detail-data"><div><dt>Categoria</dt><dd><?=e($info['codigo_categoria']??'—')?></dd></div><div><dt>Conta corrente</dt><dd><?=e($info['codigo_conta_corrente']??'—')?></dd></div><div><dt>Condição de pagamento</dt><dd><?=e($header['codigo_parcela']??'—')?></dd></div><div><dt>Consumidor final</dt><dd><?=($info['consumidor_final']??'N')==='S'?'Sim':'Não'?></dd></div><div><dt>Contato</dt><dd><?=e($info['contato']??'—')?></dd></div><div><dt>Pedido do cliente</dt><dd><?=e($info['numero_pedido_cliente']??'—')?></dd></div></dl></section>
+     <section class="panel"><div class="panel-title-row"><div><span class="eyebrow">LOGÍSTICA</span><h2>Frete e entrega</h2></div></div><dl class="order-detail-data"><div><dt>Modalidade</dt><dd><?=e($freight['modalidade']??'—')?></dd></div><div><dt>Transportadora</dt><dd><?=e($freight['codigo_transportadora']??'—')?></dd></div><div><dt>Valor do frete</dt><dd><?=money($freight['valor_frete']??0)?></dd></div><div><dt>Peso bruto</dt><dd><?=number_format((float)($freight['peso_bruto']??0),3,',','.')?> kg</dd></div><div><dt>Volumes</dt><dd><?=e($freight['quantidade_volumes']??'—')?></dd></div><div><dt>Rastreio</dt><dd><?=e($freight['codigo_rastreio']??'—')?></dd></div></dl></section>
+    </div>
+    <?php if($installments):?><section class="panel order-detail-panel"><div class="panel-title-row"><div><span class="eyebrow">FINANCEIRO</span><h2>Parcelas</h2></div></div><div class="order-installments"><?php foreach($installments as $parcel):?><div><span>Parcela <?=number_format((int)($parcel['numero_parcela']??0),0,',','.')?></span><strong><?=money($parcel['valor']??0)?></strong><small>Vencimento <?=e($parcel['data_vencimento']??'—')?></small></div><?php endforeach;?></div></section><?php endif;?>
+    <?php if(!empty($raw['observacoes']['obs_venda'])):?><section class="panel order-detail-notes"><span><i class="fa-regular fa-note-sticky"></i></span><div><small>OBSERVAÇÕES DA VENDA</small><p><?=nl2br(e((string)$raw['observacoes']['obs_venda']))?></p></div></section><?php endif;?>
+   </div>
   <?php break;
   case 'services':?>
    <div class="page-head services-page-head">
-    <div><span class="eyebrow">COMERCIAL / SERVIÇOS</span><h1>Ordens de serviço</h1><p>Acompanhe OS sincronizadas da Omie, valores, vendedores e reflexo direto nos resultados comerciais.</p></div>
+    <div><span class="eyebrow">COMERCIAL / SERVIÇOS</span><h1>Ordens de serviço</h1><p>Acompanhe as OS sincronizadas da Omie. Serviços são operacionais e não compõem o relatório de Pedidos OK.</p></div>
     <div class="services-period-actions">
-     <div class="services-current-period"><span>Período exibido</span><strong><?=$month==='all'?'Todos os períodos':date('m/Y',strtotime($month.'-01'))?></strong></div>
+     <div class="services-current-period"><span>Período exibido</span><strong><?=e((string)($period['label']??''))?></strong></div>
      <details class="services-period-picker">
-      <summary class="btn btn-outline-secondary"><i class="fa-regular fa-calendar"></i>Escolher mês</summary>
+      <summary class="btn btn-outline-secondary"><i class="fa-regular fa-calendar"></i>Escolher período</summary>
       <form method="get" class="services-period-popover">
-       <label>Mês desejado</label>
-       <input class="form-control" type="month" name="month" value="<?=e($month==='all'?$currentMonth:$month)?>">
+       <div class="period-range-fields"><label>Data inicial<input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??date('Y-m-01')))?>" required></label><label>Data final<input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??date('Y-m-t')))?>" required></label></div>
        <div class="services-period-buttons">
         <button class="btn btn-primary" type="submit">Aplicar</button>
-        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/services?month=<?=e($currentMonth)?>">Mês atual</a>
-        <a class="btn btn-light" href="<?=APP_URL?>/services?month=all">Todos</a>
+        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/services">Mês atual</a>
+        <a class="btn btn-light" href="<?=APP_URL?>/services?period=all">Todos</a>
        </div>
       </form>
      </details>
@@ -388,7 +488,7 @@ function render(string $name,array $vars=[]): void{
    <?php endif;?>
 
    <div class="services-summary-grid">
-    <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format((int)($totalRows??count($rows)),0,',','.')?></strong><small><?=$month==='all'?'todos os períodos':date('m/Y',strtotime($month.'-01'))?></small></div>
+    <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format((int)($totalRows??count($rows)),0,',','.')?></strong><small><?=e((string)($period['label']??''))?></small></div>
     <div><span class="services-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>desconsiderando canceladas</small></div>
     <div><span class="services-kpi-icon slate"><i class="fa-solid fa-circle-check"></i></span><p>Válidas</p><strong><?=(int)$valid?></strong><small>ativas ou faturadas</small></div>
     <div><span class="services-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Canceladas</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
@@ -428,18 +528,30 @@ function render(string $name,array $vars=[]): void{
     </div>
    <?php endif;?>
   <?php break;
-  case 'order_new':$error=$_SESSION['error']??null;$preview=$_SESSION['preview']??null;$success=$_SESSION['success']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['success'],$_SESSION['old']);$d=$ready['defaults'];$draftId=(int)($draft['id']??$old['draft_id']??0);?>
-   <div class="page-head"><div><span class="eyebrow">PEDIDO DE VENDA</span><h1><?=$draftId>0?'Editar rascunho':'Novo pedido'?></h1><p><?=$draftId>0?'Pedido salvo localmente. Continue a edição e envie para a Omie quando estiver pronto.':'Fluxo inspirado no Omie: cabeçalho operacional fixo e conteúdo organizado por abas horizontais.'?></p></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders">Pedidos</a></div>
-   <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
+  case 'order_new':$error=$_SESSION['error']??null;$success=$_SESSION['success']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['success'],$_SESSION['old']);$d=$ready['defaults'];$draftId=(int)($draft['id']??$old['draft_id']??0);$editOrderId=(int)($old['edit_order_id']??$editOrder['source']['id']??0);$selectedFreightMode=trim((string)($old['freight_mode']??''));if(!in_array($selectedFreightMode,['0','1','2','3','4','9'],true))$selectedFreightMode=(string)($d['freight_mode']??'9');?>
+   <div class="order-create-experience">
+   <div class="order-new-topbar-tools" data-topbar-tools>
+    <a class="order-new-topbar-back" href="<?=APP_URL?>/orders<?=$editOrderId>0?'/'.$editOrderId:''?>"><i class="fa-solid fa-arrow-left"></i><span><?=$editOrderId>0?'Voltar ao orçamento':'Voltar aos pedidos'?></span></a>
+    <?php if($editOrderId>0):?><span class="order-new-draft-badge order-new-omie-edit-badge"><i class="fa-solid fa-cloud"></i>Editando orçamento Omie <?=e((string)($old['editing_order_label']??''))?></span><?php elseif($draftId>0):?><span class="order-new-draft-badge"><i class="fa-regular fa-pen-to-square"></i>Editando rascunho</span><?php endif;?>
+    <div class="order-new-topbar-actions">
+     <?php if($editOrderId<=0):?><button class="btn btn-light order-save-draft" type="submit" form="orderForm" name="submit_mode" value="draft" title="<?=$draftId>0?'Salvar alterações':'Salvar rascunho'?>"><i class="fa-regular fa-floppy-disk"></i><span><?=$draftId>0?'Salvar alterações':'Salvar rascunho'?></span></button><?php endif;?>
+     <button class="btn btn-primary" type="submit" form="orderForm" name="submit_mode" value="send" title="<?=$editOrderId>0?'Atualizar na Omie':'Enviar para Omie'?>" data-confirm="<?=$editOrderId>0?'Atualizar este orçamento existente na Omie com os dados revisados?':'Enviar e integrar este pedido na Omie? Depois da confirmação ele deixará de ser rascunho.'?>" data-submit-loading="<?=$editOrderId>0?'Atualizando na Omie...':'Integrando na Omie...'?>" <?=$ready['ok']?'':'disabled'?>> <i class="fa-solid fa-cloud-arrow-up"></i><span><?=$editOrderId>0?'Atualizar na Omie':'Enviar para Omie'?></span></button>
+    </div>
+   </div>
+  <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
+   <?php if($editOrderId>0):?><div class="alert alert-info"><i class="fa-solid fa-circle-info"></i><span>Você está alterando um orçamento já existente. Nada será modificado até clicar em <strong>Atualizar na Omie</strong>; depois da confirmação, o CRM também será atualizado.</span></div><?php elseif(!empty($old['duplicated_from'])):?><div class="alert alert-info"><i class="fa-regular fa-copy"></i><span>Este novo pedido foi preenchido a partir do pedido <strong><?=e((string)$old['duplicated_from'])?></strong>. Revise a etapa, a previsão e os valores antes de enviar.</span></div><?php endif;?>
    <?php if(!$ready['ok']):$missingLabels=['stage'=>'Etapas','category'=>'Categorias','account'=>'Contas correntes','payment_term'=>'Condições de pagamento','products'=>'Produtos com preço','payment_terms'=>'Condições de pagamento'];$missingText=array_map(fn($k)=>$missingLabels[$k]??$k,$ready['missing']);?><div class="alert alert-warning"><strong>Faltam dados para criar pedidos:</strong> <?=e(implode(', ',$missingText))?>. <a href="<?=APP_URL?>/sync">Abra a Central de Sincronização</a> e sincronize somente os módulos indicados.</div><?php endif;?><?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
 
    <form method="post" action="<?=APP_URL?>/orders" id="orderForm" class="omie-order-form">
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
     <input type="hidden" name="draft_id" value="<?=$draftId?>">
+    <input type="hidden" name="edit_order_id" value="<?=$editOrderId?>">
     <input type="hidden" name="request_token" value="<?=e((string)($old['request_token']??(date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8)))))?>">
     <input type="hidden" name="client_id" id="clientId" value="<?=e((string)($old['client_id']??$prefill))?>">
     <input type="hidden" name="items_json" id="itemsJson" value="<?=e((string)($old['items_json']??'[]'))?>">
     <input type="hidden" name="departments_json" id="departmentsJson" value="<?=e((string)($old['departments_json']??''))?>">
+    <input type="hidden" name="installments_json" id="installmentsJson" value="<?=e((string)($old['installments_json']??'[]'))?>">
+    <input type="hidden" name="custom_installments" id="customInstallments" value="<?=($old['custom_installments']??'N')==='S'?'S':'N'?>">
 
     <section class="panel omie-order-header">
      <div class="omie-order-header-grid">
@@ -453,7 +565,7 @@ function render(string $name,array $vars=[]): void{
       </div>
       <div>
        <label>Previsão de faturamento</label>
-       <input class="form-control" type="date" name="forecast_date" min="<?=date('Y-m-d')?>" value="<?=e((string)($old['forecast_date']??date('Y-m-d')))?>">
+       <input class="form-control" type="date" name="forecast_date" id="orderForecastDate" min="<?=date('Y-m-d')?>" value="<?=e((string)($old['forecast_date']??date('Y-m-d')))?>">
       </div>
      </div>
 
@@ -472,7 +584,7 @@ function render(string $name,array $vars=[]): void{
       </div>
       <div>
        <label>Número de parcelas / condição</label>
-       <select class="form-select" name="payment_term" required><option value="">Selecione</option><?php foreach($terms as $t):?><option value="<?=e($t['code'])?>" <?=($old['payment_term']??$d['payment_term']??'')===$t['code']?'selected':''?>><?=e($t['description'])?><?=$t['days_list']?' • '.e($t['days_list']):''?></option><?php endforeach;?></select>
+       <select class="form-select" name="payment_term" id="orderPaymentTerm" required><option value="">Selecione</option><?php foreach($terms as $t):?><option value="<?=e($t['code'])?>" data-installments="<?=(int)($t['installments']??0)?>" data-days="<?=e((string)($t['days_list']??''))?>" <?=($old['payment_term']??$d['payment_term']??'')===$t['code']?'selected':''?>><?=e($t['description'])?><?=$t['days_list']?' • '.e($t['days_list']):''?></option><?php endforeach;?></select>
       </div>
       <div>
        <label>Cenário fiscal</label>
@@ -483,26 +595,22 @@ function render(string $name,array $vars=[]): void{
 
     <section class="panel omie-order-body" data-order-tabs>
      <div class="omie-main-tabs" role="tablist" aria-label="Seções do pedido">
-      <button type="button" class="active" data-order-tab="items">Itens da Venda</button>
-      <button type="button" data-order-tab="departments">Departamentos</button>
-      <button type="button" data-order-tab="freight">Frete e Outras Despesas</button>
-      <button type="button" data-order-tab="additional">Informações Adicionais</button>
-      <button type="button" data-order-tab="installments">Parcelas</button>
-      <button type="button" data-order-tab="notes">Observações</button>
-      <button type="button" data-order-tab="email">E-mail para o Cliente</button>
+      <button type="button" class="active" data-order-tab="items"><i class="fa-solid fa-boxes-stacked"></i>Itens da venda</button>
+      <button type="button" data-order-tab="departments"><i class="fa-solid fa-sitemap"></i>Departamentos</button>
+      <button type="button" data-order-tab="freight"><i class="fa-solid fa-truck-fast"></i>Frete</button>
+      <button type="button" data-order-tab="additional"><i class="fa-solid fa-sliders"></i>Dados adicionais</button>
+      <button type="button" data-order-tab="installments"><i class="fa-regular fa-credit-card"></i>Parcelas</button>
+      <button type="button" data-order-tab="notes"><i class="fa-regular fa-note-sticky"></i>Observações</button>
+      <button type="button" data-order-tab="email"><i class="fa-regular fa-envelope"></i>E-mail</button>
      </div>
 
      <div class="omie-tab-content">
       <section class="order-tab-panel active" data-order-panel="items">
-       <div class="omie-tab-toolbar">
-        <div>
-         <label>Tipo de pedido</label>
-         <select class="form-select" id="orderProfile"><?php foreach($profiles as $p):?><option value="<?=e($p['code'])?>" data-no-stock="<?=e($p['default_no_stock'])?>" data-no-finance="<?=e($p['default_no_finance'])?>" data-no-total="<?=e($p['default_no_total'])?>" data-reserve="<?=e($p['default_reserve_stock'])?>"><?=e($p['name'])?></option><?php endforeach;?></select>
-        </div>
-        <div class="omie-product-search">
-         <label>Novo item</label>
-         <div class="search-box"><input class="form-control" id="productSearch" placeholder="Digite produto, SKU ou código"><div class="search-results" id="productResults"></div></div>
-        </div>
+       <select hidden id="orderProfile"><?php foreach($profiles as $p):?><option value="<?=e($p['code'])?>" data-no-stock="<?=e($p['default_no_stock'])?>" data-no-finance="<?=e($p['default_no_finance'])?>" data-no-total="<?=e($p['default_no_total'])?>" data-reserve="<?=e($p['default_reserve_stock'])?>"><?=e($p['name'])?></option><?php endforeach;?></select>
+       <div class="order-items-bulk" id="orderItemsBulk" hidden>
+        <label class="order-items-select-all"><input type="checkbox" id="selectAllOrderItems"><span><strong id="selectedOrderItemsCount">0 selecionados</strong><small>Marque os itens que deseja alterar juntos</small></span></label>
+        <div class="order-bulk-group"><span>Estoque</span><button type="button" data-bulk-field="no_stock" data-bulk-value="0"><i class="fa-solid fa-box"></i>Movimentar</button><button type="button" data-bulk-field="no_stock" data-bulk-value="1"><i class="fa-solid fa-box-open"></i>Não movimentar</button></div>
+        <div class="order-bulk-group"><span>Financeiro</span><button type="button" data-bulk-field="no_finance" data-bulk-value="0"><i class="fa-solid fa-sack-dollar"></i>Gerar</button><button type="button" data-bulk-field="no_finance" data-bulk-value="1"><i class="fa-solid fa-ban"></i>Não gerar</button></div>
        </div>
        <div id="orderItems"></div>
       </section>
@@ -525,25 +633,13 @@ function render(string $name,array $vars=[]): void{
 
       <section class="order-tab-panel" data-order-panel="freight">
        <div class="omie-tab-grid freight-grid">
-        <div><label>Transportadora</label><input class="form-control" name="carrier_code" value="<?=e((string)($old['carrier_code']??''))?>"></div>
-        <div><label>Tipo do frete</label><select class="form-select" name="freight_mode"><?php foreach(['9'=>'Sem frete','0'=>'CIF • remetente','1'=>'FOB • destinatário','2'=>'Terceiros','3'=>'Próprio • remetente','4'=>'Próprio • destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=($old['freight_mode']??$d['freight_mode']??'9')===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select></div>
-        <div><label>Placa do veículo</label><input class="form-control" name="plate" value="<?=e((string)($old['plate']??''))?>"></div>
-        <div><label>UF</label><input class="form-control" name="plate_state" maxlength="2" value="<?=e((string)($old['plate_state']??''))?>"></div>
-        <div><label>RNTRC (ANTT)</label><input class="form-control" name="rntrc" value="<?=e((string)($old['rntrc']??''))?>"></div>
-        <div><label>Quantidade de volumes</label><input class="form-control" type="number" name="volumes" value="<?=e((string)($old['volumes']??''))?>"></div>
-        <div><label>Espécie dos volumes</label><input class="form-control" name="volume_type" value="<?=e((string)($old['volume_type']??''))?>"></div>
-        <div><label>Marca dos volumes</label><input class="form-control" name="volume_brand" value="<?=e((string)($old['volume_brand']??''))?>"></div>
-        <div><label>Numeração dos volumes</label><input class="form-control" name="volume_numbering" value="<?=e((string)($old['volume_numbering']??''))?>"></div>
-        <div><label>Peso líquido (kg)</label><input class="form-control" name="net_weight" inputmode="decimal" value="<?=e((string)($old['net_weight']??''))?>"></div>
-        <div><label>Peso bruto (kg)</label><input class="form-control" name="gross_weight" inputmode="decimal" value="<?=e((string)($old['gross_weight']??''))?>"></div>
-        <div><label>Valor do frete</label><input class="form-control" name="freight_value" inputmode="decimal" value="<?=e((string)($old['freight_value']??''))?>"></div>
-        <div><label>Valor do seguro</label><input class="form-control" name="insurance_value" inputmode="decimal" value="<?=e((string)($old['insurance_value']??''))?>"></div>
-        <div><label>Outras despesas acessórias</label><input class="form-control" name="other_expenses" inputmode="decimal" value="<?=e((string)($old['other_expenses']??''))?>"></div>
-        <div><label>Previsão de entrega</label><input class="form-control" type="date" name="delivery_date" value="<?=e((string)($old['delivery_date']??''))?>"></div>
-        <div><label>Código de rastreio</label><input class="form-control" name="tracking_code" value="<?=e((string)($old['tracking_code']??''))?>"></div>
+        <div class="freight-field-carrier"><label>Transportadora</label><select class="form-select" name="carrier_code"><option value="">Sem transportadora</option><?php foreach($carriers??[] as $carrier):?><option value="<?=e((string)$carrier['omie_code'])?>" <?=((string)($old['carrier_code']??''))===(string)$carrier['omie_code']?'selected':''?>><?=e((string)$carrier['name'])?><?=!empty($carrier['city'])?' • '.e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):''?></option><?php endforeach;?></select><?php if(empty($carriers)):?><small class="field-hint">Nenhuma transportadora habilitada. Configure em Configurações.</small><?php endif;?></div>
+        <div class="freight-field-mode"><label>Tipo do frete</label><select class="form-select" name="freight_mode"><?php foreach(['9'=>'Sem frete','0'=>'CIF • remetente','1'=>'FOB • destinatário','2'=>'Terceiros','3'=>'Próprio • remetente','4'=>'Próprio • destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=$selectedFreightMode===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select></div>
+        <div class="freight-field-volumes"><label>Quantidade de volumes</label><input class="form-control" type="number" min="0" step="1" name="volumes" value="<?=e((string)($old['volumes']??''))?>"></div>
+        <div class="freight-field-weight"><label>Peso líquido (kg) <small>somado dos itens</small></label><input class="form-control" id="orderNetWeight" name="net_weight" inputmode="decimal" placeholder="0,000" data-manual="<?=isset($old['net_weight'])&&$old['net_weight']!==''?'1':'0'?>" value="<?=e((string)($old['net_weight']??''))?>"></div>
+        <div class="freight-field-weight"><label>Peso bruto (kg) <small>somado dos itens</small></label><input class="form-control" id="orderGrossWeight" name="gross_weight" inputmode="decimal" placeholder="0,000" data-manual="<?=isset($old['gross_weight'])&&$old['gross_weight']!==''?'1':'0'?>" value="<?=e((string)($old['gross_weight']??''))?>"></div>
        </div>
-       <label class="check mt-3"><input type="checkbox" name="own_vehicle" value="1" <?=!empty($old['own_vehicle'])?'checked':''?>> O transporte será realizado com veículo próprio</label>
-       <div class="freight-api-placeholder"><i class="fa-solid fa-truck-fast"></i><div><strong>Cotação de frete</strong><span>Aqui entraremos depois com a API usando endereço do cliente, peso, valor da nota e volumes.</span></div><button type="button" class="btn btn-outline-secondary" disabled>Calcular frete</button></div>
+       <div class="freight-api-placeholder"><i class="fa-solid fa-truck-fast"></i><div><strong>Cotação de frete</strong><span>O endpoint será integrado aqui usando o destino do cliente, a transportadora, os volumes e os pesos informados.</span></div><button type="button" class="btn btn-outline-secondary" disabled>Em breve</button></div>
       </section>
 
       <section class="order-tab-panel" data-order-panel="additional">
@@ -551,23 +647,25 @@ function render(string $name,array $vars=[]): void{
         <div><label>Categoria</label><select class="form-select" name="category" required><?php foreach($categories as $r):?><option value="<?=e($r['code'])?>" <?=($old['category']??$d['category']??'')===$r['code']?'selected':''?>><?=e($r['description'])?></option><?php endforeach;?></select></div>
         <div><label>Conta corrente</label><select class="form-select" name="account" required><?php foreach($accounts as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['account']??$d['account']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select></div>
         <div><label>Etapa</label><select class="form-select" name="stage" required><?php foreach($stages as $r):?><option value="<?=e($r['code'])?>" <?=($old['stage']??$d['stage']??'')===$r['code']?'selected':''?>><?=e($r['code'].' • '.$r['name'])?></option><?php endforeach;?></select></div>
-        <div><label>Nº do pedido do cliente</label><input class="form-control" name="customer_order" value="<?=e((string)($old['customer_order']??''))?>"></div>
-        <div><label>Nº do contrato de venda</label><input class="form-control" name="contract" value="<?=e((string)($old['contract']??''))?>"></div>
-        <div><label>Contato</label><input class="form-control" name="contact" value="<?=e((string)($old['contact']??''))?>"></div>
-        <div><label>Tipo de documento</label><select class="form-select" name="document_type"><option value="">Padrão Omie</option><?php foreach($documents as $r):?><option value="<?=e($r['code'])?>" <?=($old['document_type']??$d['document_type']??'')===$r['code']?'selected':''?>><?=e($r['description'])?></option><?php endforeach;?></select></div>
-        <div><label>Local de estoque</label><select class="form-select" name="stock_location"><option value="">Padrão Omie</option><?php foreach($stocks as $r):?><option value="<?=e($r['omie_code'])?>" <?=($old['stock_location']??$d['stock_location']??'')===$r['omie_code']?'selected':''?>><?=e($r['name'])?></option><?php endforeach;?></select></div>
        </div>
-       <label>Dados adicionais para a Nota Fiscal</label><textarea class="form-control" name="additional_nf" rows="4"><?=e((string)($old['additional_nf']??''))?></textarea>
        <input type="hidden" name="consumer_final" value="N">
        <label class="check mt-3"><input type="checkbox" name="consumer_final" value="S" <?=($old['consumer_final']??$d['consumer_final']??'S')==='S'?'checked':''?>> Nota Fiscal para Consumidor Final</label>
       </section>
 
       <section class="order-tab-panel" data-order-panel="installments">
-       <div class="omie-tab-grid installments-grid">
-        <div><label>Condição de pagamento</label><div class="omie-readonly-field" data-payment-summary>Definida no cabeçalho do pedido.</div></div>
-        <div><label>Meio de pagamento</label><select class="form-select" name="payment_method"><option value="">Padrão Omie</option><?php foreach($methods as $m):?><option value="<?=e($m['code'])?>" <?=($old['payment_method']??$d['payment_method']??'')===$m['code']?'selected':''?>><?=e($m['description'])?></option><?php endforeach;?></select></div>
+       <input type="hidden" name="payment_method" id="installmentPaymentMethod" value="<?=e((string)($old['payment_method']??$d['payment_method']??''))?>">
+       <div class="omie-installments-head">
+        <div><strong>Contas a receber</strong><span>Parcelas e vencimentos previstos para esta venda.</span></div>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="rebuildInstallments"><i class="fa-solid fa-rotate"></i>Refazer parcelas</button>
        </div>
-       <div class="omie-empty-tab compact"><i class="fa-solid fa-calendar-days"></i><strong>Parcelamento</strong><span>A condição vem da Omie. Quando habilitarmos condição manual, as parcelas serão exibidas aqui.</span></div>
+       <div class="omie-installments-wrap">
+        <table class="omie-installments-table">
+         <thead><tr><th>Situação</th><th>Parcela</th><th>Vencimento</th><th class="numeric">Valor a receber</th><th class="numeric">Percentual</th><th>Tipo de documento</th><th>Meio de pagamento</th><th class="center">Gerar boleto</th></tr></thead>
+         <tbody id="installmentRows"><tr><td colspan="8" class="installments-empty">Selecione a condição de pagamento e inclua os itens do pedido.</td></tr></tbody>
+         <tfoot><tr><td colspan="3"><strong>Total das parcelas</strong><span id="installmentMode">Automático pela condição</span></td><td class="numeric"><strong id="installmentTotal">R$ 0,00</strong></td><td class="numeric"><strong id="installmentPercent">0,00%</strong></td><td colspan="3"><span id="installmentBalance"></span></td></tr></tfoot>
+        </table>
+       </div>
+       <p class="installments-note"><i class="fa-solid fa-circle-info"></i>Altere valor, vencimento, meio de pagamento ou boleto diretamente na grade. Parcelas personalizadas serão enviadas à Omie pela condição 999.</p>
       </section>
 
       <section class="order-tab-panel" data-order-panel="notes">
@@ -586,23 +684,48 @@ function render(string $name,array $vars=[]): void{
      </div>
     </section>
 
-    <div class="omie-order-footer">
-     <div class="omie-order-footer-total"><span>Total do pedido</span><strong id="footerGrandTotal">R$ 0,00</strong></div>
-     <div class="omie-order-footer-actions"><button class="btn btn-light order-save-draft" name="submit_mode" value="draft"><i class="fa-regular fa-floppy-disk"></i><?=$draftId>0?'Salvar alterações':'Salvar rascunho'?></button><button class="btn btn-outline-secondary" name="submit_mode" value="preview" <?=$ready['ok']?'':'disabled'?>>Validar sem enviar</button><button class="btn btn-primary" name="submit_mode" value="send" <?=$ready['ok']?'':'disabled'?>>Enviar para Omie</button></div>
-    </div>
    </form>
-
-   <?php if($preview):?><div class="panel mt-3"><h2>Payload validado — não enviado</h2><pre class="payload"><?=e(json_encode($preview,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE))?></pre></div><?php endif;?>
+   </div>
    <script>
    window.ORDER_PREFILL_CLIENT=<?=json_encode((int)($old['client_id']??$prefill))?>;
    window.ORDER_OLD_ITEMS=<?=json_encode(json_decode((string)($old['items_json']??'[]'),true)?:[])?>;
    window.ORDER_DEPARTMENTS=<?=json_encode(array_values(array_map(fn($r)=>['code'=>(string)$r['code'],'description'=>(string)$r['description']],$departments??[])),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?>;
-window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'stocks'=>$stocks,'profiles'=>$profiles],JSON_UNESCAPED_UNICODE)?>;
+window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'stocks'=>$stocks,'profiles'=>$profiles,'paymentMethods'=>$methods,'documentTypes'=>$documents,'defaults'=>$d],JSON_UNESCAPED_UNICODE)?>;
    </script>
   <?php break;
 
   case 'collection':?>
-   <div class="page-head"><div><span class="eyebrow">COBRANÇA</span><h1>Carteira</h1><p>Saldo, atraso e responsável.</p></div><div class="tabs"><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></div></div><div class="table-card"><table class="table"><thead><tr><th>Cliente</th><th>UF</th><th>Atraso</th><th>Responsável</th><th class="text-end">Saldo</th><th></th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e($r['uf']??'—')?></td><td><?=$r['max_overdue_days']?> dias</td><td><?=e($r['assigned_name']??'Não atribuído')?></td><td class="text-end"><strong><?=money($r['open_amount'])?></strong><?php if((float)$r['partial_paid']>0):?><small><?=money($r['partial_paid'])?> pago</small><?php endif;?></td><td><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/collection/<?=$r['client_id']?>">Abrir</a></td></tr><?php endforeach;?></tbody></table></div>
+   <div class="page-head collection-page-head"><div><span class="eyebrow">COBRANÇA</span><h1>Carteira</h1><p>Saldo, atraso e responsável.</p></div><div class="page-head-actions"><?php if(Auth::can('admin','supervisor')):?><a class="btn btn-primary" href="<?=APP_URL?>/collection/recoveries"><i class="fa-solid fa-money-bill-transfer"></i>Lançar recuperações</a><?php endif;?><div class="tabs"><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></div></div></div>
+   <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+   <div class="table-card"><table class="table" data-page-length="5" data-length-change="1"><thead><tr><th>Cliente</th><th>UF</th><th>Atraso</th><th>Responsável</th><th class="text-end">Saldo</th><th data-dt-order="disable"></th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e($r['uf']??'—')?></td><td data-order="<?=(int)$r['max_overdue_days']?>"><?=$r['max_overdue_days']?> dias</td><td><?=e($r['assigned_name']??'Não atribuído')?></td><td class="text-end" data-order="<?=e((string)$r['open_amount'])?>"><strong><?=money($r['open_amount'])?></strong><?php if((float)$r['partial_paid']>0):?><small><?=money($r['partial_paid'])?> pago</small><?php endif;?></td><td><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/collection/<?=$r['client_id']?>">Abrir</a></td></tr><?php endforeach;?></tbody></table></div>
+  <?php break;
+
+  case 'collection_recoveries':
+   $recoveryDate=(string)($old['recovery_date']??$defaults['recovery_date']??date('Y-m-d'));$assignedDefault=(int)($old['assigned_user_id']??$defaults['assigned_user_id']??0);$oldClientId=(int)($old['client_id']??0);?>
+   <div class="collection-recovery-experience">
+    <div class="collection-recovery-topbar" data-topbar-tools><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i>Voltar à carteira</a><span><i class="fa-solid fa-shield-halved"></i>Administração de recuperações</span></div>
+    <section class="collection-recovery-hero">
+     <div><span class="eyebrow">COBRANÇAS JÁ EFETUADAS</span><h1>Lançar valor recuperado</h1><p>Informe a data real do recebimento. O valor entrará na meta do responsável e nos filtros diários dessa data.</p></div>
+     <div><small>TOTAL DO PERÍODO</small><strong><?=money($total)?></strong><span><?=e($period['label'])?></span></div>
+    </section>
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+    <section class="panel collection-recovery-entry">
+     <form method="post" action="<?=APP_URL?>/collection/recoveries" data-collection-recovery-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="client_id" value="<?=$oldClientId?>" data-recovery-client-id>
+      <div class="collection-recovery-client"><label>Cliente</label><div class="search-box"><input class="form-control" autocomplete="off" placeholder="Código, nome ou CPF/CNPJ" data-recovery-client-search><div class="search-results" data-recovery-client-results></div></div><div class="selected-box" data-recovery-client-selected></div></div>
+      <label><span>Valor recuperado</span><div class="collection-money-field"><b>R$</b><input class="form-control" name="amount" inputmode="decimal" placeholder="0,00" value="<?=e((string)($old['amount']??''))?>" required></div></label>
+      <label><span>Data da recuperação</span><input class="form-control" type="date" name="recovery_date" max="<?=date('Y-m-d')?>" value="<?=e($recoveryDate)?>" required></label>
+      <label><span>Responsável pela meta</span><select class="form-select" name="assigned_user_id" required><option value="">Selecione</option><?php foreach($collectors as $collector):?><option value="<?=(int)$collector['id']?>" <?=$assignedDefault===(int)$collector['id']?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label>
+      <label class="collection-recovery-notes"><span>Observação</span><input class="form-control" name="notes" maxlength="500" placeholder="Opcional" value="<?=e((string)($old['notes']??''))?>"></label>
+      <button class="btn btn-primary" type="submit" data-submit-loading="Lançando recuperação..." data-confirm="Confirmar este valor na data informada e creditá-lo na meta do responsável selecionado?"><i class="fa-solid fa-check"></i>Lançar na meta</button>
+     </form>
+    </section>
+    <section class="collection-recovery-history">
+     <div class="collection-recovery-history-head"><div><span class="eyebrow">HISTÓRICO</span><h2>Valores recuperados</h2><p>A data abaixo é a data considerada nos resultados.</p></div><form method="get"><label>De<input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??''))?>"></label><label>Até<input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??''))?>"></label><button class="btn btn-outline-secondary"><i class="fa-solid fa-filter"></i>Filtrar</button></form></div>
+     <div class="table-card"><table class="table collection-recoveries-datatable" data-page-length="5" data-length-change="1" data-order-column="3" data-order-direction="desc"><thead><tr><th>Código do cliente</th><th>Cliente</th><th class="text-end">Valor recuperado</th><th>Data da recuperação</th><th>Meta de</th><th>Incluído por</th></tr></thead><tbody><?php foreach($recoveries as $recovery):?><tr><td><strong><?=e($recovery['client_integration_code']?:$recovery['omie_code'])?></strong><small><?php if(!empty($recovery['client_integration_code'])):?>Omie <?=e($recovery['omie_code'])?><?php endif;?></small></td><td><strong><?=e($recovery['name'])?></strong><small><?=e($recovery['document']??'')?></small></td><td class="text-end" data-order="<?=e((string)$recovery['amount'])?>"><strong><?=money($recovery['amount'])?></strong></td><td data-order="<?=e((string)$recovery['created_at'])?>"><strong><?=date('d/m/Y',strtotime($recovery['created_at']))?></strong></td><td><?=e($recovery['assigned_name']??'—')?></td><td><strong><?=e($recovery['author_name']??'—')?></strong><?php if(!empty($recovery['notes'])):?><small><?=e($recovery['notes'])?></small><?php endif;?></td></tr><?php endforeach;?></tbody></table></div>
+    </section>
+   </div>
+   <script>window.COLLECTION_RECOVERY_OLD_CLIENT=<?=$oldClientId?>;</script>
   <?php break;
   case 'collection_case':?>
    <div class="page-head"><div><a class="back" href="<?=APP_URL?>/collection">← Cobrança</a><h1><?=e($case['name'])?></h1><p><?=money($case['open_amount'])?> em aberto • <?=$case['max_overdue_days']?> dias</p></div></div><?php if($collectors):?><div class="panel assignment-panel mb-3"><div><span class="eyebrow">RESPONSABILIDADE</span><strong><?=e($case['assigned_name']??'Não atribuído')?></strong><small>Transferir move histórico, meta e retornos pendentes para o novo responsável.</small></div><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/assign"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><select class="form-select" name="assigned_user_id" required><option value="">Novo responsável...</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>"><?=e($c['name'])?></option><?php endforeach;?></select><button class="btn btn-outline-secondary">Transferir tudo</button></form></div><?php endif;?><div class="two-col"><div class="panel"><h2>Registrar ação</h2><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/action"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><?php if($collectors):?><label>Responsável</label><select class="form-select" name="assigned_user_id"><option value="">Manter atual</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=(int)$case['assigned_user_id']===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select><?php endif;?><label>Canal</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado</label><select class="form-select" name="result"><option value="contact">Contato</option><option value="promise">Promessa</option><option value="agreement">Acordo</option><option value="payment">Pagamento</option><option value="no_answer">Não atendeu</option></select><label>Valor</label><input class="form-control" name="amount"><label>Data prometida</label><input class="form-control" type="date" name="promise_date"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="btn btn-primary w-100">Salvar</button></form></div><div class="panel"><h2>Histórico</h2><div class="timeline"><?php foreach($actions as $a):?><div><strong><?=e($a['result'])?><?php if((float)$a['amount']>0):?> • <?=money($a['amount'])?><?php endif;?></strong><small>Feito por <?=e($a['author_name'])?> • responsável <?=e($a['assigned_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?></div></div></div>
@@ -611,39 +734,37 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    <div class="page-head"><div><span class="eyebrow">AGENDA</span><h1>Retornos</h1><p>Em ordem de horário.</p></div></div><div class="agenda-list"><?php foreach($rows as $r):?><div class="agenda-item <?=strtotime($r['due_at'])<time()?'late':''?>"><div><strong><?=date('H:i',strtotime($r['due_at']))?></strong><small><?=date('d/m',strtotime($r['due_at']))?></small></div><div><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/<?=$r['type']==='collection'?'collection':'clients'?>/<?=$r['client_id']?>">Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light">Concluir</button></form></div><?php endforeach;?></div>
   <?php break;
   case 'management_result':$g=$management['general_goal'];?>
-   <div class="results-hero">
-    <div>
-     <span class="results-kicker"><i class="fa-solid fa-chart-line"></i> PERFORMANCE DA OPERAÇÃO</span>
-     <h1>Resultados</h1>
-     <p>Visão consolidada de vendas, serviços, cobrança e atingimento das metas.</p>
+   <div class="results-topbar-tools" data-topbar-tools>
+    <form method="get">
+     <label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label>
+     <?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?>
+   </form>
+  </div>
+
+   <form class="results-day-card" method="get" data-result-days>
+    <input type="hidden" name="month" value="<?=e($month)?>">
+    <header>
+     <div><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO DO RESULTADO</small><strong>Escolha os dias que deseja apresentar</strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div>
+     <div><a class="btn btn-light" href="<?=APP_URL?>/result?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div>
+    </header>
+    <div class="results-day-grid">
+     <?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?>
+      <label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label>
+     <?php endfor;?>
     </div>
-    <form method="get" class="results-period">
-     <label>Período</label>
-     <input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()">
-    </form>
-   </div>
+   </form>
 
    <div class="results-kpis">
     <div class="results-kpi result-green">
      <div class="results-kpi-head"><span><i class="fa-solid fa-sack-dollar"></i></span><b><?=number_format($management['sales_percent'],1,',','.')?>%</b></div>
-     <small>VENDAS + SERVIÇOS</small><strong><?=money($management['sales'])?></strong>
-     <p>Meta <?=money($management['effective_sales_goal'])?></p>
+     <small>PEDIDOS OK</small><strong><?=money($management['sales'])?></strong>
+     <p><?=e($management['goal_scope'])?> <?=money($management['effective_sales_goal'])?></p>
      <div class="results-progress"><span style="width:<?=min(100,$management['sales_percent'])?>%"></span></div>
-    </div>
-    <div class="results-kpi result-blue">
-     <div class="results-kpi-head"><span><i class="fa-solid fa-receipt"></i></span><b>Pedidos</b></div>
-     <small>PRODUÇÃO EM PEDIDOS</small><strong><?=money($management['order_sales'])?></strong>
-     <p>Componente do realizado comercial</p>
-    </div>
-    <div class="results-kpi result-cyan">
-     <div class="results-kpi-head"><span><i class="fa-solid fa-screwdriver-wrench"></i></span><b>Serviços</b></div>
-     <small>PRODUÇÃO EM SERVIÇOS</small><strong><?=money($management['service_sales'])?></strong>
-     <p>Componente do realizado comercial</p>
     </div>
     <div class="results-kpi result-orange">
      <div class="results-kpi-head"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><b><?=number_format($management['collection_percent'],1,',','.')?>%</b></div>
      <small>RECUPERADO</small><strong><?=money($management['recovered'])?></strong>
-     <p>Meta <?=money($management['effective_collection_goal'])?></p>
+     <p><?=e($management['goal_scope'])?> <?=money($management['effective_collection_goal'])?></p>
      <div class="results-progress"><span style="width:<?=min(100,$management['collection_percent'])?>%"></span></div>
     </div>
    </div>
@@ -651,7 +772,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    <div class="results-columns">
     <section class="results-panel">
      <header class="results-panel-head">
-      <div><span class="results-panel-icon green"><i class="fa-solid fa-user-tie"></i></span><div><small>COMERCIAL</small><h2>Vendedores</h2><p>Produção individual e avanço sobre a meta.</p></div></div>
+      <div><span class="results-panel-icon green"><i class="fa-solid fa-user-tie"></i></span><div><small>COMERCIAL</small><h2>Vendedores</h2></div></div>
      </header>
      <div class="results-ranking">
       <?php foreach($management['sellers'] as $idx=>$row):$usr=$row['user'];?>
@@ -667,7 +788,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 
     <section class="results-panel">
      <header class="results-panel-head">
-      <div><span class="results-panel-icon orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>COBRANÇA</small><h2>Recuperação</h2><p>Resultado individual da equipe de cobrança.</p></div></div>
+      <div><span class="results-panel-icon orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>COBRANÇA</small><h2>Recuperação</h2></div></div>
      </header>
      <div class="results-ranking">
       <?php foreach($management['collectors'] as $idx=>$row):$usr=$row['user'];?>
@@ -685,7 +806,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    <?php if(!empty($management['virtual_sellers'])):?>
    <section class="results-panel virtual-results-panel">
     <header class="results-panel-head">
-     <div><span class="results-panel-icon blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><h2>Canais automáticos</h2><p>EAD Reciclagem e Suporte - Pet Cursos também possuem meta própria.</p></div></div>
+     <div><span class="results-panel-icon blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><h2>Canais automáticos</h2></div></div>
     </header>
     <div class="virtual-results-grid">
      <?php foreach($management['virtual_sellers'] as $row):$goal=(float)($row['goal']['sales_goal']??0);?>
@@ -693,7 +814,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        <header><span><i class="fa-solid <?=!empty($row['ead_reciclagem'])?'fa-graduation-cap':'fa-headset'?>"></i></span><div><small>VENDEDOR VIRTUAL</small><strong><?=e($row['seller']['name'])?></strong></div><b><?=number_format($row['sales_percent']??0,1,',','.')?>%</b></header>
        <div class="virtual-result-value"><strong><?=money($row['sales'])?></strong><span>de <?=money($goal)?></span></div>
        <div class="rank-progress <?=!empty($row['ead_reciclagem'])?'green':'blue'?>"><span style="width:<?=min(100,$row['sales_percent']??0)?>%"></span></div>
-       <footer><span><i class="fa-solid fa-receipt"></i> Pedidos <strong><?=money($row['orders'])?></strong></span><span><i class="fa-solid fa-screwdriver-wrench"></i> Serviços <strong><?=money($row['services'])?></strong></span></footer>
+       <footer><span><i class="fa-solid fa-receipt"></i> Pedidos OK <strong><?=money($row['orders'])?></strong></span></footer>
       </div>
      <?php endforeach;?>
     </div>
@@ -701,35 +822,46 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    <?php endif;?>
   <?php break;
   case 'result':$u=$result['user'];$g=$result['goal'];?>
-   <div class="results-hero personal-result-hero">
-    <div>
-     <span class="results-kicker"><i class="fa-solid fa-bullseye"></i> RESULTADO PESSOAL</span>
-     <h1>Meu resultado</h1>
-     <p>Acompanhe seu realizado, meta e ritmo do mês em uma única visão.</p>
+   <div class="results-topbar-tools" data-topbar-tools>
+    <form method="get">
+     <label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label>
+     <?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?>
+   </form>
+  </div>
+
+   <form class="results-day-card" method="get" data-result-days>
+    <input type="hidden" name="month" value="<?=e($month)?>">
+    <header>
+     <div><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO DO RESULTADO</small><strong>Escolha os dias que deseja apresentar</strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div>
+     <div><a class="btn btn-light" href="<?=APP_URL?>/result?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div>
+    </header>
+    <div class="results-day-grid">
+     <?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?>
+      <label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label>
+     <?php endfor;?>
     </div>
-    <div class="personal-period"><span>Período</span><strong><?=e((string)($g['month_ref']??date('Y-m')))?></strong></div>
-   </div>
+   </form>
 
    <?php if($u['role']==='seller'):?>
     <div class="personal-result-grid">
      <div class="personal-main-card seller-main">
       <header><span><i class="fa-solid fa-chart-line"></i></span><div><small>REALIZADO COMERCIAL</small><strong>Vendas + serviços</strong></div><b><?=number_format($result['sales_percent'],1,',','.')?>%</b></header>
-      <div class="personal-main-value"><strong><?=money($result['sales'])?></strong><span>de <?=money($g['sales_goal'])?></span></div>
+      <div class="personal-main-value"><strong><?=money($result['sales'])?></strong><span>de <?=money($g['sales_goal'])?> · <?=e($result['goal_scope'])?></span></div>
       <div class="personal-progress"><span style="width:<?=min(100,$result['sales_percent'])?>%"></span></div>
-      <footer><div><small>Pedidos</small><strong><?=money($result['orders_sales']??0)?></strong></div><div><small>Serviços</small><strong><?=money($result['services_sales']??0)?></strong></div></footer>
+      <footer><div><small>Pedidos OK</small><strong><?=money($result['orders_sales']??0)?></strong></div><div><small>Critério</small><strong>Sem PDV e orçamentos</strong></div></footer>
      </div>
-     <div class="personal-side-card blue"><span><i class="fa-solid fa-address-book"></i></span><small>CONTATOS</small><strong><?=$result['contacts']?></strong><p>meta <?=(int)$g['contact_goal']?></p></div>
-     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['sales_percent'],1,',','.')?>%</strong><p>da meta comercial</p></div>
+     <div class="personal-side-card blue"><span><i class="fa-solid fa-address-book"></i></span><small>CONTATOS</small><strong><?=$result['contacts']?></strong><p><?=e(mb_strtolower($result['goal_scope']))?> <?=number_format((float)$g['contact_goal'],1,',','.')?></p></div>
+     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['sales_percent'],1,',','.')?>%</strong><p>da <?=e(mb_strtolower($result['goal_scope']))?></p></div>
     </div>
    <?php elseif($u['role']==='collector'):?>
     <div class="personal-result-grid">
      <div class="personal-main-card collector-main">
       <header><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>RECUPERAÇÃO</small><strong>Valor recuperado</strong></div><b><?=number_format($result['collection_percent'],1,',','.')?>%</b></header>
-      <div class="personal-main-value"><strong><?=money($result['recovered'])?></strong><span>de <?=money($g['collection_goal'])?></span></div>
+      <div class="personal-main-value"><strong><?=money($result['recovered'])?></strong><span>de <?=money($g['collection_goal'])?> · <?=e($result['goal_scope'])?></span></div>
       <div class="personal-progress orange"><span style="width:<?=min(100,$result['collection_percent'])?>%"></span></div>
      </div>
-     <div class="personal-side-card orange"><span><i class="fa-solid fa-phone"></i></span><small>AÇÕES</small><strong><?=$result['contacts']?></strong><p>meta <?=(int)$g['contact_goal']?></p></div>
-     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['collection_percent'],1,',','.')?>%</strong><p>da meta de recuperação</p></div>
+     <div class="personal-side-card orange"><span><i class="fa-solid fa-phone"></i></span><small>AÇÕES</small><strong><?=$result['contacts']?></strong><p><?=e(mb_strtolower($result['goal_scope']))?> <?=number_format((float)$g['contact_goal'],1,',','.')?></p></div>
+     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['collection_percent'],1,',','.')?>%</strong><p>da <?=e(mb_strtolower($result['goal_scope']))?></p></div>
     </div>
    <?php endif;?>
   <?php break;
@@ -747,12 +879,14 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    </div>
    <form class="panel general-goal mb-3" method="post" action="<?=APP_URL?>/goals/general"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div><span class="eyebrow">META GERAL</span><h2>Objetivo da operação</h2><small>Se um campo ficar zerado, o sistema usa automaticamente a soma das metas individuais.</small></div><div><label>Meta geral de vendas</label><input class="form-control" name="sales_goal" value="<?=e((string)$general['sales_goal'])?>"><small>Soma individual: <?=money($management['sales_goal_sum'])?></small></div><div><label>Meta geral de recuperação</label><input class="form-control" name="collection_goal" value="<?=e((string)$general['collection_goal'])?>"><small>Soma individual: <?=money($management['collection_goal_sum'])?></small></div><div><label>Meta geral de contatos</label><input class="form-control" type="number" name="contact_goal" value="<?=(int)$general['contact_goal']?>"><small>Soma individual: <?=$management['contact_goal_sum']?></small></div><button class="btn btn-primary">Salvar meta geral</button></form>
    <div class="goal-list"><?php foreach($rows as $row):$usr=$row['user'];$g=$row['goal'];?><form class="goal-row" method="post" action="<?=APP_URL?>/goals/<?=$usr['id']?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div><strong><?=e($usr['name'])?></strong><small><?=$usr['role']==='seller'?'Vendedor':'Cobrança'?></small></div><?php if($usr['role']==='seller'):?><div><label>Meta vendas</label><input class="form-control" name="sales_goal" value="<?=e((string)$g['sales_goal'])?>"><small>realizado <?=money($row['sales'])?> • <?=number_format($row['sales_percent'],1,',','.')?>%</small></div><?php else:?><div><label>Meta recuperação</label><input class="form-control" name="collection_goal" value="<?=e((string)$g['collection_goal'])?>"><small>recuperado <?=money($row['recovered'])?> • <?=number_format($row['collection_percent'],1,',','.')?>%</small></div><?php endif;?><div><label>Meta contatos</label><input class="form-control" type="number" name="contact_goal" value="<?=(int)$g['contact_goal']?>"><small>realizado <?=$row['contacts']?> • <?=number_format($row['contact_percent'],1,',','.')?>%</small></div><button class="btn btn-outline-secondary">Salvar</button></form><?php endforeach;?></div>
-   <?php if(!empty($management['virtual_sellers'])):?><div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">VENDEDORES VIRTUAIS</span><h2>Metas dos canais automáticos</h2></div><small>Não precisam de usuário para participar das metas.</small></div><div class="goal-list mt-3"><?php foreach($management['virtual_sellers'] as $vr):$vg=$vr['goal']??['sales_goal'=>0];?><form class="goal-row virtual-highlight" method="post" action="<?=APP_URL?>/goals/virtual/<?=e($vr['seller']['omie_code'])?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div><strong><?=e($vr['seller']['name'])?></strong><small>Vendedor virtual</small></div><div><label>Meta vendas</label><input class="form-control" name="sales_goal" value="<?=e((string)($vg['sales_goal']??0))?>"><small>realizado <?=money($vr['sales'])?> • <?=number_format($vr['sales_percent']??0,1,',','.')?>%</small></div><div><label>Composição</label><strong><?=money($vr['orders'])?> + <?=money($vr['services'])?></strong><small>pedidos + serviços</small></div><button class="btn btn-outline-secondary">Salvar</button></form><?php endforeach;?></div></div><?php endif;?>
+   <?php if(!empty($management['virtual_sellers'])):?><div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">VENDEDORES VIRTUAIS</span><h2>Metas dos canais automáticos</h2></div><small>Não precisam de usuário para participar das metas.</small></div><div class="goal-list mt-3"><?php foreach($management['virtual_sellers'] as $vr):$vg=$vr['goal']??['sales_goal'=>0];?><form class="goal-row virtual-highlight" method="post" action="<?=APP_URL?>/goals/virtual/<?=e($vr['seller']['omie_code'])?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div><strong><?=e($vr['seller']['name'])?></strong><small>Vendedor virtual</small></div><div><label>Meta vendas</label><input class="form-control" name="sales_goal" value="<?=e((string)($vg['sales_goal']??0))?>"><small>realizado <?=money($vr['sales'])?> • <?=number_format($vr['sales_percent']??0,1,',','.')?>%</small></div><div><label>Composição</label><strong><?=money($vr['orders'])?></strong><small>somente Pedidos OK</small></div><button class="btn btn-outline-secondary">Salvar</button></form><?php endforeach;?></div></div><?php endif;?>
   <?php break;
   case 'settings':?>
    <div class="page-head"><div><span class="eyebrow">SISTEMA</span><h1>Configurações</h1><p>Padrões agilizam a operação, mas o vendedor pode ajustar os campos do pedido conforme o tipo de negócio.</p></div></div>
+   <?php if(!empty($flash)):?><div class="alert alert-<?=e((string)($flash['type']??'info'))?>"><?=e((string)($flash['message']??''))?></div><?php endif;?>
    <form method="post" action="<?=APP_URL?>/settings"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
-    <div class="panel mb-3"><h2>Padrões do pedido</h2><div class="settings-grid"><?php $fields=[['stage','Etapa',$stages,'code','name'],['category','Categoria',$categories,'code','description'],['account','Conta corrente',$accounts,'omie_code','name'],['payment_term','Condição',$terms,'code','description'],['payment_method','Meio de pagamento',$methods,'code','description'],['document_type','Tipo documento',$documents,'code','description'],['tax_scenario','Cenário fiscal',$taxes,'omie_code','name'],['stock_location','Local estoque',$stocks,'omie_code','name']];foreach($fields as [$key,$label,$list,$vk,$lk]):?><div><label><?=$label?></label><select class="form-select" name="<?=$key?>"><option value="">Selecione</option><?php foreach($list as $r):?><option value="<?=e($r[$vk])?>" <?=($defaults[$key]??'')===(string)$r[$vk]?'selected':''?>><?=e($r[$lk])?></option><?php endforeach;?></select></div><?php endforeach;?><div><label>Frete padrão</label><select class="form-select" name="freight_mode"><?php foreach(['9'=>'Sem frete','0'=>'CIF','1'=>'FOB','2'=>'Terceiros','3'=>'Próprio remetente','4'=>'Próprio destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=($defaults['freight_mode']??'9')===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select></div><div><label>Consumidor final</label><select class="form-select" name="consumer_final"><option value="S">Sim</option><option value="N" <?=($defaults['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></div><div><label class="check"><input type="checkbox" name="send_email" value="1" <?=($defaults['send_email']??'N')==='S'?'checked':''?>> Enviar e-mail Omie</label></div></div></div>
+    <div class="panel mb-3"><h2>Padrões do pedido</h2><div class="settings-grid"><?php $fields=[['stage','Etapa',$stages,'code','name'],['category','Categoria',$categories,'code','description'],['account','Conta corrente',$accounts,'omie_code','name'],['payment_term','Condição',$terms,'code','description'],['payment_method','Meio de pagamento',$methods,'code','description'],['document_type','Tipo documento',$documents,'code','description'],['tax_scenario','Cenário fiscal',$taxes,'omie_code','name'],['stock_location','Local estoque',$stocks,'omie_code','name']];foreach($fields as [$key,$label,$list,$vk,$lk]):?><div><label><?=$label?></label><select class="form-select" name="<?=$key?>"><option value="">Selecione</option><?php foreach($list as $r):?><option value="<?=e($r[$vk])?>" <?=($defaults[$key]??'')===(string)$r[$vk]?'selected':''?>><?=e($r[$lk])?></option><?php endforeach;?></select></div><?php endforeach;?><div class="freight-default-setting"><label>Frete padrão</label><select class="form-select" name="freight_mode" data-freight-default-autosave><?php foreach(['9'=>'Sem frete','0'=>'CIF','1'=>'FOB','2'=>'Terceiros','3'=>'Próprio remetente','4'=>'Próprio destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=($defaults['freight_mode']??'9')===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select><small data-freight-default-status>Salvamento automático</small></div><div><label>Consumidor final</label><select class="form-select" name="consumer_final"><option value="S">Sim</option><option value="N" <?=($defaults['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></div><div><label class="check"><input type="checkbox" name="send_email" value="1" <?=($defaults['send_email']??'N')==='S'?'checked':''?>> Enviar e-mail Omie</label></div></div></div>
+    <div class="panel mb-3 settings-carriers-panel"><div class="panel-title-row"><div><span class="eyebrow">LOGÍSTICA</span><h2>Transportadoras disponíveis no pedido</h2></div><small>Clientes ativos com a tag Transportadora sincronizada da Omie.</small></div><?php if(!empty($carriers)):?><div class="settings-carriers-grid"><?php foreach($carriers as $carrier):?><label class="settings-carrier-option"><input type="checkbox" name="carrier_codes[]" value="<?=e((string)$carrier['omie_code'])?>" <?=!empty($carrier['selected'])?'checked':''?>><span class="settings-carrier-check"><i class="fa-solid fa-check"></i></span><span><strong><?=e((string)$carrier['name'])?></strong><small>Omie <?=e((string)$carrier['omie_code'])?><?=!empty($carrier['city'])?' • '.e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):''?></small></span></label><?php endforeach;?></div><?php else:?><div class="settings-carriers-empty"><i class="fa-solid fa-truck-fast"></i><div><strong>Nenhum cliente com a tag Transportadora</strong><span>Adicione a tag no cadastro do cliente na Omie e sincronize Clientes para ele aparecer aqui.</span></div><a class="btn btn-outline-secondary" href="<?=APP_URL?>/sync">Sincronizar clientes</a></div><?php endif;?></div>
     <div class="panel mb-3"><h2>Contas usadas na cobrança</h2><div class="account-checks"><?php foreach($accounts as $r):?><label><input type="checkbox" name="collection_accounts[]" value="<?=e($r['omie_code'])?>" <?=$r['selected']?'checked':''?>> <?=e($r['name'])?></label><?php endforeach;?></div></div>
     <button class="btn btn-primary">Salvar configurações</button>
    </form>
@@ -797,7 +931,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      <?php if(!empty($flash['references'])):?><div class="test-reference-list mt-3"><?php foreach($flash['references'] as $k=>$v):?><div><span><?=e($k)?></span><strong><?=(int)$v?></strong></div><?php endforeach;?></div><?php endif;?>
     </div>
    </div>
-   <div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">FLUXO</span><h2>Teste recomendado</h2></div></div><p class="mb-0">1 cliente + 2 produtos → parâmetros auxiliares → Configurações → Novo pedido → Validar sem enviar → Enviar para Omie.</p></div>
+   <div class="panel mt-3"><div class="panel-title-row"><div><span class="eyebrow">FLUXO</span><h2>Teste recomendado</h2></div></div><p class="mb-0">1 cliente + 2 produtos → parâmetros auxiliares → Configurações → Novo pedido → Enviar e integrar na Omie.</p></div>
   <?php break;
   case 'sync':
    $summary=$sync['summary'];$items=$sync['items'];
@@ -817,7 +951,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    </div>
 
    <div class="sync-toolbar">
-    <div><i class="fa-solid fa-circle-info"></i><span>Pedidos e Serviços usam automaticamente os <strong>últimos 5 dias</strong> depois da primeira carga concluída.</span></div>
+    <div><i class="fa-solid fa-circle-info"></i><span>Em Pedidos e Serviços, escolha o <strong>período exato</strong> que deseja buscar na Omie.</span></div>
     <div class="sync-legend"><span><i class="dot ok"></i>Sucesso</span><span><i class="dot warn"></i>Pendente</span><span><i class="dot err"></i>Erro</span></div>
    </div>
 
@@ -827,7 +961,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     $lastSuccess=$state['last_success_at']??null;$lastError=(string)($state['last_error']??'');
     $statusClass=$hasError?'error':($lastSuccess?'success':'idle');
     $statusLabel=$hasError?'Erro':($lastSuccess?'Sincronizado':'Aguardando');
-    $modeLabels=['forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
+    $modeLabels=['manual_period'=>'Período escolhido','forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
     $modeLabel=$modeLabels[$item['mode']]??ucfirst(str_replace('_',' ',$item['mode']));
    ?>
     <article class="sync-module-card" data-sync-card="<?=$key?>">
@@ -861,6 +995,13 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <div class="sync-progress"><span data-sync-progress-bar style="width:0%"></span></div>
      </div>
 
+     <?php if(in_array($key,['orders','services'],true)):?>
+     <div class="sync-period-control">
+      <div><label>Data inicial<input class="form-control" type="date" value="<?=date('Y-m-01')?>" data-sync-date-from></label><label>Data final<input class="form-control" type="date" value="<?=date('Y-m-d')?>" data-sync-date-to></label></div>
+      <button class="btn btn-primary btn-sm" type="button" data-sync-action="period" data-module="<?=$key?>"><i class="fa-solid fa-calendar-check"></i>Sincronizar período</button>
+     </div>
+     <?php endif;?>
+
      <footer class="sync-module-actions">
       <?php if(in_array($key,['orders','services'],true)):?>
        <button class="btn btn-primary btn-sm" data-sync-action="catchup" data-module="<?=$key?>" data-sync-confirm="Atualizar todo o intervalo faltante de <?=e($item['label'])?> desde a última data local até hoje? Os registros existentes serão preservados."><i class="fa-solid fa-forward-step"></i>Atualizar lacuna</button>
@@ -893,5 +1034,32 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?><div class="app-shell"><aside class="sidebar"><a class="brand" href="<?=APP_URL?>/"><span>T</span><strong>Tecnodata<small>CRM</small></strong></a><nav><?php if($u['role']==='seller'):?><a href="<?=APP_URL?>/"><i class="fa-solid fa-bolt"></i>Hoje</a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i>Clientes</a><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a><a href="<?=APP_URL?>/orders"><i class="fa-solid fa-receipt"></i>Pedidos</a><a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i>Serviços</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Agenda</a><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i>Resultado</a><?php elseif($u['role']==='collector'):?><a href="<?=APP_URL?>/"><i class="fa-solid fa-bolt"></i>Hoje</a><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Agenda</a><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i>Resultado</a><?php else:?><a href="<?=APP_URL?>/"><i class="fa-solid fa-gauge-high"></i>Painel</a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i>Clientes</a><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a><a href="<?=APP_URL?>/orders"><i class="fa-solid fa-receipt"></i>Pedidos</a><a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i>Serviços</a><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Agenda</a><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i>Resultados</a><a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i>Metas</a><?php if($u['role']==='admin'):?><div class="nav-label">Sistema</div><a href="<?=APP_URL?>/users"><i class="fa-solid fa-user-shield"></i>Usuários</a><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i>Configurações</a><a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a><a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i>Carga de teste</a><?php endif;?><?php endif;?></nav><form method="post" action="<?=APP_URL?>/logout" class="logout"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button><i class="fa-solid fa-right-from-bracket"></i>Sair</button></form></aside><main class="main"><header class="topbar"><button class="mobile-menu" data-menu><i class="fa-solid fa-bars"></i></button><div></div><div class="user-chip"><span><?=e(mb_strtoupper(mb_substr((string)$u['name'],0,1)))?></span><div><strong><?=e($u['name'])?></strong><small><?=e($u['role'])?></small></div></div></header><section class="content"><?=$body?></section></main></div><?php }?><script>window.APP_URL=<?=json_encode(APP_URL)?>;window.CSRF=<?=json_encode(CSRF::token())?>;</script><script src="https://cdn.datatables.net/3.0.3/js/dataTables.min.js"></script><script src="https://cdn.datatables.net/3.0.3/js/dataTables.bootstrap5.min.js"></script><script src="<?=APP_URL?>/assets/app.js?v=<?=is_file(APP_ROOT.'/public/assets/app.js')?filemtime(APP_ROOT.'/public/assets/app.js'):time()?>"></script></body></html><?php
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ <div class="app-shell">
+  <aside class="sidebar" id="appSidebar" aria-label="Navegação principal">
+   <div class="sidebar-brand-row"><a class="brand" href="<?=APP_URL?>/"><span>T</span><strong>Tecnodata<small>CRM</small></strong></a><button class="sidebar-close" type="button" data-menu-close aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i></button></div>
+   <nav>
+    <?php if($u['role']==='seller'):?>
+     <a href="<?=APP_URL?>/"><i class="fa-solid fa-bolt"></i>Hoje</a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i>Clientes</a><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a><a href="<?=APP_URL?>/orders"><i class="fa-solid fa-receipt"></i>Pedidos</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Agenda</a><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i>Resultado</a>
+    <?php elseif($u['role']==='collector'):?>
+     <a href="<?=APP_URL?>/"><i class="fa-solid fa-bolt"></i>Hoje</a><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Agenda</a><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i>Resultado</a>
+    <?php else:?>
+     <a href="<?=APP_URL?>/"><i class="fa-solid fa-gauge-high"></i>Painel</a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i>Clientes</a><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a><a href="<?=APP_URL?>/orders"><i class="fa-solid fa-receipt"></i>Pedidos</a><a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i>Serviços</a><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Agenda</a><a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i>Resultados</a><a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i>Metas</a>
+     <?php if($u['role']==='admin'):?><div class="nav-label">Sistema</div><a href="<?=APP_URL?>/users"><i class="fa-solid fa-user-shield"></i>Usuários</a><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i>Configurações</a><a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a><a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i>Carga de teste</a><?php endif;?>
+    <?php endif;?>
+   </nav>
+  </aside>
+  <button class="sidebar-backdrop" type="button" data-menu-backdrop aria-label="Fechar menu"></button>
+  <main class="main">
+   <header class="topbar">
+    <div class="topbar-start"><button class="sidebar-toggle" type="button" data-menu aria-controls="appSidebar" aria-expanded="true" title="Abrir ou fechar menu"><i class="fa-solid fa-bars"></i><span class="visually-hidden">Abrir ou fechar menu</span></button><div class="topbar-context"></div></div>
+    <div class="topbar-actions">
+     <div class="user-chip"><span><?=e(mb_strtoupper(mb_substr((string)$u['name'],0,1)))?></span><div><strong><?=e($u['name'])?></strong><small><?=e($u['role'])?></small></div></div>
+     <form method="post" action="<?=APP_URL?>/logout" class="topbar-logout"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sair do sistema"><i class="fa-solid fa-right-from-bracket"></i><span>Sair</span></button></form>
+    </div>
+   </header>
+   <section class="content"><?=$body?></section>
+  </main>
+ </div>
+ <?php }?><script>window.APP_URL=<?=json_encode(APP_URL)?>;window.CSRF=<?=json_encode(CSRF::token())?>;</script><script src="https://cdn.datatables.net/3.0.3/js/dataTables.min.js"></script><script src="https://cdn.datatables.net/3.0.3/js/dataTables.bootstrap5.min.js"></script><script src="<?=APP_URL?>/assets/app.js?v=<?=is_file(APP_ROOT.'/public/assets/app.js')?filemtime(APP_ROOT.'/public/assets/app.js'):time()?>"></script></body></html><?php
 }
