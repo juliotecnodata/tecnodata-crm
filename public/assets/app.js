@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   }
 
-  document.querySelectorAll('.sidebar nav a').forEach(link=>{
+  document.querySelectorAll('.tdcrm-sidebar nav a, .sidebar nav a').forEach(link=>{
     try{
       const current=new URL(location.href).pathname.replace(/\/$/,'');
       const target=new URL(link.href).pathname.replace(/\/$/,'');
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   }));
 
-  const sidebar=document.querySelector('.sidebar');
+  const sidebar=document.querySelector('.tdcrm-sidebar, .sidebar');
   const menuToggle=document.querySelector('[data-menu]');
   const menuBackdrop=document.querySelector('[data-menu-backdrop]');
   const isMobileMenu=()=>window.matchMedia('(max-width:760px)').matches;
