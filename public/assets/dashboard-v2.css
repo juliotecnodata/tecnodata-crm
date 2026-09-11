@@ -1,0 +1,99 @@
+/* Tecnodata CRM — Dashboard V2 */
+:root{
+ --tdd-navy:#0b2433;
+ --tdd-navy-2:#12384b;
+ --tdd-lime:#BDD630;
+ --tdd-green:#009657;
+ --tdd-blue:#0A84E8;
+ --tdd-yellow:#F2B705;
+ --tdd-orange:#EA5127;
+ --tdd-red:#E53935;
+ --tdd-bg:#F5F8FB;
+ --tdd-card:#fff;
+ --tdd-line:#DCE5EC;
+ --tdd-text:#122634;
+ --tdd-muted:#6F808D;
+}
+body[data-page="dashboard"]{background:var(--tdd-bg)!important}
+body[data-page="dashboard"] .tdcrm-content{max-width:1540px!important;padding:24px 28px 36px!important}
+body[data-page="dashboard"] .tdcrm-content *{box-shadow:none!important;letter-spacing:0!important}
+.tdd-page{display:grid;gap:18px;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--tdd-text)}
+.tdd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.tdd-head-main{display:flex;align-items:flex-start;gap:13px}
+.tdd-head-icon{width:48px;height:48px;display:grid;place-items:center;flex:0 0 48px;border-radius:10px;background:#EAF5FD;color:var(--tdd-blue);border:1px solid #CFE7F7;font-size:19px}
+.tdd-kicker{display:block;margin-bottom:3px;font-size:11px;line-height:1.2;font-weight:700;color:var(--tdd-green)}
+.tdd-head h1{margin:0;font-size:30px;line-height:1.12;font-weight:800;color:var(--tdd-text)}
+.tdd-head p{margin:5px 0 0;font-size:13px;line-height:1.45;color:var(--tdd-muted)}
+.tdd-date{display:flex;align-items:center;gap:9px;min-height:42px;padding:0 12px;border:1px solid var(--tdd-line);border-radius:9px;background:#fff}
+.tdd-date i{color:var(--tdd-blue)}
+.tdd-date strong{display:block;font-size:12px;color:var(--tdd-text)}
+.tdd-date small{display:block;font-size:10px;color:var(--tdd-muted)}
+
+.tdd-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tdd-kpis.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.tdd-kpi{min-height:118px;display:flex;align-items:flex-start;gap:12px;padding:15px;border:1px solid var(--tdd-line);border-radius:10px;background:#fff}
+.tdd-kpi-icon{width:42px;height:42px;display:grid;place-items:center;flex:0 0 42px;border-radius:10px;font-size:16px}
+.tdd-kpi.green .tdd-kpi-icon{background:#E9F8F0;color:var(--tdd-green)}
+.tdd-kpi.blue .tdd-kpi-icon{background:#EAF5FD;color:var(--tdd-blue)}
+.tdd-kpi.yellow .tdd-kpi-icon{background:#FFF7DA;color:#967000}
+.tdd-kpi.orange .tdd-kpi-icon{background:#FFF0EB;color:var(--tdd-orange)}
+.tdd-kpi.red .tdd-kpi-icon{background:#FDEEEE;color:var(--tdd-red)}
+.tdd-kpi small{display:block;font-size:11px;font-weight:700;color:#657987}
+.tdd-kpi strong{display:block;margin:5px 0 3px;font-size:24px;line-height:1.05;font-weight:800;color:var(--tdd-text)}
+.tdd-kpi span.note{display:block;font-size:11px;line-height:1.35;color:var(--tdd-muted)}
+.tdd-kpi span.note.ok{color:var(--tdd-green);font-weight:600}
+.tdd-kpi span.note.warn{color:#936f00;font-weight:600}
+
+.tdd-section-head{display:flex;align-items:end;justify-content:space-between;gap:12px}
+.tdd-section-head h2{margin:2px 0 0;font-size:20px;font-weight:800;color:var(--tdd-text)}
+.tdd-section-head p{margin:3px 0 0;font-size:11px;color:var(--tdd-muted)}
+.tdd-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tdd-action{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:11px;min-height:84px;padding:14px;border:1px solid var(--tdd-line);border-radius:10px;background:#fff;color:var(--tdd-text)}
+.tdd-action>span{width:42px;height:42px;display:grid;place-items:center;border-radius:10px}
+.tdd-action.green>span{background:#E9F8F0;color:var(--tdd-green)}
+.tdd-action.blue>span{background:#EAF5FD;color:var(--tdd-blue)}
+.tdd-action.yellow>span{background:#FFF7DA;color:#967000}
+.tdd-action.orange>span{background:#FFF0EB;color:var(--tdd-orange)}
+.tdd-action.red>span{background:#FDEEEE;color:var(--tdd-red)}
+.tdd-action strong{display:block;font-size:13px;font-weight:700;color:var(--tdd-text)}
+.tdd-action small{display:block;margin-top:2px;font-size:11px;color:var(--tdd-muted)}
+.tdd-action>i{color:#91A0AA}
+.tdd-action:hover{border-color:#C7D4DE;background:#FBFDFE}
+
+.tdd-performance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tdd-card{border:1px solid var(--tdd-line);border-radius:10px;background:#fff;overflow:hidden}
+.tdd-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--tdd-line);background:#FBFCFD}
+.tdd-card-title{display:flex;align-items:center;gap:10px}
+.tdd-card-title>span{width:38px;height:38px;display:grid;place-items:center;border-radius:9px}
+.tdd-card-title>span.green{background:#E9F8F0;color:var(--tdd-green)}
+.tdd-card-title>span.blue{background:#EAF5FD;color:var(--tdd-blue)}
+.tdd-card-title strong{display:block;font-size:15px;font-weight:800;color:var(--tdd-text)}
+.tdd-card-title small{display:block;margin-top:2px;font-size:11px;color:var(--tdd-muted)}
+.tdd-percent{padding:6px 9px;border-radius:7px;background:#EEF3F6;color:#506675;font-size:12px;font-weight:800}
+.tdd-card-body{padding:16px}
+.tdd-value{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.tdd-value strong{font-size:28px;line-height:1;font-weight:800;color:var(--tdd-text)}
+.tdd-value span{font-size:11px;color:var(--tdd-muted)}
+.tdd-progress{height:8px;margin:14px 0;border-radius:999px;background:#EDF2F5;overflow:hidden}
+.tdd-progress>span{display:block;height:100%;border-radius:999px;background:var(--tdd-green)}
+.tdd-progress.blue>span{background:var(--tdd-blue)}
+.tdd-card-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #EDF2F5;font-size:11px;color:var(--tdd-muted)}
+.tdd-card-foot strong{color:var(--tdd-text)}
+
+.tdd-info-strip{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px solid #CFE7F7;border-radius:10px;background:#F3F9FD;color:#496575;font-size:11px}
+.tdd-info-strip i{color:var(--tdd-blue)}
+
+@media(max-width:1250px){
+ .tdd-kpis.five{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .tdd-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:1050px){
+ .tdd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tdd-kpis.five{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ body[data-page="dashboard"] .tdcrm-content{padding:16px!important}
+ .tdd-head{flex-direction:column}
+ .tdd-kpis,.tdd-kpis.five,.tdd-actions,.tdd-performance{grid-template-columns:1fr}
+ .tdd-head h1{font-size:26px}
+}
