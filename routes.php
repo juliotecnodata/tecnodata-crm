@@ -24,18 +24,32 @@ $router->get('/login',function(){if(Auth::check())redirect('/');render('login');
 $router->post('/login',function(){CSRF::require($_POST['_token']??null);if(Auth::attempt((string)($_POST['email']??''),(string)($_POST['password']??'')))redirect('/');render('login',['error'=>'E-mail ou senha inválidos.']);});
 $router->post('/logout',function(){CSRF::require($_POST['_token']??null);Auth::logout();redirect('/login');});
 
-$router->get('/',function(){Auth::requireLogin();$u=Auth::user();render('dashboard',['u'=>$u,'data'=>CRMService::dashboard($u)]);});
-$router->get('/result',function(){
- Auth::requireLogin();$month=(string)($_GET['month']??date('Y-m'));
+$router->get('/',function(){
+ Auth::requireLogin();
+ $month=(string)($_GET['month']??date('Y-m'));
  if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
  $daysInMonth=(int)date('t',strtotime($month.'-01'));
  $requestedDays=$_GET['days']??[];if(!is_array($requestedDays))$requestedDays=[$requestedDays];
  $selectedDays=[];foreach($requestedDays as $requestedDay){$value=(int)$requestedDay;if($value>=1&&$value<=$daysInMonth)$selectedDays[$value]=$value;}
  $selectedDays=array_values($selectedDays);sort($selectedDays);
- $u=Auth::user();$periodLabel=$selectedDays?'Dias '.implode(', ',array_map(static fn($value)=>str_pad((string)$value,2,'0',STR_PAD_LEFT),$selectedDays)).' de '.date('m/Y',strtotime($month.'-01')):date('m/Y',strtotime($month.'-01'));
- $common=['month'=>$month,'selectedDays'=>$selectedDays,'daysInMonth'=>$daysInMonth,'periodLabel'=>$periodLabel];
- if(in_array($u['role'],['admin','supervisor'],true))render('management_result',$common+['management'=>GoalService::managementMonth($month,$selectedDays)]);
- else render('result',$common+['result'=>GoalService::userMonth(Auth::id(),$month,$selectedDays)]);
+ $periodLabel=$selectedDays?'Dias '.implode(', ',array_map(static fn($value)=>str_pad((string)$value,2,'0',STR_PAD_LEFT),$selectedDays)).' de '.date('m/Y',strtotime($month.'-01')):date('m/Y',strtotime($month.'-01'));
+ $u=Auth::user();
+ $payload=[
+  'u'=>$u,
+  'data'=>CRMService::dashboard($u),
+  'month'=>$month,
+  'selectedDays'=>$selectedDays,
+  'daysInMonth'=>$daysInMonth,
+  'periodLabel'=>$periodLabel
+ ];
+ if(in_array($u['role'],['admin','supervisor'],true))$payload['management']=GoalService::managementMonth($month,$selectedDays);
+ else $payload['result']=GoalService::userMonth(Auth::id(),$month,$selectedDays);
+ render('dashboard',$payload);
+});
+$router->get('/result',function(){
+ Auth::requireLogin();
+ $query=(string)($_SERVER['QUERY_STRING']??'');
+ redirect('/'.($query!==''?'?'.$query:''));
 });
 
 $router->get('/clients/new',function(){

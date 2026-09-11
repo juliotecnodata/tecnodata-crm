@@ -7,81 +7,85 @@ function render(string $name,array $vars=[]): void{
   <?php break;
   case 'dashboard':
    $data=is_array($data??null)?$data:[];
-   $data+=['sales'=>0.0,'orders'=>0.0,'orders_without_freight'=>0.0,'services'=>0.0,'debt'=>0.0,'clients'=>0,'late'=>0,'tasks'=>0,'worked'=>0,'recovered'=>0.0,'sales_percent'=>0.0,'collection_percent'=>0.0];
+   $resultData=is_array($result??null)?$result:[];
+   $mg=is_array($management??null)?$management:[];
    $firstName=e(explode(' ',trim((string)$u['name']))[0]??'');
    ?>
-   <section class="tdd-page">
+   <section class="tdd-page tdd-unified">
     <header class="tdd-head">
      <div class="tdd-head-main">
       <span class="tdd-head-icon"><i class="fa-solid fa-chart-line"></i></span>
-      <div><span class="tdd-kicker">VISÃO GERAL</span><h1>Olá, <?=$firstName?></h1><p>Acompanhe os principais números da operação e as prioridades do dia.</p></div>
+      <div><span class="tdd-kicker"><?=$u['role']==='seller'?'MEU DESEMPENHO':($u['role']==='collector'?'COBRANÇA / RESULTADOS':'GESTÃO / RESULTADOS')?></span><h1><?=$u['role']==='seller'||$u['role']==='collector'?'Olá, '.$firstName:'Dashboard'?></h1><p>Visão operacional e resultados reunidos em uma única tela.</p></div>
      </div>
-     <div class="tdd-date"><i class="fa-regular fa-calendar"></i><div><strong><?=date('d/m/Y')?></strong><small><?=date('H:i')?> · atualização atual</small></div></div>
+     <form class="tdd-period-select" method="get"><label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label><?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?></form>
     </header>
 
-    <?php if($u['role']==='seller'):?>
-     <div class="tdd-info-strip"><i class="fa-solid fa-circle-info"></i><span>As métricas de pedidos consideram o valor total do pedido, incluindo frete, e excluem pedidos fora da política de resultado.</span></div>
-     <div class="tdd-kpis five">
-      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-chart-column"></i></span><div><small>Pedidos OK · com frete</small><strong><?=money($data['sales'])?></strong><span class="note ok">Sem frete: <?=money($data['orders_without_freight']??0)?></span></div></article>
-      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-receipt"></i></span><div><small>Comparativo sem frete</small><strong><?=money($data['orders_without_freight']??0)?></strong><span class="note">Diferença de frete: <?=money(max(0,($data['orders']??0)-($data['orders_without_freight']??0)))?></span></div></article>
-      <article class="tdd-kpi yellow"><span class="tdd-kpi-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><small>Serviços</small><strong><?=money($data['services']??0)?></strong><span class="note">Acompanhamento separado</span></div></article>
-      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-users"></i></span><div><small>Minha carteira</small><strong><?=number_format((int)$data['clients'],0,',','.')?></strong><span class="note">Clientes ativos</span></div></article>
-      <article class="tdd-kpi orange"><span class="tdd-kpi-icon"><i class="fa-regular fa-calendar-check"></i></span><div><small>Retornos</small><strong><?=number_format((int)$data['tasks'],0,',','.')?></strong><span class="note warn">Tarefas pendentes</span></div></article>
+    <form class="tdr-filter tdd-result-filter" method="get" data-result-days id="resultados">
+     <input type="hidden" name="month" value="<?=e($month)?>">
+     <div class="tdr-filter-head">
+      <div class="tdr-filter-title"><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO ANALISADO</small><strong><?=e($periodLabel)?></strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div>
+      <div class="tdr-filter-actions"><a class="tdr-btn" href="<?=APP_URL?>/?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="tdr-btn tdr-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div>
      </div>
+     <div class="tdr-day-grid"><?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?><label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label><?php endfor;?></div>
+    </form>
 
-     <div class="tdd-section-head"><div><span class="tdd-kicker">AÇÕES RÁPIDAS</span><h2>O que você quer fazer?</h2><p>Acesse as rotinas mais usadas sem sair do fluxo comercial.</p></div></div>
-     <div class="tdd-actions">
-      <a class="tdd-action green" href="<?=APP_URL?>/orders/new"><span><i class="fa-solid fa-plus"></i></span><div><strong>Novo pedido</strong><small>Criar e enviar para Omie</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action blue" href="<?=APP_URL?>/clients"><span><i class="fa-solid fa-users"></i></span><div><strong>Clientes</strong><small>Trabalhar minha carteira</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Retornos e compromissos</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action orange" href="<?=APP_URL?>/result"><span><i class="fa-solid fa-bullseye"></i></span><div><strong>Meu resultado</strong><small>Meta e atingimento</small></div><i class="fa-solid fa-arrow-right"></i></a>
-     </div>
-
-    <?php elseif($u['role']==='collector'):?>
-     <div class="tdd-kpis">
-      <article class="tdd-kpi red"><span class="tdd-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Saldo em cobrança</small><strong><?=money($data['debt'])?></strong><span class="note">Carteira aberta</span></div></article>
-      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-money-bill-trend-up"></i></span><div><small>Recuperado</small><strong><?=money($data['recovered'])?></strong><span class="note ok">Resultado do mês</span></div></article>
-      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-user-check"></i></span><div><small>Trabalhados</small><strong><?=number_format((int)$data['worked'],0,',','.')?></strong><span class="note">Clientes acionados</span></div></article>
-     </div>
-     <div class="tdd-section-head"><div><span class="tdd-kicker">AÇÕES RÁPIDAS</span><h2>Prioridades de cobrança</h2></div></div>
-     <div class="tdd-actions">
-      <a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Priorizar devedores</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Promessas e retornos</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action green" href="<?=APP_URL?>/result"><span><i class="fa-solid fa-chart-line"></i></span><div><strong>Meu resultado</strong><small>Recuperação e meta</small></div><i class="fa-solid fa-arrow-right"></i></a>
-     </div>
-
-    <?php else:
-      $mg=$data['management']??[];
+    <?php if($u['role']==='seller'):
+      $g=$resultData['goal']??['sales_goal'=>0,'contact_goal'=>0];
     ?>
-     <div class="tdd-info-strip"><i class="fa-solid fa-circle-info"></i><span>Pedidos OK usam o valor total do pedido com frete incluído. Orçamentos, cancelados e demais situações fora da política não entram no resultado.</span></div>
+     <div class="tdd-info-strip"><i class="fa-solid fa-circle-info"></i><span>Pedidos OK consideram o total do pedido com frete. PDV, propostas/orçamentos e situações inválidas ficam fora do realizado.</span></div>
      <div class="tdd-kpis">
-      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-chart-column"></i></span><div><small>Pedidos OK</small><strong><?=money($data['sales'])?></strong><span class="note ok"><?=number_format((float)$data['sales_percent'],1,',','.')?>% da meta geral</span></div></article>
-      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Recuperado</small><strong><?=money($data['recovered'])?></strong><span class="note"><?=number_format((float)$data['collection_percent'],1,',','.')?>% da meta de cobrança</span></div></article>
-      <article class="tdd-kpi red"><span class="tdd-kpi-icon"><i class="fa-solid fa-circle-dollar-to-slot"></i></span><div><small>Saldo em cobrança</small><strong><?=money($data['debt'])?></strong><span class="note">Financeiro em aberto</span></div></article>
-      <article class="tdd-kpi yellow"><span class="tdd-kpi-icon"><i class="fa-solid fa-users"></i></span><div><small>Clientes</small><strong><?=number_format((int)$data['clients'],0,',','.')?></strong><span class="note"><?=number_format((int)$data['late'],0,',','.')?> retorno(s) atrasado(s)</span></div></article>
+      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><div><small>Pedidos OK · com frete</small><strong><?=money($resultData['orders_sales']??0)?></strong><span class="note ok"><?=number_format((float)($resultData['sales_percent']??0),1,',','.')?>% da meta</span></div></article>
+      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-box-open"></i></span><div><small>Pedidos OK · sem frete</small><strong><?=money($resultData['orders_without_freight']??0)?></strong><span class="note">Frete: <?=money(max(0,(float)($resultData['orders_sales']??0)-(float)($resultData['orders_without_freight']??0)))?></span></div></article>
+      <article class="tdd-kpi yellow"><span class="tdd-kpi-icon"><i class="fa-solid fa-bullseye"></i></span><div><small>Meta comercial</small><strong><?=money($g['sales_goal']??0)?></strong><span class="note"><?=e($resultData['goal_scope']??'Meta mensal')?></span></div></article>
+      <article class="tdd-kpi orange"><span class="tdd-kpi-icon"><i class="fa-solid fa-phone"></i></span><div><small>Contatos</small><strong><?=number_format((int)($resultData['contacts']??0),0,',','.')?></strong><span class="note">Meta <?=number_format((int)($g['contact_goal']??0),0,',','.')?></span></div></article>
      </div>
 
-     <?php if(!empty($mg)):?>
+     <div class="tdd-performance single">
+      <section class="tdd-card">
+       <div class="tdd-card-head"><div class="tdd-card-title"><span class="green"><i class="fa-solid fa-chart-line"></i></span><div><strong>Atingimento comercial</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($resultData['sales_percent']??0),1,',','.')?>%</span></div>
+       <div class="tdd-card-body"><div class="tdd-value"><strong><?=money($resultData['sales']??0)?></strong><span>de <?=money($g['sales_goal']??0)?></span></div><div class="tdd-progress"><span style="width:<?=min(100,(float)($resultData['sales_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Clientes da carteira <strong><?=number_format((int)($data['clients']??0),0,',','.')?></strong></span><span>Retornos pendentes <strong><?=number_format((int)($data['tasks']??0),0,',','.')?></strong></span></div></div>
+      </section>
+     </div>
+
+    <?php elseif($u['role']==='collector'):
+      $g=$resultData['goal']??['collection_goal'=>0,'contact_goal'=>0];
+    ?>
+     <div class="tdd-kpis">
+      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-money-bill-trend-up"></i></span><div><small>Recuperado</small><strong><?=money($resultData['recovered']??0)?></strong><span class="note ok"><?=number_format((float)($resultData['collection_percent']??0),1,',','.')?>% da meta</span></div></article>
+      <article class="tdd-kpi red"><span class="tdd-kpi-icon"><i class="fa-solid fa-circle-dollar-to-slot"></i></span><div><small>Saldo em cobrança</small><strong><?=money($data['debt']??0)?></strong><span class="note">Carteira aberta</span></div></article>
+      <article class="tdd-kpi yellow"><span class="tdd-kpi-icon"><i class="fa-solid fa-bullseye"></i></span><div><small>Meta de recuperação</small><strong><?=money($g['collection_goal']??0)?></strong><span class="note"><?=e($resultData['goal_scope']??'Meta mensal')?></span></div></article>
+      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-phone"></i></span><div><small>Ações / contatos</small><strong><?=number_format((int)($resultData['contacts']??0),0,',','.')?></strong><span class="note">Meta <?=number_format((int)($g['contact_goal']??0),0,',','.')?></span></div></article>
+     </div>
+     <div class="tdd-performance single"><section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="blue"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Atingimento da cobrança</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($resultData['collection_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($resultData['recovered']??0)?></strong><span>de <?=money($g['collection_goal']??0)?></span></div><div class="tdd-progress blue"><span style="width:<?=min(100,(float)($resultData['collection_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Clientes trabalhados <strong><?=number_format((int)($data['worked']??0),0,',','.')?></strong></span><span>Ações no período <strong><?=number_format((int)($resultData['contacts']??0),0,',','.')?></strong></span></div></div></section></div>
+
+    <?php else:?>
+     <div class="tdd-info-strip"><i class="fa-solid fa-circle-info"></i><span>Pedidos OK usam o valor total com frete e respeitam a política comercial. O comparativo sem frete aparece ao lado para conferência.</span></div>
+     <div class="tdd-kpis">
+      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><div><small>Pedidos OK · com frete</small><strong><?=money($mg['order_sales']??0)?></strong><span class="note ok"><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>% da meta</span></div></article>
+      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-box-open"></i></span><div><small>Pedidos OK · sem frete</small><strong><?=money($mg['order_sales_without_freight']??0)?></strong><span class="note">Frete: <?=money(max(0,(float)($mg['order_sales']??0)-(float)($mg['order_sales_without_freight']??0)))?></span></div></article>
+      <article class="tdd-kpi orange"><span class="tdd-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Recuperado</small><strong><?=money($mg['recovered']??0)?></strong><span class="note"><?=number_format((float)($mg['collection_percent']??0),1,',','.')?>% da meta</span></div></article>
+      <article class="tdd-kpi yellow"><span class="tdd-kpi-icon"><i class="fa-solid fa-phone"></i></span><div><small>Contatos</small><strong><?=number_format((int)($mg['contacts']??0),0,',','.')?></strong><span class="note">Meta <?=number_format((int)($mg['effective_contact_goal']??0),0,',','.')?></span></div></article>
+     </div>
+
      <div class="tdd-performance">
-      <section class="tdd-card">
-       <div class="tdd-card-head"><div class="tdd-card-title"><span class="green"><i class="fa-solid fa-bullseye"></i></span><div><strong>Meta comercial</strong><small>Produção válida de pedidos</small></div></div><span class="tdd-percent"><?=number_format((float)$mg['sales_percent'],1,',','.')?>%</span></div>
-       <div class="tdd-card-body"><div class="tdd-value"><strong><?=money($mg['sales'])?></strong><span>de <?=money($mg['effective_sales_goal'])?></span></div><div class="tdd-progress"><span style="width:<?=min(100,(float)$mg['sales_percent'])?>%"></span></div><div class="tdd-card-foot"><span>Com frete <strong><?=money($mg['order_sales'])?></strong></span><span>Sem frete <strong><?=money($mg['order_sales_without_freight']??0)?></strong></span></div></div>
-      </section>
-      <section class="tdd-card">
-       <div class="tdd-card-head"><div class="tdd-card-title"><span class="blue"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Meta de cobrança</strong><small>Recuperação mensal</small></div></div><span class="tdd-percent"><?=number_format((float)$mg['collection_percent'],1,',','.')?>%</span></div>
-       <div class="tdd-card-body"><div class="tdd-value"><strong><?=money($mg['recovered'])?></strong><span>de <?=money($mg['effective_collection_goal'])?></span></div><div class="tdd-progress blue"><span style="width:<?=min(100,(float)$mg['collection_percent'])?>%"></span></div><div class="tdd-card-foot"><span>Contatos <strong><?=number_format((int)$mg['contacts'],0,',','.')?></strong></span><span>Meta contatos <strong><?=number_format((int)$mg['effective_contact_goal'],0,',','.')?></strong></span></div></div>
-      </section>
+      <section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="green"><i class="fa-solid fa-bullseye"></i></span><div><strong>Meta comercial</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($mg['sales']??0)?></strong><span>de <?=money($mg['effective_sales_goal']??0)?></span></div><div class="tdd-progress"><span style="width:<?=min(100,(float)($mg['sales_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Com frete <strong><?=money($mg['order_sales']??0)?></strong></span><span>Sem frete <strong><?=money($mg['order_sales_without_freight']??0)?></strong></span></div></div></section>
+      <section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="blue"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Meta de cobrança</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($mg['collection_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($mg['recovered']??0)?></strong><span>de <?=money($mg['effective_collection_goal']??0)?></span></div><div class="tdd-progress blue"><span style="width:<?=min(100,(float)($mg['collection_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Saldo em aberto <strong><?=money($data['debt']??0)?></strong></span><span>Clientes ativos <strong><?=number_format((int)($data['clients']??0),0,',','.')?></strong></span></div></div></section>
      </div>
-     <?php endif;?>
 
-     <div class="tdd-section-head"><div><span class="tdd-kicker">GESTÃO</span><h2>Acessos principais</h2><p>Atalhos para acompanhamento da operação.</p></div></div>
-     <div class="tdd-actions">
-      <a class="tdd-action green" href="<?=APP_URL?>/result"><span><i class="fa-solid fa-chart-column"></i></span><div><strong>Resultados</strong><small>Equipe, metas e atingimento</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action blue" href="<?=APP_URL?>/orders"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Pedidos</strong><small>Produção comercial</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action yellow" href="<?=APP_URL?>/services"><span><i class="fa-solid fa-screwdriver-wrench"></i></span><div><strong>Serviços</strong><small>Ordens de serviço Omie</small></div><i class="fa-solid fa-arrow-right"></i></a>
-      <a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Carteira financeira</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <div class="tdr-grid tdd-rankings">
+      <section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="green"><i class="fa-solid fa-user-tie"></i></span><div><small>COMERCIAL</small><strong>Ranking de vendedores</strong></div></div></div><div class="tdr-ranking"><?php foreach(($mg['sellers']??[]) as $idx=>$row):$usr=$row['user'];?><div class="tdr-rank"><span class="tdr-rank-num"><?=($idx+1)?></span><div><strong><?=e($usr['name'])?></strong><small>Com frete <?=money($row['sales'])?> · Sem frete <?=money($row['orders_without_freight']??0)?></small></div><div class="tdr-rank-value"><strong><?=number_format((float)$row['sales_percent'],1,',','.')?>%</strong><div class="tdr-mini-progress"><span style="width:<?=min(100,(float)$row['sales_percent'])?>%"></span></div></div></div><?php endforeach;?><?php if(empty($mg['sellers'])):?><div class="tdr-empty">Nenhum vendedor com usuário vinculado.</div><?php endif;?></div></section>
+      <section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>COBRANÇA</small><strong>Ranking de recuperação</strong></div></div></div><div class="tdr-ranking"><?php foreach(($mg['collectors']??[]) as $idx=>$row):$usr=$row['user'];?><div class="tdr-rank"><span class="tdr-rank-num"><?=($idx+1)?></span><div><strong><?=e($usr['name'])?></strong><small><?=money($row['recovered'])?> de <?=money($row['goal']['collection_goal'])?></small></div><div class="tdr-rank-value"><strong><?=number_format((float)$row['collection_percent'],1,',','.')?>%</strong><div class="tdr-mini-progress orange"><span style="width:<?=min(100,(float)$row['collection_percent'])?>%"></span></div></div></div><?php endforeach;?><?php if(empty($mg['collectors'])):?><div class="tdr-empty">Nenhum responsável de cobrança encontrado.</div><?php endif;?></div></section>
      </div>
+
+     <?php if(!empty($mg['virtual_sellers'])):?><section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><strong>Canais automáticos</strong></div></div></div><div class="tdr-virtual-grid"><?php foreach($mg['virtual_sellers'] as $row):$goal=(float)($row['goal']['sales_goal']??0);?><article class="tdr-virtual"><div class="tdr-virtual-head"><span><i class="fa-solid <?=!empty($row['ead_reciclagem'])?'fa-graduation-cap':'fa-headset'?>"></i></span><div><small>VENDEDOR VIRTUAL</small><strong><?=e($row['seller']['name'])?></strong></div><b><?=number_format((float)($row['sales_percent']??0),1,',','.')?>%</b></div><div class="tdr-virtual-value"><strong><?=money($row['sales'])?></strong><span> de <?=money($goal)?></span></div><div class="tdr-mini-progress <?=!empty($row['ead_reciclagem'])?'':'blue'?>"><span style="width:<?=min(100,(float)($row['sales_percent']??0))?>%"></span></div><div class="tdr-virtual-foot"><i class="fa-solid fa-receipt"></i> Com frete <strong><?=money($row['orders'])?></strong> · Sem frete <strong><?=money($row['orders_without_freight']??0)?></strong></div></article><?php endforeach;?></div></section><?php endif;?>
     <?php endif;?>
+
+    <div class="tdd-section-head"><div><span class="tdd-kicker">OPERAÇÃO</span><h2>Acessos rápidos</h2><p>As rotinas continuam separadas; somente Dashboard e Resultados foram unificados.</p></div></div>
+    <div class="tdd-actions">
+     <?php if($u['role']==='seller'):?><a class="tdd-action green" href="<?=APP_URL?>/orders/new"><span><i class="fa-solid fa-plus"></i></span><div><strong>Novo pedido</strong><small>Criar e enviar para Omie</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action blue" href="<?=APP_URL?>/clients"><span><i class="fa-solid fa-users"></i></span><div><strong>Clientes</strong><small>Minha carteira</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Retornos e compromissos</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <?php elseif($u['role']==='collector'):?><a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Priorizar devedores</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Promessas e retornos</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <?php else:?><a class="tdd-action blue" href="<?=APP_URL?>/orders"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Pedidos</strong><small>Produção comercial</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/services"><span><i class="fa-solid fa-screwdriver-wrench"></i></span><div><strong>Serviços</strong><small>Ordens de serviço</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Carteira financeira</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action green" href="<?=APP_URL?>/goals"><span><i class="fa-solid fa-bullseye"></i></span><div><strong>Metas</strong><small>Configurar objetivos</small></div><i class="fa-solid fa-arrow-right"></i></a><?php endif;?>
+    </div>
    </section>
   <?php break;
   case 'clients':?>
@@ -959,12 +963,10 @@ function layout(string $body,?array $u): void{
      <a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
      <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
-     <a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i><span>Resultados</span></a>
     <?php elseif($u['role']==='collector'):?>
      <a href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
      <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
-     <a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i><span>Resultados</span></a>
     <?php else:?>
      <a href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
@@ -972,7 +974,6 @@ function layout(string $body,?array $u): void{
      <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
      <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
-     <a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><span>Resultados</span></a>
      <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a>
      <?php if($u['role']==='admin'):?>
       <div class="tdcrm-nav-label">Sistema</div>

@@ -97,3 +97,19 @@ body[data-page="dashboard"] .tdcrm-content *{box-shadow:none!important;letter-sp
  .tdd-kpis,.tdd-kpis.five,.tdd-actions,.tdd-performance{grid-template-columns:1fr}
  .tdd-head h1{font-size:26px}
 }
+
+
+/* Dashboard + Resultados unificados */
+.tdd-unified{gap:18px}
+.tdd-period-select label{display:block;margin:0;font-size:11px;font-weight:700;color:#506574}
+.tdd-period-select label>span{display:block;margin-bottom:5px}
+.tdd-period-select .form-control{min-width:165px;min-height:40px!important;border-radius:8px!important;font-size:12px!important}
+.tdd-result-filter{margin:0!important}
+.tdd-performance.single{grid-template-columns:1fr}
+.tdd-rankings{margin:0}
+.tdd-unified .tdr-card{box-shadow:none!important}
+.tdd-unified .tdd-actions{margin-top:0}
+@media(max-width:760px){
+ .tdd-period-select{width:100%}
+ .tdd-period-select .form-control{width:100%}
+}
