@@ -48,9 +48,18 @@ final class OrderPolicy {
  public static function metricTotalSql(string $tableAlias=''): string{
   if($tableAlias!==''&&!preg_match('/^[a-zA-Z0-9_]+$/',$tableAlias))throw new InvalidArgumentException('Alias de pedidos inválido.');
   $p=$tableAlias!==''?$tableAlias.'.':'';
-  // orders.total recebe valor_total_pedido da Omie, que já inclui o frete.
-  // Não somar frete novamente para evitar duplicidade nas métricas.
+  // orders.total recebe valor_total_pedido da Omie e já inclui frete.
   return "COALESCE({$p}total,0)";
+ }
+ public static function freightValueSql(string $tableAlias=''): string{
+  if($tableAlias!==''&&!preg_match('/^[a-zA-Z0-9_]+$/',$tableAlias))throw new InvalidArgumentException('Alias de pedidos inválido.');
+  $p=$tableAlias!==''?$tableAlias.'.':'';
+  return "COALESCE(CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT({$p}raw_json,'$.frete.valor_frete')),'') AS DECIMAL(18,2)),0)";
+ }
+ public static function metricWithoutFreightSql(string $tableAlias=''): string{
+  $total=self::metricTotalSql($tableAlias);
+  $freight=self::freightValueSql($tableAlias);
+  return "GREATEST((".$total.")-(".$freight."),0)";
  }
  public static function validReportSql(string $stageColumn='stage_code',string $statusColumn='status',string $rawJsonColumn='raw_json'): array{
   foreach([$stageColumn,$statusColumn,$rawJsonColumn] as $column)if(!preg_match('/^[a-zA-Z0-9_.]+$/',$column))throw new InvalidArgumentException('Coluna de pedidos inválida.');
@@ -94,12 +103,14 @@ final class CRMService {
   if($u['role']==='seller'){
    [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
    $orderTotalSql=OrderPolicy::metricTotalSql();
+   $orderWithoutFreightSql=OrderPolicy::metricWithoutFreightSql();
    $orders=(float)(DB::scalar("SELECT COALESCE(SUM(".$orderTotalSql."),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
+   $orders_without_freight=(float)(DB::scalar("SELECT COALESCE(SUM(".$orderWithoutFreightSql."),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
    $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$u['seller_omie_code'],$start,$next])??0);
    $sales=$orders;
    $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE seller_omie_code=? AND active=1",[$u['seller_omie_code']])??0);
    $tasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending'",[(int)$u['id']])??0);
-   return compact('sales','orders','services','clients','tasks');
+   return compact('sales','orders','orders_without_freight','services','clients','tasks');
   }
   if($u['role']==='collector'){
    $debt=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
@@ -1330,13 +1341,19 @@ final class GoalService {
   [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
   [$orderDaysSql,$orderDaysParams]=self::selectedDaysSql('order_date',$days);
   $orderTotalSql=OrderPolicy::metricTotalSql();
+  $orderWithoutFreightSql=OrderPolicy::metricWithoutFreightSql();
+  $params=array_merge([$sellerCode,$start,$next],$validOrderParams,$orderDaysParams);
   $orders=(float)(DB::scalar(
    "SELECT COALESCE(SUM(".$orderTotalSql."),0) FROM orders
     WHERE seller_omie_code=? AND order_date>=? AND order_date<?
-      AND ".$validOrders.$orderDaysSql,
-   array_merge([$sellerCode,$start,$next],$validOrderParams,$orderDaysParams)
+      AND ".$validOrders.$orderDaysSql,$params
   )??0);
-  return ['orders'=>$orders,'services'=>0.0,'total'=>$orders];
+  $ordersWithoutFreight=(float)(DB::scalar(
+   "SELECT COALESCE(SUM(".$orderWithoutFreightSql."),0) FROM orders
+    WHERE seller_omie_code=? AND order_date>=? AND order_date<?
+      AND ".$validOrders.$orderDaysSql,$params
+  )??0);
+  return ['orders'=>$orders,'orders_without_freight'=>$ordersWithoutFreight,'services'=>0.0,'total'=>$orders];
  }
 
  public static function userMonth(int $userId,string $month,array $days=[]): array{
@@ -1350,11 +1367,11 @@ final class GoalService {
   $start=$month.'-01';$next=date('Y-m-d',strtotime($start.' +1 month'));
   $goalFactor=$days?count($days)/$daysInMonth:1;
   if($days){$g['sales_goal']=(float)$g['sales_goal']*$goalFactor;$g['collection_goal']=(float)$g['collection_goal']*$goalFactor;$g['contact_goal']=(float)$g['contact_goal']*$goalFactor;}
-  $sales=0.0;$recovered=0.0;$contacts=0;$ordersSales=0.0;$servicesSales=0.0;
+  $sales=0.0;$recovered=0.0;$contacts=0;$ordersSales=0.0;$ordersWithoutFreight=0.0;$servicesSales=0.0;
 
   if($u['role']==='seller'&&!empty($u['seller_omie_code'])){
    $prod=self::sellerProduction((string)$u['seller_omie_code'],$start,$next,$days);
-   $ordersSales=$prod['orders'];$servicesSales=$prod['services'];$sales=$prod['total'];
+   $ordersSales=$prod['orders'];$ordersWithoutFreight=$prod['orders_without_freight'];$servicesSales=$prod['services'];$sales=$prod['total'];
    [$activityDaysSql,$activityDaysParams]=self::selectedDaysSql('created_at',$days);
    $contacts=(int)(DB::scalar(
     "SELECT COUNT(*) FROM activities WHERE user_id=? AND created_at>=? AND created_at<?".$activityDaysSql,
@@ -1377,7 +1394,7 @@ final class GoalService {
   }
 
   return [
-   'user'=>$u,'goal'=>$g,'month'=>$month,'days'=>$days,'goal_scope'=>$days?'Meta proporcional aos dias':'Meta mensal','sales'=>$sales,'orders_sales'=>$ordersSales,'services_sales'=>$servicesSales,
+   'user'=>$u,'goal'=>$g,'month'=>$month,'days'=>$days,'goal_scope'=>$days?'Meta proporcional aos dias':'Meta mensal','sales'=>$sales,'orders_sales'=>$ordersSales,'orders_without_freight'=>$ordersWithoutFreight,'services_sales'=>$servicesSales,
    'recovered'=>$recovered,'contacts'=>$contacts,
    'sales_percent'=>(float)$g['sales_goal']>0?min(999,$sales/(float)$g['sales_goal']*100):0,
    'collection_percent'=>(float)$g['collection_goal']>0?min(999,$recovered/(float)$g['collection_goal']*100):0,
@@ -1402,18 +1419,19 @@ final class GoalService {
   $virtualGoals=[];
   foreach($virtualGoalsRaw as $g)$virtualGoals[(string)$g['seller_omie_code']]=$g;
 
-  $ordersMap=[];
+  $ordersMap=[];$ordersWithoutFreightMap=[];
   [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
   [$orderDaysSql,$orderDaysParams]=self::selectedDaysSql('order_date',$days);
   $orderTotalSql=OrderPolicy::metricTotalSql();
+  $orderWithoutFreightSql=OrderPolicy::metricWithoutFreightSql();
   foreach(DB::all(
-   "SELECT seller_omie_code,COALESCE(SUM(".$orderTotalSql."),0) total
+   "SELECT seller_omie_code,COALESCE(SUM(".$orderTotalSql."),0) total,COALESCE(SUM(".$orderWithoutFreightSql."),0) total_without_freight
     FROM orders
     WHERE order_date>=? AND order_date<?
       AND ".$validOrders."
       AND seller_omie_code IS NOT NULL AND seller_omie_code<>''".$orderDaysSql."
     GROUP BY seller_omie_code",array_merge([$start,$next],$validOrderParams,$orderDaysParams)
-  ) as $r)$ordersMap[(string)$r['seller_omie_code']]=(float)$r['total'];
+  ) as $r){$code=(string)$r['seller_omie_code'];$ordersMap[$code]=(float)$r['total'];$ordersWithoutFreightMap[$code]=(float)$r['total_without_freight'];}
 
   $servicesMap=[];
 
@@ -1448,11 +1466,12 @@ final class GoalService {
     'month_ref'=>$month,'sales_goal'=>0,'collection_goal'=>0,'contact_goal'=>0
    ];
    if($days){$g['sales_goal']=(float)$g['sales_goal']*$goalFactor;$g['collection_goal']=(float)$g['collection_goal']*$goalFactor;$g['contact_goal']=(float)$g['contact_goal']*$goalFactor;}
-   $sales=0.0;$ordersSales=0.0;$servicesSales=0.0;$userRecovered=0.0;$userContacts=0;
+   $sales=0.0;$ordersSales=0.0;$ordersWithoutFreight=0.0;$servicesSales=0.0;$userRecovered=0.0;$userContacts=0;
 
    if($u['role']==='seller'){
     $code=(string)($u['seller_omie_code']??'');
     $ordersSales=$code!==''?($ordersMap[$code]??0.0):0.0;
+    $ordersWithoutFreight=$code!==''?($ordersWithoutFreightMap[$code]??0.0):0.0;
     $servicesSales=0.0;
     $sales=$ordersSales;
     $userContacts=$activityMap[$uid]??0;
@@ -1468,7 +1487,7 @@ final class GoalService {
    $contactGoals+=(float)($g['contact_goal']??0);
 
    $row=[
-    'user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'services_sales'=>$servicesSales,
+    'user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'orders_without_freight'=>$ordersWithoutFreight,'services_sales'=>$servicesSales,
     'recovered'=>$userRecovered,'contacts'=>$userContacts,
     'sales_percent'=>(float)($g['sales_goal']??0)>0?min(999,$sales/(float)$g['sales_goal']*100):0,
     'collection_percent'=>(float)($g['collection_goal']??0)>0?min(999,$userRecovered/(float)$g['collection_goal']*100):0,
@@ -1479,13 +1498,14 @@ final class GoalService {
   }
 
   $allSellers=DB::all("SELECT omie_code,name,active FROM sellers WHERE active=1 ORDER BY name");
-  $sales=0.0;$orderSales=0.0;$serviceSales=0.0;$virtualRows=[];
+  $sales=0.0;$orderSales=0.0;$orderSalesWithoutFreight=0.0;$serviceSales=0.0;$virtualRows=[];
   foreach($allSellers as $seller){
    $code=(string)$seller['omie_code'];
    $o=(float)($ordersMap[$code]??0);
+   $oWithoutFreight=(float)($ordersWithoutFreightMap[$code]??0);
    $sv=0.0;
    $tot=$o;
-   $sales+=$tot;$orderSales+=$o;
+   $sales+=$tot;$orderSales+=$o;$orderSalesWithoutFreight+=$oWithoutFreight;
    if(self::isVirtualSellerName((string)$seller['name'])){
     $vg=$virtualGoals[$code]??['month_ref'=>$month,'sales_goal'=>0];
     if($days)$vg['sales_goal']=(float)$vg['sales_goal']*$goalFactor;
@@ -1495,6 +1515,7 @@ final class GoalService {
      'seller'=>$seller,
      'goal'=>$vg,
      'orders'=>$o,
+     'orders_without_freight'=>$oWithoutFreight,
      'services'=>$sv,
      'sales'=>$tot,
      'sales_percent'=>$goalValue>0?min(999,$tot/$goalValue*100):0,
@@ -1520,7 +1541,7 @@ final class GoalService {
 
   return [
    'month'=>$month,'days'=>$days,'goal_scope'=>$days?'Meta proporcional aos dias':'Meta mensal','rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'virtual_sellers'=>$virtualRows,
-   'general_goal'=>$general,'sales'=>$sales,'order_sales'=>$orderSales,'service_sales'=>$serviceSales,
+   'general_goal'=>$general,'sales'=>$sales,'order_sales'=>$orderSales,'order_sales_without_freight'=>$orderSalesWithoutFreight,'service_sales'=>$serviceSales,
    'recovered'=>$recovered,'contacts'=>$contacts,'sales_goal_sum'=>$salesGoals,
    'collection_goal_sum'=>$collectionGoals,'contact_goal_sum'=>$contactGoals,
    'effective_sales_goal'=>$effectiveSalesGoal,'effective_collection_goal'=>$effectiveCollectionGoal,
