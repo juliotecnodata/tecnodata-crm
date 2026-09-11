@@ -1,0 +1,329 @@
+/* ============================================================
+   TECNODATA CRM — POLIMENTO VISUAL FINAL
+   Ícones, cores, botões e estados alinhados ao modelo aprovado.
+   Carregado por último para neutralizar regras legadas.
+   ============================================================ */
+:root{
+ --tv-navy:#0B2433;
+ --tv-navy-soft:#12384B;
+ --tv-lime:#BDD630;
+ --tv-green:#009657;
+ --tv-green-dark:#007D49;
+ --tv-blue:#0A84E8;
+ --tv-yellow:#F2B705;
+ --tv-orange:#EA5127;
+ --tv-red:#D93D37;
+ --tv-text:#122634;
+ --tv-muted:#6F808D;
+ --tv-line:#DCE5EC;
+ --tv-line-strong:#C9D5DE;
+ --tv-bg:#F5F8FB;
+}
+
+/* ----- Shell / sidebar ----- */
+.tdcrm-sidebar{background:var(--tv-navy)!important}
+.tdcrm-brand-mark{
+ background:var(--tv-lime)!important;
+ color:var(--tv-navy)!important;
+}
+.tdcrm-menu-button{
+ width:38px!important;height:38px!important;
+ border:1px solid rgba(189,214,48,.38)!important;
+ background:rgba(189,214,48,.08)!important;
+ color:var(--tv-lime)!important;
+}
+.tdcrm-menu-button:hover{
+ background:rgba(189,214,48,.16)!important;
+ border-color:rgba(189,214,48,.62)!important;
+}
+.tdcrm-nav a{
+ min-height:44px!important;
+ font-size:13px!important;
+ color:#D7E1E6!important;
+}
+.tdcrm-nav a>i{
+ width:30px!important;height:30px!important;
+ font-size:13px!important;
+ background:rgba(255,255,255,.055)!important;
+ border:1px solid rgba(255,255,255,.05)!important;
+}
+/* Cores funcionais dos ícones, como nos modelos */
+.tdcrm-nav a[href$="/"]>i{color:#8FC8F0!important}
+.tdcrm-nav a[href$="/clients"]>i{color:#65B9F0!important}
+.tdcrm-nav a[href$="/orders/new"]>i{color:#BDD630!important}
+.tdcrm-nav a[href$="/orders"]>i{color:#58BDEB!important}
+.tdcrm-nav a[href$="/services"]>i{color:#F1B84B!important}
+.tdcrm-nav a[href$="/collection"]>i{color:#F28A67!important}
+.tdcrm-nav a[href$="/agenda"]>i{color:#E6C94A!important}
+.tdcrm-nav a[href$="/result"]>i{color:#74CFA3!important}
+.tdcrm-nav a[href$="/goals"]>i{color:#BDD630!important}
+.tdcrm-nav a[href$="/users"]>i{color:#69B9F0!important}
+.tdcrm-nav a[href$="/settings"]>i{color:#AABAC4!important}
+.tdcrm-nav a[href$="/sync"]>i{color:#69C5B8!important}
+.tdcrm-nav a[href$="/test-data"]>i{color:#E7C45C!important}
+.tdcrm-nav a:hover{
+ background:#143548!important;
+ color:#fff!important;
+}
+.tdcrm-nav a.active{
+ background:#203B2D!important;
+ color:var(--tv-lime)!important;
+ border-color:#506827!important;
+}
+.tdcrm-nav a.active>i{
+ color:var(--tv-lime)!important;
+ background:rgba(189,214,48,.13)!important;
+ border-color:rgba(189,214,48,.18)!important;
+}
+.tdcrm-nav a.active:before{background:var(--tv-lime)!important}
+.tdcrm-footer-mark{
+ background:var(--tv-lime)!important;
+ color:var(--tv-navy)!important;
+}
+
+/* ----- Topbar ----- */
+.tdcrm-topbar{background:var(--tv-navy)!important}
+.tdcrm-global-search{
+ background:#15384B!important;
+ border-color:rgba(255,255,255,.13)!important;
+}
+.tdcrm-global-search>i{color:#AFC1CB!important}
+.tdcrm-notification{
+ border:1px solid rgba(255,255,255,.08)!important;
+ background:rgba(255,255,255,.035)!important;
+ color:#F3D35A!important;
+}
+.tdcrm-notification:hover{background:rgba(255,255,255,.08)!important}
+.tdcrm-notification b{background:var(--tv-orange)!important}
+.tdcrm-user>span{
+ background:#EAF4D9!important;
+ color:#516700!important;
+ border-color:rgba(189,214,48,.38)!important;
+}
+.tdcrm-logout button{
+ color:#F2A08D!important;
+ border-color:rgba(234,81,39,.23)!important;
+}
+.tdcrm-logout button:hover{
+ color:#fff!important;
+ background:rgba(234,81,39,.18)!important;
+ border-color:rgba(234,81,39,.45)!important;
+}
+
+/* ----- Botão base do Bootstrap: elimina regra legada de 9px ----- */
+.btn{
+ min-height:40px!important;
+ padding:0 14px!important;
+ border-radius:9px!important;
+ font-size:12px!important;
+ line-height:1.2!important;
+ font-weight:700!important;
+ letter-spacing:0!important;
+ box-shadow:none!important;
+ display:inline-flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ gap:7px!important;
+}
+.btn i{font-size:12px!important}
+.btn-primary{
+ background:var(--tv-green)!important;
+ border-color:var(--tv-green)!important;
+ color:#fff!important;
+}
+.btn-primary:hover,.btn-primary:focus{
+ background:var(--tv-green-dark)!important;
+ border-color:var(--tv-green-dark)!important;
+ color:#fff!important;
+}
+.btn-primary i{color:#fff!important}
+.btn-outline-secondary,.btn-light{
+ background:#fff!important;
+ border-color:var(--tv-line-strong)!important;
+ color:#4D6270!important;
+}
+.btn-outline-secondary i,.btn-light i{color:var(--tv-blue)!important}
+.btn-outline-secondary:hover,.btn-light:hover{
+ background:#F3F7F9!important;
+ border-color:#B9C9D4!important;
+ color:var(--tv-text)!important;
+}
+.btn-outline-danger{
+ background:#fff!important;
+ border-color:#F1C4BA!important;
+ color:var(--tv-orange)!important;
+}
+.btn-outline-danger i{color:var(--tv-orange)!important}
+.btn-outline-danger:hover{
+ background:var(--tv-orange)!important;
+ border-color:var(--tv-orange)!important;
+ color:#fff!important;
+}
+.btn-outline-danger:hover i{color:#fff!important}
+
+/* ----- Botões customizados dos módulos ----- */
+.tdc-btn,.tdr-btn,.tdo-btn,.tds-btn,.tdcob-btn,.tda-btn,
+.tdsys-btn,.tdg-btn,.tdset-btn,.tdtest-btn{
+ border-color:var(--tv-line-strong)!important;
+ background:#fff!important;
+ color:#4D6270!important;
+ font-size:12px!important;
+ font-weight:700!important;
+ min-height:40px!important;
+ box-shadow:none!important;
+}
+.tdc-btn i,.tdr-btn i,.tdo-btn i,.tds-btn i,.tdcob-btn i,.tda-btn i,
+.tdsys-btn i,.tdg-btn i,.tdset-btn i,.tdtest-btn i{
+ color:var(--tv-blue)!important;
+ font-size:12px!important;
+}
+.tdc-btn-primary,.tdr-btn-primary,.tdo-btn-primary,.tds-btn-primary,.tdcob-btn-primary,
+.tda-btn-primary,.tdsys-btn-primary,.tdg-btn-primary,.tdset-btn-primary,.tdtest-btn-primary{
+ background:var(--tv-green)!important;
+ border-color:var(--tv-green)!important;
+ color:#fff!important;
+}
+.tdc-btn-primary i,.tdr-btn-primary i,.tdo-btn-primary i,.tds-btn-primary i,.tdcob-btn-primary i,
+.tda-btn-primary i,.tdsys-btn-primary i,.tdg-btn-primary i,.tdset-btn-primary i,.tdtest-btn-primary i{
+ color:#fff!important;
+}
+.tdc-btn-primary:hover,.tdr-btn-primary:hover,.tdo-btn-primary:hover,.tds-btn-primary:hover,.tdcob-btn-primary:hover,
+.tda-btn-primary:hover,.tdsys-btn-primary:hover,.tdg-btn-primary:hover,.tdset-btn-primary:hover,.tdtest-btn-primary:hover{
+ background:var(--tv-green-dark)!important;
+ border-color:var(--tv-green-dark)!important;
+ color:#fff!important;
+}
+.tdc-btn-danger,.tdo-btn-danger{
+ color:var(--tv-orange)!important;
+ border-color:#F1C4BA!important;
+ background:#fff!important;
+}
+.tdc-btn-danger i,.tdo-btn-danger i{color:var(--tv-orange)!important}
+
+/* ----- Ações quadradas / ícones de tabela ----- */
+.tdc-icon-btn,.tdo-icon-btn,.tdsys-icon-btn{
+ width:36px!important;height:34px!important;
+ border-radius:8px!important;
+ border:1px solid var(--tv-line)!important;
+ background:#F8FAFB!important;
+ color:var(--tv-blue)!important;
+ font-size:12px!important;
+}
+.tdc-icon-btn i,.tdo-icon-btn i,.tdsys-icon-btn i{color:inherit!important}
+.tdc-icon-btn:hover,.tdo-icon-btn:hover,.tdsys-icon-btn:hover{
+ background:#EAF5FD!important;
+ border-color:#CFE5F4!important;
+ color:#0875CB!important;
+}
+.tdc-icon-btn.edit{color:#8A6B00!important;background:#FFF9E8!important;border-color:#F1E2AC!important}
+.tdc-icon-btn.delete,.tdo-icon-btn.danger{
+ color:var(--tv-orange)!important;
+ background:#FFF7F4!important;
+ border-color:#F1CCC3!important;
+}
+.tdc-icon-btn.delete:hover,.tdo-icon-btn.danger:hover{
+ background:#FFF0EB!important;
+ color:#C94524!important;
+}
+
+/* ----- Cabeçalhos: ícones mais vivos e consistentes ----- */
+.tdc-head-icon,.tdd-head-icon,.tdr-head-icon,.tdo-head-icon,.tds-head-icon,
+.tdcob-head-icon,.tda-head-icon,.order-new-page-icon,.tdsys-head-icon,
+.tdg-head-icon,.tdset-head-icon,.tdtest-head-icon,.tdsync-head-icon{
+ width:48px!important;height:48px!important;border-radius:10px!important;
+ font-size:19px!important;
+}
+.tdc-head-icon,.tdo-head-icon,.tds-head-icon,.order-new-page-icon,.tdsys-head-icon,.tdsync-head-icon{
+ background:#EAF5FD!important;
+ border-color:#CFE7F7!important;
+ color:var(--tv-blue)!important;
+}
+.tdg-head-icon{
+ background:#E9F8F0!important;
+ border-color:#CBEAD9!important;
+ color:var(--tv-green)!important;
+}
+.tdcob-head-icon{
+ background:#FFF0EB!important;
+ border-color:#F3D2C9!important;
+ color:var(--tv-orange)!important;
+}
+.tda-head-icon,.tdtest-head-icon{
+ background:#FFF7DA!important;
+ border-color:#F1E1A4!important;
+ color:#947000!important;
+}
+.tdset-head-icon{
+ background:#F0F4F6!important;
+ border-color:#D8E1E7!important;
+ color:#536B79!important;
+}
+
+/* ----- KPI iconografia: não deixar tudo azul ----- */
+.tdd-kpi.green .tdd-kpi-icon,.tdr-kpi.green .tdr-kpi-icon,
+.tdo-kpi.green .tdo-kpi-icon,.tds-kpi.green .tds-kpi-icon{
+ background:#E9F8F0!important;color:var(--tv-green)!important;
+}
+.tdd-kpi.blue .tdd-kpi-icon,.tdr-kpi.blue .tdr-kpi-icon,
+.tdo-kpi.blue .tdo-kpi-icon,.tds-kpi.blue .tds-kpi-icon{
+ background:#EAF5FD!important;color:var(--tv-blue)!important;
+}
+.tdd-kpi.yellow .tdd-kpi-icon,.tdr-kpi.yellow .tdr-kpi-icon,
+.tdo-kpi.yellow .tdo-kpi-icon,.tds-kpi.yellow .tds-kpi-icon{
+ background:#FFF7DA!important;color:#927000!important;
+}
+.tdd-kpi.red .tdd-kpi-icon,.tdr-kpi.red .tdr-kpi-icon,
+.tdo-kpi.red .tdo-kpi-icon,.tds-kpi.red .tds-kpi-icon{
+ background:#FDEEEE!important;color:var(--tv-red)!important;
+}
+
+/* ----- Status e badges ----- */
+.badge,.tdc-badge{
+ border-radius:999px!important;
+ font-size:10px!important;
+ font-weight:700!important;
+}
+.alert{
+ border-radius:10px!important;
+ box-shadow:none!important;
+ font-size:12px!important;
+}
+.alert-success{background:#EFF9F4!important;border-color:#CBEAD9!important;color:#176544!important}
+.alert-info{background:#F0F8FD!important;border-color:#CDE5F5!important;color:#315E79!important}
+.alert-warning{background:#FFF9E6!important;border-color:#F0DFA2!important;color:#785D00!important}
+.alert-danger{background:#FFF1EF!important;border-color:#F1C9C1!important;color:#8F3A2A!important}
+
+/* ----- Form controls coerentes com os mockups ----- */
+.form-control,.form-select{
+ border-color:var(--tv-line-strong)!important;
+ border-radius:8px!important;
+ box-shadow:none!important;
+}
+.form-control:focus,.form-select:focus{
+ border-color:#7DBCE5!important;
+ box-shadow:0 0 0 2px rgba(10,132,232,.08)!important;
+}
+
+/* ----- DataTables ----- */
+.dt-search input,.dt-length select{
+ min-height:36px!important;
+ border-radius:8px!important;
+ border-color:var(--tv-line-strong)!important;
+ font-size:12px!important;
+}
+.page-link{
+ border-color:var(--tv-line)!important;
+ color:#4D6574!important;
+ box-shadow:none!important;
+}
+.active>.page-link,.page-link.active{
+ background:var(--tv-green)!important;
+ border-color:var(--tv-green)!important;
+ color:#fff!important;
+}
+
+/* ----- Mobile ----- */
+@media(max-width:900px){
+ .tdcrm-menu-button{display:grid!important}
+ .tdcrm-nav a{font-size:13px!important}
+}
