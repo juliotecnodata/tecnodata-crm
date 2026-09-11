@@ -700,9 +700,41 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    </section>
   <?php break;
 
-  case 'agenda':?>
-   <div class="page-head"><div><span class="eyebrow">AGENDA</span><h1>Retornos</h1><p>Em ordem de horário.</p></div></div><div class="agenda-list"><?php foreach($rows as $r):?><div class="agenda-item <?=strtotime($r['due_at'])<time()?'late':''?>"><div><strong><?=date('H:i',strtotime($r['due_at']))?></strong><small><?=date('d/m',strtotime($r['due_at']))?></small></div><div><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/<?=$r['type']==='collection'?'collection':'clients'?>/<?=$r['client_id']?>">Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light">Concluir</button></form></div><?php endforeach;?></div>
+  case 'agenda':
+   $agendaNow=time();$agendaToday=date('Y-m-d');$agendaLate=0;$agendaTodayCount=0;$agendaUpcoming=0;$agendaCollection=0;
+   foreach($rows as $r){$due=strtotime((string)$r['due_at']);$dueDate=date('Y-m-d',$due);if($due<$agendaNow)$agendaLate++;elseif($dueDate===$agendaToday)$agendaTodayCount++;else $agendaUpcoming++;if(($r['type']??'')==='collection')$agendaCollection++;}
+   ?>
+   <section class="tda-page">
+    <header class="tda-head">
+     <div class="tda-head-main"><span class="tda-head-icon"><i class="fa-regular fa-calendar-check"></i></span><div><span class="tda-kicker"><?=$u['role']==='collector'?'COBRANÇA / AGENDA':'AGENDA'?></span><h1><?=$u['role']==='collector'?'Agenda de cobrança':'Retornos'?></h1><p>Compromissos em ordem de horário, com destaque para vencidos, hoje e próximos retornos.</p></div></div>
+     <div class="tda-date"><i class="fa-regular fa-calendar"></i><?=date('d/m/Y')?></div>
+    </header>
+
+    <div class="tda-kpis">
+     <article class="tda-kpi red"><span><i class="fa-solid fa-triangle-exclamation"></i></span><small>Vencidos</small><strong><?=number_format($agendaLate,0,',','.')?></strong></article>
+     <article class="tda-kpi yellow"><span><i class="fa-regular fa-clock"></i></span><small>Hoje</small><strong><?=number_format($agendaTodayCount,0,',','.')?></strong></article>
+     <article class="tda-kpi blue"><span><i class="fa-regular fa-calendar-plus"></i></span><small>Próximos</small><strong><?=number_format($agendaUpcoming,0,',','.')?></strong></article>
+     <article class="tda-kpi green"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><small>Cobrança</small><strong><?=number_format($agendaCollection,0,',','.')?></strong></article>
+    </div>
+
+    <section class="tda-list">
+     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Use Abrir para acessar o cliente e Concluir para encerrar o retorno.</small></div></div></div>
+     <?php if(!$rows):?>
+      <div class="tda-empty"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Nenhum retorno pendente</strong><p>A agenda está limpa para o período atual.</p></div></div>
+     <?php else:?>
+      <?php foreach($rows as $r):$due=strtotime((string)$r['due_at']);$isLate=$due<time();$isCollection=($r['type']??'')==='collection';?>
+       <div class="tda-item <?=$isLate?'late':''?>">
+        <div class="tda-time"><span><i class="fa-regular <?=$isLate?'fa-clock':'fa-calendar'?>"></i></span><div><strong><?=date('H:i',$due)?></strong><small><?=date('d/m',$due)?></small></div></div>
+        <div class="tda-client"><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div>
+        <span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-user'?>"></i><?=$isCollection?'Cobrança':'Comercial'?></span>
+        <div class="tda-actions"><a class="tda-btn" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>"><i class="fa-regular fa-folder-open"></i>Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tda-btn tda-btn-primary"><i class="fa-solid fa-check"></i>Concluir</button></form></div>
+       </div>
+      <?php endforeach;?>
+     <?php endif;?>
+    </section>
+   </section>
   <?php break;
+
   case 'management_result':$g=$management['general_goal'];?>
    <section class="tdr-page">
     <header class="tdr-head">
@@ -934,7 +966,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
