@@ -1283,11 +1283,11 @@ $router->get('/api/clients/datatable',function(){
   $purchaseHtml='<strong>'.brdate($row['last_purchase_at']??null).'</strong><small>'.($orders>0?$orders.' pedido(s) em 12 meses':'Sem pedidos recentes').'</small>';
   $lastContactAt=trim((string)($row['last_contact_at']??''));
   if($lastContactAt===''){
-   $daysContactHtml='<span class="tdc-contact-days never"><i class="fa-regular fa-circle-xmark"></i><strong>Nunca</strong><small>Sem contato registrado</small></span>';
+   $daysContactHtml='<span class="tdc-contact-days never"><strong>Nunca</strong></span>';
   }else{
    $contactDays=max(0,(int)floor((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',strtotime($lastContactAt))))/86400));
    $contactClass=$contactDays<=30?'ok':($contactDays<=60?'warning':'late');
-   $daysContactHtml='<span class="tdc-contact-days '.$contactClass.'"><strong>'.$contactDays.'</strong><small>'.($contactDays===1?'dia sem contato':'dias sem contato').'</small></span>';
+   $daysContactHtml='<span class="tdc-contact-days '.$contactClass.'"><strong>'.$contactDays.'</strong></span>';
   }
   $openLabel=$canEdit?'Abrir cliente':($unassigned?'Selecionar cliente disponível':'Cliente vinculado a outro vendedor');
   $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.APP_URL.'/clients/'.$id.'" title="'.e($openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
