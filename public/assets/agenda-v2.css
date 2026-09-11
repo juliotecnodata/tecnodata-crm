@@ -81,11 +81,23 @@
 .tda-btn{min-height:34px;padding:0 10px;border:1px solid var(--tda-line2);border-radius:8px;background:#fff;color:#4E6270;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none!important;cursor:pointer}
 .tda-btn:hover{background:#F6F9FA;color:#203745}
 .tda-btn-primary{background:var(--tda-green)!important;border-color:var(--tda-green)!important;color:#fff!important}
+.tda-actions .tda-btn.tda-btn-open{border-color:#0A84E8!important;background:#0A84E8!important;color:#fff!important}
+.tda-actions .tda-btn.tda-btn-open i{color:#fff!important}
+.tda-actions .tda-btn.tda-btn-open:hover{border-color:#076DBF!important;background:#076DBF!important;color:#fff!important}
+.tda-actions .tda-btn.tda-btn-edit{border-color:#7047B8!important;background:#7047B8!important;color:#fff!important}
+.tda-actions .tda-btn.tda-btn-edit i{color:#fff!important}
+.tda-actions .tda-btn.tda-btn-edit:hover{border-color:#593594!important;background:#593594!important;color:#fff!important}
+.tda-actions .tda-btn.tda-btn-reschedule{border-color:#E0A900!important;background:#F2B705!important;color:#2F2600!important}
+.tda-actions .tda-btn.tda-btn-reschedule i{color:#2F2600!important}
+.tda-actions .tda-btn.tda-btn-reschedule:hover{border-color:#C79500!important;background:#DDA700!important;color:#211A00!important}
+.tda-actions .tda-btn.tda-btn-danger{border-color:#D93D37!important;background:#D93D37!important;color:#fff!important}
+.tda-actions .tda-btn.tda-btn-danger i{color:#fff!important}
+.tda-actions .tda-btn.tda-btn-danger:hover{border-color:#B72F2A!important;background:#B72F2A!important;color:#fff!important}
 .tda-reschedule{position:relative}
 .tda-reschedule>summary{list-style:none}
 .tda-reschedule>summary::-webkit-details-marker{display:none}
-.tda-reschedule[open]>summary{background:#EAF5FD;color:#236789;border-color:#CDE3F1}
-.tda-reschedule>form{position:absolute;right:0;top:40px;z-index:50;width:260px;padding:11px;border:1px solid var(--tda-line);border-radius:9px;background:#fff}
+.tda-reschedule[open]>summary{outline:2px solid rgba(11,36,51,.08)}
+.tda-reschedule>form{position:absolute;right:0;top:40px;z-index:50;width:290px;padding:11px;border:1px solid var(--tda-line);border-radius:9px;background:#fff}
 .tda-reschedule>form label{display:block;margin:0 0 8px;font-size:9px;font-weight:800;color:#536875}
 .tda-reschedule>form label>span{display:block;margin-bottom:5px}
 .tda-reschedule>form .form-control{min-height:38px!important;border:1px solid var(--tda-line2)!important;border-radius:8px!important;font-size:10px!important}

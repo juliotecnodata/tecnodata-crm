@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const relativeParts=routeParts.slice(baseParts.length);
   const section=relativeParts[0]||'dashboard';
   let page=section;
+  if(section==='my-portfolio')page='clients';
   if(section==='clients')page=relativeParts[1]==='new'||relativeParts[2]==='edit'?'client-editor':(relativeParts[1]?'client-detail':'clients');
   if(section==='orders')page=relativeParts[1]==='new'?'order-new':(relativeParts[1]?'order-detail':'orders');
   if(section==='collection'&&relativeParts[1])page='collection-case';
@@ -14,7 +15,43 @@ document.addEventListener('DOMContentLoaded',()=>{
   const globalTopbarActions=document.querySelector('.topbar-actions');
   if(pageTopbarTools&&globalTopbarActions)globalTopbarActions.prepend(pageTopbarTools);
 
+  const contactDialog=document.querySelector('[data-contact-dialog]');
+  const contactScheduleForm=document.querySelector('[data-contact-schedule-form]');
+  if(contactDialog&&contactScheduleForm){
+    const taskInput=contactScheduleForm.querySelector('[name="task_id"]');
+    const sellerInput=contactScheduleForm.querySelector('[name="assigned_user_id"]');
+    const titleInput=contactScheduleForm.querySelector('[name="title"]');
+    const dueInput=contactScheduleForm.querySelector('[name="due_at"]');
+    const dialogTitle=contactDialog.querySelector('[data-contact-dialog-title]');
+    const dialogClient=contactDialog.querySelector('[data-contact-dialog-client]');
+    document.querySelectorAll('[data-contact-schedule]').forEach(button=>button.addEventListener('click',()=>{
+      try{
+        const data=JSON.parse(button.dataset.contactSchedule||'{}');
+        contactScheduleForm.action=(window.APP_URL||'')+'/contact-monitoring/'+Number(data.client_id)+'/schedule';
+        taskInput.value=Number(data.task_id||0)||'';
+        sellerInput.value=Number(data.assigned_user_id||0)||'';
+        titleInput.value=data.title||'Próximo contato';
+        dueInput.value=data.due_at||'';
+        dialogTitle.textContent=data.task_id?'Reagendar próximo contato':'Agendar próximo contato';
+        dialogClient.textContent=data.client_name||'';
+        contactDialog.showModal();
+      }catch(error){showNotice('danger','Não foi possível abrir o agendamento','Atualize a página e tente novamente.');}
+    }));
+    contactDialog.querySelectorAll('[data-contact-dialog-close]').forEach(button=>button.addEventListener('click',()=>contactDialog.close()));
+    contactDialog.addEventListener('click',event=>{if(event.target===contactDialog)contactDialog.close();});
+  }
+
   const clientStateFilter=document.querySelector('[data-client-state-filter]');
+  const clientTagFilter=document.querySelector('[data-client-tag-filter]');
+  clientTagFilter?.addEventListener('change',()=>clientTagFilter.form?.requestSubmit());
+  const monitorForm=document.querySelector('.tdset-monitor-form');
+  if(monitorForm){
+    const monitorChecks=Array.from(monitorForm.querySelectorAll('[name="monitor_user_ids[]"]'));
+    const monitorCount=monitorForm.querySelector('[data-monitor-selected]');
+    const updateMonitorCount=()=>{if(monitorCount)monitorCount.textContent=String(monitorChecks.filter(input=>input.checked).length);};
+    monitorChecks.forEach(input=>input.addEventListener('change',updateMonitorCount));
+    monitorForm.addEventListener('submit',event=>{if(!monitorChecks.some(input=>input.checked)){event.preventDefault();showNotice('warning','Selecione um participante','Marque pelo menos um usuário de vendas ou cobrança para o acompanhamento.');}});
+  }
   const clearClientDddParams=url=>Array.from(new Set(url.searchParams.keys())).forEach(key=>{if(/^ddds(?:\[\d*\])?$/.test(key))url.searchParams.delete(key);});
   if(clientStateFilter){
     clientStateFilter.addEventListener('change',()=>{
@@ -137,6 +174,37 @@ document.addEventListener('DOMContentLoaded',()=>{
     }catch(e){}
   });
 
+  const navGroups=Array.from(document.querySelectorAll('[data-nav-group]'));
+  const navGroupKey=group=>'tecnodata-nav-group-'+(group.dataset.navGroup||'menu');
+  const activeNavGroup=navGroups.find(group=>group.querySelector('a.active'))||null;
+  let preferredNavGroup=activeNavGroup;
+  if(!preferredNavGroup){
+    preferredNavGroup=navGroups.find(group=>{try{return localStorage.getItem(navGroupKey(group))==='1';}catch(e){return false;}})||navGroups.find(group=>group.dataset.defaultOpen==='1')||null;
+  }
+  navGroups.forEach(group=>{
+    const toggle=group.querySelector('.tdcrm-nav-group-toggle');
+    if(!toggle)return;
+    const hasActive=!!group.querySelector('a.active');
+    group.classList.toggle('has-active',hasActive);
+    const setExpanded=expanded=>{
+      group.classList.toggle('is-open',expanded);
+      toggle.setAttribute('aria-expanded',expanded?'true':'false');
+    };
+    setExpanded(group===preferredNavGroup);
+    try{localStorage.setItem(navGroupKey(group),group===preferredNavGroup?'1':'0');}catch(e){}
+    toggle.addEventListener('click',()=>{
+      const wasOpen=group.classList.contains('is-open');
+      const wasCollapsed=document.body.classList.contains('sidebar-collapsed');
+      if(wasCollapsed)document.querySelector('[data-menu]')?.click();
+      navGroups.forEach(other=>{
+        const expanded=other===group&&(wasCollapsed||!wasOpen);
+        other.classList.toggle('is-open',expanded);
+        other.querySelector('.tdcrm-nav-group-toggle')?.setAttribute('aria-expanded',expanded?'true':'false');
+        try{localStorage.setItem(navGroupKey(other),expanded?'1':'0');}catch(e){}
+      });
+    });
+  });
+
   if(window.DataTable?.ext)window.DataTable.ext.errMode='none';
   const initDataTable=table=>{
     if(!window.DataTable)return null;
@@ -186,7 +254,13 @@ document.addEventListener('DOMContentLoaded',()=>{
   const sidebar=document.querySelector('.tdcrm-sidebar, .sidebar');
   const menuToggle=document.querySelector('[data-menu]');
   const menuBackdrop=document.querySelector('[data-menu-backdrop]');
-  const isMobileMenu=()=>window.matchMedia('(max-width:760px)').matches;
+  const isMobileMenu=()=>window.matchMedia('(max-width:900px)').matches;
+  let tableAdjustTimer=0;
+  const adjustVisibleTables=()=>{
+    window.clearTimeout(tableAdjustTimer);
+    requestAnimationFrame(()=>document.querySelectorAll('.table-card table').forEach(table=>{try{table._dataTable?.columns?.adjust();}catch(e){}}));
+    tableAdjustTimer=window.setTimeout(()=>document.querySelectorAll('.table-card table').forEach(table=>{try{table._dataTable?.columns?.adjust();}catch(e){}}),230);
+  };
   const setSidebarOpen=open=>{
     if(!sidebar||!menuToggle)return;
     if(isMobileMenu()){
@@ -198,6 +272,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     menuToggle.setAttribute('aria-expanded',open?'true':'false');
     menuToggle.setAttribute('title',open?'Fechar menu':'Abrir menu');
+    adjustVisibleTables();
   };
   if(sidebar&&menuToggle){
     let collapsed=false;
@@ -216,7 +291,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         let saved=false;try{saved=localStorage.getItem('tecnodata-sidebar-collapsed')==='1';}catch(e){}
         setSidebarOpen(!saved);
       }
+      adjustVisibleTables();
     });
+    document.querySelector('.tdcrm-main, .main')?.addEventListener('transitionend',event=>{if(event.propertyName==='margin-left')adjustVisibleTables();});
   }
   const ensureConfirmModal=()=>{
     let modal=document.getElementById('appConfirmModal');

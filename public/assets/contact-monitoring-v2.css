@@ -1,0 +1,84 @@
+/* Tecnodata CRM — acompanhamento de contatos */
+:root{
+ --tdct-navy:#0B2433;--tdct-green:#009657;--tdct-blue:#0A84E8;--tdct-yellow:#F2B705;
+ --tdct-red:#D93D37;--tdct-line:#DCE5EC;--tdct-line2:#C9D5DE;--tdct-text:#122634;--tdct-muted:#6F808D;
+}
+body[data-page="contact-monitoring"]{background:#F5F8FB!important}
+body[data-page="contact-monitoring"] .tdcrm-main{min-width:0;transition:margin-left .2s ease}
+body[data-page="contact-monitoring"] .tdcrm-content{width:100%;max-width:1540px!important;min-width:0;padding:24px 28px 36px!important}
+.tdcontact-page{display:grid;width:100%;max-width:100%;min-width:0;gap:16px;color:var(--tdct-text);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.tdcontact-page *{letter-spacing:0!important;box-shadow:none!important}
+.tdcontact-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.tdcontact-head-main{display:flex;align-items:flex-start;gap:13px;min-width:0}
+.tdcontact-head-icon{width:48px;height:48px;display:grid;place-items:center;flex:0 0 48px;border:1px solid #CFE6F6;border-radius:10px;background:#EAF5FD;color:var(--tdct-blue);font-size:18px}
+.tdcontact-kicker{display:block;margin-bottom:3px;font-size:10px;font-weight:800;color:var(--tdct-green)}
+.tdcontact-head h1{margin:0;font-size:29px;line-height:1.12;font-weight:800;color:var(--tdct-text)}
+.tdcontact-head p{margin:5px 0 0;max-width:760px;font-size:12px;line-height:1.5;color:var(--tdct-muted)}
+.tdcontact-btn{min-height:38px;padding:0 12px;border:1px solid var(--tdct-line2);border-radius:8px;background:#fff;color:#4E6270;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none!important;cursor:pointer}
+.tdcontact-btn:hover{background:#F4F7F9;color:#253C49}
+.tdcontact-btn-filter,.tdcontact-btn-open{border-color:var(--tdct-blue)!important;background:var(--tdct-blue)!important;color:#fff!important}
+.tdcontact-btn-filter:hover,.tdcontact-btn-open:hover{border-color:#076DBF!important;background:#076DBF!important;color:#fff!important}
+.tdcontact-btn-calendar,.tdcontact-btn-schedule{border-color:#D9A500!important;background:var(--tdct-yellow)!important;color:#302600!important}
+.tdcontact-btn-calendar:hover,.tdcontact-btn-schedule:hover{border-color:#C79500!important;background:#DDA700!important;color:#211A00!important}
+.tdcontact-kpis{display:grid;min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tdcontact-kpis article{min-height:96px;padding:13px;border:1px solid var(--tdct-line);border-radius:10px;background:#fff;display:flex;align-items:center;gap:11px}
+.tdcontact-kpis article>span{width:39px;height:39px;display:grid;place-items:center;flex:0 0 39px;border-radius:9px}
+.tdcontact-kpis article.blue>span{background:#EAF5FD;color:var(--tdct-blue)}
+.tdcontact-kpis article.green>span{background:#E9F8F0;color:var(--tdct-green)}
+.tdcontact-kpis article.yellow>span{background:#FFF7DA;color:#8A6800}
+.tdcontact-kpis article.red>span{background:#FDEEEE;color:var(--tdct-red)}
+.tdcontact-kpis small{display:block;font-size:9px;font-weight:800;color:var(--tdct-muted)}
+.tdcontact-kpis strong{display:block;margin:2px 0;font-size:22px;color:var(--tdct-text)}
+.tdcontact-kpis p{margin:0;font-size:9px;color:#80909B}
+.tdcontact-controlbar,.tdcontact-card{width:100%;max-width:100%;min-width:0;border:1px solid var(--tdct-line);border-radius:10px;background:#fff}
+.tdcontact-controlbar{padding:12px 14px}
+.tdcontact-controlbar form{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr) auto auto;align-items:end;gap:10px}
+.tdcontact-controlbar label{margin:0;font-size:10px;font-weight:800;color:#506574}
+.tdcontact-controlbar label>span{display:block;margin-bottom:5px}
+.tdcontact-controlbar .form-select{min-height:39px!important;border:1px solid var(--tdct-line2)!important;border-radius:8px!important;font-size:11px!important}
+.tdcontact-card{overflow:hidden;container-type:inline-size}
+.tdcontact-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border-bottom:1px solid var(--tdct-line);background:#FBFCFD}
+.tdcontact-card-head>div{display:flex;align-items:center;gap:10px}
+.tdcontact-card-head>div>span{width:36px;height:36px;display:grid;place-items:center;border-radius:8px;background:#EAF5FD;color:var(--tdct-blue)}
+.tdcontact-card-head strong{display:block;font-size:13px;color:var(--tdct-text)}
+.tdcontact-card-head small{display:block;margin-top:2px;font-size:10px;color:var(--tdct-muted)}
+.tdcontact-card-head>b{min-width:30px;padding:6px 9px;border:1px solid var(--tdct-line);border-radius:999px;background:#fff;color:#5E7380;font-size:9px;text-align:center}
+.tdcontact-table-wrap,.tdcontact-card .dt-container{width:100%;max-width:100%;min-width:0}
+.tdcontact-table-wrap{overflow-x:auto;overflow-y:hidden}
+.tdcontact-table{width:100%!important;min-width:0;margin:0!important;table-layout:fixed}
+.tdcontact-table th:nth-child(1){width:18%}.tdcontact-table th:nth-child(2){width:13%}.tdcontact-table th:nth-child(3){width:16%}.tdcontact-table th:nth-child(4){width:12%}.tdcontact-table th:nth-child(5){width:13%}.tdcontact-table th:nth-child(6){width:16%}.tdcontact-table th:nth-child(7){width:12%}
+.tdcontact-table thead th{padding:10px 11px!important;background:#F5F8FA!important;border-bottom:1px solid var(--tdct-line)!important;color:#506574!important;font-size:10px!important;font-weight:800!important}
+.tdcontact-table tbody td{padding:10px 11px!important;border-color:#EDF2F5!important;color:#3C5160!important;font-size:11px!important;vertical-align:middle!important}
+.tdcontact-table strong{font-size:11px;color:var(--tdct-text)}
+.tdcontact-table small{display:block;margin-top:2px;font-size:9px;color:var(--tdct-muted)}
+.tdcontact-client{display:flex;align-items:center;gap:8px;min-width:0}
+.tdcontact-client>div{min-width:0}
+.tdcontact-client>span{width:32px;height:32px;display:grid;place-items:center;flex:0 0 32px;border-radius:50%;background:#EAF5FD;color:var(--tdct-blue);font-size:11px;font-weight:800}
+.tdcontact-client strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tdcontact-unassigned,.tdcontact-empty{display:inline-flex;align-items:center;gap:5px;color:#7C8D98;font-size:10px}
+.tdcontact-unassigned{padding:5px 7px;border-radius:7px;background:#FFF0EB;color:#A94A2B}
+.tdcontact-owner-list{display:grid;gap:5px}.tdcontact-owner-list>span:not(.tdcontact-unassigned){display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;column-gap:5px}.tdcontact-owner-list>span>i{grid-row:1/3;width:20px;height:20px;display:grid;place-items:center;border-radius:6px;background:#EAF8F1;color:var(--tdct-green);font-size:8px}.tdcontact-owner-list>span.collection>i{background:#FFF0EB;color:#B14D2F}.tdcontact-owner-list b{overflow:hidden;color:var(--tdct-text);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.tdcontact-owner-list small{margin:0;font-size:8px}
+.tdcontact-channel{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border-radius:7px;background:#EAF5FD;color:#276A91;font-size:9px;font-weight:800}
+.tdcontact-note{display:-webkit-box;max-width:100%;overflow:hidden;color:#5C707D;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal}
+.tdcontact-next{display:inline-flex;align-items:center;gap:6px;padding:5px 7px;border-radius:7px;font-size:9px}
+.tdcontact-next.upcoming{background:#EAF5FD;color:#276A91}.tdcontact-next.today{background:#FFF7DA;color:#806100}.tdcontact-next.late{background:#FDEEEE;color:#A33632}
+.tdcontact-next strong{color:inherit}
+.tdcontact-actions{display:flex;align-items:center;gap:5px;white-space:normal}
+.tdcontact-actions .tdcontact-btn{min-height:34px;padding:0 9px;font-size:9px}
+.tdcontact-card .dt-layout-row{padding:10px 12px!important;margin:0!important;background:#fff!important}
+.tdcontact-card .dt-layout-row:first-child{border-bottom:1px solid #EDF2F5}.tdcontact-card .dt-layout-row:last-child{border-top:1px solid #EDF2F5}
+.tdcontact-dialog{width:min(520px,calc(100vw - 28px));padding:0;border:1px solid var(--tdct-line);border-radius:12px;background:#fff;color:var(--tdct-text)}
+.tdcontact-dialog::backdrop{background:rgba(4,22,31,.55);backdrop-filter:blur(2px)}
+.tdcontact-dialog form{margin:0}
+.tdcontact-dialog header{display:grid;grid-template-columns:40px minmax(0,1fr) 34px;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--tdct-line);background:#FBFCFD}
+.tdcontact-dialog header>span{width:40px;height:40px;display:grid;place-items:center;border-radius:9px;background:#FFF7DA;color:#806100}
+.tdcontact-dialog header strong,.tdcontact-dialog header small{display:block}.tdcontact-dialog header strong{font-size:14px}.tdcontact-dialog header small{margin-top:2px;font-size:10px;color:var(--tdct-muted)}
+.tdcontact-dialog header button{width:32px;height:32px;border:1px solid var(--tdct-line);border-radius:8px;background:#fff;color:#6C7D87}
+.tdcontact-dialog-body{display:grid;gap:11px;padding:16px}
+.tdcontact-dialog-body label{margin:0;font-size:10px;font-weight:800;color:#506574}
+.tdcontact-dialog-body .form-control,.tdcontact-dialog-body .form-select{margin-top:5px;min-height:42px!important;border:1px solid var(--tdct-line2)!important;border-radius:8px!important;font-size:12px!important}
+.tdcontact-dialog footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--tdct-line);background:#FBFCFD}
+@container(max-width:1120px){.tdcontact-table th:nth-child(1){width:17%}.tdcontact-table th:nth-child(2){width:12%}.tdcontact-table th:nth-child(3){width:15%}.tdcontact-table th:nth-child(4){width:11%}.tdcontact-table th:nth-child(5){width:12%}.tdcontact-table th:nth-child(6){width:17%}.tdcontact-table th:nth-child(7){width:16%}.tdcontact-actions{display:grid;grid-template-columns:1fr}.tdcontact-actions .tdcontact-btn{width:100%}}
+@media(max-width:1180px){.tdcontact-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tdcontact-controlbar form{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){body[data-page="contact-monitoring"] .tdcrm-content{padding:16px!important}.tdcontact-table{min-width:1040px}}
+@media(max-width:700px){body[data-page="contact-monitoring"] .tdcrm-content{padding:16px!important}.tdcontact-head{flex-direction:column}.tdcontact-head>.tdcontact-btn{width:100%}.tdcontact-kpis,.tdcontact-controlbar form{grid-template-columns:1fr}.tdcontact-head h1{font-size:25px}.tdcontact-card-head{align-items:flex-start}.tdcontact-table{min-width:1040px}.tdcontact-dialog footer{display:grid;grid-template-columns:1fr}.tdcontact-dialog footer .tdcontact-btn{width:100%}}

@@ -50,6 +50,7 @@
 /* Cores funcionais dos ícones, como nos modelos */
 .tdcrm-nav a[href$="/"]>i{color:#8FC8F0!important}
 .tdcrm-nav a[href$="/clients"]>i{color:#65B9F0!important}
+.tdcrm-nav a[href$="/contact-monitoring"]>i{color:#E6C94A!important}
 .tdcrm-nav a[href$="/orders/new"]>i{color:#BDD630!important}
 .tdcrm-nav a[href$="/orders"]>i{color:#58BDEB!important}
 .tdcrm-nav a[href$="/services"]>i{color:#F1B84B!important}
@@ -354,3 +355,133 @@
 .tdlogin-hero .tdlogin-stat strong{color:#FFFFFF!important}
 .tdlogin-hero .tdlogin-stat em{color:#2ED982!important}
 .tdlogin-hero .tdlogin-hero-foot{color:#7396AA!important}
+
+/* ============================================================
+   CORES SEMÂNTICAS DE AÇÃO
+   Azul: abrir, consultar, filtrar e sincronizar.
+   Roxo: editar e transferir responsabilidade.
+   Amarelo: agendar, período e envio à Omie.
+   Verde: criar, salvar e concluir.
+   Vermelho: excluir, cancelar ou zerar.
+   ============================================================ */
+
+/* Abrir / visualizar */
+.tdc-icon-btn.view,.client-action-view,
+.tdo-icon-btn[title="Visualizar"],.tdcob-open{
+ background:var(--tv-blue)!important;border-color:var(--tv-blue)!important;color:#fff!important;
+}
+.tdc-icon-btn.view:hover,.client-action-view:hover,
+.tdo-icon-btn[title="Visualizar"]:hover,.tdcob-open:hover{
+ background:#076DBF!important;border-color:#076DBF!important;color:#fff!important;
+}
+
+/* Editar / continuar / transferir */
+.tdc-icon-btn.edit,.client-action-edit,.tdsys-icon-btn,
+.tdo-icon-btn[title^="Editar"],.tdo-draft-actions>a.tdo-btn,
+.tdo-head-actions a[href*="/edit"],.tdc-head-actions a[href*="/edit"],
+.tdc-portfolio-form .tdc-btn-primary,.tdcob-assign .tdcob-btn{
+ background:#7047B8!important;border-color:#7047B8!important;color:#fff!important;
+}
+.tdc-icon-btn.edit:hover,.client-action-edit:hover,.tdsys-icon-btn:hover,
+.tdo-icon-btn[title^="Editar"]:hover,.tdo-draft-actions>a.tdo-btn:hover,
+.tdo-head-actions a[href*="/edit"]:hover,.tdc-head-actions a[href*="/edit"]:hover,
+.tdc-portfolio-form .tdc-btn-primary:hover,.tdcob-assign .tdcob-btn:hover{
+ background:#593594!important;border-color:#593594!important;color:#fff!important;
+}
+
+/* Filtrar / consultar / sincronizar */
+.tdr-filter-actions .tdr-btn-primary,.tda-filters .tda-btn-primary,
+.tdo-period-popover .tdo-btn-primary,.tds-period-popover .tds-btn-primary,
+.tdc-ddd-picker .tdc-btn,.tdc-sync .tdc-btn-primary,
+.tdset-empty .tdset-btn,.tdtest-form .tdtest-btn,
+.tdsync-page [data-sync-action="period"],.tdsync-page [data-sync-action="catchup"],
+.tdsync-page [data-sync-action="last5"],.tdsync-page [data-sync-action="sync"],
+.tdsync-page [data-sync-action="resume"]{
+ background:var(--tv-blue)!important;border-color:var(--tv-blue)!important;color:#fff!important;
+}
+.tdr-filter-actions .tdr-btn-primary:hover,.tda-filters .tda-btn-primary:hover,
+.tdo-period-popover .tdo-btn-primary:hover,.tds-period-popover .tds-btn-primary:hover,
+.tdc-ddd-picker .tdc-btn:hover,.tdc-sync .tdc-btn-primary:hover,
+.tdset-empty .tdset-btn:hover,.tdtest-form .tdtest-btn:hover,
+.tdsync-page [data-sync-action="period"]:hover,.tdsync-page [data-sync-action="catchup"]:hover,
+.tdsync-page [data-sync-action="last5"]:hover,.tdsync-page [data-sync-action="sync"]:hover,
+.tdsync-page [data-sync-action="resume"]:hover{
+ background:#076DBF!important;border-color:#076DBF!important;color:#fff!important;
+}
+
+/* Atalhos que iniciam um cadastro ou uma consulta operacional */
+.tdsys-head .tdsys-btn,.tdtest-head .tdtest-btn{
+ background:var(--tv-green)!important;border-color:var(--tv-green)!important;color:#fff!important;
+}
+.tdsys-head .tdsys-btn:hover,.tdtest-head .tdtest-btn:hover{
+ background:var(--tv-green-dark)!important;border-color:var(--tv-green-dark)!important;color:#fff!important;
+}
+.tdo-empty .tdo-btn,.tds-empty .tds-btn{
+ background:var(--tv-blue)!important;border-color:var(--tv-blue)!important;color:#fff!important;
+}
+.tdo-empty .tdo-btn:hover,.tds-empty .tds-btn:hover{
+ background:#076DBF!important;border-color:#076DBF!important;color:#fff!important;
+}
+
+/* Agendar / escolher período / enviar para a Omie */
+.tdo-period-picker>summary.tdo-btn,.tds-period-picker>summary.tds-btn,
+.order-new-topbar-actions .btn-primary{
+ background:var(--tv-yellow)!important;border-color:#D9A500!important;color:#302600!important;
+}
+.tdo-period-picker>summary.tdo-btn:hover,.tds-period-picker>summary.tds-btn:hover,
+.order-new-topbar-actions .btn-primary:hover{
+ background:#DDA700!important;border-color:#C79500!important;color:#211A00!important;
+}
+
+/* Duplicar */
+.tdo-icon-btn[title="Duplicar"],.tdo-head-actions a[href*="/duplicate"]{
+ background:#168C83!important;border-color:#168C83!important;color:#fff!important;
+}
+.tdo-icon-btn[title="Duplicar"]:hover,.tdo-head-actions a[href*="/duplicate"]:hover{
+ background:#0F746D!important;border-color:#0F746D!important;color:#fff!important;
+}
+
+/* Salvar / criar quando o botão não possuía classe primária */
+.tdg-row .tdg-btn,.tdset-profile-form .tdset-btn{
+ background:var(--tv-green)!important;border-color:var(--tv-green)!important;color:#fff!important;
+}
+.tdg-row .tdg-btn:hover,.tdset-profile-form .tdset-btn:hover{
+ background:var(--tv-green-dark)!important;border-color:var(--tv-green-dark)!important;color:#fff!important;
+}
+
+/* Remoção local: alerta sem confundir com exclusão definitiva */
+.tdc-icon-btn.local,.client-action-local{
+ background:var(--tv-orange)!important;border-color:var(--tv-orange)!important;color:#fff!important;
+}
+.tdc-icon-btn.local:hover,.client-action-local:hover{
+ background:#C94220!important;border-color:#C94220!important;color:#fff!important;
+}
+
+/* Excluir / zerar */
+.tdc-btn-danger,.tdo-btn-danger,.tdc-icon-btn.delete,.client-action-delete,
+.tdo-icon-btn.danger,.btn-outline-danger,.order-delete-button,
+.tdsync-page [data-sync-action="reset"]{
+ background:var(--tv-red)!important;border-color:var(--tv-red)!important;color:#fff!important;
+}
+.tdc-btn-danger:hover,.tdo-btn-danger:hover,.tdc-icon-btn.delete:hover,.client-action-delete:hover,
+.tdo-icon-btn.danger:hover,.btn-outline-danger:hover,.order-delete-button:hover,
+.tdsync-page [data-sync-action="reset"]:hover{
+ background:#B72F2A!important;border-color:#B72F2A!important;color:#fff!important;
+}
+
+/* Ícones acompanham a cor de texto da ação semântica. */
+.tdc-icon-btn.view i,.client-action-view i,.tdo-icon-btn[title="Visualizar"] i,.tdcob-open i,
+.tdc-icon-btn.edit i,.client-action-edit i,.tdsys-icon-btn i,.tdo-icon-btn[title^="Editar"] i,
+.tdo-draft-actions>a.tdo-btn i,.tdo-head-actions a[href*="/edit"] i,.tdc-head-actions a[href*="/edit"] i,
+.tdc-portfolio-form .tdc-btn-primary i,.tdcob-assign .tdcob-btn i,
+.tdr-filter-actions .tdr-btn-primary i,.tda-filters .tda-btn-primary i,
+.tdo-period-popover .tdo-btn-primary i,.tds-period-popover .tds-btn-primary i,
+.tdc-ddd-picker .tdc-btn i,.tdc-sync .tdc-btn-primary i,.tdset-empty .tdset-btn i,.tdtest-form .tdtest-btn i,
+.tdsys-head .tdsys-btn i,.tdtest-head .tdtest-btn i,.tdo-empty .tdo-btn i,.tds-empty .tds-btn i,
+.tdsync-page [data-sync-action] i,.tdo-period-picker>summary.tdo-btn i,.tds-period-picker>summary.tds-btn i,
+.order-new-topbar-actions .btn-primary i,.tdo-icon-btn[title="Duplicar"] i,.tdo-head-actions a[href*="/duplicate"] i,
+.tdg-row .tdg-btn i,.tdset-profile-form .tdset-btn i,.tdc-icon-btn.local i,.client-action-local i,
+.tdc-btn-danger i,.tdo-btn-danger i,.tdc-icon-btn.delete i,.client-action-delete i,.tdo-icon-btn.danger i,
+.btn-outline-danger i,.order-delete-button i{
+ color:inherit!important;
+}
