@@ -706,6 +706,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    $agendaUpcoming=(int)($stats['upcoming_count']??0);
    $agendaCollection=(int)($stats['collection_count']??0);
    $agendaTotal=(int)($stats['total']??0);
+   $agendaRoleLabels=['seller'=>'Vendas','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Admin'];
    $groups=['late'=>[],'today'=>[],'upcoming'=>[]];
    foreach($rows as $agendaRow){
     $dueDate=date('Y-m-d',strtotime((string)$agendaRow['due_at']));
@@ -737,7 +738,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <?php if(!empty($teamAgenda)):?>
        <label><span>Responsável</span><select class="form-select" name="user_id">
         <option value="0">Toda a equipe</option>
-        <?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e(match($agendaUser['role']){'seller'=>'Vendas','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Admin',default=>$agendaUser['role']})?></option><?php endforeach;?>
+        <?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e($agendaRoleLabels[$agendaUser['role']]??$agendaUser['role'])?></option><?php endforeach;?>
        </select></label>
       <?php endif;?>
       <label><span>Tipo</span><select class="form-select" name="type">
@@ -772,7 +773,8 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <?php else:?>
        <div class="tda-team-grid">
         <?php foreach($agendaWorkload as $work):$initial=mb_strtoupper(mb_substr((string)$work['name'],0,1));?>
-         <a class="tda-person <?=((int)($agendaFilterUser??0)===(int)$work['id'])?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query(array_filter(['user_id'=>(int)$work['id'],'type'=>($agendaType??'all')!=='all'?$agendaType:null],static fn($value)=>$value!==null)))?>">
+         <?php $workQuery=['user_id'=>(int)$work['id']];if(($agendaType??'all')!=='all')$workQuery['type']=$agendaType;?>
+         <a class="tda-person <?=((int)($agendaFilterUser??0)===(int)$work['id'])?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($workQuery))?>">
           <span class="tda-person-avatar"><?=$initial?></span>
           <div class="tda-person-main"><strong><?=e($work['name'])?></strong><small><?=e(match($work['role']){'seller'=>'Vendas','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Admin',default=>$work['role'])?></small></div>
           <div class="tda-person-stats"><span><b><?=(int)$work['late_count']?></b> venc.</span><span><b><?=(int)$work['today_count']?></b> hoje</span><span><b><?=(int)$work['upcoming_count']?></b> próximos</span></div>
