@@ -5,7 +5,7 @@ final class DB {
   if(self::$pdo)return self::$pdo;
   $environment=defined('APP_ENV')?APP_ENV:'local';
   $d=$GLOBALS['config']['database'][$environment]??null;
-  if(!is_array($d))throw new \\RuntimeException('Configuração de banco ausente para o ambiente '.$environment);
+  if(!is_array($d))throw new \RuntimeException('Configuração de banco ausente para o ambiente '.$environment);
 
   $envPrefix=$environment==='local'?'TDCRM_DB_LOCAL_':'TDCRM_DB_PROD_';
   $envMap=['HOST'=>'host','PORT'=>'port','NAME'=>'database','USER'=>'username','PASS'=>'password'];
