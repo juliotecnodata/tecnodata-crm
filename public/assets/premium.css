@@ -475,3 +475,26 @@ label{font-size:12px!important;line-height:1.3!important;font-weight:700!importa
  .btn{font-size:12px!important}
  .table tbody td{font-size:12px!important}
 }
+
+
+/* =========================================================
+   TIPOGRAFIA DO MODELO APROVADO
+   ========================================================= */
+html,body,
+button,input,select,textarea,
+.btn,.form-control,.form-select,.table,
+.tdcrm-shell,.tdcrm-sidebar,.tdcrm-topbar{
+ font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;
+}
+body{font-weight:400!important}
+.tdcrm-nav a{font-weight:600!important}
+.tdcrm-brand-copy strong,
+.page-head h1,.dashboard-hero h1,.clients-premium-title h1,
+h2,h3{font-weight:800!important}
+label,.btn,.table thead th{font-weight:600!important}
+.table td strong,
+.clients-premium-scope strong,
+.clients-premium-portfolio-copy strong{font-weight:700!important}
+.eyebrow,.dashboard-kicker,
+.clients-premium-kpi small,
+.clients-premium-portfolio-copy small{font-weight:700!important}
