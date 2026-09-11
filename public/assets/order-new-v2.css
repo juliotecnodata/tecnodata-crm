@@ -1,0 +1,200 @@
+/* Tecnodata CRM — Novo Pedido V2
+   Camada visual isolada. Mantém as classes funcionais usadas pelo JS do pedido. */
+:root{
+ --tdn-navy:#0b2433;--tdn-navy2:#12384b;--tdn-lime:#BDD630;--tdn-green:#009657;--tdn-blue:#0A84E8;
+ --tdn-yellow:#F2B705;--tdn-orange:#EA5127;--tdn-red:#E53935;--tdn-bg:#F5F8FB;--tdn-card:#fff;
+ --tdn-line:#DCE5EC;--tdn-line2:#C9D5DE;--tdn-text:#122634;--tdn-muted:#6F808D;
+}
+.order-create-experience{display:grid;gap:16px;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--tdn-text)}
+.order-create-experience *{letter-spacing:0!important;box-shadow:none!important}
+.order-new-topbar-tools{
+ display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;
+ padding:0!important;margin:0!important;background:transparent!important;border:0!important;
+}
+.order-new-topbar-back{
+ min-height:40px;display:inline-flex;align-items:center;gap:7px;padding:0 13px;border:1px solid var(--tdn-line2);
+ border-radius:9px;background:#fff;color:#4A5E6C;font-size:12px;font-weight:700
+}
+.order-new-topbar-back:hover{background:#F7F9FB;color:var(--tdn-text)}
+.order-new-topbar-actions{display:flex;align-items:center;gap:8px}
+.order-new-draft-badge{
+ display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;background:#FFF7DA;color:#886500;
+ font-size:11px;font-weight:700;border:1px solid #F2E3A6
+}
+.order-new-omie-edit-badge{background:#EAF5FD;color:#2A6687;border-color:#CFE5F4}
+
+.order-create-experience>.alert{margin:0!important;border-radius:10px!important;font-size:12px!important}
+.omie-order-form{display:grid;gap:14px}
+.omie-order-header,.omie-order-body{
+ margin:0!important;border:1px solid var(--tdn-line)!important;border-radius:10px!important;background:#fff!important;overflow:hidden!important
+}
+.omie-order-header{padding:0!important}
+.omie-order-header-grid{
+ display:grid!important;grid-template-columns:minmax(0,1.5fr) 260px!important;gap:14px!important;
+ padding:16px!important;border-bottom:1px solid var(--tdn-line)!important;background:#FBFCFD!important
+}
+.omie-client-block{display:flex!important;align-items:flex-start!important;gap:12px!important}
+.omie-avatar{
+ width:44px!important;height:44px!important;display:grid!important;place-items:center!important;flex:0 0 44px!important;border-radius:10px!important;
+ background:#EAF5FD!important;color:var(--tdn-blue)!important;font-size:17px!important
+}
+.omie-client-main{min-width:0;flex:1}
+.omie-order-header label,.omie-tab-content label{
+ display:block!important;margin:0 0 6px!important;color:#465A69!important;font-size:12px!important;font-weight:600!important
+}
+.search-box{position:relative}
+.search-box .form-control,.omie-order-header .form-control,.omie-order-header .form-select,
+.omie-tab-content .form-control,.omie-tab-content .form-select{
+ min-height:42px!important;border:1px solid var(--tdn-line2)!important;border-radius:8px!important;background:#fff!important;
+ color:var(--tdn-text)!important;font-size:13px!important
+}
+.search-results{
+ position:absolute;left:0;right:0;top:46px;z-index:60;max-height:300px;overflow:auto;border:1px solid var(--tdn-line);
+ border-radius:9px;background:#fff
+}
+.selected-box{margin-top:8px}
+.selected-box:not(:empty){
+ padding:10px 12px!important;border:1px solid #CFE6F6!important;border-radius:8px!important;background:#F4FAFE!important;
+ color:#365E75!important;font-size:12px!important
+}
+.omie-order-kpis{
+ display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:0!important;
+ padding:0!important;border-bottom:1px solid var(--tdn-line)!important;background:#fff!important
+}
+.omie-order-kpis>div{padding:13px 16px!important;border-right:1px solid var(--tdn-line)!important}
+.omie-order-kpis>div:last-child{border-right:0!important;background:#F5FBF7!important}
+.omie-order-kpis span{display:block!important;font-size:10px!important;font-weight:700!important;color:var(--tdn-muted)!important}
+.omie-order-kpis strong{display:block!important;margin-top:4px!important;font-size:18px!important;line-height:1.1!important;color:var(--tdn-text)!important}
+.omie-order-kpis>div:last-child strong{color:var(--tdn-green)!important}
+.omie-order-header-fields{
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px!important;padding:16px!important
+}
+.omie-readonly-field{
+ min-height:42px!important;display:flex!important;align-items:center!important;padding:0 12px!important;border:1px solid var(--tdn-line2)!important;
+ border-radius:8px!important;background:#F7F9FB!important;color:var(--tdn-text)!important;font-size:13px!important
+}
+
+/* Tabs */
+.omie-order-body{padding:0!important}
+.omie-main-tabs{
+ display:flex!important;align-items:center!important;gap:4px!important;padding:9px!important;border-bottom:1px solid var(--tdn-line)!important;
+ background:#FBFCFD!important;overflow-x:auto!important
+}
+.omie-main-tabs button{
+ min-height:38px!important;padding:0 12px!important;display:inline-flex!important;align-items:center!important;gap:7px!important;white-space:nowrap!important;
+ border:1px solid transparent!important;border-radius:8px!important;background:transparent!important;color:#5C6F7D!important;font-size:11px!important;font-weight:700!important
+}
+.omie-main-tabs button:hover{background:#F1F5F7!important}
+.omie-main-tabs button.active{
+ background:#EAF5FD!important;border-color:#CFE6F6!important;color:var(--tdn-blue)!important
+}
+.omie-tab-content{padding:16px!important}
+.order-tab-panel{display:none}
+.order-tab-panel.active{display:block}
+.order-tab-panel h3{margin:0!important;font-size:18px!important;font-weight:800!important;color:var(--tdn-text)!important}
+.order-tab-panel p{font-size:12px!important;color:var(--tdn-muted)!important}
+
+/* Itens */
+.order-items-bulk{
+ display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important;
+ margin-bottom:12px!important;padding:10px 12px!important;border:1px solid var(--tdn-line)!important;border-radius:9px!important;background:#F8FAFB!important
+}
+.order-items-select-all{display:flex!important;align-items:center!important;gap:8px!important;margin:0!important}
+.order-items-select-all strong{display:block!important;font-size:12px!important;color:var(--tdn-text)!important}
+.order-items-select-all small{display:block!important;font-size:10px!important;color:var(--tdn-muted)!important}
+.order-bulk-group{display:flex!important;align-items:center!important;gap:5px!important}
+.order-bulk-group>span{font-size:10px!important;font-weight:700!important;color:var(--tdn-muted)!important}
+.order-bulk-group button{
+ min-height:34px!important;padding:0 9px!important;border:1px solid var(--tdn-line2)!important;border-radius:7px!important;background:#fff!important;
+ color:#526675!important;font-size:10px!important;font-weight:700!important
+}
+#orderItems{display:grid!important;gap:10px!important}
+#orderItems>div{
+ border:1px solid var(--tdn-line)!important;border-radius:9px!important;background:#fff!important
+}
+
+/* Departamentos */
+.departments-panel-head,.omie-installments-head{
+ display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:12px!important;margin-bottom:14px!important
+}
+.departments-panel-head .eyebrow{font-size:10px!important}
+.department-distribution{display:grid!important;gap:8px!important}
+.department-total-line{
+ display:flex!important;align-items:center!important;justify-content:space-between!important;margin-top:12px!important;padding:10px 12px!important;
+ border:1px solid var(--tdn-line)!important;border-radius:8px!important;background:#F7F9FB!important
+}
+.department-total-line span{font-size:11px!important;color:var(--tdn-muted)!important}
+.department-total-line strong{font-size:13px!important;color:var(--tdn-text)!important}
+
+/* Frete */
+.omie-tab-grid{display:grid!important;gap:14px!important}
+.freight-grid{grid-template-columns:2fr 1.2fr .8fr 1fr 1fr!important}
+.additional-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.freight-field-weight label small{font-size:10px!important;font-weight:500!important;color:var(--tdn-muted)!important}
+.freight-api-placeholder{
+ margin-top:14px!important;display:grid!important;grid-template-columns:40px 1fr auto!important;align-items:center!important;gap:11px!important;
+ padding:12px 14px!important;border:1px dashed var(--tdn-line2)!important;border-radius:9px!important;background:#FAFCFD!important
+}
+.freight-api-placeholder>i{
+ width:40px;height:40px;display:grid;place-items:center;border-radius:9px;background:#EAF5FD;color:var(--tdn-blue)
+}
+.freight-api-placeholder strong{display:block!important;font-size:12px!important;color:var(--tdn-text)!important}
+.freight-api-placeholder span{display:block!important;margin-top:2px!important;font-size:10px!important;color:var(--tdn-muted)!important}
+
+/* Parcelas */
+.omie-installments-wrap{overflow:auto!important;border:1px solid var(--tdn-line)!important;border-radius:9px!important}
+.omie-installments-table{width:100%!important;min-width:1100px!important;border-collapse:collapse!important}
+.omie-installments-table th{
+ padding:10px 11px!important;background:#F5F8FA!important;border-bottom:1px solid var(--tdn-line)!important;color:#526675!important;
+ font-size:10px!important;font-weight:700!important
+}
+.omie-installments-table td{padding:10px 11px!important;border-bottom:1px solid #EDF2F5!important;font-size:11px!important;color:#405563!important}
+.omie-installments-table tfoot td{background:#FBFCFD!important}
+.installments-empty{text-align:center!important;color:var(--tdn-muted)!important;padding:20px!important}
+.installments-note{
+ margin:10px 0 0!important;display:flex!important;align-items:flex-start!important;gap:7px!important;padding:10px 12px!important;
+ border:1px solid #CFE7F7!important;border-radius:8px!important;background:#F3F9FD!important;color:#476579!important
+}
+
+/* Notes/email */
+.omie-email-panel{max-width:900px}
+.omie-email-note{margin-top:10px;padding:10px 12px;border:1px solid #CFE7F7;border-radius:8px;background:#F3F9FD;color:#496575;font-size:11px}
+.check{display:flex!important;align-items:center!important;gap:8px!important;font-size:12px!important;color:#445A68!important}
+.check input{width:16px;height:16px}
+
+/* Buttons */
+.order-create-experience .btn{
+ min-height:40px!important;border-radius:9px!important;padding:0 13px!important;font-size:12px!important;font-weight:700!important
+}
+.order-create-experience .btn-primary{background:var(--tdn-green)!important;border-color:var(--tdn-green)!important;color:#fff!important}
+.order-create-experience .btn-outline-secondary,.order-create-experience .btn-light{background:#fff!important;border:1px solid var(--tdn-line2)!important;color:#506574!important}
+.order-create-experience textarea.form-control{min-height:120px!important}
+
+@media(max-width:1200px){
+ .omie-order-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ .omie-order-kpis>div:nth-child(3){border-right:0!important}
+ .freight-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:900px){
+ .omie-order-header-grid{grid-template-columns:1fr!important}
+ .omie-order-header-fields{grid-template-columns:1fr 1fr!important}
+ .additional-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:700px){
+ .order-new-topbar-tools{align-items:stretch!important;flex-direction:column!important}
+ .order-new-topbar-actions{display:grid!important;grid-template-columns:1fr!important}
+ .order-new-topbar-actions .btn{width:100%!important}
+ .omie-order-kpis{grid-template-columns:1fr 1fr!important}
+ .omie-order-kpis>div{border-right:1px solid var(--tdn-line)!important}
+ .omie-order-header-fields{grid-template-columns:1fr!important}
+ .freight-grid{grid-template-columns:1fr!important}
+ .freight-api-placeholder{grid-template-columns:40px 1fr!important}
+ .freight-api-placeholder>.btn{grid-column:1/-1!important;width:100%!important}
+ .omie-main-tabs{align-items:stretch!important}
+ .omie-main-tabs button{flex:0 0 auto!important}
+}
+@media(max-width:480px){
+ .omie-order-kpis{grid-template-columns:1fr!important}
+ .omie-order-kpis>div{border-right:0!important;border-bottom:1px solid var(--tdn-line)!important}
+ .omie-order-kpis>div:last-child{border-bottom:0!important}
+}
