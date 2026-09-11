@@ -33,6 +33,51 @@ function client_tags_from_raw(mixed $rawJson): array{
 function client_tag_catalog(): array{
  return DB::all("SELECT MIN(TRIM(client_tag.tag)) tag,COUNT(DISTINCT c.id) client_count FROM clients c JOIN JSON_TABLE(c.raw_json, '$.tags[*]' COLUMNS(tag VARCHAR(190) PATH '$.tag')) client_tag WHERE c.active=1 AND client_tag.tag IS NOT NULL AND TRIM(client_tag.tag)<>'' GROUP BY LOWER(TRIM(client_tag.tag)) ORDER BY client_count DESC,tag");
 }
+function task_result_catalog(): array{
+ $defaults=[
+  ['code'=>'contact','label'=>'Contato','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'interested','label'=>'Cliente interessado','contexts'=>['sales'],'active'=>true,'system'=>true],
+  ['code'=>'agreement','label'=>'Acordo','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'promise','label'=>'Promessa','contexts'=>['collection'],'active'=>true,'system'=>true],
+  ['code'=>'payment','label'=>'Pagamento','contexts'=>['collection'],'active'=>true,'system'=>true],
+  ['code'=>'no_answer','label'=>'Não atendeu','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'registry','label'=>'Foi para cartório','contexts'=>['collection'],'active'=>true,'system'=>true],
+ ];
+ $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='task_result_catalog'");
+ $saved=$raw?json_decode((string)$raw,true):null;
+ $map=[];foreach($defaults as $item)$map[$item['code']]=$item;
+ if(is_array($saved)){
+  foreach($saved as $item){
+   if(!is_array($item))continue;
+   $code=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($item['code']??''))));
+   $label=trim((string)($item['label']??''));
+   if($code===''||$label==='')continue;
+   $contexts=array_values(array_intersect(['sales','collection'],array_map('strval',(array)($item['contexts']??[]))));
+   if(!$contexts)continue;
+   $base=$map[$code]??['code'=>$code,'system'=>false];
+   $map[$code]=$base+[];
+   $map[$code]['label']=$label;
+   $map[$code]['contexts']=$contexts;
+   $map[$code]['active']=!array_key_exists('active',$item)||(bool)$item['active'];
+   $map[$code]['system']=(bool)($base['system']??false);
+  }
+ }
+ return array_values($map);
+}
+function task_result_options(string $context,bool $activeOnly=true): array{
+ $context=in_array($context,['sales','collection'],true)?$context:'sales';
+ return array_values(array_filter(task_result_catalog(),static function($item)use($context,$activeOnly){
+  return in_array($context,(array)($item['contexts']??[]),true)&&(!$activeOnly||!empty($item['active']));
+ }));
+}
+function task_result_label(string $code): string{
+ foreach(task_result_catalog() as $item)if((string)$item['code']===$code)return (string)$item['label'];
+ return $code;
+}
+function save_task_result_catalog(array $catalog): void{
+ DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('task_result_catalog',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(array_values($catalog),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+}
+
 function contact_monitoring_user_ids(): ?array{
  $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='contact_monitoring_users'");
  if($raw===false||$raw===null||$raw==='')return null;
@@ -369,9 +414,19 @@ $router->get('/clients/{id}',function($p){
  $o=DB::all("SELECT * FROM orders WHERE client_omie_code=? ORDER BY order_date DESC,id DESC LIMIT 20",[$c['omie_code']]);
  $form=ClientService::formFromClient($c);
  $sellerName=$c['seller_omie_code']?DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['seller_omie_code']]):null;
- render('client',['client'=>$c,'activities'=>$a,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned]);
+ render('client',['client'=>$c,'activities'=>$a,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
 });
-$router->post('/clients/{id}/activity',function($p){Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');$unassigned=trim((string)($c['seller_omie_code']??''))==='';if($u['role']==='seller'&&!$unassigned&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão.');}DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),trim((string)($_POST['notes']??'')),($_POST['next_at']??'')?:null]);if(!empty($_POST['next_at']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales','Retorno comercial',?,'pending',NOW())",[$id,(int)$u['id'],$_POST['next_at']]);redirect('/clients/'.$id);});
+$router->post('/clients/{id}/activity',function($p){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ $id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');
+ $unassigned=trim((string)($c['seller_omie_code']??''))==='';if($u['role']==='seller'&&!$unassigned&&(string)$c['seller_omie_code']!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão.');}
+ $result=(string)($_POST['result']??'contact');$allowed=array_column(task_result_options('sales'),'code');
+ if(!in_array($result,$allowed,true))$result='contact';
+ $nextAt=trim((string)($_POST['next_at']??''));
+ DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),$result,trim((string)($_POST['notes']??'')),$nextAt!==''?$nextAt:null]);
+ if($nextAt!=='')DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales',?,?,'pending',NOW())",[$id,(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);
+ redirect('/clients/'.$id);
+});
 
 $router->get('/contact-monitoring',function(){
  Auth::requireRole('admin','supervisor');
@@ -790,7 +845,7 @@ $router->get('/collection/{id}',function($p){
  if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}
  $a=DB::all("SELECT ca.*,ua.name author_name,ur.name assigned_name FROM collection_actions ca JOIN users ua ON ua.id=ca.author_user_id JOIN users ur ON ur.id=ca.assigned_user_id WHERE ca.client_id=? ORDER BY ca.created_at DESC",[$id]);
  $flash=$_SESSION['collection_case_flash']??null;unset($_SESSION['collection_case_flash']);
- render('collection_case',['case'=>$c,'actions'=>$a,'collectors'=>Auth::can('admin','supervisor')?DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name"):[],'flash'=>$flash]);
+ render('collection_case',['case'=>$c,'actions'=>$a,'collectors'=>Auth::can('admin','supervisor')?DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name"):[],'flash'=>$flash,'taskResults'=>task_result_options('collection'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
 });
 $router->post('/collection/{id}/assign',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
@@ -817,6 +872,9 @@ $router->post('/collection/{id}/action',function($p){
  if(Auth::can('admin','supervisor')&&!empty($_POST['assigned_user_id']))$assigned=(int)$_POST['assigned_user_id'];
  if($assigned<=0)$assigned=(int)$u['id'];
 
+ $result=(string)($_POST['result']??'contact');$allowedResults=array_column(task_result_options('collection'),'code');
+ if(!in_array($result,$allowedResults,true))$result='contact';
+
  $promiseAt=trim((string)($_POST['promise_at']??''));$promiseDate=null;$promiseDueAt=null;
  if($promiseAt!==''){
   $date=DateTime::createFromFormat('Y-m-d\TH:i',$promiseAt);
@@ -830,8 +888,8 @@ $router->post('/collection/{id}/action',function($p){
  DB::conn()->beginTransaction();
  try{
   DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);
-  DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,notes,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),(float)str_replace(',','.',(string)($_POST['amount']??0)),$promiseDate,trim((string)($_POST['notes']??''))]);
-  if($promiseDueAt!==null)DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'collection','Retorno de cobrança',?,'pending',NOW())",[$id,$assigned,$promiseDueAt]);
+  DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,notes,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),$result,(float)str_replace(',','.',(string)($_POST['amount']??0)),$promiseDate,trim((string)($_POST['notes']??''))]);
+  if($promiseDueAt!==null)DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'collection',?,?,'pending',NOW())",[$id,$assigned,'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);
   DB::conn()->commit();
   $_SESSION['collection_case_flash']=['type'=>'success','message'=>$promiseDueAt?'Ação salva e retorno agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.':'Ação de cobrança salva com sucesso.'];
  }catch(Throwable $e){
@@ -975,7 +1033,8 @@ $router->get('/settings',function(){
  $monitorIds=contact_monitoring_user_ids();$monitorConfigured=is_array($monitorIds);if(!$monitorConfigured)$monitorIds=array_map(static fn($user)=>(int)$user['id'],$monitorUsers);
  $data=[
   'flash'=>$flash,
-  'settingsAdmin'=>$isAdmin,'monitorUsers'=>$monitorUsers,'monitorIds'=>$monitorIds,'monitorConfigured'=>$monitorConfigured
+  'settingsAdmin'=>$isAdmin,'monitorUsers'=>$monitorUsers,'monitorIds'=>$monitorIds,'monitorConfigured'=>$monitorConfigured,
+  'taskResults'=>task_result_catalog()
  ];
  if($isAdmin)$data=array_merge($data,[
   'defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
@@ -998,6 +1057,30 @@ $router->post('/settings/contact-monitoring',function(){
  }catch(Throwable $e){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível salvar a regra de acompanhamento: '.$e->getMessage()];}
  redirect('/settings');
 });
+$router->post('/settings/task-results',function(){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ try{
+  $label=trim((string)($_POST['label']??''));if($label===''||mb_strlen($label)>80)throw new RuntimeException('Informe um nome de resultado com até 80 caracteres.');
+  $contexts=array_values(array_intersect(['sales','collection'],array_map('strval',(array)($_POST['contexts']??[]))));
+  if(!$contexts)throw new RuntimeException('Selecione onde o resultado será utilizado.');
+  $catalog=task_result_catalog();
+  foreach($catalog as $item)if(mb_strtolower(trim((string)$item['label']))===mb_strtolower($label))throw new RuntimeException('Já existe um resultado com esse nome.');
+  $code='custom_'.substr(hash('sha256',mb_strtolower($label).'|'.date('c').'|'.Auth::id()),0,12);
+  $catalog[]=['code'=>$code,'label'=>$label,'contexts'=>$contexts,'active'=>true,'system'=>false];
+  save_task_result_catalog($catalog);
+  $_SESSION['settings_flash']=['type'=>'success','message'=>'Resultado “'.$label.'” criado e disponibilizado nas tarefas selecionadas.'];
+ }catch(Throwable $e){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível criar o resultado: '.$e->getMessage()];}
+ redirect('/settings#task-results');
+});
+$router->post('/settings/task-results/{code}/toggle',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ $code=(string)($p['code']??'');$catalog=task_result_catalog();$found=false;
+ foreach($catalog as &$item)if((string)$item['code']===$code){$item['active']=empty($item['active']);$found=true;break;}unset($item);
+ if($found){save_task_result_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Disponibilidade do resultado atualizada.'];}
+ else $_SESSION['settings_flash']=['type'=>'danger','message'=>'Resultado não encontrado.'];
+ redirect('/settings#task-results');
+});
+
 $router->post('/settings/freight-default',function(){
  Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
  header('Content-Type: application/json; charset=utf-8');
