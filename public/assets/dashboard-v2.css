@@ -113,3 +113,30 @@ body[data-page="dashboard"] .tdcrm-content *{box-shadow:none!important;letter-sp
  .tdd-period-select{width:100%}
  .tdd-period-select .form-control{width:100%}
 }
+
+
+/* Período analisado: manter todos os dias em uma única linha */
+.tdd-unified .tdr-day-grid{
+ display:grid!important;
+ grid-auto-flow:column!important;
+ grid-auto-columns:minmax(42px,1fr)!important;
+ grid-template-columns:none!important;
+ gap:8px!important;
+ overflow-x:auto!important;
+ overflow-y:hidden!important;
+ padding-bottom:4px!important;
+ scrollbar-width:thin;
+}
+.tdd-unified .tdr-day-grid label{
+ min-width:42px!important;
+ margin:0!important;
+}
+.tdd-unified .tdr-day-grid label span{
+ width:100%!important;
+ min-width:42px!important;
+}
+@media(max-width:760px){
+ .tdd-unified .tdr-day-grid{
+  grid-auto-columns:46px!important;
+ }
+}
