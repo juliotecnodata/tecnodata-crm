@@ -327,3 +327,30 @@
  .tdcrm-menu-button{display:grid!important}
  .tdcrm-nav a{font-size:13px!important}
 }
+
+
+/* Login: contraste do painel institucional */
+.tdlogin-hero,
+.tdlogin-hero h1,
+.tdlogin-hero h2,
+.tdlogin-hero p,
+.tdlogin-hero strong,
+.tdlogin-hero small,
+.tdlogin-hero span,
+.tdlogin-hero em{
+ color:inherit;
+}
+.tdlogin-hero .tdlogin-brand strong{color:#FFFFFF!important}
+.tdlogin-hero .tdlogin-brand strong b{color:#A9D600!important}
+.tdlogin-hero .tdlogin-brand small{color:#9BB6C7!important}
+.tdlogin-hero .tdlogin-copy h1{color:#FFFFFF!important}
+.tdlogin-hero .tdlogin-copy h1 span{color:#A9D600!important}
+.tdlogin-hero .tdlogin-copy h2,
+.tdlogin-hero .tdlogin-copy h2 b{color:#83ACCA!important}
+.tdlogin-hero .tdlogin-copy p{color:#A6C3D6!important}
+.tdlogin-hero .tdlogin-window aside span{color:#D5E1E8!important}
+.tdlogin-hero .tdlogin-window aside span.active{color:#CBE600!important}
+.tdlogin-hero .tdlogin-stat small{color:#D7E5EC!important}
+.tdlogin-hero .tdlogin-stat strong{color:#FFFFFF!important}
+.tdlogin-hero .tdlogin-stat em{color:#2ED982!important}
+.tdlogin-hero .tdlogin-hero-foot{color:#7396AA!important}
