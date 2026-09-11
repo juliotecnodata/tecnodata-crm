@@ -992,7 +992,24 @@ function layout(string $body,?array $u): void{
      
     </div>
     <div class="tdcrm-topbar-right">
-     <button class="tdcrm-notification" type="button" title="Notificações"><i class="fa-regular fa-bell"></i><b>3</b></button>
+     <?php $notifications=NotificationService::forUser($u);$notificationTotal=(int)($notifications['total']??0);?>
+     <div class="tdcrm-notification-wrap">
+      <button class="tdcrm-notification" type="button" title="Notificações" aria-expanded="false" data-notification-toggle><i class="fa-regular fa-bell"></i><?php if($notificationTotal>0):?><b><?=$notificationTotal>99?'99+':$notificationTotal?></b><?php endif;?></button>
+      <div class="tdcrm-notification-panel" data-notification-panel hidden>
+       <div class="tdcrm-notification-head"><div><strong>Notificações</strong><small><?=$notificationTotal>0?$notificationTotal.' pendência(s)':'Nenhuma pendência'?></small></div><a href="<?=APP_URL?>/agenda">Ver agenda</a></div>
+       <div class="tdcrm-notification-list">
+        <?php if(!empty($notifications['items'])):foreach($notifications['items'] as $notification):?>
+         <a class="tdcrm-notification-item <?=e($notification['type'])?>" href="<?=APP_URL.e($notification['href'])?>">
+          <span><i class="fa-solid <?=e($notification['icon'])?>"></i></span>
+          <div><strong><?=e($notification['title'])?></strong><small><?=e($notification['text'])?></small></div>
+          <i class="fa-solid fa-chevron-right"></i>
+         </a>
+        <?php endforeach;else:?>
+         <div class="tdcrm-notification-empty"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Tudo em dia</strong><small>Não há pendências para exibir agora.</small></div></div>
+        <?php endif;?>
+       </div>
+      </div>
+     </div>
      <div class="tdcrm-user">
       <span><?=e(mb_strtoupper(mb_substr((string)$u['name'],0,1)))?></span>
       <div><strong>Olá, <?=e(explode(' ',trim((string)$u['name']))[0]??$u['name'])?></strong><small><?=e($u['role']==='admin'?'Administrador':($u['role']==='supervisor'?'Supervisor':($u['role']==='seller'?'Vendedor':'Cobrança')))?></small></div>
