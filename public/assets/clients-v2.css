@@ -299,3 +299,21 @@ body[data-page="client-detail"] .tdcrm-content *{box-shadow:none!important;lette
  border-color:#F3D2C9!important;
  color:#B54B2B!important;
 }
+
+
+/* Dias sem contato */
+.tdc-contact-days{
+ display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;
+ min-width:92px;min-height:42px;padding:6px 9px;border:1px solid #DCE5EC;border-radius:8px;background:#fff
+}
+.tdc-contact-days strong{font-size:13px;line-height:1.05;color:#122634}
+.tdc-contact-days small{margin-top:3px;font-size:8px;line-height:1.2;color:#6F808D;white-space:nowrap}
+.tdc-contact-days i{margin-right:4px;font-size:10px}
+.tdc-contact-days.ok{background:#EAF8F1;border-color:#CDEBDC}
+.tdc-contact-days.ok strong{color:#187650}
+.tdc-contact-days.warning{background:#FFF7DA;border-color:#F1E1A4}
+.tdc-contact-days.warning strong{color:#856600}
+.tdc-contact-days.late{background:#FFF0EB;border-color:#F3D2C9}
+.tdc-contact-days.late strong{color:#B54B2B}
+.tdc-contact-days.never{background:#F3F6F8;border-color:#DCE5EC}
+.tdc-contact-days.never strong{color:#516875}
