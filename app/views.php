@@ -677,136 +677,66 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    <div class="page-head"><div><span class="eyebrow">AGENDA</span><h1>Retornos</h1><p>Em ordem de horário.</p></div></div><div class="agenda-list"><?php foreach($rows as $r):?><div class="agenda-item <?=strtotime($r['due_at'])<time()?'late':''?>"><div><strong><?=date('H:i',strtotime($r['due_at']))?></strong><small><?=date('d/m',strtotime($r['due_at']))?></small></div><div><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/<?=$r['type']==='collection'?'collection':'clients'?>/<?=$r['client_id']?>">Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light">Concluir</button></form></div><?php endforeach;?></div>
   <?php break;
   case 'management_result':$g=$management['general_goal'];?>
-   <div class="results-topbar-tools" data-topbar-tools>
-    <form method="get">
-     <label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label>
-     <?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?>
-   </form>
-  </div>
-
-   <form class="results-day-card" method="get" data-result-days>
-    <input type="hidden" name="month" value="<?=e($month)?>">
-    <header>
-     <div><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO DO RESULTADO</small><strong>Escolha os dias que deseja apresentar</strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div>
-     <div><a class="btn btn-light" href="<?=APP_URL?>/result?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div>
+   <section class="tdr-page">
+    <header class="tdr-head">
+     <div class="tdr-head-main"><span class="tdr-head-icon"><i class="fa-solid fa-chart-column"></i></span><div><span class="tdr-kicker">GESTÃO / RESULTADOS</span><h1>Resultados</h1><p>Acompanhe desempenho comercial, cobrança, metas e ranking da equipe.</p></div></div>
+     <form class="tdr-month" method="get"><label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label><?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?></form>
     </header>
-    <div class="results-day-grid">
-     <?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?>
-      <label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label>
-     <?php endfor;?>
-    </div>
-   </form>
 
-   <div class="results-kpis">
-    <div class="results-kpi result-green">
-     <div class="results-kpi-head"><span><i class="fa-solid fa-sack-dollar"></i></span><b><?=number_format($management['sales_percent'],1,',','.')?>%</b></div>
-     <small>PEDIDOS OK</small><strong><?=money($management['sales'])?></strong>
-     <p><?=e($management['goal_scope'])?> <?=money($management['effective_sales_goal'])?></p>
-     <div class="results-progress"><span style="width:<?=min(100,$management['sales_percent'])?>%"></span></div>
-    </div>
-    <div class="results-kpi result-orange">
-     <div class="results-kpi-head"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><b><?=number_format($management['collection_percent'],1,',','.')?>%</b></div>
-     <small>RECUPERADO</small><strong><?=money($management['recovered'])?></strong>
-     <p><?=e($management['goal_scope'])?> <?=money($management['effective_collection_goal'])?></p>
-     <div class="results-progress"><span style="width:<?=min(100,$management['collection_percent'])?>%"></span></div>
-    </div>
-   </div>
+    <form class="tdr-filter" method="get" data-result-days>
+     <input type="hidden" name="month" value="<?=e($month)?>">
+     <div class="tdr-filter-head"><div class="tdr-filter-title"><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO DO RESULTADO</small><strong>Escolha os dias que deseja apresentar</strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div><div class="tdr-filter-actions"><a class="tdr-btn" href="<?=APP_URL?>/result?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="tdr-btn tdr-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div></div>
+     <div class="tdr-day-grid"><?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?><label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label><?php endfor;?></div>
+    </form>
 
-   <div class="results-columns">
-    <section class="results-panel">
-     <header class="results-panel-head">
-      <div><span class="results-panel-icon green"><i class="fa-solid fa-user-tie"></i></span><div><small>COMERCIAL</small><h2>Vendedores</h2></div></div>
-     </header>
-     <div class="results-ranking">
-      <?php foreach($management['sellers'] as $idx=>$row):$usr=$row['user'];?>
-       <div class="results-rank-row">
-        <span class="rank-number"><?=($idx+1)?></span>
-        <div class="rank-person"><strong><?=e($usr['name'])?></strong><small><?=money($row['sales'])?> de <?=money($row['goal']['sales_goal'])?></small></div>
-        <div class="rank-value"><strong><?=number_format($row['sales_percent'],1,',','.')?>%</strong><div class="rank-progress green"><span style="width:<?=min(100,$row['sales_percent'])?>%"></span></div></div>
-       </div>
-      <?php endforeach;?>
-      <?php if(!$management['sellers']):?><div class="results-empty">Nenhum vendedor com usuário vinculado.</div><?php endif;?>
-     </div>
-    </section>
+    <div class="tdr-note"><i class="fa-solid fa-circle-info"></i><span>Pedidos OK utilizam o valor total do pedido com frete incluído e respeitam a política de exclusão de orçamentos, cancelados e demais situações inválidas.</span></div>
 
-    <section class="results-panel">
-     <header class="results-panel-head">
-      <div><span class="results-panel-icon orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>COBRANÇA</small><h2>Recuperação</h2></div></div>
-     </header>
-     <div class="results-ranking">
-      <?php foreach($management['collectors'] as $idx=>$row):$usr=$row['user'];?>
-       <div class="results-rank-row">
-        <span class="rank-number"><?=($idx+1)?></span>
-        <div class="rank-person"><strong><?=e($usr['name'])?></strong><small><?=money($row['recovered'])?> de <?=money($row['goal']['collection_goal'])?></small></div>
-        <div class="rank-value"><strong><?=number_format($row['collection_percent'],1,',','.')?>%</strong><div class="rank-progress orange"><span style="width:<?=min(100,$row['collection_percent'])?>%"></span></div></div>
-       </div>
-      <?php endforeach;?>
-      <?php if(!$management['collectors']):?><div class="results-empty">Nenhum responsável de cobrança encontrado.</div><?php endif;?>
-     </div>
-    </section>
-   </div>
-
-   <?php if(!empty($management['virtual_sellers'])):?>
-   <section class="results-panel virtual-results-panel">
-    <header class="results-panel-head">
-     <div><span class="results-panel-icon blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><h2>Canais automáticos</h2></div></div>
-    </header>
-    <div class="virtual-results-grid">
-     <?php foreach($management['virtual_sellers'] as $row):$goal=(float)($row['goal']['sales_goal']??0);?>
-      <div class="virtual-result-card <?=!empty($row['ead_reciclagem'])?'ead':'pet'?>">
-       <header><span><i class="fa-solid <?=!empty($row['ead_reciclagem'])?'fa-graduation-cap':'fa-headset'?>"></i></span><div><small>VENDEDOR VIRTUAL</small><strong><?=e($row['seller']['name'])?></strong></div><b><?=number_format($row['sales_percent']??0,1,',','.')?>%</b></header>
-       <div class="virtual-result-value"><strong><?=money($row['sales'])?></strong><span>de <?=money($goal)?></span></div>
-       <div class="rank-progress <?=!empty($row['ead_reciclagem'])?'green':'blue'?>"><span style="width:<?=min(100,$row['sales_percent']??0)?>%"></span></div>
-       <footer><span><i class="fa-solid fa-receipt"></i> Pedidos OK <strong><?=money($row['orders'])?></strong></span></footer>
-      </div>
-     <?php endforeach;?>
+    <div class="tdr-kpis">
+     <article class="tdr-kpi green"><div class="tdr-kpi-top"><span class="tdr-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><b><?=number_format($management['sales_percent'],1,',','.')?>%</b></div><small>Pedidos OK</small><strong><?=money($management['sales'])?></strong><p><?=e($management['goal_scope'])?> · meta <?=money($management['effective_sales_goal'])?></p><div class="tdr-progress"><span style="width:<?=min(100,$management['sales_percent'])?>%"></span></div></article>
+     <article class="tdr-kpi orange"><div class="tdr-kpi-top"><span class="tdr-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><b><?=number_format($management['collection_percent'],1,',','.')?>%</b></div><small>Recuperado</small><strong><?=money($management['recovered'])?></strong><p><?=e($management['goal_scope'])?> · meta <?=money($management['effective_collection_goal'])?></p><div class="tdr-progress orange"><span style="width:<?=min(100,$management['collection_percent'])?>%"></span></div></article>
+     <article class="tdr-kpi blue"><div class="tdr-kpi-top"><span class="tdr-kpi-icon"><i class="fa-solid fa-phone"></i></span><b><?=number_format($management['contact_percent'],1,',','.')?>%</b></div><small>Contatos</small><strong><?=number_format((int)$management['contacts'],0,',','.')?></strong><p>Meta <?=number_format((float)$management['effective_contact_goal'],0,',','.')?></p><div class="tdr-progress blue"><span style="width:<?=min(100,$management['contact_percent'])?>%"></span></div></article>
+     <article class="tdr-kpi yellow"><div class="tdr-kpi-top"><span class="tdr-kpi-icon"><i class="fa-solid fa-receipt"></i></span></div><small>Pedidos com frete</small><strong><?=money($management['order_sales'])?></strong><p>Componente comercial do período</p></article>
     </div>
+
+    <div class="tdr-grid">
+     <section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="green"><i class="fa-solid fa-user-tie"></i></span><div><small>COMERCIAL</small><strong>Ranking de vendedores</strong></div></div></div><div class="tdr-ranking"><?php foreach($management['sellers'] as $idx=>$row):$usr=$row['user'];?><div class="tdr-rank"><span class="tdr-rank-num"><?=($idx+1)?></span><div><strong><?=e($usr['name'])?></strong><small><?=money($row['sales'])?> de <?=money($row['goal']['sales_goal'])?></small></div><div class="tdr-rank-value"><strong><?=number_format($row['sales_percent'],1,',','.')?>%</strong><div class="tdr-mini-progress"><span style="width:<?=min(100,$row['sales_percent'])?>%"></span></div></div></div><?php endforeach;?><?php if(!$management['sellers']):?><div class="tdr-empty">Nenhum vendedor com usuário vinculado.</div><?php endif;?></div></section>
+     <section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>COBRANÇA</small><strong>Ranking de recuperação</strong></div></div></div><div class="tdr-ranking"><?php foreach($management['collectors'] as $idx=>$row):$usr=$row['user'];?><div class="tdr-rank"><span class="tdr-rank-num"><?=($idx+1)?></span><div><strong><?=e($usr['name'])?></strong><small><?=money($row['recovered'])?> de <?=money($row['goal']['collection_goal'])?></small></div><div class="tdr-rank-value"><strong><?=number_format($row['collection_percent'],1,',','.')?>%</strong><div class="tdr-mini-progress orange"><span style="width:<?=min(100,$row['collection_percent'])?>%"></span></div></div></div><?php endforeach;?><?php if(!$management['collectors']):?><div class="tdr-empty">Nenhum responsável de cobrança encontrado.</div><?php endif;?></div></section>
+    </div>
+
+    <?php if(!empty($management['virtual_sellers'])):?>
+    <section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><strong>Canais automáticos</strong></div></div></div><div class="tdr-virtual-grid"><?php foreach($management['virtual_sellers'] as $row):$goal=(float)($row['goal']['sales_goal']??0);?><article class="tdr-virtual"><div class="tdr-virtual-head"><span><i class="fa-solid <?=!empty($row['ead_reciclagem'])?'fa-graduation-cap':'fa-headset'?>"></i></span><div><small>VENDEDOR VIRTUAL</small><strong><?=e($row['seller']['name'])?></strong></div><b><?=number_format($row['sales_percent']??0,1,',','.')?>%</b></div><div class="tdr-virtual-value"><strong><?=money($row['sales'])?></strong> <span>de <?=money($goal)?></span></div><div class="tdr-mini-progress <?=!empty($row['ead_reciclagem'])?'':'blue'?>"><span style="width:<?=min(100,$row['sales_percent']??0)?>%"></span></div><div class="tdr-virtual-foot"><i class="fa-solid fa-receipt"></i> Pedidos com frete <strong><?=money($row['orders'])?></strong></div></article><?php endforeach;?></div></section>
+    <?php endif;?>
    </section>
-   <?php endif;?>
   <?php break;
+
   case 'result':$u=$result['user'];$g=$result['goal'];?>
-   <div class="results-topbar-tools" data-topbar-tools>
-    <form method="get">
-     <label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label>
-     <?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?>
-   </form>
-  </div>
-
-   <form class="results-day-card" method="get" data-result-days>
-    <input type="hidden" name="month" value="<?=e($month)?>">
-    <header>
-     <div><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO DO RESULTADO</small><strong>Escolha os dias que deseja apresentar</strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div>
-     <div><a class="btn btn-light" href="<?=APP_URL?>/result?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div>
+   <section class="tdr-page">
+    <header class="tdr-head">
+     <div class="tdr-head-main"><span class="tdr-head-icon"><i class="fa-solid fa-chart-line"></i></span><div><span class="tdr-kicker">MEU RESULTADO</span><h1><?=e(explode(' ',trim((string)$u['name']))[0]??$u['name'])?></h1><p>Acompanhe seu desempenho no período selecionado e o avanço em relação à meta.</p></div></div>
+     <form class="tdr-month" method="get"><label><span>Mês</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label><?php foreach($selectedDays as $selectedDay):?><input type="hidden" name="days[]" value="<?=$selectedDay?>"><?php endforeach;?></form>
     </header>
-    <div class="results-day-grid">
-     <?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?>
-      <label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label>
-     <?php endfor;?>
-    </div>
-   </form>
 
-   <?php if($u['role']==='seller'):?>
-    <div class="personal-result-grid">
-     <div class="personal-main-card seller-main">
-      <header><span><i class="fa-solid fa-chart-line"></i></span><div><small>REALIZADO COMERCIAL</small><strong>Vendas + serviços</strong></div><b><?=number_format($result['sales_percent'],1,',','.')?>%</b></header>
-      <div class="personal-main-value"><strong><?=money($result['sales'])?></strong><span>de <?=money($g['sales_goal'])?> · <?=e($result['goal_scope'])?></span></div>
-      <div class="personal-progress"><span style="width:<?=min(100,$result['sales_percent'])?>%"></span></div>
-      <footer><div><small>Pedidos OK</small><strong><?=money($result['orders_sales']??0)?></strong></div><div><small>Critério</small><strong>Sem PDV e orçamentos</strong></div></footer>
+    <form class="tdr-filter" method="get" data-result-days>
+     <input type="hidden" name="month" value="<?=e($month)?>">
+     <div class="tdr-filter-head"><div class="tdr-filter-title"><span><i class="fa-regular fa-calendar-days"></i></span><div><small>PERÍODO DO RESULTADO</small><strong>Escolha os dias que deseja apresentar</strong><p data-result-day-count><?=$selectedDays?(count($selectedDays)===1?'1 dia selecionado':count($selectedDays).' dias selecionados'):'Mês inteiro selecionado'?></p></div></div><div class="tdr-filter-actions"><a class="tdr-btn" href="<?=APP_URL?>/result?month=<?=rawurlencode($month)?>"><i class="fa-solid fa-calendar-check"></i>Mês inteiro</a><button class="tdr-btn tdr-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar dias</button></div></div>
+     <div class="tdr-day-grid"><?php for($resultDay=1;$resultDay<=31;$resultDay++):$available=$resultDay<=$daysInMonth;?><label class="<?=$available?'':'unavailable'?>"><input type="checkbox" name="days[]" value="<?=$resultDay?>" <?=in_array($resultDay,$selectedDays,true)?'checked':''?> <?=$available?'':'disabled'?>><span><?=str_pad((string)$resultDay,2,'0',STR_PAD_LEFT)?></span></label><?php endfor;?></div>
+    </form>
+
+    <?php if($u['role']==='seller'):?>
+     <div class="tdr-note"><i class="fa-solid fa-circle-info"></i><span>Pedidos OK consideram o valor total do pedido com frete incluído e excluem situações fora da política comercial.</span></div>
+     <div class="tdr-personal">
+      <section class="tdr-main"><div class="tdr-main-head"><div class="tdr-main-title"><span><i class="fa-solid fa-chart-line"></i></span><div><small>REALIZADO COMERCIAL</small><strong>Pedidos OK</strong></div></div><b><?=number_format($result['sales_percent'],1,',','.')?>%</b></div><div class="tdr-main-body"><div class="tdr-main-value"><strong><?=money($result['sales'])?></strong><span>de <?=money($g['sales_goal'])?> · <?=e($result['goal_scope'])?></span></div><div class="tdr-progress"><span style="width:<?=min(100,$result['sales_percent'])?>%"></span></div><div class="tdr-main-foot"><div><small>Pedidos com frete</small><strong><?=money($result['orders_sales']??0)?></strong></div><div><small>Critério</small><strong>Sem orçamentos e cancelados</strong></div></div></div></section>
+      <article class="tdr-side blue"><span><i class="fa-solid fa-address-book"></i></span><small>CONTATOS</small><strong><?=$result['contacts']?></strong><p><?=e(mb_strtolower($result['goal_scope']))?> · meta <?=number_format((float)$g['contact_goal'],1,',','.')?></p></article>
+      <article class="tdr-side green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['sales_percent'],1,',','.')?>%</strong><p>da <?=e(mb_strtolower($result['goal_scope']))?></p></article>
      </div>
-     <div class="personal-side-card blue"><span><i class="fa-solid fa-address-book"></i></span><small>CONTATOS</small><strong><?=$result['contacts']?></strong><p><?=e(mb_strtolower($result['goal_scope']))?> <?=number_format((float)$g['contact_goal'],1,',','.')?></p></div>
-     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['sales_percent'],1,',','.')?>%</strong><p>da <?=e(mb_strtolower($result['goal_scope']))?></p></div>
-    </div>
-   <?php elseif($u['role']==='collector'):?>
-    <div class="personal-result-grid">
-     <div class="personal-main-card collector-main">
-      <header><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>RECUPERAÇÃO</small><strong>Valor recuperado</strong></div><b><?=number_format($result['collection_percent'],1,',','.')?>%</b></header>
-      <div class="personal-main-value"><strong><?=money($result['recovered'])?></strong><span>de <?=money($g['collection_goal'])?> · <?=e($result['goal_scope'])?></span></div>
-      <div class="personal-progress orange"><span style="width:<?=min(100,$result['collection_percent'])?>%"></span></div>
+    <?php else:?>
+     <div class="tdr-personal">
+      <section class="tdr-main collector"><div class="tdr-main-head"><div class="tdr-main-title"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>RECUPERAÇÃO</small><strong>Valor recuperado</strong></div></div><b><?=number_format($result['collection_percent'],1,',','.')?>%</b></div><div class="tdr-main-body"><div class="tdr-main-value"><strong><?=money($result['recovered'])?></strong><span>de <?=money($g['collection_goal'])?> · <?=e($result['goal_scope'])?></span></div><div class="tdr-progress orange"><span style="width:<?=min(100,$result['collection_percent'])?>%"></span></div></div></section>
+      <article class="tdr-side orange"><span><i class="fa-solid fa-phone"></i></span><small>AÇÕES</small><strong><?=$result['contacts']?></strong><p><?=e(mb_strtolower($result['goal_scope']))?> · meta <?=number_format((float)$g['contact_goal'],1,',','.')?></p></article>
+      <article class="tdr-side green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['collection_percent'],1,',','.')?>%</strong><p>da <?=e(mb_strtolower($result['goal_scope']))?></p></article>
      </div>
-     <div class="personal-side-card orange"><span><i class="fa-solid fa-phone"></i></span><small>AÇÕES</small><strong><?=$result['contacts']?></strong><p><?=e(mb_strtolower($result['goal_scope']))?> <?=number_format((float)$g['contact_goal'],1,',','.')?></p></div>
-     <div class="personal-side-card green"><span><i class="fa-solid fa-bullseye"></i></span><small>ATINGIMENTO</small><strong><?=number_format($result['collection_percent'],1,',','.')?>%</strong><p>da <?=e(mb_strtolower($result['goal_scope']))?></p></div>
-    </div>
-   <?php endif;?>
+    <?php endif;?>
+   </section>
   <?php break;
   case 'users':$editing=$edit??null;?>
    <div class="page-head"><div><span class="eyebrow">SISTEMA</span><h1>Usuários</h1><p>Perfis simples e vínculo do vendedor com a Omie.</p></div><?php if($editing):?><a class="btn btn-outline-secondary" href="<?=APP_URL?>/users">Novo usuário</a><?php endif;?></div>
@@ -977,7 +907,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
