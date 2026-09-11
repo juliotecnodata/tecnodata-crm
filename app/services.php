@@ -45,6 +45,11 @@ final class OrderPolicy {
   $codes=self::budgetStageCodes();
   return ['('.$column.' IS NULL OR '.$column.' NOT IN ('.implode(',',array_fill(0,count($codes),'?')).'))',$codes];
  }
+ public static function metricTotalSql(string $tableAlias=''): string{
+  if($tableAlias!==''&&!preg_match('/^[a-zA-Z0-9_]+$/',$tableAlias))throw new InvalidArgumentException('Alias de pedidos inválido.');
+  $p=$tableAlias!==''?$tableAlias.'.':'';
+  return "(COALESCE({$p}total,0)+COALESCE(CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT({$p}raw_json,'$.frete.valor_frete')),'') AS DECIMAL(18,2)),0))";
+ }
  public static function validReportSql(string $stageColumn='stage_code',string $statusColumn='status'): array{
   if(!preg_match('/^[a-zA-Z0-9_.]+$/',$statusColumn))throw new InvalidArgumentException('Coluna de status inválida.');
   [$stageSql,$params]=self::outsideBudgetSql($stageColumn);
@@ -68,7 +73,8 @@ final class CRMService {
   $start=date('Y-m-01');$next=date('Y-m-d',strtotime($start.' +1 month'));
   if($u['role']==='seller'){
    [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
-   $orders=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
+   $orderTotalSql=OrderPolicy::metricTotalSql();
+   $orders=(float)(DB::scalar("SELECT COALESCE(SUM(".$orderTotalSql."),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
    $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$u['seller_omie_code'],$start,$next])??0);
    $sales=$orders;
    $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE seller_omie_code=? AND active=1",[$u['seller_omie_code']])??0);
@@ -1303,8 +1309,9 @@ final class GoalService {
  private static function sellerProduction(string $sellerCode,string $start,string $next,array $days=[]): array{
   [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
   [$orderDaysSql,$orderDaysParams]=self::selectedDaysSql('order_date',$days);
+  $orderTotalSql=OrderPolicy::metricTotalSql();
   $orders=(float)(DB::scalar(
-   "SELECT COALESCE(SUM(total),0) FROM orders
+   "SELECT COALESCE(SUM(".$orderTotalSql."),0) FROM orders
     WHERE seller_omie_code=? AND order_date>=? AND order_date<?
       AND ".$validOrders.$orderDaysSql,
    array_merge([$sellerCode,$start,$next],$validOrderParams,$orderDaysParams)
@@ -1378,8 +1385,9 @@ final class GoalService {
   $ordersMap=[];
   [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
   [$orderDaysSql,$orderDaysParams]=self::selectedDaysSql('order_date',$days);
+  $orderTotalSql=OrderPolicy::metricTotalSql();
   foreach(DB::all(
-   "SELECT seller_omie_code,COALESCE(SUM(total),0) total
+   "SELECT seller_omie_code,COALESCE(SUM(".$orderTotalSql."),0) total
     FROM orders
     WHERE order_date>=? AND order_date<?
       AND ".$validOrders."
