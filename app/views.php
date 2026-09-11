@@ -776,7 +776,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
          <?php $workQuery=['user_id'=>(int)$work['id']];if(($agendaType??'all')!=='all')$workQuery['type']=$agendaType;?>
          <a class="tda-person <?=((int)($agendaFilterUser??0)===(int)$work['id'])?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($workQuery))?>">
           <span class="tda-person-avatar"><?=$initial?></span>
-          <div class="tda-person-main"><strong><?=e($work['name'])?></strong><small><?=e(match($work['role']){'seller'=>'Vendas','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Admin',default=>$work['role'])?></small></div>
+          <div class="tda-person-main"><strong><?=e($work['name'])?></strong><small><?=e($agendaRoleLabels[$work['role']]??$work['role'])?></small></div>
           <div class="tda-person-stats"><span><b><?=(int)$work['late_count']?></b> venc.</span><span><b><?=(int)$work['today_count']?></b> hoje</span><span><b><?=(int)$work['upcoming_count']?></b> próximos</span></div>
           <strong class="tda-person-total"><?=(int)$work['total']?></strong>
          </a>
