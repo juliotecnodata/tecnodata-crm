@@ -236,9 +236,17 @@ $renderClients=function(bool $portfolioOnly=false){
  $page=max(1,min($totalPages,(int)($_GET['page']??1)));
  $offset=($page-1)*$perPage;
  $rows=DB::all(
-  "SELECT c.*,s.name seller_name,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days
+  "SELECT c.*,s.name seller_name,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
+          CASE
+           WHEN act.last_activity_at IS NULL THEN col.last_collection_at
+           WHEN col.last_collection_at IS NULL THEN act.last_activity_at
+           WHEN act.last_activity_at>=col.last_collection_at THEN act.last_activity_at
+           ELSE col.last_collection_at
+          END last_contact_at
    FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id
    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+   LEFT JOIN (SELECT client_id,MAX(created_at) last_activity_at FROM activities GROUP BY client_id) act ON act.client_id=c.id
+   LEFT JOIN (SELECT client_id,MAX(created_at) last_collection_at FROM collection_actions GROUP BY client_id) col ON col.client_id=c.id
    WHERE ".$where." ORDER BY c.name LIMIT ".$perPage." OFFSET ".$offset,
   $p
  );
@@ -1148,15 +1156,23 @@ $router->get('/api/clients/datatable',function(){
  }
  $sqlWhere=implode(' AND ',$where);
  $recordsFiltered=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".$sqlWhere,$params)??0);
- $orderColumns=['c.name','c.city','s.name','c.id','m.last_purchase_at','m.last_purchase_at','m.revenue_12m','c.id'];
+ $orderColumns=['c.name','c.city','s.name','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id'];
  $orderInput=$_GET['order']??[];
  $orderIndex=(int)(is_array($orderInput)?($orderInput[0]['column']??0):0);
  $orderBy=$orderColumns[$orderIndex]??'c.name';
  $orderDirection=strtolower((string)(is_array($orderInput)?($orderInput[0]['dir']??'asc'):'asc'))==='desc'?'DESC':'ASC';
  $rows=DB::all(
-  "SELECT c.*,s.name seller_name,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days
+  "SELECT c.*,s.name seller_name,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
+          CASE
+           WHEN act.last_activity_at IS NULL THEN col.last_collection_at
+           WHEN col.last_collection_at IS NULL THEN act.last_activity_at
+           WHEN act.last_activity_at>=col.last_collection_at THEN act.last_activity_at
+           ELSE col.last_collection_at
+          END last_contact_at
    FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id
    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+   LEFT JOIN (SELECT client_id,MAX(created_at) last_activity_at FROM activities GROUP BY client_id) act ON act.client_id=c.id
+   LEFT JOIN (SELECT client_id,MAX(created_at) last_collection_at FROM collection_actions GROUP BY client_id) col ON col.client_id=c.id
    WHERE ".$sqlWhere." ORDER BY ".$orderBy." ".$orderDirection.",c.id ASC LIMIT ".$length." OFFSET ".$start,
   $params
  );
@@ -1182,12 +1198,20 @@ $router->get('/api/clients/datatable',function(){
   $cycleHtml='<span class="cycle cycle-'.e($cycle['status']).'">'.e($cycle['label']).'</span>';
   $orders=(int)($row['orders_12m']??0);
   $purchaseHtml='<strong>'.brdate($row['last_purchase_at']??null).'</strong><small>'.($orders>0?$orders.' pedido(s) em 12 meses':'Sem pedidos recentes').'</small>';
+  $lastContactAt=trim((string)($row['last_contact_at']??''));
+  if($lastContactAt===''){
+   $daysContactHtml='<span class="tdc-contact-days never"><i class="fa-regular fa-circle-xmark"></i><strong>Nunca</strong><small>Sem contato registrado</small></span>';
+  }else{
+   $contactDays=max(0,(int)floor((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',strtotime($lastContactAt))))/86400));
+   $contactClass=$contactDays<=30?'ok':($contactDays<=60?'warning':'late');
+   $daysContactHtml='<span class="tdc-contact-days '.$contactClass.'"><strong>'.$contactDays.'</strong><small>'.($contactDays===1?'dia sem contato':'dias sem contato').'</small></span>';
+  }
   $openLabel=$canEdit?'Abrir cliente':($unassigned?'Selecionar cliente disponível':'Cliente vinculado a outro vendedor');
   $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.APP_URL.'/clients/'.$id.'" title="'.e($openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
   if($canEdit)$actions.='<a class="client-action client-action-edit" href="'.APP_URL.'/clients/'.$id.'/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a>';
   if($canManage)$actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete-local"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-local" type="submit" title="Remover apenas do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database"></i><span>CRM</span></button></form><form method="post" action="'.APP_URL.'/clients/'.$id.'/delete"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-delete" type="submit" title="Excluir do CRM e da Omie" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form>';
   $actions.='</div>';
-  $data[]=[$identity,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
+  $data[]=[$identity,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$daysContactHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
  }
  json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
 });
