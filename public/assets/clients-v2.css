@@ -237,3 +237,21 @@ body[data-page="client-detail"] .tdcrm-content *{box-shadow:none!important;lette
  .tdc-head h1{font-size:26px}
  .tdc-step-list{grid-template-columns:1fr}
 }
+
+
+/* Ajuste fino dos campos de contato */
+.tdc-fields .form-control,
+.tdc-fields .form-select{
+ height:42px!important;
+ min-height:42px!important;
+ padding:9px 12px!important;
+ line-height:22px!important;
+}
+.tdc-phone{
+ grid-template-columns:76px minmax(0,1fr)!important;
+ gap:8px!important;
+}
+.tdc-phone .form-control{
+ min-width:0!important;
+ width:100%!important;
+}
