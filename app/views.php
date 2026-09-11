@@ -989,7 +989,7 @@ function layout(string $body,?array $u): void{
    <header class="tdcrm-topbar">
     <div class="tdcrm-topbar-left">
      <button class="tdcrm-menu-button" type="button" data-menu aria-controls="appSidebar" aria-expanded="true"><i class="fa-solid fa-bars"></i></button>
-     <label class="tdcrm-global-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Buscar clientes, pedidos, atendimentos..." aria-label="Pesquisar no CRM"></label>
+     
     </div>
     <div class="tdcrm-topbar-right">
      <button class="tdcrm-notification" type="button" title="Notificações"><i class="fa-regular fa-bell"></i><b>3</b></button>
