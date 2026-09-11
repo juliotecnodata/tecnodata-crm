@@ -89,212 +89,126 @@ function render(string $name,array $vars=[]): void{
   <?php break;
   case 'clients':?>
    <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0];?>
-   <section class="clients-premium-page">
-    <header class="clients-premium-head">
-     <div class="clients-premium-title">
-      <span class="clients-premium-title-icon"><i class="fa-solid fa-users"></i></span>
-      <div>
-       <span class="eyebrow">RELACIONAMENTO / CLIENTES</span>
-       <h1>Clientes</h1>
-       <p>Carteira comercial, histórico recente e ações rápidas em uma única visão.</p>
-      </div>
+   <section class="tdc-page">
+    <header class="tdc-head">
+     <div class="tdc-head-main">
+      <span class="tdc-head-icon"><i class="fa-solid fa-users"></i></span>
+      <div><span class="tdc-kicker">RELACIONAMENTO / CLIENTES</span><h1>Clientes</h1><p>Gerencie sua carteira, acompanhe o histórico comercial e acesse rapidamente cada cliente.</p></div>
      </div>
-     <div class="clients-premium-head-actions">
-      <a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients"><i class="fa-solid fa-rotate-right"></i>Atualizar</a>
-      <a class="btn btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a>
-     </div>
+     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <div class="clients-premium-kpis">
-     <article class="clients-premium-kpi kpi-green">
-      <span><i class="fa-solid fa-address-book"></i></span>
-      <div><small>CLIENTES NA CONSULTA</small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?=$uf!==''?'Carteira de '.$uf.($ddds?' · DDD '.implode(', ',$ddds):''):($q!==''?'Resultado do filtro atual':'Carteira ativa')?></p></div>
-     </article>
-     <article class="clients-premium-kpi kpi-blue">
-      <span><i class="fa-solid fa-chart-line"></i></span>
-      <div><small>RECEITA EM 12 MESES</small><strong><?=money($clientStats['revenue'])?></strong><p>Produção acumulada da carteira</p></div>
-     </article>
-     <article class="clients-premium-kpi kpi-yellow">
-      <span><i class="fa-solid fa-cart-shopping"></i></span>
-      <div><small>PEDIDOS EM 12 MESES</small><strong><?=number_format((int)$clientStats['orders'],0,',','.')?></strong><p>Volume comercial recente</p></div>
-     </article>
-     <article class="clients-premium-kpi kpi-orange">
-      <span><i class="fa-solid fa-user-tag"></i></span>
-      <div><small>SEM VENDEDOR</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>Precisam de distribuição</p></div>
-     </article>
+    <div class="tdc-kpis">
+     <article class="tdc-kpi green"><span class="tdc-kpi-icon"><i class="fa-solid fa-address-book"></i></span><div><small>Clientes na consulta</small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?=$uf!==''?'Carteira de '.$uf.($ddds?' · DDD '.implode(', ',$ddds):''):($q!==''?'Resultado do filtro atual':'Carteira ativa')?></p></div></article>
+     <article class="tdc-kpi blue"><span class="tdc-kpi-icon"><i class="fa-solid fa-chart-line"></i></span><div><small>Receita em 12 meses</small><strong><?=money($clientStats['revenue'])?></strong><p>Produção acumulada da carteira</p></div></article>
+     <article class="tdc-kpi yellow"><span class="tdc-kpi-icon"><i class="fa-solid fa-cart-shopping"></i></span><div><small>Pedidos em 12 meses</small><strong><?=number_format((int)$clientStats['orders'],0,',','.')?></strong><p>Volume comercial recente</p></div></article>
+     <article class="tdc-kpi orange"><span class="tdc-kpi-icon"><i class="fa-solid fa-user-tag"></i></span><div><small>Sem vendedor</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>Clientes para distribuição</p></div></article>
     </div>
 
     <?php if(Auth::can('admin','supervisor')):?>
-    <section class="clients-premium-portfolio">
-     <div class="clients-premium-portfolio-head">
-      <div class="clients-premium-portfolio-copy">
-       <span><i class="fa-solid fa-users-gear"></i></span>
-       <div><small>GESTÃO DE CARTEIRA</small><strong>Distribuição comercial por região</strong><p>Selecione estado, DDD e responsável antes de transferir os clientes.</p></div>
-      </div>
-      <div class="clients-premium-portfolio-badge"><i class="fa-solid fa-shield-halved"></i>Somente CRM</div>
-     </div>
-     <form method="post" action="<?=APP_URL?>/clients/portfolio/assign" class="clients-premium-portfolio-form">
+    <section class="tdc-card">
+     <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-users-gear"></i></span><div><strong>Gestão de carteira</strong><small>Distribua clientes por estado, DDD e vendedor.</small></div></div><span class="tdc-badge"><i class="fa-solid fa-shield-halved"></i> Somente CRM</span></div>
+     <form method="post" action="<?=APP_URL?>/clients/portfolio/assign" class="tdc-portfolio-form">
       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <label><span>Estado</span><select class="form-select" name="uf" required data-client-state-filter><option value="">Selecione</option><?php foreach($portfolioStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
-      <div class="clients-premium-ddd"><span>DDDs da região</span><div><?php foreach(($portfolioDddMap[$uf]??[]) as $ddd):?><label><input type="checkbox" name="ddds[]" value="<?=e($ddd)?>" <?=in_array($ddd,$ddds??[],true)?'checked':''?>><b><?=e($ddd)?></b></label><?php endforeach;?><?php if($uf===''):?><small>Selecione primeiro o estado.</small><?php endif;?></div><?php if($uf!==''):?><button class="btn btn-light" type="button" data-client-ddd-apply><i class="fa-solid fa-filter"></i>Filtrar</button><?php endif;?></div>
-      <label><span>Carteira atual</span><select class="form-select" name="source_seller" required><option value="__unassigned__">Somente sem vendedor</option><option value="__all__">Todos dos DDDs</option><?php foreach($portfolioSourceSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?><?=isset($seller['active'])&&!(int)$seller['active']?' (inativo)':''?></option><?php endforeach;?></select></label>
-      <label><span>Vendedor de destino</span><select class="form-select" name="target_seller" required><option value="">Selecione</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></label>
-      <button class="btn btn-primary clients-premium-assign" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a transferência dos clientes dos DDDs selecionados para o vendedor de destino?"><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
+      <div class="tdc-field"><label>Estado</label><select class="form-select" name="uf" required data-client-state-filter><option value="">Selecione</option><?php foreach($portfolioStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></div>
+      <div class="tdc-ddd-picker clients-ddd-picker"><span>DDDs da região</span><div><?php foreach(($portfolioDddMap[$uf]??[]) as $ddd):?><label><input type="checkbox" name="ddds[]" value="<?=e($ddd)?>" <?=in_array($ddd,$ddds??[],true)?'checked':''?>><b><?=e($ddd)?></b></label><?php endforeach;?><?php if($uf===''):?><small>Selecione primeiro o estado.</small><?php endif;?></div><?php if($uf!==''):?><button class="tdc-btn" type="button" data-client-ddd-apply><i class="fa-solid fa-filter"></i>Filtrar tabela</button><?php endif;?></div>
+      <div class="tdc-field"><label>Carteira atual</label><select class="form-select" name="source_seller" required><option value="__unassigned__">Somente sem vendedor</option><option value="__all__">Todos dos DDDs</option><?php foreach($portfolioSourceSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?><?=isset($seller['active'])&&!(int)$seller['active']?' (inativo)':''?></option><?php endforeach;?></select></div>
+      <div class="tdc-field"><label>Vendedor de destino</label><select class="form-select" name="target_seller" required><option value="">Selecione</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></div>
+      <button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a transferência dos clientes dos DDDs selecionados para o vendedor de destino?"><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
      </form>
     </section>
     <?php endif;?>
 
     <?php if(Auth::can('seller')):?>
-    <nav class="clients-premium-scope" aria-label="Tipo de carteira">
-     <a class="<?=($clientScope??'mine')==='mine'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-briefcase"></i><span><strong>Minha carteira</strong><small>Clientes sob sua responsabilidade</small></span><b><i class="fa-solid fa-chevron-right"></i></b></a>
-     <a class="<?=($clientScope??'mine')==='unassigned'?'active':''?>" href="<?=APP_URL?>/clients?scope=unassigned"><i class="fa-solid fa-user-plus"></i><span><strong>Sem vendedor</strong><small><?=number_format((int)($availableClients??0),0,',','.')?> disponíveis</small></span><b><i class="fa-solid fa-chevron-right"></i></b></a>
+    <nav class="tdc-scope">
+     <a class="<?=($clientScope??'mine')==='mine'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-briefcase"></i><span><strong>Minha carteira</strong><small>Clientes sob sua responsabilidade</small></span><i class="fa-solid fa-chevron-right"></i></a>
+     <a class="<?=($clientScope??'mine')==='unassigned'?'active':''?>" href="<?=APP_URL?>/clients?scope=unassigned"><i class="fa-solid fa-user-plus"></i><span><strong>Sem vendedor</strong><small><?=number_format((int)($availableClients??0),0,',','.')?> disponíveis</small></span><i class="fa-solid fa-chevron-right"></i></a>
     </nav>
     <?php endif;?>
 
-    <section class="clients-premium-list">
-     <div class="clients-premium-list-head">
-      <div><span class="eyebrow">BASE COMERCIAL</span><h2>Carteira de clientes</h2><p>Use a busca da tabela para localizar por nome, documento, cidade ou vendedor.</p></div>
-      <div class="clients-premium-list-legend">
-       <span><i class="fa-regular fa-eye"></i>Visualizar</span>
-       <span><i class="fa-regular fa-pen-to-square"></i>Editar</span>
-       <?php if(Auth::can('admin','supervisor')):?><span><i class="fa-solid fa-database-circle-xmark"></i>Remover CRM</span><span><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?>
-      </div>
-     </div>
-     <div class="table-card clients-premium-table-wrap">
+    <section class="tdc-table-card">
+     <div class="tdc-table-top"><div><span class="tdc-kicker">BASE COMERCIAL</span><h2>Carteira de clientes</h2><p>Busque por nome, documento, cidade ou vendedor.</p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
+     <div class="table-card tdc-table-wrap">
       <?php $clientDataParams=['uf'=>$uf];if($ddds)$clientDataParams['ddds']=$ddds;if(Auth::can('seller'))$clientDataParams['scope']=$clientScope??'mine';?>
-      <table class="table align-middle clients-datatable clients-premium-table" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="10" data-length-change="1" data-order-column="0" data-order-direction="asc">
+      <table class="table tdc-table clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="10" data-length-change="1" data-order-column="0" data-order-direction="asc">
        <thead><tr><th>Cliente</th><th>Localização</th><th>Vendedor</th><th>Ciclo</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
        <tbody><?php foreach($rows as $r):?><tr>
-        <td><div class="client-table-identity"><span><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
-        <td><span class="client-location"><i class="fa-solid fa-location-dot"></i><?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /')?:'Não informado')?></span></td>
-        <td><?php if(!empty($r['seller_name'])):?><span class="client-seller"><i class="fa-solid fa-user-tie"></i><span><strong><?=e($r['seller_name'])?></strong><small><?=e($r['seller_omie_code'])?></small></span></span><?php else:?><span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem vendedor</strong><small><?=Auth::can('seller')?'Atendimento compartilhado':'Disponível para vincular'?></small></span></span><?php endif;?></td>
-        <td><span class="cycle cycle-<?=e($r['cycle']['status'])?>"><?=e($r['cycle']['label'])?></span></td>
+        <td><div class="tdc-client-cell"><span class="tdc-avatar"><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
+        <td><span><i class="fa-solid fa-location-dot"></i> <?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /')?:'Não informado')?></span></td>
+        <td><?php if(!empty($r['seller_name'])):?><div class="tdc-seller-cell"><i class="fa-solid fa-user-tie"></i><div><strong><?=e($r['seller_name'])?></strong><small><?=e($r['seller_omie_code'])?></small></div></div><?php else:?><div class="tdc-seller-cell empty"><i class="fa-solid fa-user-slash"></i><div><strong>Sem vendedor</strong><small><?=Auth::can('seller')?'Atendimento compartilhado':'Disponível para vincular'?></small></div></div><?php endif;?></td>
+        <td><span class="tdc-cycle"><?=e($r['cycle']['label'])?></span></td>
         <td><strong><?=brdate($r['last_purchase_at']??null)?></strong><small><?=($r['orders_12m']??0)>0?(int)$r['orders_12m'].' pedido(s) em 12 meses':'Sem pedidos recentes'?></small></td>
-        <td class="text-end"><strong class="client-revenue"><?=money($r['revenue_12m']??0)?></strong></td>
-        <td class="text-end"><div class="client-action-group"><a class="client-action client-action-view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar cliente"><i class="fa-regular fa-eye"></i><span>Ver</span></a><?php if(Auth::can('admin','supervisor')||(Auth::can('seller')&&(string)($r['seller_omie_code']??'')===(string)(Auth::user()['seller_omie_code']??''))):?><a class="client-action client-action-edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="client-action client-action-local" type="submit" title="Remover somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i><span>CRM</span></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="client-action client-action-delete" type="submit" title="Excluir da Omie e do CRM" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form><?php endif;?></div></td>
+        <td class="text-end"><strong><?=money($r['revenue_12m']??0)?></strong></td>
+        <td><div class="tdc-actions"><a class="tdc-icon-btn view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><?php if(Auth::can('admin','supervisor')||(Auth::can('seller')&&(string)($r['seller_omie_code']??'')===(string)(Auth::user()['seller_omie_code']??''))):?><a class="tdc-icon-btn edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn local" type="submit" title="Remover somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database"></i></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn delete" type="submit" title="Excluir da Omie e do CRM" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
        </tr><?php endforeach;?></tbody>
       </table>
      </div>
     </section>
    </section>
   <?php break;
+
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
-   <section class="td-client-form-page">
-    <header class="td-client-page-head">
-     <div class="td-client-page-head-main">
-      <span class="td-client-page-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span>
-      <div>
-       <span class="eyebrow"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO CLIENTE'?></span>
-       <h1><?=$editClient?'Editar cliente':'Cadastrar novo cliente'?></h1>
-       <p><?=$editClient?'Atualize os dados cadastrais e comerciais mantendo a integração com a Omie.':'Preencha os dados abaixo. CNPJ e CEP podem completar automaticamente as informações.'?></p>
-      </div>
-     </div>
-     <a class="btn btn-outline-secondary" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a>
-    </header>
+   <section class="tdc-page">
+    <header class="tdc-head"><div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span><div><span class="tdc-kicker"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Atualize as informações e mantenha o cadastro alinhado com a Omie.':'Cadastre o cliente com CNPJ e CEP inteligentes e organização comercial completa.'?></p></div></div><div class="tdc-head-actions"><a class="tdc-btn" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a></div></header>
 
     <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
     <?php if($editError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($editError)?></div><?php endif;?>
     <?php if($createError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($createError)?></div><?php endif;?>
-    <?php if($createSuccess):?><div class="alert alert-success client-created-alert"><i class="fa-solid fa-circle-check"></i><div><strong>Cliente criado com sucesso.</strong><span><?=e((string)($createSuccess['client']['name']??''))?> • Omie <?=e((string)($createSuccess['client']['omie_code']??''))?></span></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/clients/<?=e((string)($createSuccess['client']['id']??''))?>">Abrir cliente</a></div><?php endif;?>
+    <?php if($createSuccess):?><div class="alert alert-success"><strong>Cliente criado com sucesso.</strong> <?=e((string)($createSuccess['client']['name']??''))?> · Omie <?=e((string)($createSuccess['client']['omie_code']??''))?></div><?php endif;?>
 
-    <div class="td-client-form-layout">
-     <aside class="td-client-form-rail">
-      <div class="td-client-form-rail-head">
-       <span>CADASTRO</span>
-       <strong><?=$editClient?'Edição do cliente':'Novo cliente'?></strong>
-       <small>Organizamos o cadastro em blocos para facilitar a conferência.</small>
-      </div>
-      <nav class="td-client-form-steps">
-       <a class="active" href="#dados-principais"><b>1</b><span><strong>Identificação</strong><small>Documento e contato</small></span></a>
-       <a href="#endereco"><b>2</b><span><strong>Endereço</strong><small>Localização completa</small></span></a>
-       <a href="#comercial"><b>3</b><span><strong>Comercial</strong><small>Vendedor e tags</small></span></a>
-       <a href="#conferencia"><b>4</b><span><strong>Conferência</strong><small>Revisão e salvamento</small></span></a>
-      </nav>
+    <div class="tdc-form-layout">
+     <aside class="tdc-steps">
+      <div class="tdc-steps-head"><span>CADASTRO</span><strong><?=$editClient?'Editar cliente':'Novo cliente'?></strong><small>Preencha os blocos ao lado. Todos os campos são obrigatórios, exceto complemento, vendedor e observações.</small></div>
+      <nav class="tdc-step-list"><a class="active" href="#tdc-identificacao"><b>1</b><span><strong>Identificação</strong><small>Documento e contato</small></span></a><a href="#tdc-endereco"><b>2</b><span><strong>Endereço</strong><small>Localização</small></span></a><a href="#tdc-comercial"><b>3</b><span><strong>Comercial</strong><small>Vendedor e tags</small></span></a><a href="#tdc-revisao"><b>4</b><span><strong>Conferência</strong><small>Salvar cadastro</small></span></a></nav>
      </aside>
-
-     <main class="td-client-form-main">
-      <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/save-local'?>" id="clientCreateForm" class="td-client-form">
+     <main>
+      <form method="post" action="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id'].'/update':APP_URL.'/clients/save-local'?>" id="clientCreateForm" class="tdc-form">
        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
 
-       <section class="td-client-form-card" id="dados-principais">
-        <header>
-         <span class="td-section-icon blue"><i class="fa-solid fa-building"></i></span>
-         <div><strong>Dados principais</strong><small>Identificação, contato e informações essenciais do cliente.</small></div>
-         <?php if($editClient):?><span class="td-client-omie-badge">Omie #<?=e((string)$editClient['omie_code'])?></span><?php endif;?>
-        </header>
-        <div class="td-client-fields">
-         <div class="field col-4">
-          <label>CPF / CNPJ<span class="required-mark">*</span></label>
-          <div class="td-lookup-field"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button type="button" data-cnpj-lookup title="Buscar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div>
-          <small class="field-hint" data-cnpj-status>CNPJ completo busca os dados disponíveis automaticamente.</small>
-         </div>
-         <div class="field col-5"><label>Razão social / Nome<span class="required-mark">*</span></label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" autocomplete="organization" required></div>
-         <div class="field col-3"><label>Nome fantasia<span class="required-mark">*</span></label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>" required></div>
-         <div class="field col-5"><label>E-mail<span class="required-mark">*</span></label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" autocomplete="email" required></div>
-         <div class="field col-5"><label>Nome do contato<span class="required-mark">*</span></label><input class="form-control" name="contact_name" value="<?=e((string)($old['contact_name']??''))?>" autocomplete="name" required></div>
-         <div class="field col-2"><label>Telefone<span class="required-mark">*</span></label><div class="td-phone-field"><input class="form-control" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" inputmode="numeric" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" inputmode="numeric" maxlength="9" placeholder="Número" required></div></div>
+       <section class="tdc-section" id="tdc-identificacao">
+        <div class="tdc-section-head"><span class="tdc-section-icon blue"><i class="fa-solid fa-building"></i></span><div><strong>Dados principais</strong><small>Identificação e contato do cliente.</small></div><?php if($editClient):?><span class="tdc-badge">Omie #<?=e((string)$editClient['omie_code'])?></span><?php endif;?></div>
+        <div class="tdc-fields">
+         <div class="field span-4"><label>CPF / CNPJ<span class="tdc-required">*</span></label><div class="tdc-lookup"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button type="button" data-cnpj-lookup><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="tdc-hint" data-cnpj-status>CNPJ completo busca os dados disponíveis.</small></div>
+         <div class="field span-5"><label>Razão social / Nome<span class="tdc-required">*</span></label><input class="form-control" name="legal_name" value="<?=e((string)($old['legal_name']??''))?>" required></div>
+         <div class="field span-3"><label>Nome fantasia<span class="tdc-required">*</span></label><input class="form-control" name="trade_name" value="<?=e((string)($old['trade_name']??''))?>" required></div>
+         <div class="field span-5"><label>E-mail<span class="tdc-required">*</span></label><input class="form-control" type="email" name="email" value="<?=e((string)($old['email']??''))?>" required></div>
+         <div class="field span-5"><label>Nome do contato<span class="tdc-required">*</span></label><input class="form-control" name="contact_name" value="<?=e((string)($old['contact_name']??''))?>" required></div>
+         <div class="field span-2"><label>Telefone<span class="tdc-required">*</span></label><div class="tdc-phone"><input class="form-control" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" maxlength="9" placeholder="Número" required></div></div>
         </div>
        </section>
 
-       <section class="td-client-form-card" id="endereco">
-        <header>
-         <span class="td-section-icon green"><i class="fa-solid fa-location-dot"></i></span>
-         <div><strong>Endereço</strong><small>Dados usados no cadastro, faturamento e logística.</small></div>
-        </header>
-        <div class="td-client-fields">
-         <div class="field col-2">
-          <label>CEP<span class="required-mark">*</span></label>
-          <div class="td-lookup-field"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" inputmode="numeric" autocomplete="postal-code" required><button type="button" data-cep-lookup title="Buscar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div>
-          <small class="field-hint" data-cep-status>Busca automática ao completar.</small>
-         </div>
-         <div class="field col-5"><label>Endereço<span class="required-mark">*</span></label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" autocomplete="address-line1" required></div>
-         <div class="field col-2"><label>Número<span class="required-mark">*</span></label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>" required></div>
-         <div class="field col-3"><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>" placeholder="Opcional"></div>
-         <div class="field col-4"><label>Bairro<span class="required-mark">*</span></label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>" required></div>
-         <div class="field col-6"><label>Cidade<span class="required-mark">*</span></label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" autocomplete="address-level2" required></div>
-         <div class="field col-2"><label>UF<span class="required-mark">*</span></label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" autocomplete="address-level1" required></div>
+       <section class="tdc-section" id="tdc-endereco">
+        <div class="tdc-section-head"><span class="tdc-section-icon green"><i class="fa-solid fa-location-dot"></i></span><div><strong>Endereço</strong><small>Localização completa para cadastro e faturamento.</small></div></div>
+        <div class="tdc-fields">
+         <div class="field span-2"><label>CEP<span class="tdc-required">*</span></label><div class="tdc-lookup"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>" required><button type="button" data-cep-lookup><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="tdc-hint" data-cep-status>Busca automática ao completar.</small></div>
+         <div class="field span-5"><label>Endereço<span class="tdc-required">*</span></label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>" required></div>
+         <div class="field span-2"><label>Número<span class="tdc-required">*</span></label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>" required></div>
+         <div class="field span-3"><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>" placeholder="Opcional"></div>
+         <div class="field span-4"><label>Bairro<span class="tdc-required">*</span></label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>" required></div>
+         <div class="field span-6"><label>Cidade<span class="tdc-required">*</span></label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>" required></div>
+         <div class="field span-2"><label>UF<span class="tdc-required">*</span></label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>" required></div>
         </div>
        </section>
 
-       <section class="td-client-form-card" id="comercial">
-        <header>
-         <span class="td-section-icon orange"><i class="fa-solid fa-user-tie"></i></span>
-         <div><strong>Organização comercial</strong><small>Responsável, classificação e observações do relacionamento.</small></div>
-        </header>
-        <div class="td-client-fields">
-         <div class="field col-4">
-          <label>Vendedor responsável</label>
-          <?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select>
-          <?php else:?><div class="td-client-fixed"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?>
-         </div>
-         <div class="field col-8">
-          <label>Tags<span class="required-mark">*</span></label>
-          <div class="td-client-tags"><span><i class="fa-solid fa-user-check"></i>CLIENTE</span><span><i class="fa-solid fa-car-side"></i>CFC</span></div>
-          <input type="hidden" name="tags" value="CLIENTE, CFC">
-          <small class="field-hint">As tags CLIENTE e CFC serão enviadas automaticamente para a Omie.</small>
-         </div>
-         <div class="field col-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
+       <section class="tdc-section" id="tdc-comercial">
+        <div class="tdc-section-head"><span class="tdc-section-icon orange"><i class="fa-solid fa-user-tie"></i></span><div><strong>Organização comercial</strong><small>Vendedor, classificação e informações úteis.</small></div></div>
+        <div class="tdc-fields">
+         <div class="field span-4"><label>Vendedor responsável</label><?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select><?php else:?><div class="tdc-fixed"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?></div>
+         <div class="field span-8"><label>Tags<span class="tdc-required">*</span></label><div class="tdc-tags"><span><i class="fa-solid fa-user-check"></i>CLIENTE</span><span><i class="fa-solid fa-car-side"></i>CFC</span></div><input type="hidden" name="tags" value="CLIENTE, CFC"><small class="tdc-hint">As tags CLIENTE e CFC serão enviadas automaticamente para a Omie.</small></div>
+         <div class="field span-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
         </div>
        </section>
 
        <?php if(!$editClient&&$preview):?>
-       <section class="td-client-form-card" id="conferencia">
-        <header><span class="td-section-icon yellow"><i class="fa-solid fa-code"></i></span><div><strong>Prévia da integração</strong><small>Payload validado, ainda não enviado.</small></div><span class="td-client-valid-badge">VALIDADO</span></header>
-        <div class="td-client-preview"><div><span>Cliente</span><strong><?=e($preview['summary']['name'])?></strong></div><div><span>Documento</span><strong><?=e($preview['summary']['document'])?></strong></div><div><span>Vendedor</span><strong><?=e($preview['summary']['seller'])?></strong></div></div>
-        <details class="client-payload-details"><summary>Ver payload técnico</summary><pre><?=e(json_encode($preview['payload'],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?></pre></details>
+       <section class="tdc-section" id="tdc-revisao">
+        <div class="tdc-section-head"><span class="tdc-section-icon yellow"><i class="fa-solid fa-code"></i></span><div><strong>Prévia da integração</strong><small>Payload validado antes do envio.</small></div><span class="tdc-badge">VALIDADO</span></div>
+        <div class="tdc-fields"><div class="field span-4"><label>Cliente</label><div class="tdc-fixed"><?=e($preview['summary']['name'])?></div></div><div class="field span-4"><label>Documento</label><div class="tdc-fixed"><?=e($preview['summary']['document'])?></div></div><div class="field span-4"><label>Vendedor</label><div class="tdc-fixed"><?=e($preview['summary']['seller'])?></div></div></div>
        </section>
-       <?php else:?><span id="conferencia"></span><?php endif;?>
+       <?php else:?><span id="tdc-revisao"></span><?php endif;?>
 
-       <footer class="td-client-form-actions">
-        <div><i class="fa-solid fa-circle-info"></i><span><?=$editClient?'Ao salvar, as alterações deste cliente serão atualizadas conforme a integração disponível.':'O cliente é salvo primeiro no CRM e depois pode ser sincronizado com a Omie.'?></span></div>
-        <div class="actions">
-         <?php if($editClient&&Auth::can('admin','supervisor')):?><button class="btn btn-outline-danger" type="submit" formaction="<?=APP_URL?>/clients/<?=(int)$editClient['id']?>/delete" formnovalidate data-confirm="Excluir este cliente? Se ele já estiver integrado, o sistema excluirá primeiro na Omie e depois no CRM."><i class="fa-regular fa-trash-can"></i>Excluir cliente</button><?php endif;?>
-         <a class="btn btn-outline-secondary" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>">Cancelar</a>
-         <button class="btn btn-primary" type="submit" <?=$editClient?'data-confirm="Salvar estas alterações também na Omie?"':''?>><i class="fa-solid <?=$editClient?'fa-check':'fa-floppy-disk'?>"></i><?=$editClient?'Salvar alterações':'Salvar cliente'?></button>
-        </div>
-       </footer>
+       <footer class="tdc-form-actions"><div><i class="fa-solid fa-circle-info"></i><span><?=$editClient?'Salvar atualiza os dados deste cliente.':'O cliente será salvo no CRM e poderá ser sincronizado com a Omie.'?></span></div><div class="actions"><?php if($editClient&&Auth::can('admin','supervisor')):?><button class="tdc-btn tdc-btn-danger" type="submit" formaction="<?=APP_URL?>/clients/<?=(int)$editClient['id']?>/delete" formnovalidate data-confirm="Excluir este cliente?"><i class="fa-regular fa-trash-can"></i>Excluir</button><?php endif;?><a class="tdc-btn" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>">Cancelar</a><button class="tdc-btn tdc-btn-primary" type="submit" <?=$editClient?'data-confirm="Salvar estas alterações também na Omie?"':''?>><i class="fa-solid <?=$editClient?'fa-check':'fa-floppy-disk'?>"></i><?=$editClient?'Salvar alterações':'Salvar cliente'?></button></div></footer>
       </form>
      </main>
     </div>
@@ -307,63 +221,55 @@ function render(string $name,array $vars=[]): void{
    $omieStatus=is_array($clientRaw)?(string)($clientRaw['omie_status']??''):'';
    $pendingOmie=$isLocal||in_array($omieStatus,['pending','pending_update'],true);
    ?>
-   <div class="page-head client-profile-head">
-    <div class="client-profile-identity"><span class="client-profile-avatar"><?=e(mb_strtoupper(mb_substr((string)$client['name'],0,1)))?></span><div><a class="back" href="<?=APP_URL?>/clients<?=!empty($sharedUnassigned)?'?scope=unassigned':''?>"><i class="fa-solid fa-arrow-left"></i> Carteira de clientes</a><h1><?=e($client['name'])?></h1><p><span><i class="fa-solid fa-location-dot"></i><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /')?:'Localização não informada')?></span><span><i class="fa-regular fa-id-card"></i><?=e($client['document']?:'Documento não informado')?></span><span><i class="fa-solid fa-cloud"></i><?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></span></p></div></div>
-    <div class="page-head-actions client-profile-actions">
-     <?php if(!empty($sharedUnassigned)):?>
-      <?php if(!$isLocal):?><a class="btn btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?>
-     <?php else:?>
-     <a class="btn btn-outline-secondary" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a>
-     <?php if(!$isLocal):?><a class="btn btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?>
-     <details class="client-more-actions"><summary class="btn btn-outline-secondary"><i class="fa-solid fa-ellipsis"></i>Mais ações</summary><div>
-      <a href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cadastro</a>
-      <?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database-circle-xmark"></i>Excluir somente do CRM</button></form><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="danger" type="submit" data-confirm="Excluir este cliente? Se ele já estiver integrado, o sistema excluirá primeiro na Omie e depois no CRM."><i class="fa-regular fa-trash-can"></i>Excluir cliente</button></form><?php endif;?>
-     </div></details>
-     <?php endif;?>
+   <section class="tdc-page">
+    <header class="tdc-head tdc-detail-head">
+     <div class="tdc-head-main"><span class="tdc-detail-avatar"><?=e(mb_strtoupper(mb_substr((string)$client['name'],0,1)))?></span><div><a class="tdc-back" href="<?=APP_URL?>/clients<?=!empty($sharedUnassigned)?'?scope=unassigned':''?>"><i class="fa-solid fa-arrow-left"></i>Carteira de clientes</a><h1><?=e($client['name'])?></h1><div class="tdc-meta"><span><i class="fa-solid fa-location-dot"></i><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /')?:'Localização não informada')?></span><span><i class="fa-regular fa-id-card"></i><?=e($client['document']?:'Documento não informado')?></span><span><i class="fa-solid fa-cloud"></i><?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></span></div></div></div>
+     <div class="tdc-head-actions"><?php if(empty($sharedUnassigned)):?><a class="tdc-btn" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><?php endif;?><?php if(!$isLocal):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?></div>
+    </header>
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <?php if(!empty($sharedUnassigned)):?>
+     <div class="tdc-sync shared"><span class="icon"><i class="fa-solid fa-users"></i></span><div><strong>Cliente compartilhado, sem vendedor</strong><p>Qualquer vendedor pode atender, registrar contatos e criar pedidos. O vínculo de carteira é feito por admin ou supervisor.</p></div></div>
+    <?php elseif($pendingOmie):?>
+     <div class="tdc-sync pending"><span class="icon"><i class="fa-solid fa-arrows-rotate"></i></span><div><strong><?=$isLocal?'Cliente salvo localmente':'Alterações salvas localmente'?></strong><span><?=$isLocal?'O CRM verificará o CPF/CNPJ na Omie antes de criar para evitar duplicidade.':'Existem alterações locais pendentes de sincronização.'?></span></div><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-btn tdc-btn-primary" data-confirm="Sincronizar agora este cliente com a Omie?"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar Omie</button></form></div>
+    <?php else:?>
+     <div class="tdc-sync"><i class="fa-solid fa-circle-check"></i><div><strong>Sincronizado com a Omie</strong><span>Cadastro vinculado ao código Omie <?=e((string)$client['omie_code'])?>. Não há alterações locais pendentes.</span></div></div>
+    <?php endif;?>
+
+    <nav class="tdc-tabs"><a class="active" href="#tdc-overview"><i class="fa-solid fa-table-columns"></i>Visão geral</a><a href="#tdc-history"><i class="fa-regular fa-comments"></i>Histórico</a><a href="#tdc-orders"><i class="fa-solid fa-receipt"></i>Pedidos</a></nav>
+
+    <div class="tdc-detail-kpis" id="tdc-overview">
+     <article class="tdc-detail-kpi"><span class="icon green"><i class="fa-solid fa-wave-square"></i></span><small>Momento</small><strong><?=e($cycle['label'])?></strong></article>
+     <article class="tdc-detail-kpi"><span class="icon blue"><i class="fa-solid fa-chart-line"></i></span><small>Receita 12 meses</small><strong><?=money($client['revenue_12m']??0)?></strong></article>
+     <article class="tdc-detail-kpi"><span class="icon yellow"><i class="fa-regular fa-calendar-check"></i></span><small>Última compra</small><strong><?=brdate($client['last_purchase_at']??null)?></strong></article>
+     <article class="tdc-detail-kpi"><span class="icon orange"><i class="fa-solid fa-cart-shopping"></i></span><small>Pedidos 12 meses</small><strong><?=(int)($client['orders_12m']??0)?></strong></article>
     </div>
-   </div>
-   <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-   <?php if(!empty($sharedUnassigned)):?>
-    <div class="client-claim-banner"><span><i class="fa-solid fa-users"></i></span><div><strong>Cliente compartilhado, sem vendedor</strong><p>Qualquer vendedor pode atender, registrar contatos e criar pedidos. Somente admin ou supervisor pode vinculá-lo a uma carteira.</p></div></div>
-   <?php elseif($pendingOmie):?>
-    <div class="client-omie-pending">
-     <div class="client-omie-pending-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
-     <div>
-      <strong><?=$isLocal?'Cliente salvo localmente':'Alterações salvas localmente'?></strong>
-      <span><?=$isLocal?'Agora o CRM verificará o CPF/CNPJ na Omie. Se já existir, apenas vincula; se não existir, cria sem duplicidade.':'As alterações estão somente no CRM. Clique em “Sincronizar Omie” para enviar a versão local ao cadastro Omie já vinculado.'?></span>
-     </div>
-     <form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-primary" data-confirm="<?=$isLocal?'Verificar este CPF/CNPJ na Omie e integrar somente se necessário?':'Sincronizar agora as alterações locais com a Omie?'?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar Omie</button></form>
+
+    <div class="tdc-detail-grid">
+     <section class="tdc-card">
+      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-building"></i></span><div><strong>Dados do cliente</strong><small>Cadastro principal e informações comerciais.</small></div></div></div>
+      <div class="tdc-info-grid">
+       <div><span>Razão social / Nome</span><strong><?=e($formData['legal_name']?:'—')?></strong></div><div><span>Nome fantasia</span><strong><?=e($formData['trade_name']?:'—')?></strong></div>
+       <div><span>CPF / CNPJ</span><strong><?=e($formData['document']?:'—')?></strong></div><div><span>E-mail</span><strong><?=e($formData['email']?:'—')?></strong></div>
+       <div><span>Telefone</span><strong><?=e(trim(($formData['phone_ddd']?:'').' '.($formData['phone_number']?:''))?:'—')?></strong></div><div><span>Vendedor</span><strong><?=e($sellerName?:'—')?></strong></div>
+       <div class="wide"><span>Endereço</span><strong><?=e(trim(($formData['address']??'').' '.($formData['address_number']??'').(($formData['complement']??'')?' • '.$formData['complement']:''))?:'—')?></strong><small><?=e(trim(($formData['neighborhood']??'').' • '.($formData['city']??'').' / '.($formData['uf']??''),' •/'))?><?=($formData['zip_code']??'')?' • CEP '.e($formData['zip_code']):''?></small></div>
+       <div class="wide"><span>Tags</span><div class="tdc-tags"><?php foreach(array_filter(array_map('trim',explode(',',(string)($formData['tags']??'')))) as $tag):?><span><?=e($tag)?></span><?php endforeach;?></div></div>
+       <div class="wide"><span>Observações</span><strong><?=nl2br(e($formData['notes']?:'—'))?></strong></div>
+      </div>
+     </section>
+     <section class="tdc-card">
+      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-headset"></i></span><div><strong>Registrar contato</strong><small>Atualize o relacionamento e programe o próximo passo.</small></div></div></div>
+      <form class="tdc-contact-form" method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><option value="contact">Contato realizado</option><option value="interested">Cliente interessado</option><option value="agreement">Venda encaminhada</option><option value="no_answer">Não atendeu</option></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="tdc-btn tdc-btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form>
+     </section>
     </div>
-   <?php else:?>
-    <div class="client-omie-linked"><i class="fa-solid fa-circle-check"></i><div><strong>Sincronizado com a Omie</strong><span>Cadastro vinculado ao código Omie <?=e((string)$client['omie_code'])?>. Não há alterações locais pendentes.</span></div></div>
-   <?php endif;?>
 
-   <div class="snapshot client-profile-stats"><div><span class="client-stat-icon green"><i class="fa-solid fa-wave-square"></i></span><small>Momento</small><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span class="client-stat-icon blue"><i class="fa-solid fa-chart-line"></i></span><small>Receita 12 meses</small><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span class="client-stat-icon yellow"><i class="fa-regular fa-calendar-check"></i></span><small>Última compra</small><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span class="client-stat-icon orange"><i class="fa-solid fa-cart-shopping"></i></span><small>Pedidos 12 meses</small><strong><?=(int)($client['orders_12m']??0)?></strong></div></div>
-
-   <div class="client-detail-grid">
-    <section class="panel client-detail-card">
-     <div class="client-section-title"><div class="client-section-icon"><i class="fa-solid fa-building"></i></div><div><span>Dados do cliente</span><small>Cadastro sincronizado com a Omie.</small></div></div>
-     <div class="client-data-grid">
-      <div><span>Razão social / Nome</span><strong><?=e($formData['legal_name']?:'—')?></strong></div>
-      <div><span>Nome fantasia</span><strong><?=e($formData['trade_name']?:'—')?></strong></div>
-      <div><span>CPF / CNPJ</span><strong><?=e($formData['document']?:'—')?></strong></div>
-      <div><span>E-mail</span><strong><?=e($formData['email']?:'—')?></strong></div>
-      <div><span>Telefone</span><strong><?=e(trim(($formData['phone_ddd']?:'').' '.($formData['phone_number']?:''))?:'—')?></strong></div>
-      <div><span>Vendedor</span><strong><?=e($sellerName?:'—')?></strong></div>
-      <div class="wide"><span>Endereço</span><strong><?=e(trim(($formData['address']??'').' '.($formData['address_number']??'').(($formData['complement']??'')?' • '.$formData['complement']:''))?:'—')?></strong><small><?=e(trim(($formData['neighborhood']??'').' • '.($formData['city']??'').' / '.($formData['uf']??''),' •/'))?><?=($formData['zip_code']??'')?' • CEP '.e($formData['zip_code']):''?></small></div>
-      <div class="wide"><span>Tags</span><div class="client-tags-view"><?php foreach(array_filter(array_map('trim',explode(',',(string)($formData['tags']??'')))) as $tag):?><b><?=e($tag)?></b><?php endforeach;?><?php if(empty(trim((string)($formData['tags']??'')))):?><strong>—</strong><?php endif;?></div></div>
-      <div class="wide"><span>Observações</span><strong class="normal-weight"><?=nl2br(e($formData['notes']?:'—'))?></strong></div>
-     </div>
-    </section>
-
-    <section class="panel client-contact-card"><div class="client-section-title"><div class="client-section-icon green"><i class="fa-solid fa-headset"></i></div><div><span>Registrar contato</span><small>Atualize o relacionamento e agende o próximo passo.</small></div></div><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><option value="contact">Contato realizado</option><option value="interested">Cliente interessado</option><option value="agreement">Venda encaminhada</option><option value="no_answer">Não atendeu</option></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4" placeholder="Registre contexto, objeções e próximos passos..."></textarea><button class="btn btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form></section>
-   </div>
-
-   <div class="management-columns mt-3">
-    <div class="panel client-history-card"><div class="client-history-head"><span><i class="fa-regular fa-comments"></i></span><div><h2>Últimos contatos</h2><small>Histórico de relacionamento</small></div></div><div class="timeline"><?php $resultLabels=['contact'=>'Contato realizado','interested'=>'Cliente interessado','agreement'=>'Venda encaminhada','no_answer'=>'Não atendeu'];foreach($activities as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div class="empty-state-small">Nenhum contato registrado.</div><?php endif;?></div></div>
-    <div class="panel client-history-card"><div class="client-history-head"><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><h2>Últimos pedidos</h2><small>Compras mais recentes</small></div></div><div class="simple-list"><?php foreach($orders as $o):?><div><a href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><strong><?=brdate($o['order_date'])?></strong><small>Pedido <?=e($o['number']??$o['omie_code'])?> · visualizar</small></a><strong><?=money($o['total'])?></strong></div><?php endforeach;?><?php if(!$orders):?><div class="empty-state-small">Nenhum pedido encontrado.</div><?php endif;?></div></div>
-   </div>
+    <div class="tdc-history-grid" id="tdc-history">
+     <section class="tdc-card"><div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-regular fa-comments"></i></span><div><strong>Últimos contatos</strong><small>Histórico de relacionamento.</small></div></div></div><div class="tdc-list"><?php $resultLabels=['contact'=>'Contato realizado','interested'=>'Cliente interessado','agreement'=>'Venda encaminhada','no_answer'=>'Não atendeu'];foreach($activities as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div>Nenhum contato registrado.</div><?php endif;?></div></section>
+     <section class="tdc-card" id="tdc-orders"><div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Últimos pedidos</strong><small>Compras mais recentes do cliente.</small></div></div></div><div class="tdc-list"><?php foreach($orders as $o):?><div><a href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><strong><?=brdate($o['order_date'])?> · <?=e($o['number']??$o['omie_code'])?></strong></a><small><?=money($o['total'])?></small></div><?php endforeach;?><?php if(!$orders):?><div>Nenhum pedido encontrado.</div><?php endif;?></div></section>
+    </div>
+   </section>
   <?php break;
+
   case 'orders':$success=$_SESSION['success']??null;$error=$_SESSION['error']??null;$periodQuery=(string)($period['query']??'');unset($_SESSION['success'],$_SESSION['error']);?>
    <div class="orders-experience">
    <div class="orders-topbar-tools" data-topbar-tools>
