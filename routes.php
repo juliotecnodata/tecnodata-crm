@@ -611,8 +611,35 @@ $router->post('/collection/{id}/assign',function($p){
 });
 $router->post('/collection/{id}/action',function($p){Auth::requireRole('admin','supervisor','collector');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();$case=DB::one("SELECT * FROM collection_cases WHERE client_id=?",[$id]);if(!$case)exit('Cobrança inválida.');$assigned=(int)($case['assigned_user_id']??0);if(Auth::can('admin','supervisor')&&!empty($_POST['assigned_user_id']))$assigned=(int)$_POST['assigned_user_id'];if($assigned<=0)$assigned=(int)$u['id'];DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,notes,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),(string)($_POST['result']??'contact'),(float)str_replace(',','.',(string)($_POST['amount']??0)),($_POST['promise_date']??'')?:null,trim((string)($_POST['notes']??''))]);if(!empty($_POST['promise_date']))DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'collection','Retorno de cobrança',?,'pending',NOW())",[$id,$assigned,$_POST['promise_date'].' 09:00:00']);redirect('/collection/'.$id);});
 
-$router->get('/agenda',function(){Auth::requireLogin();render('agenda',['rows'=>DB::all("SELECT t.*,c.name,c.uf FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.assigned_user_id=? AND t.status='pending' ORDER BY t.due_at",[Auth::id()])]);});
-$router->post('/agenda/{id}/done',function($p){Auth::requireLogin();CSRF::require($_POST['_token']??null);DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND assigned_user_id=?",[(int)$p['id'],Auth::id()]);redirect('/agenda');});
+$router->get('/agenda',function(){
+ Auth::requireLogin();
+ $u=Auth::user();$role=(string)$u['role'];
+ if(in_array($role,['admin','supervisor'],true)){
+  $filterUser=max(0,(int)($_GET['user_id']??0));
+  $where=["t.status='pending'"];$params=[];
+  if($filterUser>0){$where[]='t.assigned_user_id=?';$params[]=$filterUser;}
+  $rows=DB::all("SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
+                 FROM tasks t JOIN clients c ON c.id=t.client_id
+                 JOIN users u ON u.id=t.assigned_user_id
+                 WHERE ".implode(' AND ',$where)." ORDER BY t.due_at",$params);
+  $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN ('seller','collector') ORDER BY role,name");
+  render('agenda',['rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>true]);
+  return;
+ }
+ $rows=DB::all("SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
+                FROM tasks t JOIN clients c ON c.id=t.client_id
+                JOIN users u ON u.id=t.assigned_user_id
+                WHERE t.assigned_user_id=? AND t.status='pending' ORDER BY t.due_at",[(int)$u['id']]);
+ render('agenda',['rows'=>$rows,'agendaUsers'=>[],'agendaFilterUser'=>0,'teamAgenda'=>false]);
+});
+$router->post('/agenda/{id}/done',function($p){
+ Auth::requireLogin();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();
+ if(in_array((string)$u['role'],['admin','supervisor'],true))DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=?",[(int)$p['id']]);
+ else DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND assigned_user_id=?",[(int)$p['id'],(int)$u['id']]);
+ $q=max(0,(int)($_POST['user_id']??0));
+ redirect('/agenda'.($q>0?'?user_id='.$q:''));
+});
 
 $router->get('/settings',function(){
  Auth::requireRole('admin');
