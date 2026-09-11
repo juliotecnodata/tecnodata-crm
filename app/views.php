@@ -181,17 +181,17 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
-   <section class="client-editor-premium"><header class="client-editor-premium-head">
+   <div class="page-head client-editor-head">
     <div class="clients-page-title"><span class="clients-title-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span><div><span class="eyebrow"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Revise os dados antes de salvar. As alterações confirmadas seguem para a Omie.':'Cadastre com agilidade usando as consultas automáticas de CNPJ e CEP.'?></p></div></div>
     <a class="btn btn-outline-secondary" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a>
-   </header>
+   </div>
 
-   <div class="client-editor-premium-layout"><aside class="client-editor-premium-steps"><div class="client-editor-premium-step-intro"><span>CADASTRO</span><strong><?=$editClient?'Editar cliente':'Novo cliente'?></strong><small>Preencha as informações por bloco. Os campos obrigatórios estão sinalizados.</small></div><div class="client-editor-flow" aria-label="Etapas do cadastro">
+   <div class="client-editor-flow" aria-label="Etapas do cadastro">
     <div class="active"><b>1</b><span><strong>Identificação</strong><small>Documento e contato</small></span></div><i></i>
     <div><b>2</b><span><strong>Endereço</strong><small>Localização completa</small></span></div><i></i>
     <div><b>3</b><span><strong>Comercial</strong><small>Vendedor e preferências</small></span></div><i></i>
     <div><b>4</b><span><strong>Conferência</strong><small>Salvar e integrar</small></span></div>
-   </div></aside><main class="client-editor-premium-main">
+   </div>
 
    <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
    <?php if($editError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($editError)?></div><?php endif;?>
@@ -296,7 +296,7 @@ function render(string $name,array $vars=[]): void{
       <?php endif;?>
      </div>
     </div>
-   </form></main></div></section>
+   </form>
   <?php break;
 
   case 'client':
@@ -305,7 +305,7 @@ function render(string $name,array $vars=[]): void{
    $omieStatus=is_array($clientRaw)?(string)($clientRaw['omie_status']??''):'';
    $pendingOmie=$isLocal||in_array($omieStatus,['pending','pending_update'],true);
    ?>
-   <section class="client-profile-premium"><header class="client-profile-premium-head">
+   <div class="page-head client-profile-head">
     <div class="client-profile-identity"><span class="client-profile-avatar"><?=e(mb_strtoupper(mb_substr((string)$client['name'],0,1)))?></span><div><a class="back" href="<?=APP_URL?>/clients<?=!empty($sharedUnassigned)?'?scope=unassigned':''?>"><i class="fa-solid fa-arrow-left"></i> Carteira de clientes</a><h1><?=e($client['name'])?></h1><p><span><i class="fa-solid fa-location-dot"></i><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /')?:'Localização não informada')?></span><span><i class="fa-regular fa-id-card"></i><?=e($client['document']?:'Documento não informado')?></span><span><i class="fa-solid fa-cloud"></i><?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></span></p></div></div>
     <div class="page-head-actions client-profile-actions">
      <?php if(!empty($sharedUnassigned)):?>
@@ -319,7 +319,7 @@ function render(string $name,array $vars=[]): void{
      </div></details>
      <?php endif;?>
     </div>
-   </header>
+   </div>
    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
    <?php if(!empty($sharedUnassigned)):?>
     <div class="client-claim-banner"><span><i class="fa-solid fa-users"></i></span><div><strong>Cliente compartilhado, sem vendedor</strong><p>Qualquer vendedor pode atender, registrar contatos e criar pedidos. Somente admin ou supervisor pode vinculá-lo a uma carteira.</p></div></div>
@@ -336,9 +336,7 @@ function render(string $name,array $vars=[]): void{
     <div class="client-omie-linked"><i class="fa-solid fa-circle-check"></i><div><strong>Sincronizado com a Omie</strong><span>Cadastro vinculado ao código Omie <?=e((string)$client['omie_code'])?>. Não há alterações locais pendentes.</span></div></div>
    <?php endif;?>
 
-   <div class="client-profile-tabs-premium"><a class="active" href="#client-overview"><i class="fa-solid fa-table-columns"></i>Visão geral</a><a href="#client-history"><i class="fa-regular fa-comments"></i>Histórico</a><a href="#client-orders"><i class="fa-solid fa-receipt"></i>Pedidos</a></div>
-
-   <div id="client-overview" class="snapshot client-profile-stats"><div><span class="client-stat-icon green"><i class="fa-solid fa-wave-square"></i></span><small>Momento</small><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span class="client-stat-icon blue"><i class="fa-solid fa-chart-line"></i></span><small>Receita 12 meses</small><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span class="client-stat-icon yellow"><i class="fa-regular fa-calendar-check"></i></span><small>Última compra</small><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span class="client-stat-icon orange"><i class="fa-solid fa-cart-shopping"></i></span><small>Pedidos 12 meses</small><strong><?=(int)($client['orders_12m']??0)?></strong></div></div>
+   <div class="snapshot client-profile-stats"><div><span class="client-stat-icon green"><i class="fa-solid fa-wave-square"></i></span><small>Momento</small><strong><span class="cycle cycle-<?=e($cycle['status'])?>"><?=e($cycle['label'])?></span></strong></div><div><span class="client-stat-icon blue"><i class="fa-solid fa-chart-line"></i></span><small>Receita 12 meses</small><strong><?=money($client['revenue_12m']??0)?></strong></div><div><span class="client-stat-icon yellow"><i class="fa-regular fa-calendar-check"></i></span><small>Última compra</small><strong><?=brdate($client['last_purchase_at']??null)?></strong></div><div><span class="client-stat-icon orange"><i class="fa-solid fa-cart-shopping"></i></span><small>Pedidos 12 meses</small><strong><?=(int)($client['orders_12m']??0)?></strong></div></div>
 
    <div class="client-detail-grid">
     <section class="panel client-detail-card">
@@ -359,10 +357,10 @@ function render(string $name,array $vars=[]): void{
     <section class="panel client-contact-card"><div class="client-section-title"><div class="client-section-icon green"><i class="fa-solid fa-headset"></i></div><div><span>Registrar contato</span><small>Atualize o relacionamento e agende o próximo passo.</small></div></div><form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><option value="contact">Contato realizado</option><option value="interested">Cliente interessado</option><option value="agreement">Venda encaminhada</option><option value="no_answer">Não atendeu</option></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4" placeholder="Registre contexto, objeções e próximos passos..."></textarea><button class="btn btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form></section>
    </div>
 
-   <div id="client-history" class="management-columns mt-3">
+   <div class="management-columns mt-3">
     <div class="panel client-history-card"><div class="client-history-head"><span><i class="fa-regular fa-comments"></i></span><div><h2>Últimos contatos</h2><small>Histórico de relacionamento</small></div></div><div class="timeline"><?php $resultLabels=['contact'=>'Contato realizado','interested'=>'Cliente interessado','agreement'=>'Venda encaminhada','no_answer'=>'Não atendeu'];foreach($activities as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div class="empty-state-small">Nenhum contato registrado.</div><?php endif;?></div></div>
     <div class="panel client-history-card"><div class="client-history-head"><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><h2>Últimos pedidos</h2><small>Compras mais recentes</small></div></div><div class="simple-list"><?php foreach($orders as $o):?><div><a href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><strong><?=brdate($o['order_date'])?></strong><small>Pedido <?=e($o['number']??$o['omie_code'])?> · visualizar</small></a><strong><?=money($o['total'])?></strong></div><?php endforeach;?><?php if(!$orders):?><div class="empty-state-small">Nenhum pedido encontrado.</div><?php endif;?></div></div>
-   </div></section>
+   </div>
   <?php break;
   case 'orders':$success=$_SESSION['success']??null;$error=$_SESSION['error']??null;$periodQuery=(string)($period['query']??'');unset($_SESSION['success'],$_SESSION['error']);?>
    <div class="orders-experience">
