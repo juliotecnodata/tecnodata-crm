@@ -50,13 +50,31 @@ final class OrderPolicy {
   $p=$tableAlias!==''?$tableAlias.'.':'';
   return "(COALESCE({$p}total,0)+COALESCE(CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT({$p}raw_json,'$.frete.valor_frete')),'') AS DECIMAL(18,2)),0))";
  }
- public static function validReportSql(string $stageColumn='stage_code',string $statusColumn='status'): array{
-  if(!preg_match('/^[a-zA-Z0-9_.]+$/',$statusColumn))throw new InvalidArgumentException('Coluna de status inválida.');
+ public static function validReportSql(string $stageColumn='stage_code',string $statusColumn='status',string $rawJsonColumn='raw_json'): array{
+  foreach([$stageColumn,$statusColumn,$rawJsonColumn] as $column)if(!preg_match('/^[a-zA-Z0-9_.]+$/',$column))throw new InvalidArgumentException('Coluna de pedidos inválida.');
   [$stageSql,$params]=self::outsideBudgetSql($stageColumn);
   $ignored=array_values(array_unique(array_map(static fn($value)=>mb_strtoupper(trim((string)$value)),(array)($GLOBALS['config']['omie']['ignored_order_statuses']??['CANCELADO','CANCELADA','DEVOLVIDO','DEVOLVIDA','DENEGADO']))));
   $ignored=array_values(array_filter($ignored,static fn($value)=>$value!==''));
-  if(!$ignored)return [$stageSql,$params];
-  return ['('.$stageSql.' AND UPPER(TRIM(COALESCE('.$statusColumn.",''))) NOT IN (".implode(',',array_fill(0,count($ignored),'?')).'))',array_merge($params,$ignored)];
+
+  $parts=[$stageSql];
+
+  if($ignored){
+   $parts[]='UPPER(TRIM(COALESCE('.$statusColumn.",''))) NOT IN (".implode(',',array_fill(0,count($ignored),'?')).')';
+   $params=array_merge($params,$ignored);
+  }
+
+  // Métrica comercial: somente Pedido OK.
+  // Proposta/Orçamento e pedidos originados do Omie PDV não entram no realizado.
+  $rawText="UPPER(COALESCE(CAST(".$rawJsonColumn." AS CHAR),''))";
+  $parts[]=$rawText." NOT LIKE '%PROPOSTA%'";
+  $parts[]=$rawText." NOT LIKE '%ORCAMENTO%'";
+  $parts[]=$rawText." NOT LIKE '%ORÇAMENTO%'";
+  $parts[]=$rawText." NOT LIKE '%OMIEPDV%'";
+  $parts[]=$rawText." NOT LIKE '%OMIE PDV%'";
+  $parts[]=$rawText." NOT LIKE '%\"PDV\"%'";
+  $parts[]=$rawText." NOT LIKE '%\"PDV\":\"S\"%'";
+
+  return ['('.implode(' AND ',$parts).')',$params];
  }
 }
 
