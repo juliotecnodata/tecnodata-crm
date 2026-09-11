@@ -268,113 +268,68 @@ function render(string $name,array $vars=[]): void{
   <?php break;
 
   case 'orders':$success=$_SESSION['success']??null;$error=$_SESSION['error']??null;$periodQuery=(string)($period['query']??'');unset($_SESSION['success'],$_SESSION['error']);?>
-   <div class="orders-experience">
-   <div class="orders-topbar-tools" data-topbar-tools>
-     <div class="orders-topbar-period" title="Período exibido">
-      <i class="fa-regular fa-calendar-check"></i><span><small>Período</small><strong><?=e((string)($period['label']??''))?></strong></span>
+   <section class="tdo-page">
+    <header class="tdo-head">
+     <div class="tdo-head-main">
+      <span class="tdo-head-icon"><i class="fa-solid fa-receipt"></i></span>
+      <div><span class="tdo-kicker">COMERCIAL / PEDIDOS</span><h1>Pedidos</h1><p>Acompanhe pedidos sincronizados, propostas, etapas, vendedores e valores do período.</p></div>
      </div>
-     <details class="orders-period-picker">
-      <summary class="orders-topbar-month-button" title="Escolher período"><i class="fa-regular fa-calendar"></i><span>Escolher período</span><i class="fa-solid fa-chevron-down"></i></summary>
-      <form method="get" class="orders-period-popover">
-       <input type="hidden" name="view" value="<?=e($view)?>">
-       <input type="hidden" name="stage" value="<?=e($stageFilter??'')?>">
-       <div class="period-range-fields"><label>Data inicial<input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??date('Y-m-01')))?>" required></label><label>Data final<input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??date('Y-m-t')))?>" required></label></div>
-       <div class="orders-period-buttons">
-        <button class="btn btn-primary" type="submit">Aplicar</button>
-        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/orders?view=<?=e($view)?>&stage=<?=e($stageFilter??'')?>">Mês atual</a>
-        <a class="btn btn-light" href="<?=APP_URL?>/orders?period=all&view=<?=e($view)?>&stage=<?=e($stageFilter??'')?>">Todos</a>
-       </div>
-      </form>
-     </details>
-     <a class="orders-topbar-new-button" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i><span>Novo pedido<small>Criar na Omie</small></span></a>
-   </div>
+     <div class="tdo-head-actions">
+      <div class="tdo-period"><i class="fa-regular fa-calendar-check"></i><div><small>Período</small><strong><?=e((string)($period['label']??''))?></strong></div></div>
+      <details class="tdo-period-picker"><summary class="tdo-btn"><i class="fa-regular fa-calendar"></i>Escolher período<i class="fa-solid fa-chevron-down"></i></summary><form method="get" class="tdo-period-popover"><input type="hidden" name="view" value="<?=e($view)?>"><input type="hidden" name="stage" value="<?=e($stageFilter??'')?>"><div class="grid"><label><span>Data inicial</span><input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??date('Y-m-01')))?>" required></label><label><span>Data final</span><input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??date('Y-m-t')))?>" required></label></div><div class="actions"><button class="tdo-btn tdo-btn-primary" type="submit">Aplicar</button><a class="tdo-btn" href="<?=APP_URL?>/orders?view=<?=e($view)?>&stage=<?=e($stageFilter??'')?>">Mês atual</a><a class="tdo-btn" href="<?=APP_URL?>/orders?period=all&view=<?=e($view)?>&stage=<?=e($stageFilter??'')?>">Todos</a></div></form></details>
+      <a class="tdo-btn tdo-btn-primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-plus"></i>Novo pedido</a>
+     </div>
+    </header>
 
-   <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
-   <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
+    <?php if($success):?><div class="alert alert-success"><?=e($success)?></div><?php endif;?>
+    <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
 
-   <?php if(!empty($drafts)):?>
-    <section class="orders-drafts-panel">
-     <div class="orders-drafts-head">
-      <div><span class="orders-kpi-icon yellow"><i class="fa-regular fa-floppy-disk"></i></span><span><strong>Rascunhos locais</strong><small>Pedidos ainda não enviados para a Omie.</small></span></div>
-      <b><?=count($drafts)?></b>
-     </div>
-     <div class="orders-drafts-list">
-      <?php foreach($drafts as $d):?>
-       <div class="orders-draft-row">
-        <div class="orders-draft-main">
-         <strong><?=e($d['client_name']??'Pedido sem cliente definido')?></strong>
-         <small>Salvo por <?=e($d['author_name']??'—')?> • atualizado <?=date('d/m/Y H:i',strtotime($d['updated_at']))?></small>
-        </div>
-        <div><span>Vendedor</span><strong><?=e($d['seller_name']??($d['seller_omie_code']??'Não definido'))?></strong></div>
-        <div><span>Total estimado</span><strong><?=money($d['total'])?></strong></div>
-        <div class="orders-draft-actions">
-         <a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/orders/new?draft_id=<?=(int)$d['id']?>"><i class="fa-regular fa-pen-to-square"></i>Continuar</a>
-         <form method="post" action="<?=APP_URL?>/orders/drafts/<?=(int)$d['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" data-confirm="Excluir este rascunho local?"><i class="fa-regular fa-trash-can"></i></button></form>
-        </div>
-       </div>
-      <?php endforeach;?>
-     </div>
+    <?php if(!empty($drafts)):?>
+    <section class="tdo-drafts">
+     <div class="tdo-drafts-head"><div class="tdo-drafts-title"><span><i class="fa-regular fa-floppy-disk"></i></span><div><strong>Rascunhos locais</strong><small>Pedidos ainda não enviados para a Omie.</small></div></div><b><?=count($drafts)?></b></div>
+     <?php foreach($drafts as $d):?><div class="tdo-draft-row"><div class="tdo-draft-main"><strong><?=e($d['client_name']??'Pedido sem cliente definido')?></strong><small>Salvo por <?=e($d['author_name']??'—')?> · atualizado <?=date('d/m/Y H:i',strtotime($d['updated_at']))?></small></div><div><span>Vendedor</span><strong><?=e($d['seller_name']??($d['seller_omie_code']??'Não definido'))?></strong></div><div><span>Total estimado</span><strong><?=money($d['total'])?></strong></div><div class="tdo-draft-actions"><a class="tdo-btn" href="<?=APP_URL?>/orders/new?draft_id=<?=(int)$d['id']?>"><i class="fa-regular fa-pen-to-square"></i>Continuar</a><form method="post" action="<?=APP_URL?>/orders/drafts/<?=(int)$d['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" data-confirm="Excluir este rascunho local?"><i class="fa-regular fa-trash-can"></i></button></form></div></div><?php endforeach;?>
     </section>
-   <?php endif;?>
+    <?php endif;?>
 
-   <div class="orders-summary-grid">
-    <div class="orders-summary-primary"><span class="orders-kpi-icon blue"><i class="fa-solid fa-receipt"></i></span><p><?=$view==='budget'?'Orçamentos em análise':'Pedidos encontrados'?></p><strong><?=number_format((int)$totalRows,0,',','.')?></strong><small><?=e((string)($period['label']??''))?></small></div>
-    <div><span class="orders-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p><?=$view==='budget'?'Valor em orçamento':'Pedidos OK'?></p><strong><?=money($view==='budget'?$budgetValue:$total)?></strong><small><?=$view==='budget'?'fora do realizado e da meta':'sem PDV, orçamentos e cancelados'?></small></div>
-    <div><span class="orders-kpi-icon teal"><i class="fa-solid fa-circle-check"></i></span><p>Faturados</p><strong><?=(int)$billed?></strong><small>pedidos já faturados</small></div>
-    <div><span class="orders-kpi-icon yellow"><i class="fa-solid fa-clock"></i></span><p>Em andamento</p><strong><?=(int)$active?></strong><small>ativos no período</small></div>
-    <div><span class="orders-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Cancelados</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
-   </div>
-
-   <section class="orders-table-shell">
-   <div class="orders-table-head">
-    <nav class="orders-view-tabs orders-table-tabs" aria-label="Tipos de pedido">
-     <a class="<?=$view==='all'?'active':''?>" href="<?=APP_URL?>/orders?<?=e($periodQuery)?>&view=all"><span class="orders-view-icon"><i class="fa-solid fa-circle-check"></i></span><span><strong>Pedidos Confirmados</strong><small>Pedidos OK</small></span><b><?=number_format((int)$allOrders,0,',','.')?></b></a>
-     <a class="budget <?=$view==='budget'?'active':''?>" href="<?=APP_URL?>/orders?<?=e($periodQuery)?>&view=budget"><span class="orders-view-icon"><i class="fa-solid fa-file-signature"></i></span><span><strong>Em orçamento</strong><small>Propostas</small></span><span class="orders-view-metric"><b><?=number_format((int)$budgetOrders,0,',','.')?></b><small><?=money($budgetValue)?></small></span></a>
-    </nav>
-    <form class="orders-stage-filter" method="get">
-     <?php if(!empty($period['all'])):?><input type="hidden" name="period" value="all"><?php else:?><input type="hidden" name="date_from" value="<?=e((string)$period['from'])?>"><input type="hidden" name="date_to" value="<?=e((string)$period['to'])?>"><?php endif;?><input type="hidden" name="view" value="<?=e($view)?>">
-     <span><i class="fa-solid fa-filter"></i> Filtrar por etapa</span>
-     <div class="orders-stage-radios"><label class="<?=($stageFilter??'')===''?'active':''?>"><input type="radio" name="stage" value="" <?=($stageFilter??'')===''?'checked':''?> onchange="this.form.submit()"><span>Todas</span></label><?php foreach($stages??[] as $stage):$code=(string)$stage['code'];$stageIsBudget=in_array($code,$budgetCodes??['00','10'],true);if(($view==='budget'&&!$stageIsBudget)||($view==='all'&&$stageIsBudget))continue;?><label class="<?=($stageFilter??'')===$code?'active':''?>"><input type="radio" name="stage" value="<?=e($code)?>" <?=($stageFilter??'')===$code?'checked':''?> onchange="this.form.submit()"><span><b><?=e($code)?></b><?=e($stage['name'])?></span></label><?php endforeach;?></div>
-    </form>
-   </div>
-
-   <?php if(!$orders):?>
-    <div class="orders-empty-state">
-     <span><i class="fa-solid fa-receipt"></i></span>
-     <div><strong><?=$view==='budget'?'Nenhum pedido em orçamento neste período':'Nenhum pedido encontrado neste período'?></strong><p><?=$view==='budget'?'Não há propostas na etapa de orçamento para analisar. Escolha outro mês ou volte à visão completa.':'Escolha outro mês ou consulte todos os períodos. Se necessário, atualize Pedidos pela Central de Sincronização.'?></p></div>
-     <a class="btn btn-outline-secondary" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a>
-    </div>
-   <?php else:?>
-    <div class="orders-table-toolbar">
-     <div><i class="fa-solid <?=$view==='budget'?'fa-magnifying-glass-chart':'fa-table-list'?>"></i><span><strong><?=$view==='budget'?'Fila de análise de orçamentos':'Pedidos sincronizados'?></strong><small><?=$view==='budget'?'Revise cliente, vendedor, etapa, data e valor de cada proposta.':'Use a busca para localizar pedido, cliente, vendedor, etapa ou status.'?></small></span></div>
-     <?php if($withoutSeller>0):?><div class="orders-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> pedido(s) sem vendedor</div><?php endif;?>
+    <div class="tdo-kpis">
+     <article class="tdo-kpi blue"><div class="tdo-kpi-top"><span class="tdo-kpi-icon"><i class="fa-solid fa-receipt"></i></span></div><small><?=$view==='budget'?'Orçamentos em análise':'Pedidos encontrados'?></small><strong><?=number_format((int)$totalRows,0,',','.')?></strong><p><?=e((string)($period['label']??''))?></p></article>
+     <article class="tdo-kpi green"><div class="tdo-kpi-top"><span class="tdo-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span></div><small><?=$view==='budget'?'Valor em orçamento':'Pedidos OK'?></small><strong><?=money($view==='budget'?$budgetValue:$total)?></strong><p><?=$view==='budget'?'Fora das métricas oficiais':'Somente pedidos válidos'?></p></article>
+     <article class="tdo-kpi teal"><div class="tdo-kpi-top"><span class="tdo-kpi-icon"><i class="fa-solid fa-circle-check"></i></span></div><small>Faturados</small><strong><?=(int)$billed?></strong><p>Pedidos já faturados</p></article>
+     <article class="tdo-kpi yellow"><div class="tdo-kpi-top"><span class="tdo-kpi-icon"><i class="fa-solid fa-clock"></i></span></div><small>Em andamento</small><strong><?=(int)$active?></strong><p>Ativos no período</p></article>
+     <article class="tdo-kpi red"><div class="tdo-kpi-top"><span class="tdo-kpi-icon"><i class="fa-solid fa-ban"></i></span></div><small>Cancelados</small><strong><?=(int)$cancelled?></strong><p>Fora do resultado</p></article>
     </div>
 
-    <div class="table-card orders-table-card">
-     <table class="table orders-datatable" data-page-length="5" data-length-change="1" data-order-column="3" data-order-direction="desc">
-      <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
-      <tbody>
-      <?php foreach($orders as $o):
-       $status=(string)($o['status']??'ATIVO');$upper=mb_strtoupper($status);
-       $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':(in_array((string)($o['stage_code']??''),$budgetCodes??['00','10'],true)?'budget':'active'));
-      ?>
-       <tr>
-        <td><a class="order-code-cell" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><span class="order-code-icon"><i class="fa-solid fa-receipt"></i></span><span><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></span></a></td>
-        <td><strong><?=e($o['client_name']??($o['client_omie_code']??'—'))?></strong><?php if(!empty($o['client_name'])&&!empty($o['client_omie_code'])):?><small><?=e($o['client_omie_code'])?></small><?php endif;?></td>
-        <td><?php if(!empty($o['seller_name'])):?><strong><?=e($o['seller_name'])?></strong><small><?=e($o['seller_omie_code'])?></small><?php elseif(!empty($o['seller_omie_code'])):?><strong><?=e($o['seller_omie_code'])?></strong><small>código do vendedor</small><?php else:?><span class="order-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
-        <td data-order="<?=e((string)$o['order_date'])?>"><?=brdate($o['order_date'])?></td>
-        <td><span class="order-stage"><strong><?=e($o['stage_name']??($o['stage_code']??'—'))?></strong><?php if(!empty($o['stage_name'])&&!empty($o['stage_code'])):?><small><?=e($o['stage_code'])?></small><?php endif;?></span></td>
-        <td><span class="order-status order-status-<?=$statusClass?>"><?=e($status)?></span></td>
-        <td class="text-end"><strong class="<?=$statusClass==='cancelled'?'text-secondary':''?>"><?=money($o['total'])?></strong></td>
-        <td class="text-end"><div class="table-actions"><a class="btn btn-sm btn-light" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>" title="Visualizar pedido" aria-label="Visualizar pedido"><i class="fa-regular fa-eye"></i></a><?php if($statusClass==='budget'):?><a class="btn btn-sm btn-light" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/edit" title="Editar orçamento e atualizar na Omie" aria-label="Editar orçamento"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><a class="btn btn-sm btn-light" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/duplicate" title="Duplicar pedido" aria-label="Duplicar pedido"><i class="fa-regular fa-copy"></i></a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$o['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light danger" type="submit" title="Excluir pedido" aria-label="Excluir pedido" data-submit-loading="Excluindo..." data-confirm="Excluir definitivamente o pedido <?=e($o['number']??$o['omie_code'])?> da Omie e do CRM? Esta ação não pode ser desfeita."><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
-       </tr>
-      <?php endforeach;?>
-      </tbody>
-     </table>
-    </div>
-   <?php endif;?>
+    <section class="tdo-shell">
+     <div class="tdo-shell-top">
+      <nav class="tdo-tabs" aria-label="Tipos de pedido">
+       <a class="tdo-tab <?=$view==='all'?'active':''?>" href="<?=APP_URL?>/orders?<?=e($periodQuery)?>&view=all"><span class="tdo-tab-icon"><i class="fa-solid fa-circle-check"></i></span><span><strong>Pedidos confirmados</strong><small>Pedidos OK</small></span><b><?=number_format((int)$allOrders,0,',','.')?></b></a>
+       <a class="tdo-tab budget <?=$view==='budget'?'active':''?>" href="<?=APP_URL?>/orders?<?=e($periodQuery)?>&view=budget"><span class="tdo-tab-icon"><i class="fa-solid fa-file-signature"></i></span><span><strong>Em orçamento</strong><small>Propostas</small></span><span class="tdo-tab-metric"><b><?=number_format((int)$budgetOrders,0,',','.')?></b><small><?=money($budgetValue)?></small></span></a>
+      </nav>
+      <form class="tdo-stage-filter" method="get"><?php if(!empty($period['all'])):?><input type="hidden" name="period" value="all"><?php else:?><input type="hidden" name="date_from" value="<?=e((string)$period['from'])?>"><input type="hidden" name="date_to" value="<?=e((string)$period['to'])?>"><?php endif;?><input type="hidden" name="view" value="<?=e($view)?>"><span><i class="fa-solid fa-filter"></i>Filtrar por etapa</span><div class="tdo-stage-radios"><label class="<?=($stageFilter??'')===''?'active':''?>"><input type="radio" name="stage" value="" <?=($stageFilter??'')===''?'checked':''?> onchange="this.form.submit()"><span>Todas</span></label><?php foreach($stages??[] as $stage):$code=(string)$stage['code'];$stageIsBudget=in_array($code,$budgetCodes??['00','10'],true);if(($view==='budget'&&!$stageIsBudget)||($view==='all'&&$stageIsBudget))continue;?><label class="<?=($stageFilter??'')===$code?'active':''?>"><input type="radio" name="stage" value="<?=e($code)?>" <?=($stageFilter??'')===$code?'checked':''?> onchange="this.form.submit()"><span><b><?=e($code)?></b><?=e($stage['name'])?></span></label><?php endforeach;?></div></form>
+     </div>
+
+     <?php if(!$orders):?>
+      <div class="tdo-empty"><span><i class="fa-solid fa-receipt"></i></span><div><strong><?=$view==='budget'?'Nenhum pedido em orçamento neste período':'Nenhum pedido encontrado neste período'?></strong><p><?=$view==='budget'?'Não há propostas para analisar. Escolha outro período ou volte aos pedidos confirmados.':'Escolha outro período ou atualize a sincronização de pedidos.'?></p></div><a class="tdo-btn" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a></div>
+     <?php else:?>
+      <div class="tdo-table-head"><div class="tdo-table-title"><span><i class="fa-solid <?=$view==='budget'?'fa-magnifying-glass-chart':'fa-table-list'?>"></i></span><div><strong><?=$view==='budget'?'Fila de propostas':'Pedidos sincronizados'?></strong><small><?=$view==='budget'?'Revise cliente, vendedor, etapa, data e valor.':'Use a busca para localizar pedido, cliente, vendedor, etapa ou status.'?></small></div></div><?php if($withoutSeller>0):?><div class="tdo-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> pedido(s) sem vendedor</div><?php endif;?></div>
+      <div class="table-card tdo-table-wrap">
+       <table class="table orders-datatable tdo-table" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
+        <tbody><?php foreach($orders as $o):$status=(string)($o['status']??'ATIVO');$upper=mb_strtoupper($status);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':(in_array((string)($o['stage_code']??''),$budgetCodes??['00','10'],true)?'budget':'active'));?><tr>
+         <td><a class="tdo-order-cell" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><span class="tdo-order-icon"><i class="fa-solid fa-receipt"></i></span><span><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></span></a></td>
+         <td><strong><?=e($o['client_name']??($o['client_omie_code']??'—'))?></strong><?php if(!empty($o['client_name'])&&!empty($o['client_omie_code'])):?><small><?=e($o['client_omie_code'])?></small><?php endif;?></td>
+         <td><?php if(!empty($o['seller_name'])):?><strong><?=e($o['seller_name'])?></strong><small><?=e($o['seller_omie_code'])?></small><?php elseif(!empty($o['seller_omie_code'])):?><strong><?=e($o['seller_omie_code'])?></strong><small>código do vendedor</small><?php else:?><span class="tdo-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
+         <td data-order="<?=e((string)$o['order_date'])?>"><?=brdate($o['order_date'])?></td>
+         <td><span class="tdo-stage"><strong><?=e($o['stage_name']??($o['stage_code']??'—'))?></strong><?php if(!empty($o['stage_name'])&&!empty($o['stage_code'])):?><small><?=e($o['stage_code'])?></small><?php endif;?></span></td>
+         <td><span class="tdo-status <?=$statusClass?>"><?=e($status)?></span></td>
+         <td class="text-end"><strong><?=money($o['total'])?></strong></td>
+         <td><div class="tdo-actions"><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><?php if($statusClass==='budget'):?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/edit" title="Editar proposta"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$o['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" title="Excluir" data-confirm="Excluir definitivamente o pedido <?=e($o['number']??$o['omie_code'])?> da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
+        </tr><?php endforeach;?></tbody>
+       </table>
+      </div>
+     <?php endif;?>
+    </section>
    </section>
-   </div>
   <?php break;
   case 'order_detail':
    $order=$detail['order'];$raw=$detail['raw'];$items=$detail['items'];$header=(array)($raw['cabecalho']??[]);$info=(array)($raw['informacoes_adicionais']??[]);$freight=(array)($raw['frete']??[]);$registration=(array)($raw['infoCadastro']??[]);$installments=(array)($raw['lista_parcelas']['parcela']??[]);$status=(string)($order['status']??'ATIVO');$upper=mb_strtoupper($status);$isBudget=in_array((string)($order['stage_code']??''),OrderPolicy::budgetStageCodes(),true);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')||($registration['faturado']??'N')==='S'?'billed':($isBudget?'budget':'active'));$actionError=$_SESSION['error']??null;$actionSuccess=$_SESSION['success']??null;unset($_SESSION['error'],$_SESSION['success']);?>
@@ -907,7 +862,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
