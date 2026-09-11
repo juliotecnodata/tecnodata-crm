@@ -892,3 +892,9 @@ label,.btn,.table thead th{font-weight:600!important}
  }
  body.sidebar-collapsed .tdcrm-menu-button{display:grid!important}
 }
+
+
+/* Hambúrguer sempre disponível no desktop para abrir/fechar a sidebar */
+@media(min-width:901px){
+ .tdcrm-menu-button{display:grid!important}
+}
