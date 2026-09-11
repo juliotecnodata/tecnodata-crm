@@ -1,0 +1,72 @@
+/* Tecnodata CRM — Serviços V2 */
+:root{
+ --tds-navy:#0b2433;--tds-lime:#BDD630;--tds-green:#009657;--tds-blue:#0A84E8;
+ --tds-yellow:#F2B705;--tds-orange:#EA5127;--tds-red:#E53935;--tds-slate:#607D8B;
+ --tds-bg:#F5F8FB;--tds-card:#fff;--tds-line:#DCE5EC;--tds-line2:#C9D5DE;
+ --tds-text:#122634;--tds-muted:#6F808D;
+}
+.tds-page{display:grid;gap:18px;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--tds-text)}
+.tds-page *{letter-spacing:0!important;box-shadow:none!important}
+.tds-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.tds-head-main{display:flex;align-items:flex-start;gap:13px}
+.tds-head-icon{width:48px;height:48px;display:grid;place-items:center;flex:0 0 48px;border-radius:10px;background:#EAF5FD;color:var(--tds-blue);border:1px solid #CFE7F7;font-size:19px}
+.tds-kicker{display:block;margin-bottom:3px;font-size:11px;font-weight:700;color:var(--tds-green)}
+.tds-head h1{margin:0;font-size:30px;line-height:1.12;font-weight:800;color:var(--tds-text)}
+.tds-head p{margin:5px 0 0;font-size:13px;line-height:1.45;color:var(--tds-muted)}
+.tds-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tds-period{display:flex;align-items:center;gap:9px;min-height:40px;padding:0 12px;border:1px solid var(--tds-line);border-radius:9px;background:#fff}
+.tds-period i{color:var(--tds-blue)}
+.tds-period small{display:block;font-size:10px;color:var(--tds-muted)}
+.tds-period strong{display:block;font-size:12px;color:var(--tds-text)}
+.tds-period-picker{position:relative}
+.tds-period-picker summary{list-style:none;cursor:pointer}
+.tds-period-picker summary::-webkit-details-marker{display:none}
+.tds-btn{min-height:40px;padding:0 14px;border:1px solid var(--tds-line2);border-radius:9px;background:#fff;color:#4A5E6C;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.tds-btn-primary{background:var(--tds-green);border-color:var(--tds-green);color:#fff}
+.tds-period-popover{position:absolute;right:0;top:48px;z-index:50;width:360px;padding:14px;border:1px solid var(--tds-line);border-radius:10px;background:#fff}
+.tds-period-popover .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tds-period-popover label{font-size:11px;font-weight:700;color:#506473}
+.tds-period-popover label span{display:block;margin-bottom:5px}
+.tds-period-popover .form-control{min-height:40px!important;border:1px solid var(--tds-line2)!important;border-radius:8px!important;font-size:12px!important}
+.tds-period-popover .actions{display:flex;gap:8px;margin-top:12px}
+.tds-health{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tds-health>div{padding:11px 13px;border:1px solid var(--tds-line);border-radius:9px;background:#fff}
+.tds-health span{display:block;font-size:10px;color:var(--tds-muted)}
+.tds-health strong{display:block;margin-top:2px;font-size:15px;color:var(--tds-text)}
+.tds-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.tds-kpi{min-height:112px;padding:15px;border:1px solid var(--tds-line);border-radius:10px;background:#fff}
+.tds-kpi-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:9px;margin-bottom:9px}
+.tds-kpi.blue .tds-kpi-icon{background:#EAF5FD;color:var(--tds-blue)}
+.tds-kpi.green .tds-kpi-icon{background:#E9F8F0;color:var(--tds-green)}
+.tds-kpi.slate .tds-kpi-icon{background:#EEF3F6;color:var(--tds-slate)}
+.tds-kpi.red .tds-kpi-icon{background:#FDEEEE;color:var(--tds-red)}
+.tds-kpi.yellow .tds-kpi-icon{background:#FFF7DA;color:#967000}
+.tds-kpi small{display:block;font-size:11px;font-weight:700;color:#667A88}
+.tds-kpi strong{display:block;margin:3px 0;font-size:23px;line-height:1.05;color:var(--tds-text)}
+.tds-kpi p{margin:0;font-size:10px;line-height:1.35;color:var(--tds-muted)}
+.tds-shell{border:1px solid var(--tds-line);border-radius:10px;background:#fff;overflow:hidden}
+.tds-shell-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--tds-line);background:#FBFCFD}
+.tds-shell-title{display:flex;align-items:center;gap:10px}
+.tds-shell-title>span{width:38px;height:38px;display:grid;place-items:center;border-radius:9px;background:#EAF5FD;color:var(--tds-blue)}
+.tds-shell-title strong{display:block;font-size:15px;font-weight:800;color:var(--tds-text)}
+.tds-shell-title small{display:block;margin-top:2px;font-size:11px;color:var(--tds-muted)}
+.tds-warning{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:8px;background:#FFF4E9;color:#9A5B00;font-size:10px;font-weight:700}
+.tds-empty{display:flex;align-items:center;gap:13px;padding:28px 20px}
+.tds-empty>span{width:48px;height:48px;display:grid;place-items:center;border-radius:10px;background:#EAF5FD;color:var(--tds-blue);font-size:18px}
+.tds-empty div{flex:1}.tds-empty strong{display:block;font-size:14px;color:var(--tds-text)}.tds-empty p{margin:3px 0 0;font-size:11px;color:var(--tds-muted)}
+.tds-table-wrap{overflow:auto}
+.tds-table{width:100%;min-width:1000px;margin:0!important}
+.tds-table thead th{padding:11px 12px!important;background:#F5F8FA!important;border-bottom:1px solid var(--tds-line)!important;color:#506574!important;font-size:11px!important;font-weight:700!important}
+.tds-table tbody td{padding:11px 12px!important;border-color:#EDF2F5!important;color:#3C5160!important;font-size:12px!important;vertical-align:middle!important}
+.tds-os-cell{display:flex;align-items:center;gap:9px}
+.tds-os-icon{width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;border-radius:9px;background:#EAF5FD;color:var(--tds-blue)}
+.tds-table strong{color:var(--tds-text);font-size:12px}.tds-table small{display:block;margin-top:2px;color:var(--tds-muted);font-size:10px}
+.tds-status{display:inline-flex;align-items:center;min-height:27px;padding:0 9px;border-radius:999px;font-size:10px;font-weight:700}
+.tds-status.active{background:#EAF5FD;color:#2F6684}.tds-status.billed{background:#EAF8F1;color:#187650}.tds-status.cancelled{background:#FDEEEE;color:#A03B3B}
+.tds-no-seller{display:inline-flex;align-items:center;gap:5px;color:var(--tds-orange);font-size:11px;font-weight:700}
+.tds-shell .dt-layout-row{padding:10px 12px!important;margin:0!important;background:#fff!important}
+.tds-shell .dt-layout-row:first-child{border-bottom:1px solid #EDF2F5}.tds-shell .dt-layout-row:last-child{border-top:1px solid #EDF2F5}
+.tds-shell .dt-search input,.tds-shell .dt-length select{min-height:36px!important;border:1px solid var(--tds-line2)!important;border-radius:8px!important;font-size:12px!important}
+@media(max-width:1200px){.tds-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.tds-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tds-head{flex-direction:column}.tds-health{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.tds-kpis,.tds-health{grid-template-columns:1fr}.tds-head-actions{width:100%}.tds-period-popover{right:auto;left:0;width:min(360px,90vw)}.tds-shell-head{align-items:flex-start;flex-direction:column}.tds-head h1{font-size:26px}}
