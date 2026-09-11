@@ -129,6 +129,41 @@ final class CRMService {
  }
 }
 
+
+final class NotificationService {
+ public static function forUser(array $u): array{
+  $items=[];$total=0;$uid=(int)($u['id']??0);$role=(string)($u['role']??'');
+  try{
+   if(in_array($role,['seller','collector'],true)){
+    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND due_at<NOW()",[$uid])??0);
+    if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'Existem compromissos atrasados na sua agenda.','href'=>'/agenda'];}
+    $today=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND DATE(due_at)=CURDATE()",[$uid])??0);
+    if($today>0){$total+=$today;$items[]=['type'=>'warning','icon'=>'fa-calendar-day','title'=>$today.' retorno(s) para hoje','text'=>'Há compromissos que precisam de atenção hoje.','href'=>'/agenda'];}
+   }else{
+    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<NOW()")??0);
+    if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'A equipe possui compromissos atrasados.','href'=>'/agenda'];}
+   }
+
+   if(in_array($role,['admin','supervisor','collector'],true)){
+    $params=[];$where="status='open' AND max_overdue_days>0";
+    if($role==='collector'){$where.=" AND assigned_user_id=?";$params[]=$uid;}
+    $overdueCases=(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases WHERE ".$where,$params)??0);
+    if($overdueCases>0){$total+=$overdueCases;$items[]=['type'=>'orange','icon'=>'fa-hand-holding-dollar','title'=>$overdueCases.' cobrança(s) em atraso','text'=>'Há clientes com saldo vencido aguardando acompanhamento.','href'=>'/collection'];}
+   }
+
+   if($role==='admin'){
+    $syncErrors=(int)(DB::scalar("SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>''")??0);
+    if($syncErrors>0){$total+=$syncErrors;$items[]=['type'=>'danger','icon'=>'fa-triangle-exclamation','title'=>$syncErrors.' integração(ões) com erro','text'=>'Revise a Central de Sincronização da Omie.','href'=>'/sync'];}
+    $unassigned=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND (seller_omie_code IS NULL OR TRIM(seller_omie_code)='')")??0);
+    if($unassigned>0){$total+=$unassigned;$items[]=['type'=>'info','icon'=>'fa-user-plus','title'=>$unassigned.' cliente(s) sem vendedor','text'=>'Existem clientes disponíveis para distribuição de carteira.','href'=>'/clients'];}
+   }
+  }catch(Throwable $e){
+   return ['total'=>0,'items'=>[]];
+  }
+  return ['total'=>$total,'items'=>array_slice($items,0,6)];
+ }
+}
+
 final class BrasilApiService {
  private static function get(string $path): array{
   $url='https://brasilapi.com.br/api/'.$path;
