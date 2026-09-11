@@ -1072,76 +1072,64 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- $requestPath=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/';
- $basePath=parse_url(APP_URL,PHP_URL_PATH)?:'';
- $relative=$basePath!==''&&str_starts_with($requestPath,$basePath)?substr($requestPath,strlen($basePath)):$requestPath;
- $relative='/'.ltrim($relative,'/');
- $active=function(string $prefix) use($relative): string{
-  if($prefix==='/') return $relative==='/'?' active':'';
-  return ($relative===$prefix||str_starts_with($relative,$prefix.'/'))?' active':'';
- };
- $firstName=$u?trim(explode(' ',trim((string)$u['name']))[0]??''):'';
  ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
-   <div class="tdcrm-brand-wrap">
-    <a class="tdcrm-brand" href="<?=APP_URL?>/">
+   <div class="tdcrm-brand">
+    <a href="<?=APP_URL?>/">
      <span class="tdcrm-brand-mark"><i class="fa-solid fa-graduation-cap"></i></span>
      <span class="tdcrm-brand-copy"><strong>Tecnodata <b>CRM</b></strong><small>Operação comercial que gera mais negócios</small></span>
     </a>
-    <button class="sidebar-close tdcrm-sidebar-close" type="button" data-menu-close aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i></button>
+    <button class="sidebar-close" type="button" data-menu-close aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i></button>
    </div>
-
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
-     <a class="<?=$active('/')?>" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
-     <a class="<?=$active('/clients')?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
-     <a class="<?=$active('/orders')?>" href="<?=APP_URL?>/orders"><i class="fa-solid fa-cart-shopping"></i><span>Pedidos</span></a>
-     <a class="<?=$active('/agenda')?>" href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
-     <a class="<?=$active('/result')?>" href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><span>Resultados</span></a>
+     <a href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+     <a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
+     <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
+     <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
+     <a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i><span>Resultados</span></a>
     <?php elseif($u['role']==='collector'):?>
-     <a class="<?=$active('/')?>" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
-     <a class="<?=$active('/collection')?>" href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a>
-     <a class="<?=$active('/agenda')?>" href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
-     <a class="<?=$active('/result')?>" href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><span>Resultados</span></a>
+     <a href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+     <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a>
+     <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
+     <a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-line"></i><span>Resultados</span></a>
     <?php else:?>
-     <a class="<?=$active('/')?>" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
-     <a class="<?=$active('/clients')?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
-     <a class="<?=$active('/orders')?>" href="<?=APP_URL?>/orders"><i class="fa-solid fa-cart-shopping"></i><span>Pedidos</span></a>
-     <a class="<?=$active('/services')?>" href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
-     <a class="<?=$active('/collection')?>" href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a>
-     <a class="<?=$active('/agenda')?>" href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
-     <a class="<?=$active('/result')?>" href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><span>Resultados</span></a>
-     <a class="<?=$active('/goals')?>" href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a>
+     <a href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+     <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
+     <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
+     <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a>
+     <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i><span>Agenda</span></a>
+     <a href="<?=APP_URL?>/result"><i class="fa-solid fa-chart-column"></i><span>Resultados</span></a>
+     <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a>
      <?php if($u['role']==='admin'):?>
-      <div class="tdcrm-nav-label">SISTEMA</div>
-      <a class="<?=$active('/users')?>" href="<?=APP_URL?>/users"><i class="fa-solid fa-user-shield"></i><span>Usuários</span></a>
-      <a class="<?=$active('/settings')?>" href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
-      <a class="<?=$active('/sync')?>" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização</span></a>
+      <div class="tdcrm-nav-label">Sistema</div>
+      <a href="<?=APP_URL?>/users"><i class="fa-solid fa-users-gear"></i><span>Usuários</span></a>
+      <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações</span></a>
+      <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização</span></a>
+      <a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Carga de teste</span></a>
      <?php endif;?>
     <?php endif;?>
    </nav>
-
    <div class="tdcrm-sidebar-footer">
     <span class="tdcrm-footer-mark"><i class="fa-solid fa-graduation-cap"></i></span>
-    <div><strong>Tecnodata</strong><small>Educacional</small></div>
-    <p>Mais clientes. Mais resultados.<br>Uma educação mais forte.</p>
+    <div><strong>Tecnodata</strong><small>Educacional</small><p>Mais clientes. Mais resultados.<br>Uma educação mais forte.</p></div>
    </div>
   </aside>
-
   <button class="sidebar-backdrop" type="button" data-menu-backdrop aria-label="Fechar menu"></button>
-
   <main class="tdcrm-main">
    <header class="tdcrm-topbar">
     <div class="tdcrm-topbar-left">
-     <button class="tdcrm-menu-btn" type="button" data-menu aria-controls="appSidebar" aria-expanded="true" title="Abrir ou fechar menu"><i class="fa-solid fa-bars"></i></button>
-     <label class="tdcrm-global-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Buscar clientes, pedidos, atendimentos..." aria-label="Busca rápida"></label>
+     <button class="tdcrm-menu-button" type="button" data-menu aria-controls="appSidebar" aria-expanded="true"><i class="fa-solid fa-bars"></i></button>
+     <label class="tdcrm-global-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Buscar clientes, pedidos, atendimentos..." aria-label="Pesquisar no CRM"></label>
     </div>
     <div class="tdcrm-topbar-right">
      <button class="tdcrm-notification" type="button" title="Notificações"><i class="fa-regular fa-bell"></i><b>3</b></button>
      <div class="tdcrm-user">
-      <span class="tdcrm-user-avatar"><?=e(mb_strtoupper(mb_substr($firstName?:'U',0,1)))?></span>
-      <span><strong>Olá, <?=e($firstName?:'Usuário')?></strong><small><?=e($u['role']==='admin'?'Administrador':($u['role']==='seller'?'Vendedor':($u['role']==='collector'?'Cobrança':'Supervisor')))?></small></span>
+      <span><?=e(mb_strtoupper(mb_substr((string)$u['name'],0,1)))?></span>
+      <div><strong>Olá, <?=e(explode(' ',trim((string)$u['name']))[0]??$u['name'])?></strong><small><?=e($u['role']==='admin'?'Administrador':($u['role']==='supervisor'?'Supervisor':($u['role']==='seller'?'Vendedor':'Cobrança')))?></small></div>
      </div>
      <form method="post" action="<?=APP_URL?>/logout" class="tdcrm-logout"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button></form>
     </div>
@@ -1149,5 +1137,13 @@ function layout(string $body,?array $u): void{
    <section class="tdcrm-content"><?=$body?></section>
   </main>
  </div>
- <?php }?><script>window.APP_URL=<?=json_encode(APP_URL)?>;window.CSRF=<?=json_encode(CSRF::token())?>;</script><script src="https://cdn.datatables.net/3.0.3/js/dataTables.min.js"></script><script src="https://cdn.datatables.net/3.0.3/js/dataTables.bootstrap5.min.js"></script><script src="<?=APP_URL?>/assets/app.js?v=<?=is_file(APP_ROOT.'/public/assets/app.js')?filemtime(APP_ROOT.'/public/assets/app.js'):time()?>"></script></body></html><?php
+ <?php }?>
+ <script>window.APP_URL=<?=json_encode(APP_URL)?>;window.CSRF=<?=json_encode(CSRF::token())?>;</script>
+ <script src="https://cdn.datatables.net/3.0.3/js/dataTables.min.js"></script>
+ <script src="https://cdn.datatables.net/3.0.3/js/dataTables.bootstrap5.min.js"></script>
+ <script src="<?=APP_URL?>/assets/app.js?v=<?=is_file(APP_ROOT.'/public/assets/app.js')?filemtime(APP_ROOT.'/public/assets/app.js'):time()?>"></script>
+ <?php if($u):?><script>
+ (()=>{const base=<?=json_encode(rtrim(APP_URL,'/'))?>;const p=location.pathname.replace(/\/+$/,'')||'/';const links=[...document.querySelectorAll('.tdcrm-nav a')];links.forEach(a=>a.classList.remove('active'));let best=null,bestLen=-1;for(const a of links){const ap=new URL(a.href,location.origin).pathname.replace(/\/+$/,'')||'/';const isHome=ap===base||ap===base+'/';const ok=isHome?(p===ap||p===base):(p===ap||p.startsWith(ap+'/'));if(ok&&ap.length>bestLen){best=a;bestLen=ap.length;}}if(best)best.classList.add('active');})();
+ </script><?php endif;?>
+ </body></html><?php
 }
