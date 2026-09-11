@@ -3,7 +3,94 @@ function render(string $name,array $vars=[]): void{
  extract($vars,EXTR_SKIP);$u=Auth::user();ob_start();
  switch($name){
   case 'login':?>
-   <div class="login-page"><div class="login-card"><div class="login-brand"><span>T</span><div><strong>Tecnodata</strong><small>CRM</small></div></div><h1>Acessar</h1><p>Carteira, pedidos, agenda e cobrança.</p><?php if(!empty($error)):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?><form method="post" action="<?=APP_URL?>/login"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>E-mail<span class="required-mark">*</span></label><input class="form-control" type="email" name="email" required autofocus><label>Senha</label><input class="form-control" type="password" name="password" required><button class="btn btn-primary w-100">Entrar</button></form></div></div>
+   <main class="tdlogin-page">
+    <section class="tdlogin-hero">
+     <div class="tdlogin-hero-inner">
+      <div class="tdlogin-brand">
+       <span class="tdlogin-brand-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+       <div><strong>Tecnodata <b>CRM</b></strong><small>Organize, conecte e faça mais negócios.</small></div>
+      </div>
+
+      <div class="tdlogin-copy">
+       <h1>Gestão comercial<br><span>inteligente.</span></h1>
+       <h2>Comercial <b>•</b> Cobrança <b>•</b> Supervisão</h2>
+       <p>Tudo o que sua equipe precisa para vender mais, atender melhor e crescer com controle.</p>
+      </div>
+
+      <div class="tdlogin-demo" aria-hidden="true">
+       <div class="tdlogin-window">
+        <div class="tdlogin-window-dots"><i></i><i></i><i></i></div>
+        <div class="tdlogin-window-body">
+         <aside>
+          <span class="active"><i class="fa-solid fa-users"></i>Clientes</span>
+          <span><i class="fa-regular fa-rectangle-list"></i>Pedidos</span>
+          <span><i class="fa-solid fa-screwdriver-wrench"></i>Serviços</span>
+          <span><i class="fa-solid fa-circle-dollar-to-slot"></i>Cobrança</span>
+          <span><i class="fa-regular fa-calendar"></i>Agenda</span>
+         </aside>
+         <div class="tdlogin-demo-main">
+          <article class="tdlogin-stat tdlogin-stat-a">
+           <span><i class="fa-solid fa-users"></i></span>
+           <div><small>Clientes na carteira</small><strong>33.444</strong><em>↑ 12% este mês</em></div>
+           <i class="fa-solid fa-chart-line"></i>
+          </article>
+          <article class="tdlogin-stat tdlogin-stat-b">
+           <span><i class="fa-solid fa-chart-column"></i></span>
+           <div><small>Receita em 12 meses</small><strong>R$ 1.290.505,17</strong><em>↑ 8% este mês</em></div>
+          </article>
+          <article class="tdlogin-stat tdlogin-stat-c">
+           <span><i class="fa-solid fa-cart-shopping"></i></span>
+           <div><small>Pedidos em 12 meses</small><strong>939</strong><em>↑ 15% este mês</em></div>
+          </article>
+         </div>
+        </div>
+       </div>
+      </div>
+
+      <div class="tdlogin-hero-foot"><i></i><span>Mais dados. Mais resultados. Mais negócios.</span></div>
+     </div>
+    </section>
+
+    <section class="tdlogin-access">
+     <div class="tdlogin-card">
+      <div class="tdlogin-card-brand">
+       <span><i class="fa-solid fa-graduation-cap"></i></span>
+       <strong>Tecnodata <b>CRM</b></strong>
+      </div>
+      <p class="tdlogin-subtitle">Acesse sua conta para continuar.</p>
+
+      <?php if(!empty($error)):?><div class="alert alert-danger tdlogin-alert"><i class="fa-solid fa-circle-exclamation"></i><span><?=e($error)?></span></div><?php endif;?>
+
+      <form method="post" action="<?=APP_URL?>/login" class="tdlogin-form" autocomplete="on">
+       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+
+       <label for="tdlogin-email">E-mail</label>
+       <div class="tdlogin-input">
+        <i class="fa-regular fa-envelope"></i>
+        <input id="tdlogin-email" class="form-control" type="email" name="email" placeholder="seu@email.com" required autofocus autocomplete="username">
+       </div>
+
+       <label for="tdlogin-password">Senha</label>
+       <div class="tdlogin-input">
+        <i class="fa-solid fa-lock"></i>
+        <input id="tdlogin-password" class="form-control" type="password" name="password" placeholder="Sua senha" required autocomplete="current-password">
+        <button type="button" class="tdlogin-password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha"><i class="fa-regular fa-eye"></i></button>
+       </div>
+
+       <div class="tdlogin-options">
+        <label class="tdlogin-remember"><input type="checkbox" name="remember_access" value="1"><span><i class="fa-solid fa-check"></i></span>Lembrar acesso</label>
+        <span class="tdlogin-help" title="A redefinição de senha ainda é administrada internamente.">Esqueci minha senha</span>
+       </div>
+
+       <button class="tdlogin-submit" type="submit"><i class="fa-solid fa-arrow-right"></i><span>Entrar no sistema</span></button>
+      </form>
+
+      <div class="tdlogin-secure"><i class="fa-solid fa-shield-halved"></i><span>Ambiente seguro para equipe comercial, cobrança e supervisão.</span></div>
+     </div>
+
+     <footer class="tdlogin-footer"><strong>Tecnodata CRM</strong><span>Operação comercial inteligente.</span></footer>
+    </section>
+   </main>
   <?php break;
   case 'dashboard':
    $data=is_array($data??null)?$data:[];
