@@ -951,3 +951,20 @@ document.addEventListener('DOMContentLoaded',()=>{
  document.addEventListener('click',close);
  document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
 })();
+
+
+/* Login: mostrar/ocultar senha */
+(()=>{
+ const button=document.querySelector('[data-password-toggle]');
+ if(!button)return;
+ const input=button.closest('.tdlogin-input')?.querySelector('input');
+ if(!input)return;
+ button.addEventListener('click',()=>{
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  button.setAttribute('aria-label',show?'Ocultar senha':'Mostrar senha');
+  button.setAttribute('title',show?'Ocultar senha':'Mostrar senha');
+  const icon=button.querySelector('i');
+  if(icon)icon.className=show?'fa-regular fa-eye-slash':'fa-regular fa-eye';
+ });
+})();
