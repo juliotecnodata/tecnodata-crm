@@ -3,9 +3,16 @@ final class DB {
  private static ?\PDO $pdo=null;
  public static function conn(): \PDO {
   if(self::$pdo)return self::$pdo;
-  $host=$_SERVER['HTTP_HOST']??'localhost';
-  $local=str_contains($host,'localhost')||str_contains($host,'127.0.0.1');
-  $d=$GLOBALS['config']['database'][$local?'local':'production'];
+  $environment=defined('APP_ENV')?APP_ENV:'local';
+  $d=$GLOBALS['config']['database'][$environment]??null;
+  if(!is_array($d))throw new \\RuntimeException('Configuração de banco ausente para o ambiente '.$environment);
+
+  $envPrefix=$environment==='local'?'TDCRM_DB_LOCAL_':'TDCRM_DB_PROD_';
+  $envMap=['HOST'=>'host','PORT'=>'port','NAME'=>'database','USER'=>'username','PASS'=>'password'];
+  foreach($envMap as $envKey=>$configKey){
+   $value=getenv($envPrefix.$envKey);
+   if($value!==false&&$value!=='')$d[$configKey]=$configKey==='port'?(int)$value:$value;
+  }
   try{
    self::$pdo=new \PDO(
     sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s',$d['host'],$d['port'],$d['database'],$d['charset']??'utf8mb4'),
