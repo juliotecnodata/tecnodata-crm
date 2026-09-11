@@ -172,3 +172,72 @@
  .tdlogin-subtitle{margin:21px 0 23px;font-size:13px}
  .tdlogin-options{align-items:flex-start}
 }
+
+
+/* Login Tecnodata CRM — refinamento de escala para o modelo aprovado */
+@media(min-width:881px){
+ .tdlogin-page{
+  grid-template-columns:46% 54%;
+  min-height:100vh;
+ }
+ .tdlogin-hero-inner{
+  width:min(600px,calc(100% - 74px));
+  padding:42px 0 30px;
+ }
+ .tdlogin-brand-icon{
+  width:44px;height:44px;font-size:28px
+ }
+ .tdlogin-brand strong{font-size:23px}
+ .tdlogin-brand small{margin-top:5px;font-size:10px}
+ .tdlogin-copy{margin-top:58px}
+ .tdlogin-copy h1{font-size:42px;line-height:1.02}
+ .tdlogin-copy h2{margin-top:11px;font-size:17px}
+ .tdlogin-copy p{max-width:410px;margin-top:22px;font-size:14px;line-height:1.5}
+ .tdlogin-demo{margin-top:30px;height:260px}
+ .tdlogin-window{right:18px;height:245px}
+ .tdlogin-window-dots{padding:10px 12px}
+ .tdlogin-window-body{grid-template-columns:122px 1fr;height:calc(100% - 28px);padding:0 10px 10px}
+ .tdlogin-window aside{padding:10px 7px}
+ .tdlogin-window aside span{min-height:27px;padding:0 7px;font-size:8px}
+ .tdlogin-stat{min-width:175px;padding:9px;gap:7px}
+ .tdlogin-stat>span{width:28px;height:28px}
+ .tdlogin-stat small{font-size:7px}
+ .tdlogin-stat strong{font-size:13px}
+ .tdlogin-stat em{font-size:6px}
+ .tdlogin-stat>i{font-size:18px}
+ .tdlogin-stat-a{left:14px;top:10px}
+ .tdlogin-stat-b{right:-10px;top:18px}
+ .tdlogin-stat-b strong{font-size:12px}
+ .tdlogin-stat-c{left:82px;top:118px;min-width:190px}
+ .tdlogin-hero-foot{font-size:10px}
+ .tdlogin-access{padding:30px}
+ .tdlogin-card{
+  width:min(500px,100%);
+  padding:42px 36px 32px;
+  border-radius:14px;
+ }
+ .tdlogin-card-brand>span{font-size:30px}
+ .tdlogin-card-brand strong{font-size:26px}
+ .tdlogin-subtitle{margin:22px 0 22px;font-size:13px}
+ .tdlogin-form>label{margin-bottom:6px;font-size:11px}
+ .tdlogin-form>label:nth-of-type(2){margin-top:14px}
+ .tdlogin-input .form-control{
+  min-height:46px!important;
+  padding:0 42px!important;
+  font-size:12px!important;
+ }
+ .tdlogin-input>i{left:14px;font-size:15px}
+ .tdlogin-password-toggle{right:8px;width:34px;height:34px;font-size:14px}
+ .tdlogin-options{margin:15px 0 22px}
+ .tdlogin-remember,.tdlogin-help{font-size:10px}
+ .tdlogin-remember>span{width:18px;height:18px}
+ .tdlogin-submit{min-height:47px;font-size:12px}
+ .tdlogin-secure{margin-top:19px;padding-top:17px;font-size:9px}
+ .tdlogin-footer{margin-top:26px;font-size:9px}
+ .tdlogin-footer strong{font-size:10px}
+}
+@media(min-width:1450px){
+ .tdlogin-page{grid-template-columns:48% 52%}
+ .tdlogin-hero-inner{width:min(620px,calc(100% - 88px))}
+ .tdlogin-card{width:510px}
+}
