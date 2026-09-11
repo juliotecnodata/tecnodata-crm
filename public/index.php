@@ -1,8 +1,9 @@
 <?php
 declare(strict_types=1);
 
-$host=$_SERVER['HTTP_HOST']??'localhost';
-$isLocal=str_contains($host,'localhost')||str_contains($host,'127.0.0.1');
+$host=strtolower((string)($_SERVER['HTTP_HOST']??'localhost'));
+$host=preg_replace('/:\\d+$/','',$host)?:'localhost';
+$isLocal=in_array($host,['localhost','127.0.0.1','::1'],true)||str_ends_with($host,'.local')||str_ends_with($host,'.test');
 
 if($isLocal){
  ini_set('display_errors','1');
@@ -15,8 +16,10 @@ try{
  require APP_ROOT.'/routes.php';
 
  $uri=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/';
- $base=parse_url(APP_URL,PHP_URL_PATH)?:'';
- if($base!==''&&str_starts_with($uri,$base))$uri=substr($uri,strlen($base))?:'/';
+ $base=rtrim((string)(parse_url(APP_URL,PHP_URL_PATH)?:''),'/');
+ if($base!==''&&($uri===$base||str_starts_with($uri,$base.'/')))$uri=substr($uri,strlen($base))?:'/';
+ if($uri==='/index.php')$uri='/';
+ if(str_starts_with($uri,'/index.php/'))$uri=substr($uri,10)?:'/';
 
  $router->dispatch($_SERVER['REQUEST_METHOD']??'GET',$uri);
 }catch(Throwable $e){
