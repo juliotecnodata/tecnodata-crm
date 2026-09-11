@@ -865,3 +865,30 @@ label,.btn,.table thead th{font-weight:600!important}
  .td-client-form-steps{grid-template-columns:1fr}
  .td-client-page-head h1{font-size:26px}
 }
+
+
+/* =========================================================
+   SIDEBAR RECOLHÍVEL — DESKTOP COM ÍCONES
+   ========================================================= */
+@media(min-width:901px){
+ body.sidebar-collapsed .tdcrm-sidebar{width:74px!important;padding-left:10px!important;padding-right:10px!important}
+ body.sidebar-collapsed .tdcrm-main{margin-left:74px!important}
+ body.sidebar-collapsed .tdcrm-brand{padding-left:2px!important;padding-right:2px!important;justify-content:center!important}
+ body.sidebar-collapsed .tdcrm-brand-copy,
+ body.sidebar-collapsed .tdcrm-nav a span,
+ body.sidebar-collapsed .tdcrm-nav-label,
+ body.sidebar-collapsed .tdcrm-sidebar-footer div{display:none!important}
+ body.sidebar-collapsed .tdcrm-brand>a{gap:0!important}
+ body.sidebar-collapsed .tdcrm-brand-mark{margin:0 auto!important}
+ body.sidebar-collapsed .tdcrm-nav a{
+   justify-content:center!important;padding:7px!important;min-height:44px!important
+ }
+ body.sidebar-collapsed .tdcrm-nav a>i{
+   width:34px!important;height:34px!important;font-size:14px!important
+ }
+ body.sidebar-collapsed .tdcrm-nav a.active:before{left:-10px!important}
+ body.sidebar-collapsed .tdcrm-sidebar-footer{
+   justify-content:center!important;padding-left:0!important;padding-right:0!important
+ }
+ body.sidebar-collapsed .tdcrm-menu-button{display:grid!important}
+}
