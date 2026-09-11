@@ -379,78 +379,51 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
   case 'services':?>
-   <div class="page-head services-page-head">
-    <div><span class="eyebrow">COMERCIAL / SERVIÇOS</span><h1>Ordens de serviço</h1><p>Acompanhe as OS sincronizadas da Omie. Serviços são operacionais e não compõem o relatório de Pedidos OK.</p></div>
-    <div class="services-period-actions">
-     <div class="services-current-period"><span>Período exibido</span><strong><?=e((string)($period['label']??''))?></strong></div>
-     <details class="services-period-picker">
-      <summary class="btn btn-outline-secondary"><i class="fa-regular fa-calendar"></i>Escolher período</summary>
-      <form method="get" class="services-period-popover">
-       <div class="period-range-fields"><label>Data inicial<input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??date('Y-m-01')))?>" required></label><label>Data final<input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??date('Y-m-t')))?>" required></label></div>
-       <div class="services-period-buttons">
-        <button class="btn btn-primary" type="submit">Aplicar</button>
-        <a class="btn btn-outline-secondary" href="<?=APP_URL?>/services">Mês atual</a>
-        <a class="btn btn-light" href="<?=APP_URL?>/services?period=all">Todos</a>
-       </div>
-      </form>
-     </details>
-    </div>
-   </div>
+   <section class="tds-page">
+    <header class="tds-head">
+     <div class="tds-head-main">
+      <span class="tds-head-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+      <div><span class="tds-kicker">COMERCIAL / SERVIÇOS</span><h1>Ordens de serviço</h1><p>Acompanhe as OS sincronizadas da Omie. Serviços são operacionais e não compõem o relatório de Pedidos OK.</p></div>
+     </div>
+     <div class="tds-head-actions">
+      <div class="tds-period"><i class="fa-regular fa-calendar-check"></i><div><small>Período</small><strong><?=e((string)($period['label']??''))?></strong></div></div>
+      <details class="tds-period-picker"><summary class="tds-btn"><i class="fa-regular fa-calendar"></i>Escolher período</summary><form method="get" class="tds-period-popover"><div class="grid"><label><span>Data inicial</span><input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??date('Y-m-01')))?>" required></label><label><span>Data final</span><input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??date('Y-m-t')))?>" required></label></div><div class="actions"><button class="tds-btn tds-btn-primary" type="submit">Aplicar</button><a class="tds-btn" href="<?=APP_URL?>/services">Mês atual</a><a class="tds-btn" href="<?=APP_URL?>/services?period=all">Todos</a></div></form></details>
+     </div>
+    </header>
 
-   <?php if(!empty($serviceError)):?>
-   <div class="alert alert-danger"><strong>Erro ao carregar Serviços:</strong> <?=e($serviceError)?></div>
-   <?php elseif(!empty($serviceSchema)):?>
-   <div class="alert alert-info"><strong>Estrutura detectada:</strong> código <code><?=e($serviceSchema['code'])?></code> • data <code><?=e($serviceSchema['date'])?></code></div>
-   <?php endif;?>
+    <?php if(!empty($serviceError)):?><div class="alert alert-danger"><strong>Erro ao carregar Serviços:</strong> <?=e($serviceError)?></div><?php elseif(!empty($serviceSchema)):?><div class="alert alert-info"><strong>Estrutura detectada:</strong> código <code><?=e($serviceSchema['code'])?></code> · data <code><?=e($serviceSchema['date'])?></code></div><?php endif;?>
 
-   <?php if(!empty($health)):?>
-   <div class="services-health-strip">
-    <div><span>Base local</span><strong><?=number_format((int)($health['total_table']??0),0,',','.')?></strong></div>
-    <div><span>Sem data</span><strong><?=number_format((int)($health['null_dates']??0),0,',','.')?></strong></div>
-    <div><span>Sem vendedor</span><strong><?=number_format((int)($health['null_sellers']??0),0,',','.')?></strong></div>
-   </div>
-   <?php endif;?>
+    <?php if(!empty($health)):?><div class="tds-health"><div><span>Base local</span><strong><?=number_format((int)($health['total_table']??0),0,',','.')?></strong></div><div><span>Sem data</span><strong><?=number_format((int)($health['null_dates']??0),0,',','.')?></strong></div><div><span>Sem vendedor</span><strong><?=number_format((int)($health['null_sellers']??0),0,',','.')?></strong></div></div><?php endif;?>
 
-   <div class="services-summary-grid">
-    <div><span class="services-kpi-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span><p>Ordens encontradas</p><strong><?=number_format((int)($totalRows??count($rows)),0,',','.')?></strong><small><?=e((string)($period['label']??''))?></small></div>
-    <div><span class="services-kpi-icon green"><i class="fa-solid fa-sack-dollar"></i></span><p>Total válido</p><strong><?=money($total)?></strong><small>desconsiderando canceladas</small></div>
-    <div><span class="services-kpi-icon slate"><i class="fa-solid fa-circle-check"></i></span><p>Válidas</p><strong><?=(int)$valid?></strong><small>ativas ou faturadas</small></div>
-    <div><span class="services-kpi-icon red"><i class="fa-solid fa-ban"></i></span><p>Canceladas</p><strong><?=(int)$cancelled?></strong><small>fora do resultado</small></div>
-    <div><span class="services-kpi-icon yellow"><i class="fa-solid fa-user-slash"></i></span><p>Sem vendedor</p><strong><?=(int)$withoutSeller?></strong><small>não entram no resultado individual</small></div>
-   </div>
+    <div class="tds-kpis">
+     <article class="tds-kpi blue"><span class="tds-kpi-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><small>Ordens encontradas</small><strong><?=number_format((int)($totalRows??count($rows)),0,',','.')?></strong><p><?=e((string)($period['label']??''))?></p></article>
+     <article class="tds-kpi green"><span class="tds-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><small>Total válido</small><strong><?=money($total)?></strong><p>Desconsiderando canceladas</p></article>
+     <article class="tds-kpi slate"><span class="tds-kpi-icon"><i class="fa-solid fa-circle-check"></i></span><small>Válidas</small><strong><?=(int)$valid?></strong><p>Ativas ou faturadas</p></article>
+     <article class="tds-kpi red"><span class="tds-kpi-icon"><i class="fa-solid fa-ban"></i></span><small>Canceladas</small><strong><?=(int)$cancelled?></strong><p>Fora do resultado</p></article>
+     <article class="tds-kpi yellow"><span class="tds-kpi-icon"><i class="fa-solid fa-user-slash"></i></span><small>Sem vendedor</small><strong><?=(int)$withoutSeller?></strong><p>Não entram no resultado individual</p></article>
+    </div>
 
-   <?php if(!$rows):?>
-    <div class="services-empty-state">
-     <span><i class="fa-solid fa-magnifying-glass-chart"></i></span>
-     <div><strong>Nenhuma ordem de serviço encontrada neste período</strong><p>Existem dados em outro mês? Selecione “Todos os períodos”. Se a base estiver vazia, sincronize Serviços novamente na Central de Sincronização.</p></div>
-     <a class="btn btn-outline-secondary" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Ir para sincronização</a>
-    </div>
-   <?php else:?>
-    <div class="services-table-toolbar">
-     <div><i class="fa-solid fa-table-list"></i><span><strong>Base sincronizada</strong><small>Use a busca do DataTable para localizar OS, cliente, vendedor ou status.</small></span></div>
-     <?php if($withoutSeller>0):?><div class="services-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> OS sem vendedor vinculado</div><?php endif;?>
-    </div>
-    <div class="table-card services-table-card">
-     <table class="table services-datatable">
-      <thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
-      <tbody>
-      <?php foreach($rows as $row):
-       $status=(string)($row['status']??'ATIVO');$upper=mb_strtoupper($status);
-       $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');
-      ?>
-       <tr>
-        <td><div class="service-os-cell"><span class="service-os-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><span><strong><?=e($row['omie_code'])?></strong><small>código Omie</small></span></div></td>
-        <td><strong><?=e($row['client_name']??($row['client_omie_code']??'—'))?></strong><?php if(!empty($row['client_name'])&&!empty($row['client_omie_code'])):?><small><?=e($row['client_omie_code'])?></small><?php endif;?></td>
-        <td><?php $effectiveSeller=(string)($row['effective_seller_code']??$row['seller_omie_code']??''); if(!empty($row['seller_name'])):?><strong><?=e($row['seller_name'])?></strong><small><?=e($effectiveSeller)?></small><?php elseif($effectiveSeller!==''):?><strong><?=e($effectiveSeller)?></strong><small>código do vendedor</small><?php else:?><span class="service-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
-        <td data-order="<?=e((string)($row['effective_date']??$row['service_date']))?>"><?=brdate($row['effective_date']??$row['service_date'])?></td>
-        <td><span class="service-status service-status-<?=$statusClass?>"><?=e($status)?></span></td>
-        <td class="text-end"><strong class="<?=$statusClass==='cancelled'?'text-secondary':''?>"><?=money($row['total'])?></strong></td>
-       </tr>
-      <?php endforeach;?>
-      </tbody>
-     </table>
-    </div>
-   <?php endif;?>
+    <section class="tds-shell">
+     <div class="tds-shell-head"><div class="tds-shell-title"><span><i class="fa-solid fa-table-list"></i></span><div><strong>Base sincronizada</strong><small>Localize OS, cliente, vendedor ou status.</small></div></div><?php if($withoutSeller>0):?><div class="tds-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> OS sem vendedor vinculado</div><?php endif;?></div>
+     <?php if(!$rows):?>
+      <div class="tds-empty"><span><i class="fa-solid fa-magnifying-glass-chart"></i></span><div><strong>Nenhuma ordem de serviço encontrada neste período</strong><p>Selecione outro período ou sincronize Serviços novamente na Central de Sincronização.</p></div><a class="tds-btn" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a></div>
+     <?php else:?>
+      <div class="table-card tds-table-wrap">
+       <table class="table services-datatable tds-table" data-page-length="10" data-length-change="1">
+        <thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
+        <tbody><?php foreach($rows as $row):$status=(string)($row['status']??'ATIVO');$upper=mb_strtoupper($status);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');?><tr>
+         <td><div class="tds-os-cell"><span class="tds-os-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><span><strong><?=e($row['omie_code'])?></strong><small>código Omie</small></span></div></td>
+         <td><strong><?=e($row['client_name']??($row['client_omie_code']??'—'))?></strong><?php if(!empty($row['client_name'])&&!empty($row['client_omie_code'])):?><small><?=e($row['client_omie_code'])?></small><?php endif;?></td>
+         <td><?php $effectiveSeller=(string)($row['effective_seller_code']??$row['seller_omie_code']??'');if(!empty($row['seller_name'])):?><strong><?=e($row['seller_name'])?></strong><small><?=e($effectiveSeller)?></small><?php elseif($effectiveSeller!==''):?><strong><?=e($effectiveSeller)?></strong><small>código do vendedor</small><?php else:?><span class="tds-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
+         <td data-order="<?=e((string)($row['effective_date']??$row['service_date']))?>"><?=brdate($row['effective_date']??$row['service_date'])?></td>
+         <td><span class="tds-status <?=$statusClass?>"><?=e($status)?></span></td>
+         <td class="text-end"><strong><?=money($row['total'])?></strong></td>
+        </tr><?php endforeach;?></tbody>
+       </table>
+      </div>
+     <?php endif;?>
+    </section>
+   </section>
   <?php break;
   case 'order_new':$error=$_SESSION['error']??null;$success=$_SESSION['success']??null;$old=$_SESSION['old']??[];unset($_SESSION['error'],$_SESSION['preview'],$_SESSION['success'],$_SESSION['old']);$d=$ready['defaults'];$draftId=(int)($draft['id']??$old['draft_id']??0);$editOrderId=(int)($old['edit_order_id']??$editOrder['source']['id']??0);$selectedFreightMode=trim((string)($old['freight_mode']??''));if(!in_array($selectedFreightMode,['0','1','2','3','4','9'],true))$selectedFreightMode=(string)($d['freight_mode']??'9');?>
    <div class="order-create-experience">
@@ -897,7 +870,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
