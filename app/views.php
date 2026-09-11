@@ -600,42 +600,106 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    </script>
   <?php break;
 
-  case 'collection':?>
-   <div class="page-head collection-page-head"><div><span class="eyebrow">COBRANÇA</span><h1>Carteira</h1><p>Saldo, atraso e responsável.</p></div><div class="page-head-actions"><?php if(Auth::can('admin','supervisor')):?><a class="btn btn-primary" href="<?=APP_URL?>/collection/recoveries"><i class="fa-solid fa-money-bill-transfer"></i>Lançar recuperações</a><?php endif;?><div class="tabs"><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></div></div></div>
-   <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-   <div class="table-card"><table class="table" data-page-length="5" data-length-change="1"><thead><tr><th>Cliente</th><th>UF</th><th>Atraso</th><th>Responsável</th><th class="text-end">Saldo</th><th data-dt-order="disable"></th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></td><td><?=e($r['uf']??'—')?></td><td data-order="<?=(int)$r['max_overdue_days']?>"><?=$r['max_overdue_days']?> dias</td><td><?=e($r['assigned_name']??'Não atribuído')?></td><td class="text-end" data-order="<?=e((string)$r['open_amount'])?>"><strong><?=money($r['open_amount'])?></strong><?php if((float)$r['partial_paid']>0):?><small><?=money($r['partial_paid'])?> pago</small><?php endif;?></td><td><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/collection/<?=$r['client_id']?>">Abrir</a></td></tr><?php endforeach;?></tbody></table></div>
+  case 'collection':
+   $collectionTotal=count($rows);
+   $collectionAmount=0.0;$collectionOverdue=0;$collectionAssigned=0;$collectionPartial=0.0;
+   foreach($rows as $rr){$collectionAmount+=(float)($rr['open_amount']??0);if((int)($rr['max_overdue_days']??0)>0)$collectionOverdue++;if(!empty($rr['assigned_name']))$collectionAssigned++;$collectionPartial+=(float)($rr['partial_paid']??0);}
+   ?>
+   <section class="tdcob-page">
+    <header class="tdcob-head">
+     <div class="tdcob-head-main">
+      <span class="tdcob-head-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
+      <div><span class="tdcob-kicker">FINANCEIRO / COBRANÇA</span><h1>Carteira de cobrança</h1><p>Acompanhe saldo em aberto, atraso, responsável e histórico de recuperação.</p></div>
+     </div>
+     <div class="tdcob-head-actions">
+      <?php if(Auth::can('admin','supervisor')):?><a class="tdcob-btn tdcob-btn-primary" href="<?=APP_URL?>/collection/recoveries"><i class="fa-solid fa-money-bill-transfer"></i>Lançar recuperação</a><?php endif;?>
+      <nav class="tdcob-tabs"><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></nav>
+     </div>
+    </header>
+
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <div class="tdcob-kpis">
+     <article class="tdcob-kpi red"><span><i class="fa-solid fa-circle-dollar-to-slot"></i></span><small>Saldo em aberto</small><strong><?=money($collectionAmount)?></strong><p><?=number_format($collectionTotal,0,',','.')?> cliente(s) na visão atual</p></article>
+     <article class="tdcob-kpi orange"><span><i class="fa-solid fa-clock-rotate-left"></i></span><small>Com atraso</small><strong><?=number_format($collectionOverdue,0,',','.')?></strong><p>Clientes com parcelas vencidas</p></article>
+     <article class="tdcob-kpi blue"><span><i class="fa-solid fa-user-check"></i></span><small>Com responsável</small><strong><?=number_format($collectionAssigned,0,',','.')?></strong><p>Carteiras já atribuídas</p></article>
+     <article class="tdcob-kpi green"><span><i class="fa-solid fa-money-bill-trend-up"></i></span><small>Parcialmente pago</small><strong><?=money($collectionPartial)?></strong><p>Valor já recebido nas dívidas abertas</p></article>
+    </div>
+
+    <section class="tdcob-shell">
+     <div class="tdcob-shell-head"><div class="tdcob-title"><span><i class="fa-solid fa-table-list"></i></span><div><strong><?=$view==='settled'?'Clientes quitados':'Clientes em cobrança'?></strong><small>O vendedor exibido é o responsável vinculado à dívida.</small></div></div></div>
+     <div class="table-card tdcob-table-wrap">
+      <table class="table tdcob-table" data-page-length="10" data-length-change="1">
+       <thead><tr><th>Cliente</th><th>UF</th><th>Atraso</th><th>Responsável</th><th class="text-end">Saldo</th><th class="text-end" data-dt-order="disable">Ação</th></tr></thead>
+       <tbody><?php foreach($rows as $r):?><tr>
+        <td><div class="tdcob-client"><span class="tdcob-avatar"><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><strong><?=e($r['name'])?></strong><small><?=e($r['document']??'')?></small></div></div></td>
+        <td><?=e($r['uf']??'—')?></td>
+        <td data-order="<?=(int)$r['max_overdue_days']?>"><span class="tdcob-overdue <?=((int)$r['max_overdue_days']<=0)?'ok':''?>"><?=((int)$r['max_overdue_days']>0)?(int)$r['max_overdue_days'].' dias':'Em dia'?></span></td>
+        <td><strong><?=e($r['assigned_name']??'Não atribuído')?></strong></td>
+        <td class="text-end" data-order="<?=e((string)$r['open_amount'])?>"><strong><?=money($r['open_amount'])?></strong><?php if((float)$r['partial_paid']>0):?><small><?=money($r['partial_paid'])?> pago</small><?php endif;?></td>
+        <td class="text-end"><a class="tdcob-open" href="<?=APP_URL?>/collection/<?=$r['client_id']?>"><i class="fa-regular fa-folder-open"></i>Abrir</a></td>
+       </tr><?php endforeach;?></tbody>
+      </table>
+     </div>
+    </section>
+   </section>
   <?php break;
 
   case 'collection_recoveries':
    $recoveryDate=(string)($old['recovery_date']??$defaults['recovery_date']??date('Y-m-d'));$assignedDefault=(int)($old['assigned_user_id']??$defaults['assigned_user_id']??0);$oldClientId=(int)($old['client_id']??0);?>
-   <div class="collection-recovery-experience">
-    <div class="collection-recovery-topbar" data-topbar-tools><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i>Voltar à carteira</a><span><i class="fa-solid fa-shield-halved"></i>Administração de recuperações</span></div>
-    <section class="collection-recovery-hero">
-     <div><span class="eyebrow">COBRANÇAS JÁ EFETUADAS</span><h1>Lançar valor recuperado</h1><p>Informe a data real do recebimento. O valor entrará na meta do responsável e nos filtros diários dessa data.</p></div>
-     <div><small>TOTAL DO PERÍODO</small><strong><?=money($total)?></strong><span><?=e($period['label'])?></span></div>
-    </section>
+   <section class="tdcob-page">
+    <header class="tdcob-head">
+     <div class="tdcob-head-main"><span class="tdcob-head-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><div><a class="tdcob-kicker" href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i> COBRANÇA / RECUPERAÇÕES</a><h1>Lançar valor recuperado</h1><p>Registre o recebimento na data real para refletir corretamente na meta do responsável.</p></div></div>
+     <div class="tdcob-recovery-total"><small>Total do período</small><strong><?=money($total)?></strong><span><?=e($period['label'])?></span></div>
+    </header>
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-    <section class="panel collection-recovery-entry">
-     <form method="post" action="<?=APP_URL?>/collection/recoveries" data-collection-recovery-form>
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="client_id" value="<?=$oldClientId?>" data-recovery-client-id>
-      <div class="collection-recovery-client"><label>Cliente</label><div class="search-box"><input class="form-control" autocomplete="off" placeholder="Código, nome ou CPF/CNPJ" data-recovery-client-search><div class="search-results" data-recovery-client-results></div></div><div class="selected-box" data-recovery-client-selected></div></div>
-      <label><span>Valor recuperado</span><div class="collection-money-field"><b>R$</b><input class="form-control" name="amount" inputmode="decimal" placeholder="0,00" value="<?=e((string)($old['amount']??''))?>" required></div></label>
-      <label><span>Data da recuperação</span><input class="form-control" type="date" name="recovery_date" max="<?=date('Y-m-d')?>" value="<?=e($recoveryDate)?>" required></label>
-      <label><span>Responsável pela meta</span><select class="form-select" name="assigned_user_id" required><option value="">Selecione</option><?php foreach($collectors as $collector):?><option value="<?=(int)$collector['id']?>" <?=$assignedDefault===(int)$collector['id']?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label>
-      <label class="collection-recovery-notes"><span>Observação</span><input class="form-control" name="notes" maxlength="500" placeholder="Opcional" value="<?=e((string)($old['notes']??''))?>"></label>
-      <button class="btn btn-primary" type="submit" data-submit-loading="Lançando recuperação..." data-confirm="Confirmar este valor na data informada e creditá-lo na meta do responsável selecionado?"><i class="fa-solid fa-check"></i>Lançar na meta</button>
-     </form>
-    </section>
-    <section class="collection-recovery-history">
-     <div class="collection-recovery-history-head"><div><span class="eyebrow">HISTÓRICO</span><h2>Valores recuperados</h2><p>A data abaixo é a data considerada nos resultados.</p></div><form method="get"><label>De<input class="form-control" type="date" name="date_from" value="<?=e((string)($period['from']??''))?>"></label><label>Até<input class="form-control" type="date" name="date_to" value="<?=e((string)($period['to']??''))?>"></label><button class="btn btn-outline-secondary"><i class="fa-solid fa-filter"></i>Filtrar</button></form></div>
-     <div class="table-card"><table class="table collection-recoveries-datatable" data-page-length="5" data-length-change="1" data-order-column="3" data-order-direction="desc"><thead><tr><th>Código do cliente</th><th>Cliente</th><th class="text-end">Valor recuperado</th><th>Data da recuperação</th><th>Meta de</th><th>Incluído por</th></tr></thead><tbody><?php foreach($recoveries as $recovery):?><tr><td><strong><?=e($recovery['client_integration_code']?:$recovery['omie_code'])?></strong><small><?php if(!empty($recovery['client_integration_code'])):?>Omie <?=e($recovery['omie_code'])?><?php endif;?></small></td><td><strong><?=e($recovery['name'])?></strong><small><?=e($recovery['document']??'')?></small></td><td class="text-end" data-order="<?=e((string)$recovery['amount'])?>"><strong><?=money($recovery['amount'])?></strong></td><td data-order="<?=e((string)$recovery['created_at'])?>"><strong><?=date('d/m/Y',strtotime($recovery['created_at']))?></strong></td><td><?=e($recovery['assigned_name']??'—')?></td><td><strong><?=e($recovery['author_name']??'—')?></strong><?php if(!empty($recovery['notes'])):?><small><?=e($recovery['notes'])?></small><?php endif;?></td></tr><?php endforeach;?></tbody></table></div>
-    </section>
-   </div>
+
+    <div class="tdcob-recovery-grid">
+     <section class="tdcob-card">
+      <div class="tdcob-card-head"><span><i class="fa-solid fa-plus"></i></span><div><strong>Nova recuperação</strong><small>Crédito manual na meta de cobrança.</small></div></div>
+      <form method="post" action="<?=APP_URL?>/collection/recoveries" class="tdcob-recovery-form" data-collection-recovery-form>
+       <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="client_id" value="<?=$oldClientId?>" data-recovery-client-id>
+       <label>Cliente<div class="search-box"><input class="form-control" autocomplete="off" placeholder="Código, nome ou CPF/CNPJ" data-recovery-client-search><div class="search-results" data-recovery-client-results></div></div><div class="selected-box" data-recovery-client-selected></div></label>
+       <label>Valor recuperado<input class="form-control" name="amount" inputmode="decimal" placeholder="0,00" value="<?=e((string)($old['amount']??''))?>" required></label>
+       <label>Data da recuperação<input class="form-control" type="date" name="recovery_date" max="<?=date('Y-m-d')?>" value="<?=e($recoveryDate)?>" required></label>
+       <label>Responsável pela meta<select class="form-select" name="assigned_user_id" required><option value="">Selecione</option><?php foreach($collectors as $collector):?><option value="<?=(int)$collector['id']?>" <?=$assignedDefault===(int)$collector['id']?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label>
+       <label>Observação<input class="form-control" name="notes" maxlength="500" placeholder="Opcional" value="<?=e((string)($old['notes']??''))?>"></label>
+       <button class="tdcob-btn tdcob-btn-primary w-100" type="submit" data-submit-loading="Lançando recuperação..." data-confirm="Confirmar este valor na data informada?"><i class="fa-solid fa-check"></i>Lançar na meta</button>
+      </form>
+     </section>
+
+     <section class="tdcob-shell">
+      <div class="tdcob-shell-head"><div class="tdcob-title"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico de recuperações</strong><small>A data abaixo é a data considerada nos resultados.</small></div></div></div>
+      <div class="table-card tdcob-table-wrap"><table class="table tdcob-table collection-recoveries-datatable" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc"><thead><tr><th>Código</th><th>Cliente</th><th class="text-end">Valor</th><th>Data</th><th>Meta de</th><th>Incluído por</th></tr></thead><tbody><?php foreach($recoveries as $recovery):?><tr><td><strong><?=e($recovery['client_integration_code']?:$recovery['omie_code'])?></strong><small><?php if(!empty($recovery['client_integration_code'])):?>Omie <?=e($recovery['omie_code'])?><?php endif;?></small></td><td><strong><?=e($recovery['name'])?></strong><small><?=e($recovery['document']??'')?></small></td><td class="text-end"><strong><?=money($recovery['amount'])?></strong></td><td><?=date('d/m/Y',strtotime($recovery['created_at']))?></td><td><?=e($recovery['assigned_name']??'—')?></td><td><strong><?=e($recovery['author_name']??'—')?></strong><?php if(!empty($recovery['notes'])):?><small><?=e($recovery['notes'])?></small><?php endif;?></td></tr><?php endforeach;?></tbody></table></div>
+     </section>
+    </div>
+   </section>
    <script>window.COLLECTION_RECOVERY_OLD_CLIENT=<?=$oldClientId?>;</script>
   <?php break;
+
   case 'collection_case':?>
-   <div class="page-head"><div><a class="back" href="<?=APP_URL?>/collection">← Cobrança</a><h1><?=e($case['name'])?></h1><p><?=money($case['open_amount'])?> em aberto • <?=$case['max_overdue_days']?> dias</p></div></div><?php if($collectors):?><div class="panel assignment-panel mb-3"><div><span class="eyebrow">RESPONSABILIDADE</span><strong><?=e($case['assigned_name']??'Não atribuído')?></strong><small>Transferir move histórico, meta e retornos pendentes para o novo responsável.</small></div><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/assign"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><select class="form-select" name="assigned_user_id" required><option value="">Novo responsável...</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>"><?=e($c['name'])?></option><?php endforeach;?></select><button class="btn btn-outline-secondary">Transferir tudo</button></form></div><?php endif;?><div class="two-col"><div class="panel"><h2>Registrar ação</h2><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/action"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><?php if($collectors):?><label>Responsável</label><select class="form-select" name="assigned_user_id"><option value="">Manter atual</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=(int)$case['assigned_user_id']===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select><?php endif;?><label>Canal</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado</label><select class="form-select" name="result"><option value="contact">Contato</option><option value="promise">Promessa</option><option value="agreement">Acordo</option><option value="payment">Pagamento</option><option value="no_answer">Não atendeu</option></select><label>Valor</label><input class="form-control" name="amount"><label>Data prometida</label><input class="form-control" type="date" name="promise_date"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="btn btn-primary w-100">Salvar</button></form></div><div class="panel"><h2>Histórico</h2><div class="timeline"><?php foreach($actions as $a):?><div><strong><?=e($a['result'])?><?php if((float)$a['amount']>0):?> • <?=money($a['amount'])?><?php endif;?></strong><small>Feito por <?=e($a['author_name'])?> • responsável <?=e($a['assigned_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?></div></div></div>
+   <section class="tdcob-page">
+    <header class="tdcob-head">
+     <div class="tdcob-head-main"><span class="tdcob-head-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span><div><a class="tdcob-kicker" href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i> COBRANÇA / CLIENTE</a><h1><?=e($case['name'])?></h1><p><?=money($case['open_amount'])?> em aberto · <?=$case['max_overdue_days']?> dias de atraso</p></div></div>
+    </header>
+
+    <div class="tdcob-case-summary">
+     <div><span>Saldo em aberto</span><strong><?=money($case['open_amount'])?></strong></div>
+     <div><span>Maior atraso</span><strong><?=$case['max_overdue_days']?> dias</strong></div>
+     <div><span>Responsável</span><strong><?=e($case['assigned_name']??'Não atribuído')?></strong></div>
+     <div><span>Cliente</span><strong><?=e($case['name'])?></strong></div>
+    </div>
+
+    <?php if($collectors):?><div class="tdcob-assign"><div><span class="tdcob-kicker">RESPONSABILIDADE</span><strong><?=e($case['assigned_name']??'Não atribuído')?></strong><small>Transferir move histórico, meta e retornos pendentes.</small></div><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/assign"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><select class="form-select" name="assigned_user_id" required><option value="">Novo responsável...</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>"><?=e($c['name'])?></option><?php endforeach;?></select><button class="tdcob-btn">Transferir tudo</button></form></div><?php endif;?>
+
+    <div class="tdcob-grid">
+     <section class="tdcob-card"><div class="tdcob-card-head"><span><i class="fa-solid fa-headset"></i></span><div><strong>Registrar ação</strong><small>Contato, promessa, acordo ou pagamento.</small></div></div><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/action" class="tdcob-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><?php if($collectors):?><label>Responsável</label><select class="form-select" name="assigned_user_id"><option value="">Manter atual</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=(int)$case['assigned_user_id']===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select><?php endif;?><label>Canal</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado</label><select class="form-select" name="result"><option value="contact">Contato</option><option value="promise">Promessa</option><option value="agreement">Acordo</option><option value="payment">Pagamento</option><option value="no_answer">Não atendeu</option></select><label>Valor</label><input class="form-control" name="amount"><label>Data prometida</label><input class="form-control" type="date" name="promise_date"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="tdcob-btn tdcob-btn-primary w-100"><i class="fa-solid fa-check"></i>Salvar ação</button></form></section>
+
+     <section class="tdcob-card"><div class="tdcob-card-head"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico</strong><small>Interações realizadas neste cliente.</small></div></div><div class="tdcob-timeline"><?php foreach($actions as $a):?><div><strong><?=e($a['result'])?><?php if((float)$a['amount']>0):?> · <?=money($a['amount'])?><?php endif;?></strong><small>Feito por <?=e($a['author_name'])?> · responsável <?=e($a['assigned_name'])?> · <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$actions):?><div>Nenhuma ação registrada.</div><?php endif;?></div></section>
+    </div>
+   </section>
   <?php break;
+
   case 'agenda':?>
    <div class="page-head"><div><span class="eyebrow">AGENDA</span><h1>Retornos</h1><p>Em ordem de horário.</p></div></div><div class="agenda-list"><?php foreach($rows as $r):?><div class="agenda-item <?=strtotime($r['due_at'])<time()?'late':''?>"><div><strong><?=date('H:i',strtotime($r['due_at']))?></strong><small><?=date('d/m',strtotime($r['due_at']))?></small></div><div><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div><a class="btn btn-sm btn-outline-secondary" href="<?=APP_URL?>/<?=$r['type']==='collection'?'collection':'clients'?>/<?=$r['client_id']?>">Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="btn btn-sm btn-light">Concluir</button></form></div><?php endforeach;?></div>
   <?php break;
@@ -870,7 +934,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
