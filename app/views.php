@@ -705,9 +705,15 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    ?>
    <section class="tda-page">
     <header class="tda-head">
-     <div class="tda-head-main"><span class="tda-head-icon"><i class="fa-regular fa-calendar-check"></i></span><div><span class="tda-kicker"><?=$u['role']==='collector'?'COBRANÇA / AGENDA':'AGENDA'?></span><h1><?=$u['role']==='collector'?'Agenda de cobrança':'Retornos'?></h1><p>Compromissos em ordem de horário, com destaque para vencidos, hoje e próximos retornos.</p></div></div>
+     <div class="tda-head-main"><span class="tda-head-icon"><i class="fa-regular fa-calendar-check"></i></span><div><span class="tda-kicker"><?=!empty($teamAgenda)?'GESTÃO / AGENDA':($u['role']==='collector'?'COBRANÇA / AGENDA':'AGENDA')?></span><h1><?=!empty($teamAgenda)?'Agenda da equipe':($u['role']==='collector'?'Agenda de cobrança':'Retornos')?></h1><p><?=!empty($teamAgenda)?'Acompanhe os compromissos de vendedores e cobrança em uma única visão.':'Compromissos em ordem de horário, com destaque para vencidos, hoje e próximos retornos.'?></p></div></div>
      <div class="tda-date"><i class="fa-regular fa-calendar"></i><?=date('d/m/Y')?></div>
     </header>
+
+    <?php if(!empty($teamAgenda)):?>
+     <form method="get" class="tda-team-filter">
+      <label><span>Responsável</span><select class="form-select" name="user_id" onchange="this.form.submit()"><option value="0">Todos os responsáveis</option><?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e($agendaUser['role']==='seller'?'Vendas':'Cobrança')?></option><?php endforeach;?></select></label>
+     </form>
+    <?php endif;?>
 
     <div class="tda-kpis">
      <article class="tda-kpi red"><span><i class="fa-solid fa-triangle-exclamation"></i></span><small>Vencidos</small><strong><?=number_format($agendaLate,0,',','.')?></strong></article>
@@ -724,9 +730,9 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <?php foreach($rows as $r):$due=strtotime((string)$r['due_at']);$isLate=$due<time();$isCollection=($r['type']??'')==='collection';?>
        <div class="tda-item <?=$isLate?'late':''?>">
         <div class="tda-time"><span><i class="fa-regular <?=$isLate?'fa-clock':'fa-calendar'?>"></i></span><div><strong><?=date('H:i',$due)?></strong><small><?=date('d/m',$due)?></small></div></div>
-        <div class="tda-client"><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?></small></div>
+        <div class="tda-client"><strong><?=e($r['name'])?></strong><small><?=e($r['title'])?><?php if(!empty($teamAgenda)):?> · Responsável: <?=e($r['assigned_name']??'Não identificado')?><?php endif;?></small></div>
         <span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-user'?>"></i><?=$isCollection?'Cobrança':'Comercial'?></span>
-        <div class="tda-actions"><a class="tda-btn" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>"><i class="fa-regular fa-folder-open"></i>Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tda-btn tda-btn-primary"><i class="fa-solid fa-check"></i>Concluir</button></form></div>
+        <div class="tda-actions"><a class="tda-btn" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>"><i class="fa-regular fa-folder-open"></i>Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><?php if(!empty($teamAgenda)):?><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><?php endif;?><button class="tda-btn tda-btn-primary"><i class="fa-solid fa-check"></i>Concluir</button></form></div>
        </div>
       <?php endforeach;?>
      <?php endif;?>
