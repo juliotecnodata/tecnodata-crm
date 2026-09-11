@@ -613,32 +613,97 @@ $router->post('/collection/{id}/action',function($p){Auth::requireRole('admin','
 
 $router->get('/agenda',function(){
  Auth::requireLogin();
- $u=Auth::user();$role=(string)$u['role'];
- if(in_array($role,['admin','supervisor'],true)){
-  $filterUser=max(0,(int)($_GET['user_id']??0));
-  $where=["t.status='pending'"];$params=[];
-  if($filterUser>0){$where[]='t.assigned_user_id=?';$params[]=$filterUser;}
-  $rows=DB::all("SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
-                 FROM tasks t JOIN clients c ON c.id=t.client_id
-                 JOIN users u ON u.id=t.assigned_user_id
-                 WHERE ".implode(' AND ',$where)." ORDER BY t.due_at",$params);
-  $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN ('seller','collector') ORDER BY role,name");
-  render('agenda',['rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>true]);
-  return;
+ $u=Auth::user();$role=(string)$u['role'];$teamAgenda=in_array($role,['admin','supervisor'],true);
+ $filterUser=$teamAgenda?max(0,(int)($_GET['user_id']??0)):(int)$u['id'];
+ $agendaType=(string)($_GET['type']??'all');if(!in_array($agendaType,['all','sales','collection'],true))$agendaType='all';
+ $agendaPeriod=(string)($_GET['period']??'all');if(!in_array($agendaPeriod,['all','late','today','next7','upcoming'],true))$agendaPeriod='all';
+ $flash=$_SESSION['agenda_flash']??null;unset($_SESSION['agenda_flash']);
+
+ $baseWhere=["t.status='pending'"];$baseParams=[];
+ if($teamAgenda){
+  if($filterUser>0){$baseWhere[]='t.assigned_user_id=?';$baseParams[]=$filterUser;}
+ }else{
+  $baseWhere[]='t.assigned_user_id=?';$baseParams[]=(int)$u['id'];
  }
- $rows=DB::all("SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
-                FROM tasks t JOIN clients c ON c.id=t.client_id
-                JOIN users u ON u.id=t.assigned_user_id
-                WHERE t.assigned_user_id=? AND t.status='pending' ORDER BY t.due_at",[(int)$u['id']]);
- render('agenda',['rows'=>$rows,'agendaUsers'=>[],'agendaFilterUser'=>0,'teamAgenda'=>false]);
+ if($agendaType!=='all'){$baseWhere[]='t.type=?';$baseParams[]=$agendaType;}
+
+ $listWhere=$baseWhere;$listParams=$baseParams;
+ if($agendaPeriod==='late')$listWhere[]='DATE(t.due_at)<CURDATE()';
+ elseif($agendaPeriod==='today')$listWhere[]='DATE(t.due_at)=CURDATE()';
+ elseif($agendaPeriod==='next7')$listWhere[]='DATE(t.due_at)>CURDATE() AND DATE(t.due_at)<=DATE_ADD(CURDATE(),INTERVAL 7 DAY)';
+ elseif($agendaPeriod==='upcoming')$listWhere[]='DATE(t.due_at)>CURDATE()';
+
+ $rows=DB::all(
+  "SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
+   FROM tasks t JOIN clients c ON c.id=t.client_id
+   JOIN users u ON u.id=t.assigned_user_id
+   WHERE ".implode(' AND ',$listWhere)."
+   ORDER BY CASE WHEN DATE(t.due_at)<CURDATE() THEN 0 WHEN DATE(t.due_at)=CURDATE() THEN 1 ELSE 2 END,t.due_at",
+  $listParams
+ );
+
+ $stats=DB::one(
+  "SELECT COUNT(*) total,
+          SUM(CASE WHEN DATE(t.due_at)<CURDATE() THEN 1 ELSE 0 END) late_count,
+          SUM(CASE WHEN DATE(t.due_at)=CURDATE() THEN 1 ELSE 0 END) today_count,
+          SUM(CASE WHEN DATE(t.due_at)>CURDATE() THEN 1 ELSE 0 END) upcoming_count,
+          SUM(CASE WHEN t.type='collection' THEN 1 ELSE 0 END) collection_count
+   FROM tasks t WHERE ".implode(' AND ',$baseWhere),
+  $baseParams
+ )?:['total'=>0,'late_count'=>0,'today_count'=>0,'upcoming_count'=>0,'collection_count'=>0];
+
+ $users=$teamAgenda?DB::all("SELECT id,name,role FROM users WHERE active=1 ORDER BY FIELD(role,'seller','collector','supervisor','admin'),name"):[];
+ $workload=[];
+ if($teamAgenda){
+  $teamWhere=["t.status='pending'"];$teamParams=[];
+  if($agendaType!=='all'){$teamWhere[]='t.type=?';$teamParams[]=$agendaType;}
+  $workload=DB::all(
+   "SELECT u.id,u.name,u.role,COUNT(*) total,
+           SUM(CASE WHEN DATE(t.due_at)<CURDATE() THEN 1 ELSE 0 END) late_count,
+           SUM(CASE WHEN DATE(t.due_at)=CURDATE() THEN 1 ELSE 0 END) today_count,
+           SUM(CASE WHEN DATE(t.due_at)>CURDATE() THEN 1 ELSE 0 END) upcoming_count
+    FROM tasks t JOIN users u ON u.id=t.assigned_user_id
+    WHERE ".implode(' AND ',$teamWhere)."
+    GROUP BY u.id,u.name,u.role
+    ORDER BY late_count DESC,today_count DESC,u.name",
+   $teamParams
+  );
+ }
+
+ render('agenda',[
+  'rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
+  'agendaType'=>$agendaType,'agendaPeriod'=>$agendaPeriod,'agendaStats'=>$stats,'agendaWorkload'=>$workload,'flash'=>$flash
+ ]);
 });
 $router->post('/agenda/{id}/done',function($p){
  Auth::requireLogin();CSRF::require($_POST['_token']??null);
- $u=Auth::user();
- if(in_array((string)$u['role'],['admin','supervisor'],true))DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=?",[(int)$p['id']]);
- else DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND assigned_user_id=?",[(int)$p['id'],(int)$u['id']]);
- $q=max(0,(int)($_POST['user_id']??0));
- redirect('/agenda'.($q>0?'?user_id='.$q:''));
+ $u=Auth::user();$id=(int)$p['id'];$teamAgenda=in_array((string)$u['role'],['admin','supervisor'],true);
+ if($teamAgenda)DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND status='pending'",[$id]);
+ else DB::exec("UPDATE tasks SET status='done',completed_at=NOW() WHERE id=? AND assigned_user_id=? AND status='pending'",[$id,(int)$u['id']]);
+ $_SESSION['agenda_flash']=['type'=>'success','message'=>'Compromisso concluído.'];
+ $params=[];$filterUser=max(0,(int)($_POST['user_id']??0));if($filterUser>0)$params['user_id']=$filterUser;
+ $type=(string)($_POST['type']??'all');if(in_array($type,['sales','collection'],true))$params['type']=$type;
+ $period=(string)($_POST['period']??'all');if(in_array($period,['late','today','next7','upcoming'],true))$params['period']=$period;
+ redirect('/agenda'.($params?'?'.http_build_query($params):''));
+});
+$router->post('/agenda/{id}/reschedule',function($p){
+ Auth::requireLogin();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$id=(int)$p['id'];$teamAgenda=in_array((string)$u['role'],['admin','supervisor'],true);
+ $value=trim((string)($_POST['due_at']??''));
+ $date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
+ $valid=$date&&$date->format('Y-m-d\TH:i')===$value;
+ if(!$valid){
+  $_SESSION['agenda_flash']=['type'=>'danger','message'=>'Informe uma data e horário válidos para reagendar.'];
+ }else{
+  $formatted=$date->format('Y-m-d H:i:00');
+  if($teamAgenda)$changed=DB::exec("UPDATE tasks SET due_at=? WHERE id=? AND status='pending'",[$formatted,$id]);
+  else $changed=DB::exec("UPDATE tasks SET due_at=? WHERE id=? AND assigned_user_id=? AND status='pending'",[$formatted,$id,(int)$u['id']]);
+  $_SESSION['agenda_flash']=$changed?['type'=>'success','message'=>'Compromisso reagendado com sucesso.']:['type'=>'danger','message'=>'Não foi possível reagendar este compromisso.'];
+ }
+ $params=[];$filterUser=max(0,(int)($_POST['user_id']??0));if($filterUser>0)$params['user_id']=$filterUser;
+ $type=(string)($_POST['type']??'all');if(in_array($type,['sales','collection'],true))$params['type']=$type;
+ $period=(string)($_POST['period']??'all');if(in_array($period,['late','today','next7','upcoming'],true))$params['period']=$period;
+ redirect('/agenda'.($params?'?'.http_build_query($params):''));
 });
 
 $router->get('/settings',function(){
