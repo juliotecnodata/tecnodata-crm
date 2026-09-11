@@ -27,6 +27,9 @@ $envUrl=trim((string)(getenv('TDCRM_APP_URL')?:''));
 $configUrl=trim((string)($isLocal?($cfg['local_url']??''):($cfg['production_url']??'')));
 $appUrl=$envUrl!==''?$envUrl:$configUrl;
 
+// Compatibilidade com instalações antigas que ainda tinham /public configurado.
+$appUrl=preg_replace('#/public/?$#','',$appUrl)??$appUrl;
+
 if($appUrl===''){
  $https=(!$isLocal)&&(
   (!empty($_SERVER['HTTPS'])&&strtolower((string)$_SERVER['HTTPS'])!=='off')
