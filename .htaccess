@@ -1,0 +1,18 @@
+Options -Indexes
+RewriteEngine On
+
+# Nunca expor código, configurações ou banco pelo navegador.
+RewriteRule ^(?:app|config|database|\.git)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:routes\.php|README\.md|\.gitignore)$ - [F,L,NC]
+
+# Compatibilidade: remove /public de URLs antigas.
+RewriteCond %{THE_REQUEST} \s/+(.*/)?public/([^?\s]*) [NC]
+RewriteRule ^public/(.*)$ $1 [R=301,L,NE]
+
+# Assets públicos permanecem fisicamente dentro de public/.
+RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
+
+# Front controller do CRM.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ public/index.php [QSA,L]
