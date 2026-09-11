@@ -49,3 +49,17 @@
 .tda-empty p{margin:3px 0 0;font-size:11px}
 @media(max-width:1000px){.tda-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tda-item{grid-template-columns:90px minmax(0,1fr) auto}.tda-type{grid-column:2}.tda-actions{grid-column:3;grid-row:1/3}}
 @media(max-width:700px){.tda-head{flex-direction:column}.tda-kpis{grid-template-columns:1fr}.tda-item{grid-template-columns:1fr}.tda-type,.tda-actions{grid-column:auto;grid-row:auto}.tda-actions{justify-content:flex-start;flex-wrap:wrap}.tda-head h1{font-size:26px}}
+
+
+/* Agenda de equipe — admin/supervisor */
+.tda-team-filter{
+ display:flex;align-items:end;justify-content:flex-end;gap:10px;
+ padding:12px 14px;border:1px solid var(--tda-line);border-radius:10px;background:#fff
+}
+.tda-team-filter label{min-width:280px;margin:0;font-size:11px;font-weight:700;color:#506574}
+.tda-team-filter label>span{display:block;margin-bottom:5px}
+.tda-team-filter .form-select{min-height:40px!important;border:1px solid var(--tda-line2)!important;border-radius:8px!important;font-size:12px!important}
+@media(max-width:700px){
+ .tda-team-filter{justify-content:stretch}
+ .tda-team-filter label{min-width:0;width:100%}
+}
