@@ -178,7 +178,7 @@ function render(string $name,array $vars=[]): void{
       <span class="tdc-head-icon"><i class="fa-solid <?=$portfolioMode?'fa-briefcase':'fa-users'?>"></i></span>
       <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':'Clientes'?></h1><p><?=$portfolioMode?'Seus clientes vinculados, organizados para facilitar contatos, pedidos e acompanhamento comercial.':'Consulte toda a base comercial e identifique rapidamente o responsável por cada cliente.'?></p></div>
      </div>
-     <div class="tdc-head-actions"><?php if($portfolioMode):?><a class="tdc-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i>Todos os clientes</a><?php endif;?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div>
+     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
@@ -204,7 +204,7 @@ function render(string $name,array $vars=[]): void{
     </section>
     <?php endif;?>
 
-    <?php if(Auth::can('seller')):?>
+    <?php if(Auth::can('seller')&&!$portfolioMode):?>
     <nav class="tdc-scope">
      <a class="<?=!$portfolioMode&&($clientScope??'all')==='all'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Todos os clientes</strong><small>Visão geral da base comercial</small></span><i class="fa-solid fa-chevron-right"></i></a>
      <a class="<?=$portfolioMode?'active':''?>" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span><strong>Minha carteira</strong><small>Somente os vinculados a você</small></span><i class="fa-solid fa-chevron-right"></i></a>
@@ -216,11 +216,14 @@ function render(string $name,array $vars=[]): void{
      <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'BASE COMERCIAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':'Todos os clientes'?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':'Busque por nome, documento, cidade ou vendedor.'?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
      <div class="tdc-list-filterbar">
       <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>">
-       <?php if($uf!==''):?><input type="hidden" name="uf" value="<?=e($uf)?>"><?php endif;?><?php foreach($ddds??[] as $ddd):?><input type="hidden" name="ddds[]" value="<?=e($ddd)?>"><?php endforeach;?><?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
-       <label><span><i class="fa-solid fa-tags"></i> Filtrar por tag</span><select class="form-select" name="tag" data-client-tag-filter><option value="">Todas as tags</option><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>" <?=$tag===$clientTag['tag']?'selected':''?>><?=e($clientTag['tag'])?> (<?=number_format((int)$clientTag['client_count'],0,',','.')?>)</option><?php endforeach;?></select></label>
-       <?php if($tag!==''):?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>?<?=e(http_build_query(array_filter(['uf'=>$uf,'ddds'=>$ddds,'scope'=>(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')?'unassigned':null])))?>"><i class="fa-solid fa-xmark"></i>Limpar tag</a><?php endif;?>
+       <?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
+       <label><span><i class="fa-solid fa-map-location-dot"></i> Estado</span><select class="form-select" name="uf" onchange="this.form.submit()"><option value="">Todos os estados</option><?php foreach($clientStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
+       <?php if(!$portfolioMode):?>
+        <label><span><i class="fa-solid fa-tags"></i> Filtrar por tag</span><select class="form-select" name="tag" data-client-tag-filter><option value="">Todas as tags</option><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>" <?=$tag===$clientTag['tag']?'selected':''?>><?=e($clientTag['tag'])?> (<?=number_format((int)$clientTag['client_count'],0,',','.')?>)</option><?php endforeach;?></select></label>
+       <?php endif;?>
+       <?php if($uf!==''||(!$portfolioMode&&$tag!=='')):?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')?'?scope=unassigned':''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
       </form>
-      <small><i class="fa-solid fa-circle-info"></i> <?=count($clientTags??[])?> tags mapeadas nos cadastros ativos</small>
+      <small><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; o Estado apenas refina a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
      </div>
      <div class="table-card tdc-table-wrap">
       <?php $clientDataParams=['uf'=>$uf];if($ddds)$clientDataParams['ddds']=$ddds;if($tag!=='')$clientDataParams['tag']=$tag;if($portfolioMode)$clientDataParams['portfolio']='mine';elseif(Auth::can('seller')&&($clientScope??'all')==='unassigned')$clientDataParams['scope']='unassigned';?>
