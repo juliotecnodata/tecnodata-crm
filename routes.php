@@ -257,7 +257,11 @@ $renderClients=function(bool $portfolioOnly=false){
   'from'=>$totalClients?($offset+1):0,'to'=>min($offset+$perPage,$totalClients),
  ],'portfolioSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
  'portfolioSourceSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT DISTINCT c.seller_omie_code omie_code,COALESCE(s.name,CONCAT('Código ',c.seller_omie_code)) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE c.active=1 AND c.seller_omie_code IS NOT NULL AND c.seller_omie_code<>'' ORDER BY active DESC,name"):[],
- 'portfolioStates'=>Auth::can('admin','supervisor')?DB::all("SELECT DISTINCT UPPER(TRIM(uf)) uf FROM clients WHERE active=1 AND uf IS NOT NULL AND TRIM(uf)<>'' ORDER BY uf"):[]]);
+ 'portfolioStates'=>Auth::can('admin','supervisor')?DB::all("SELECT DISTINCT UPPER(TRIM(uf)) uf FROM clients WHERE active=1 AND uf IS NOT NULL AND TRIM(uf)<>'' ORDER BY uf"):[],
+ 'clientStates'=>$portfolioOnly&&$u['role']==='seller'
+  ?DB::all("SELECT DISTINCT UPPER(TRIM(uf)) uf FROM clients WHERE active=1 AND seller_omie_code=? AND uf IS NOT NULL AND TRIM(uf)<>'' ORDER BY uf",[trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__'])
+  :DB::all("SELECT DISTINCT UPPER(TRIM(uf)) uf FROM clients WHERE active=1 AND uf IS NOT NULL AND TRIM(uf)<>'' ORDER BY uf")
+ ]);
 };
 $router->get('/clients',function()use($renderClients){$renderClients(false);});
 $router->get('/my-portfolio',function()use($renderClients){$renderClients(true);});
@@ -1118,7 +1122,7 @@ $router->get('/api/clients/datatable',function(){
  $start=max(0,(int)($_GET['start']??0));
  $length=(int)($_GET['length']??5);$length=$length<1?5:min(100,$length);
  $portfolioOnly=$u['role']==='seller'&&(string)($_GET['portfolio']??'')==='mine';
- $clientScope=($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all';
+ $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
  $uf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');
  if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))$uf='';
  $ddds=client_portfolio_ddds($_GET['ddds']??[],$uf);
