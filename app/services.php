@@ -90,13 +90,21 @@ final class OrderPolicy {
 }
 
 final class CRMService {
- public static function cycle(?string $last,float $avg): array{
-  if(!$last||$avg<=0)return ['status'=>'unknown','label'=>'Sem ciclo','date'=>null,'delta'=>null];
-  $date=date('Y-m-d',strtotime($last.' +'.max(1,(int)round($avg)).' days'));$delta=(int)floor((strtotime($date)-strtotime(date('Y-m-d')))/86400);
-  if($delta>7)return ['status'=>'ok','label'=>'Dentro do ciclo','date'=>$date,'delta'=>$delta];
-  if($delta>=0)return ['status'=>'soon','label'=>'Hora de aproximar','date'=>$date,'delta'=>$delta];
-  if(abs($delta)<=10)return ['status'=>'window','label'=>'Janela de compra','date'=>$date,'delta'=>$delta];
-  return ['status'=>'late','label'=>'Ciclo vencido','date'=>$date,'delta'=>$delta];
+ public static function cycle(?string $last,float $avg=0): array{
+  // Regra comercial herdada da planilha:
+  // sem última compra = Prospectar
+  // até 180 dias = Regular
+  // 181 a 365 dias = Inativo - 12 Meses
+  // 366 dias ou mais = Inativo + 12 Meses
+  if(!$last||trim($last)==='')return ['status'=>'prospect','label'=>'Prospectar','date'=>null,'delta'=>null,'days'=>null];
+
+  $lastDate=date('Y-m-d',strtotime($last));
+  $today=date('Y-m-d');
+  $days=max(0,(int)floor((strtotime($today)-strtotime($lastDate))/86400));
+
+  if($days<=180)return ['status'=>'regular','label'=>'Regular','date'=>$lastDate,'delta'=>null,'days'=>$days];
+  if($days<366)return ['status'=>'inactive12','label'=>'Inativo - 12 Meses','date'=>$lastDate,'delta'=>null,'days'=>$days];
+  return ['status'=>'inactive12plus','label'=>'Inativo + 12 Meses','date'=>$lastDate,'delta'=>null,'days'=>$days];
  }
  public static function dashboard(array $u): array{
   $start=date('Y-m-01');$next=date('Y-m-d',strtotime($start.' +1 month'));
