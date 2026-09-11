@@ -121,3 +121,48 @@
 @media(max-width:1280px){.tdo-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.tdo-shell-top{flex-direction:column}.tdo-stage-filter{border-top:1px solid var(--tdo-line)}}
 @media(max-width:900px){.tdo-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tdo-head{flex-direction:column}.tdo-tabs{width:100%;overflow:auto}.tdo-tab{min-width:240px}.tdo-draft-row{grid-template-columns:1fr 1fr}.tdo-draft-main{grid-column:1/-1}}
 @media(max-width:700px){.tdo-kpis{grid-template-columns:1fr}.tdo-head-actions{width:100%}.tdo-head-actions>.tdo-btn,.tdo-head-actions>.tdo-period{flex:1}.tdo-period-popover{right:auto;left:0;width:min(360px,90vw)}.tdo-draft-row{grid-template-columns:1fr}.tdo-draft-main{grid-column:auto}.tdo-table-head{align-items:flex-start;flex-direction:column}.tdo-head h1{font-size:26px}}
+
+
+/* Detalhe do pedido */
+.tdo-detail-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.tdo-detail-summary>div,.tdo-detail-kpis>article,.tdo-detail-card{border:1px solid var(--tdo-line);border-radius:10px;background:#fff}
+.tdo-detail-summary>div{padding:14px}
+.tdo-detail-summary span{display:block;font-size:11px;color:var(--tdo-muted)}
+.tdo-detail-summary strong{display:block;margin:4px 0 2px;font-size:14px;color:var(--tdo-text)}
+.tdo-detail-summary small{display:block;font-size:10px;color:var(--tdo-muted)}
+.tdo-detail-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.tdo-detail-kpis>article{padding:14px}
+.tdo-detail-kpis>article>span{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;background:#EAF5FD;color:var(--tdo-blue);margin-bottom:9px}
+.tdo-detail-kpis small{display:block;font-size:10px;font-weight:700;color:var(--tdo-muted)}
+.tdo-detail-kpis strong{display:block;margin-top:3px;font-size:18px;color:var(--tdo-text)}
+.tdo-detail-card{overflow:hidden}
+.tdo-detail-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--tdo-line);background:#FBFCFD}
+.tdo-detail-card-head>div{display:flex;align-items:center;gap:10px}
+.tdo-section-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:9px}
+.tdo-section-icon.blue{background:#EAF5FD;color:var(--tdo-blue)}
+.tdo-section-icon.green{background:#E9F8F0;color:var(--tdo-green)}
+.tdo-section-icon.orange{background:#FFF0EB;color:var(--tdo-orange)}
+.tdo-section-icon.yellow{background:#FFF7DA;color:#967000}
+.tdo-detail-card-head strong{display:block;font-size:14px;font-weight:800;color:var(--tdo-text)}
+.tdo-detail-card-head small{display:block;margin-top:2px;font-size:10px;color:var(--tdo-muted)}
+.tdo-detail-items{overflow:auto}
+.tdo-detail-item{min-width:900px;display:grid;grid-template-columns:minmax(320px,1.5fr) 100px 130px 130px 140px;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid #EDF2F5;font-size:12px}
+.tdo-detail-item:last-child{border-bottom:0}
+.tdo-detail-item.head{background:#F6F9FB;color:#526675;font-size:10px;font-weight:700}
+.tdo-detail-item strong{color:var(--tdo-text)}
+.tdo-detail-item small{display:block;margin-top:2px;color:var(--tdo-muted);font-size:10px}
+.tdo-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tdo-detail-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;padding:4px 16px 14px}
+.tdo-detail-data>div{padding:11px 0;border-bottom:1px solid #EDF2F5}
+.tdo-detail-data>div:nth-child(odd){padding-right:12px}
+.tdo-detail-data>div:nth-child(even){padding-left:12px;border-left:1px solid #EDF2F5}
+.tdo-detail-data dt{font-size:10px;font-weight:600;color:var(--tdo-muted)}
+.tdo-detail-data dd{margin:3px 0 0;font-size:12px;font-weight:700;color:var(--tdo-text)}
+.tdo-installments{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 16px}
+.tdo-installments>div{padding:11px;border:1px solid var(--tdo-line);border-radius:9px;background:#FBFCFD}
+.tdo-installments span,.tdo-installments small{display:block;font-size:10px;color:var(--tdo-muted)}
+.tdo-installments strong{display:block;margin:3px 0;font-size:13px;color:var(--tdo-text)}
+.tdo-notes p{margin:0;padding:14px 16px;font-size:12px;line-height:1.5;color:#4F6472}
+@media(max-width:1180px){.tdo-detail-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.tdo-detail-summary,.tdo-detail-grid{grid-template-columns:1fr}.tdo-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tdo-installments{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.tdo-detail-kpis,.tdo-installments{grid-template-columns:1fr}.tdo-detail-data{grid-template-columns:1fr}.tdo-detail-data>div,.tdo-detail-data>div:nth-child(odd),.tdo-detail-data>div:nth-child(even){padding:10px 0;border-left:0}}
