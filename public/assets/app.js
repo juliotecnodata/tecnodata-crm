@@ -933,3 +933,21 @@ document.addEventListener('DOMContentLoaded',()=>{
     }).catch(error=>showNotice('warning','Cliente não carregado',error.message||'Selecione o cliente novamente.'));
   }
 });
+
+
+/* Painel de notificações do topbar */
+(()=>{
+ const toggle=document.querySelector('[data-notification-toggle]');
+ const panel=document.querySelector('[data-notification-panel]');
+ if(!toggle||!panel)return;
+ const close=()=>{panel.hidden=true;toggle.setAttribute('aria-expanded','false');};
+ toggle.addEventListener('click',(event)=>{
+  event.stopPropagation();
+  const willOpen=panel.hidden;
+  panel.hidden=!willOpen;
+  toggle.setAttribute('aria-expanded',willOpen?'true':'false');
+ });
+ panel.addEventListener('click',event=>event.stopPropagation());
+ document.addEventListener('click',close);
+ document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
+})();
