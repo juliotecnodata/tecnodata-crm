@@ -317,3 +317,20 @@ body[data-page="client-detail"] .tdcrm-content *{box-shadow:none!important;lette
 .tdc-contact-days.late strong{color:#B54B2B}
 .tdc-contact-days.never{background:#F3F6F8;border-color:#DCE5EC}
 .tdc-contact-days.never strong{color:#516875}
+
+
+/* Dias sem contato: exibição compacta */
+.tdc-contact-days{
+ min-width:0!important;
+ min-height:0!important;
+ padding:0!important;
+ border:0!important;
+ background:transparent!important;
+ display:inline-block!important;
+}
+.tdc-contact-days strong{
+ font-size:12px!important;
+ line-height:1.2!important;
+}
+.tdc-contact-days small,
+.tdc-contact-days i{display:none!important}
