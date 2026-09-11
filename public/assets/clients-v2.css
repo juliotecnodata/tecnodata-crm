@@ -255,3 +255,26 @@ body[data-page="client-detail"] .tdcrm-content *{box-shadow:none!important;lette
  min-width:0!important;
  width:100%!important;
 }
+
+
+/* Ciclo comercial baseado na última compra */
+.tdc-cycle.cycle-prospect,.cycle-prospect{
+ background:#EAF5FD!important;
+ border-color:#CFE6F6!important;
+ color:#236789!important;
+}
+.tdc-cycle.cycle-regular,.cycle-regular{
+ background:#EAF8F1!important;
+ border-color:#CDEBDC!important;
+ color:#187650!important;
+}
+.tdc-cycle.cycle-inactive12,.cycle-inactive12{
+ background:#FFF7DA!important;
+ border-color:#F1E1A4!important;
+ color:#856600!important;
+}
+.tdc-cycle.cycle-inactive12plus,.cycle-inactive12plus{
+ background:#FFF0EB!important;
+ border-color:#F3D2C9!important;
+ color:#B54B2B!important;
+}
