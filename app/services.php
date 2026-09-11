@@ -143,13 +143,13 @@ final class NotificationService {
   $items=[];$total=0;$uid=(int)($u['id']??0);$role=(string)($u['role']??'');
   try{
    if(in_array($role,['seller','collector'],true)){
-    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND due_at<NOW()",[$uid])??0);
-    if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'Existem compromissos atrasados na sua agenda.','href'=>'/agenda'];}
+    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND DATE(due_at)<CURDATE()",[$uid])??0);
+    if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'Existem compromissos atrasados na sua agenda.','href'=>'/agenda?period=late'];}
     $today=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND DATE(due_at)=CURDATE()",[$uid])??0);
-    if($today>0){$total+=$today;$items[]=['type'=>'warning','icon'=>'fa-calendar-day','title'=>$today.' retorno(s) para hoje','text'=>'Há compromissos que precisam de atenção hoje.','href'=>'/agenda'];}
+    if($today>0){$total+=$today;$items[]=['type'=>'warning','icon'=>'fa-calendar-day','title'=>$today.' retorno(s) para hoje','text'=>'Há compromissos que precisam de atenção hoje.','href'=>'/agenda?period=today'];}
    }else{
-    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<NOW()")??0);
-    if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'A equipe possui compromissos atrasados.','href'=>'/agenda'];}
+    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)<CURDATE()")??0);
+    if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'A equipe possui compromissos atrasados.','href'=>'/agenda?period=late'];}
    }
 
    if(in_array($role,['admin','supervisor','collector'],true)){
