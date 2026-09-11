@@ -48,7 +48,9 @@ final class OrderPolicy {
  public static function metricTotalSql(string $tableAlias=''): string{
   if($tableAlias!==''&&!preg_match('/^[a-zA-Z0-9_]+$/',$tableAlias))throw new InvalidArgumentException('Alias de pedidos inválido.');
   $p=$tableAlias!==''?$tableAlias.'.':'';
-  return "(COALESCE({$p}total,0)+COALESCE(CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT({$p}raw_json,'$.frete.valor_frete')),'') AS DECIMAL(18,2)),0))";
+  // orders.total recebe valor_total_pedido da Omie, que já inclui o frete.
+  // Não somar frete novamente para evitar duplicidade nas métricas.
+  return "COALESCE({$p}total,0)";
  }
  public static function validReportSql(string $stageColumn='stage_code',string $statusColumn='status',string $rawJsonColumn='raw_json'): array{
   foreach([$stageColumn,$statusColumn,$rawJsonColumn] as $column)if(!preg_match('/^[a-zA-Z0-9_.]+$/',$column))throw new InvalidArgumentException('Coluna de pedidos inválida.');
