@@ -115,7 +115,7 @@ final class CRMService {
    $orders=(float)(DB::scalar("SELECT COALESCE(SUM(".$orderTotalSql."),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
    $orders_without_freight=(float)(DB::scalar("SELECT COALESCE(SUM(".$orderWithoutFreightSql."),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
    $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$u['seller_omie_code'],$start,$next])??0);
-   $sales=$orders;
+   $sales=$orders+$services;
    $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE seller_omie_code=? AND active=1",[$u['seller_omie_code']])??0);
    $tasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending'",[(int)$u['id']])??0);
    return compact('sales','orders','orders_without_freight','services','clients','tasks');
@@ -1396,7 +1396,22 @@ final class GoalService {
     WHERE seller_omie_code=? AND order_date>=? AND order_date<?
       AND ".$validOrders.$orderDaysSql,$params
   )??0);
-  return ['orders'=>$orders,'orders_without_freight'=>$ordersWithoutFreight,'services'=>0.0,'total'=>$orders];
+
+  [$serviceDaysSql,$serviceDaysParams]=self::selectedDaysSql('service_date',$days);
+  $services=(float)(DB::scalar(
+   "SELECT COALESCE(SUM(total),0) FROM service_orders
+    WHERE seller_omie_code=? AND service_date>=? AND service_date<?
+      AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'".$serviceDaysSql,
+   array_merge([$sellerCode,$start,$next],$serviceDaysParams)
+  )??0);
+
+  return [
+   'orders'=>$orders,
+   'orders_without_freight'=>$ordersWithoutFreight,
+   'services'=>$services,
+   'commercial_without_freight'=>$ordersWithoutFreight+$services,
+   'total'=>$orders+$services
+  ];
  }
 
  public static function userMonth(int $userId,string $month,array $days=[]): array{
@@ -1437,7 +1452,7 @@ final class GoalService {
   }
 
   return [
-   'user'=>$u,'goal'=>$g,'month'=>$month,'days'=>$days,'goal_scope'=>$days?'Meta proporcional aos dias':'Meta mensal','sales'=>$sales,'orders_sales'=>$ordersSales,'orders_without_freight'=>$ordersWithoutFreight,'services_sales'=>$servicesSales,
+   'user'=>$u,'goal'=>$g,'month'=>$month,'days'=>$days,'goal_scope'=>$days?'Meta proporcional aos dias':'Meta mensal','sales'=>$sales,'orders_sales'=>$ordersSales,'orders_without_freight'=>$ordersWithoutFreight,'services_sales'=>$servicesSales,'commercial_without_freight'=>$ordersWithoutFreight+$servicesSales,
    'recovered'=>$recovered,'contacts'=>$contacts,
    'sales_percent'=>(float)$g['sales_goal']>0?min(999,$sales/(float)$g['sales_goal']*100):0,
    'collection_percent'=>(float)$g['collection_goal']>0?min(999,$recovered/(float)$g['collection_goal']*100):0,
@@ -1477,6 +1492,19 @@ final class GoalService {
   ) as $r){$code=(string)$r['seller_omie_code'];$ordersMap[$code]=(float)$r['total'];$ordersWithoutFreightMap[$code]=(float)$r['total_without_freight'];}
 
   $servicesMap=[];
+  [$serviceDaysSql,$serviceDaysParams]=self::selectedDaysSql('service_date',$days);
+  foreach(DB::all(
+   "SELECT seller_omie_code,COALESCE(SUM(total),0) total
+    FROM service_orders
+    WHERE service_date>=? AND service_date<?
+      AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'
+      AND seller_omie_code IS NOT NULL AND seller_omie_code<>''".$serviceDaysSql."
+    GROUP BY seller_omie_code",
+   array_merge([$start,$next],$serviceDaysParams)
+  ) as $r){
+   $code=(string)$r['seller_omie_code'];
+   $servicesMap[$code]=(float)$r['total'];
+  }
 
   $activityMap=[];
   [$activityDaysSql,$activityDaysParams]=self::selectedDaysSql('created_at',$days);
@@ -1515,8 +1543,8 @@ final class GoalService {
     $code=(string)($u['seller_omie_code']??'');
     $ordersSales=$code!==''?($ordersMap[$code]??0.0):0.0;
     $ordersWithoutFreight=$code!==''?($ordersWithoutFreightMap[$code]??0.0):0.0;
-    $servicesSales=0.0;
-    $sales=$ordersSales;
+    $servicesSales=$code!==''?($servicesMap[$code]??0.0):0.0;
+    $sales=$ordersSales+$servicesSales;
     $userContacts=$activityMap[$uid]??0;
     $salesGoals+=(float)($g['sales_goal']??0);
    }else{
@@ -1530,7 +1558,7 @@ final class GoalService {
    $contactGoals+=(float)($g['contact_goal']??0);
 
    $row=[
-    'user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'orders_without_freight'=>$ordersWithoutFreight,'services_sales'=>$servicesSales,
+    'user'=>$u,'goal'=>$g,'sales'=>$sales,'orders_sales'=>$ordersSales,'orders_without_freight'=>$ordersWithoutFreight,'services_sales'=>$servicesSales,'commercial_without_freight'=>$ordersWithoutFreight+$servicesSales,
     'recovered'=>$userRecovered,'contacts'=>$userContacts,
     'sales_percent'=>(float)($g['sales_goal']??0)>0?min(999,$sales/(float)$g['sales_goal']*100):0,
     'collection_percent'=>(float)($g['collection_goal']??0)>0?min(999,$userRecovered/(float)$g['collection_goal']*100):0,
@@ -1546,9 +1574,9 @@ final class GoalService {
    $code=(string)$seller['omie_code'];
    $o=(float)($ordersMap[$code]??0);
    $oWithoutFreight=(float)($ordersWithoutFreightMap[$code]??0);
-   $sv=0.0;
-   $tot=$o;
-   $sales+=$tot;$orderSales+=$o;$orderSalesWithoutFreight+=$oWithoutFreight;
+   $sv=(float)($servicesMap[$code]??0);
+   $tot=$o+$sv;
+   $sales+=$tot;$orderSales+=$o;$orderSalesWithoutFreight+=$oWithoutFreight;$serviceSales+=$sv;
    if(self::isVirtualSellerName((string)$seller['name'])){
     $vg=$virtualGoals[$code]??['month_ref'=>$month,'sales_goal'=>0];
     if($days)$vg['sales_goal']=(float)$vg['sales_goal']*$goalFactor;
@@ -1560,6 +1588,7 @@ final class GoalService {
      'orders'=>$o,
      'orders_without_freight'=>$oWithoutFreight,
      'services'=>$sv,
+     'commercial_without_freight'=>$oWithoutFreight+$sv,
      'sales'=>$tot,
      'sales_percent'=>$goalValue>0?min(999,$tot/$goalValue*100):0,
      'virtual'=>true,
@@ -1584,7 +1613,7 @@ final class GoalService {
 
   return [
    'month'=>$month,'days'=>$days,'goal_scope'=>$days?'Meta proporcional aos dias':'Meta mensal','rows'=>$rows,'sellers'=>$sellerRows,'collectors'=>$collectorRows,'virtual_sellers'=>$virtualRows,
-   'general_goal'=>$general,'sales'=>$sales,'order_sales'=>$orderSales,'order_sales_without_freight'=>$orderSalesWithoutFreight,'service_sales'=>$serviceSales,
+   'general_goal'=>$general,'sales'=>$sales,'order_sales'=>$orderSales,'order_sales_without_freight'=>$orderSalesWithoutFreight,'service_sales'=>$serviceSales,'commercial_without_freight'=>$orderSalesWithoutFreight+$serviceSales,
    'recovered'=>$recovered,'contacts'=>$contacts,'sales_goal_sum'=>$salesGoals,
    'collection_goal_sum'=>$collectionGoals,'contact_goal_sum'=>$contactGoals,
    'effective_sales_goal'=>$effectiveSalesGoal,'effective_collection_goal'=>$effectiveCollectionGoal,
