@@ -250,10 +250,24 @@ function register_opportunity_routes(Router $router): void{
  });
  $router->post('/sales-flow-settings/stage/{id}/toggle',function($p){
   Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$id=(int)$p['id'];
-  $stage=DB::one("SELECT id,active FROM pipeline_stages WHERE id=?",[$id]);if(!$stage)throw new RuntimeException('Etapa inválida.');
-  if((int)$stage['active']===1){$active=(int)(DB::scalar("SELECT COUNT(*) FROM pipeline_stages WHERE active=1")??0);if($active<=1)throw new RuntimeException('O funil precisa manter pelo menos uma etapa ativa.');}
-  DB::exec("UPDATE pipeline_stages SET active=IF(active=1,0,1),updated_at=NOW() WHERE id=?",[$id]);redirect('/sales-flow-settings');
+  $stage=DB::one("SELECT id,name,active FROM pipeline_stages WHERE id=?",[$id]);
+  if(!$stage){$_SESSION['sales_flow_flash']=['type'=>'danger','message'=>'Etapa inválida.'];redirect('/sales-flow-settings');}
+  if((int)$stage['active']===1){
+   $active=(int)(DB::scalar("SELECT COUNT(*) FROM pipeline_stages WHERE active=1")??0);
+   $open=(int)(DB::scalar("SELECT COUNT(*) FROM opportunities WHERE stage_id=? AND status='open'",[$id])??0);
+   if($active<=1){$_SESSION['sales_flow_flash']=['type'=>'danger','message'=>'O funil precisa manter pelo menos uma etapa ativa.'];redirect('/sales-flow-settings');}
+   if($open>0){$_SESSION['sales_flow_flash']=['type'=>'danger','message'=>'A etapa '.$stage['name'].' possui '.$open.' oportunidade(s) aberta(s). Mova os negócios antes de desativá-la.'];redirect('/sales-flow-settings');}
+  }
+  DB::exec("UPDATE pipeline_stages SET active=IF(active=1,0,1),updated_at=NOW() WHERE id=?",[$id]);
+  $_SESSION['sales_flow_flash']=['type'=>'success','message'=>'Etapa atualizada com sucesso.'];redirect('/sales-flow-settings');
  });
  $router->post('/sales-flow-settings/activity-type',function(){Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$name=trim((string)($_POST['name']??''));if($name==='')throw new RuntimeException('Informe o nome.');$code='custom_'.substr(hash('sha256',$name.microtime(true)),0,12);DB::exec("INSERT INTO sales_activity_types(code,name,active,position,created_at,updated_at) VALUES(?,?,1,999,NOW(),NOW())",[$code,$name]);redirect('/sales-flow-settings');});
- $router->post('/sales-flow-settings/activity-type/{id}/toggle',function($p){Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();DB::exec("UPDATE sales_activity_types SET active=IF(active=1,0,1),updated_at=NOW() WHERE id=?",[(int)$p['id']]);redirect('/sales-flow-settings');});
+ $router->post('/sales-flow-settings/activity-type/{id}/toggle',function($p){
+  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$id=(int)$p['id'];
+  $type=DB::one("SELECT id,name,active FROM sales_activity_types WHERE id=?",[$id]);
+  if(!$type){$_SESSION['sales_flow_flash']=['type'=>'danger','message'=>'Tipo de atividade inválido.'];redirect('/sales-flow-settings');}
+  if((int)$type['active']===1&&(int)(DB::scalar("SELECT COUNT(*) FROM sales_activity_types WHERE active=1")??0)<=1){$_SESSION['sales_flow_flash']=['type'=>'danger','message'=>'Mantenha pelo menos um tipo de próxima ação ativo.'];redirect('/sales-flow-settings');}
+  DB::exec("UPDATE sales_activity_types SET active=IF(active=1,0,1),updated_at=NOW() WHERE id=?",[$id]);
+  $_SESSION['sales_flow_flash']=['type'=>'success','message'=>'Tipo de atividade atualizado.'];redirect('/sales-flow-settings');
+ });
 }
