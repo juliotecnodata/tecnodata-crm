@@ -1770,13 +1770,40 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u,string $page=''): void{
+ $pageMeta=[
+  'dashboard'=>['Dashboard','Visão geral da operação','fa-chart-line'],
+  'clients'=>['Clientes','Base e carteiras','fa-users'],
+  'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
+  'client'=>['Clientes','Detalhes do cliente','fa-address-card'],
+  'contact_monitoring'=>['Acompanhamento','Contatos e próximos passos','fa-headset'],
+  'orders'=>['Pedidos','Operação comercial','fa-receipt'],
+  'order_detail'=>['Pedidos','Detalhes do pedido','fa-file-invoice'],
+  'order_new'=>['Pedidos','Novo pedido','fa-cart-plus'],
+  'services'=>['Serviços','Ordens de serviço','fa-screwdriver-wrench'],
+  'collection'=>['Cobrança','Carteira financeira','fa-hand-holding-dollar'],
+  'collection_recoveries'=>['Cobrança','Valores recuperados','fa-money-bill-transfer'],
+  'collection_case'=>['Cobrança','Atendimento financeiro','fa-file-invoice-dollar'],
+  'agenda'=>['Agenda','Rotina da equipe','fa-calendar-check'],
+  'users'=>['Gestão','Usuários e acessos','fa-users-gear'],
+  'goals'=>['Gestão','Metas','fa-bullseye'],
+  'admin_center'=>['Administração','Centro administrativo','fa-grid-2'],
+  'settings'=>['Sistema','Configurações','fa-gears'],
+  'test_data'=>['Sistema','Ferramentas de teste','fa-flask'],
+  'sync'=>['Sistema','Sincronização Omie','fa-arrows-rotate'],
+  'opportunities'=>['Comercial','Oportunidades','fa-chart-column'],
+  'opportunity_detail'=>['Comercial','Detalhe da oportunidade','fa-handshake'],
+  'sales_flow_settings'=>['Gestão','Fluxo comercial','fa-diagram-project'],
+  'management_result'=>['Gestão','Resultados','fa-chart-column'],
+  'result'=>['Resultados','Meu desempenho','fa-chart-line']
+ ];
+ $pageInfo=$pageMeta[$page]??['Tecnodata CRM','Operação','fa-graduation-cap'];
  ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
     <a href="<?=APP_URL?>/">
      <span class="tdcrm-brand-mark"><i class="fa-solid fa-graduation-cap"></i></span>
-     <span class="tdcrm-brand-copy"><strong>Tecnodata <b>CRM</b></strong></span>
+     <span class="tdcrm-brand-copy"><strong>Tecnodata <b>CRM</b></strong><small>Educacional</small></span>
     </a>
     <button class="sidebar-close" type="button" data-menu-close aria-label="Fechar menu"><i class="fa-solid fa-xmark"></i></button>
    </div>
@@ -1853,7 +1880,7 @@ function layout(string $body,?array $u,string $page=''): void{
    <header class="tdcrm-topbar">
     <div class="tdcrm-topbar-left">
      <button class="tdcrm-menu-button" type="button" data-menu aria-controls="appSidebar" aria-expanded="true"><i class="fa-solid fa-bars"></i></button>
-     
+     <div class="tdcrm-topbar-context"><span><i class="fa-solid <?=e($pageInfo[2])?>"></i></span><div><small><?=e($pageInfo[0])?></small><strong><?=e($pageInfo[1])?></strong></div></div>
     </div>
     <div class="tdcrm-topbar-right">
      <?php $notifications=NotificationService::forUser($u);$notificationTotal=(int)($notifications['total']??0);?>
@@ -1890,7 +1917,7 @@ function layout(string $body,?array $u,string $page=''): void{
  <script src="https://cdn.datatables.net/3.0.3/js/dataTables.bootstrap5.min.js"></script>
  <script src="<?=APP_URL?>/assets/app.js?v=<?=is_file(APP_ROOT.'/public/assets/app.js')?filemtime(APP_ROOT.'/public/assets/app.js'):time()?>"></script>
  <?php if($u):?><script>
- (()=>{const base=<?=json_encode(rtrim(APP_URL,'/'))?>;const p=location.pathname.replace(/\/+$/,'')||'/';const links=[...document.querySelectorAll('.tdcrm-nav a')];links.forEach(a=>a.classList.remove('active'));let best=null,bestLen=-1;for(const a of links){const ap=new URL(a.href,location.origin).pathname.replace(/\/+$/,'')||'/';const isHome=ap===base||ap===base+'/';const ok=isHome?(p===ap||p===base):(p===ap||p.startsWith(ap+'/'));if(ok&&ap.length>bestLen){best=a;bestLen=ap.length;}}if(best)best.classList.add('active');})();
+ (()=>{const base=<?=json_encode(rtrim(APP_URL,'/'))?>;const p=location.pathname.replace(/\/+$/,'')||'/';const links=[...document.querySelectorAll('.tdcrm-nav a')];links.forEach(a=>a.classList.remove('active'));let best=null,bestLen=-1;for(const a of links){const ap=new URL(a.href,location.origin).pathname.replace(/\/+$/,'')||'/';const isHome=ap===base||ap===base+'/';const ok=isHome?(p===ap||p===base):(p===ap||p.startsWith(ap+'/'));if(ok&&ap.length>bestLen){best=a;bestLen=ap.length;}}if(best){best.classList.add('active');const group=best.closest('.tdcrm-nav-group');if(group){group.classList.add('is-open');const toggle=group.querySelector('.tdcrm-nav-group-toggle');if(toggle)toggle.setAttribute('aria-expanded','true');}}})();
  </script><?php endif;?>
  </body></html><?php
 }
