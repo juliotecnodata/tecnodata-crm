@@ -1040,7 +1040,9 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    $agendaQueryBase=[];
    if(!empty($teamAgenda)&&!empty($agendaFilterUser))$agendaQueryBase['user_id']=(int)$agendaFilterUser;
    if(($agendaType??'all')!=='all')$agendaQueryBase['type']=$agendaType;
-   $colle<?php if($collectionAgenda):?>
+   $collectionAgenda=(($agendaType??'all')==='collection'||$u['role']==='collector');
+   ?>
+   <?php if($collectionAgenda):?>
    <section class="tdca4-page">
     <header class="tdca4-head"><div><span class="tdca4-kicker">COBRANÇA / AGENDA</span><h1>Agenda de cobrança</h1><p>Organize e execute as atividades de cobrança com foco, prioridade e resultado.</p></div><div class="tdca4-date"><i class="fa-regular fa-calendar"></i><span><strong><?=date('d/m/Y')?></strong><small><?=$agendaTotal?> pendente(s)</small></span></div></header>
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
@@ -1054,8 +1056,6 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     <aside class="tdca4-side"><section><header><strong>Carga por responsável</strong><a href="<?=APP_URL?>/agenda?type=collection">Ver todos</a></header><div class="tdca4-workload"><?php $maxWork=1;foreach($agendaWorkload??[] as $w)if($w['role']==='collector')$maxWork=max($maxWork,(int)$w['total']);foreach($agendaWorkload??[] as $w):if($w['role']!=='collector')continue;?><a href="<?=APP_URL?>/agenda?type=collection&user_id=<?=$w['id']?>"><span><?=e(mb_strtoupper(mb_substr((string)$w['name'],0,1)))?></span><strong><?=e($w['name'])?></strong><div><i style="width:<?=round((int)$w['total']/$maxWork*100)?>%"></i></div><b><?=(int)$w['total']?></b></a><?php endforeach;?></div></section><section><header><strong>Resumo do dia</strong></header><div class="tdca4-summary"><span><i class="ok"></i>Hoje<b><?=$agendaTodayCount?></b></span><span><i class="danger"></i>Atrasadas<b><?=$agendaLate?></b></span><span><i class="blue"></i>Próximas<b><?=$agendaUpcoming?></b></span></div></section></aside></div>
    </section>
    <?php else:?>
-   ctionAgenda=(($agendaType??'all')==='collection'||$u['role']==='collector');
-   ?>
    <section class="tda-page">
     <header class="tda-head">
      <div class="tda-head-main">
