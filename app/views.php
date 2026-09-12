@@ -1361,45 +1361,105 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     </div>
    </section>
   <?php break;
-  case 'settings':?>
-   <section class="tdset-page">
-    <header class="tdset-head"><div class="tdset-head-main"><span class="tdset-head-icon"><i class="fa-solid fa-gear"></i></span><div><span class="tdset-kicker">SISTEMA / CONFIGURAÇÕES</span><h1>Configurações</h1><p>Defina os participantes do acompanhamento<?=$settingsAdmin?' e os padrões operacionais do sistema':''?>.</p></div></div></header>
-    <?php if(!empty($flash)):?><div class="alert alert-<?=e((string)($flash['type']??'info'))?>"><?=e((string)($flash['message']??''))?></div><?php endif;?>
-    <section class="tdset-card tdset-monitor-card">
-     <div class="tdset-card-head"><span><i class="fa-solid fa-headset"></i></span><div><strong>Participantes do acompanhamento</strong><small>Escolha vendedores e usuários de cobrança que devem ser monitorados.</small></div><b class="tdset-rule-status <?=$monitorConfigured?'configured':'default'?>"><i class="fa-solid <?=$monitorConfigured?'fa-shield-halved':'fa-circle-info'?>"></i><?=$monitorConfigured?'Regra ativa':'Todos ativos'?></b></div>
-     <form method="post" action="<?=APP_URL?>/settings/contact-monitoring" class="tdset-monitor-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <div class="tdset-monitor-help"><i class="fa-solid fa-circle-info"></i><span><?=$monitorConfigured?'A tela já está limitada aos usuários selecionados abaixo.':'Nenhuma regra específica foi salva; entram somente carteiras vinculadas aos usuários operacionais ativos.'?></span></div>
-      <div class="tdset-monitor-users"><?php foreach($monitorUsers??[] as $monitorUser):?><label><input type="checkbox" name="monitor_user_ids[]" value="<?=(int)$monitorUser['id']?>" <?=in_array((int)$monitorUser['id'],$monitorIds??[],true)?'checked':''?>><span class="avatar <?=$monitorUser['role']==='collector'?'collection':''?>"><?=e(mb_strtoupper(mb_substr((string)$monitorUser['name'],0,1)))?></span><span><strong><?=e($monitorUser['name'])?> <b><?=$monitorUser['role']==='collector'?'Cobrança':'Vendas'?></b></strong><small><?=e($monitorUser['email'])?><?=$monitorUser['role']==='seller'?' · Omie '.e($monitorUser['seller_omie_code']):' · Carteira de cobrança'?></small></span><i class="fa-solid fa-check"></i></label><?php endforeach;?><?php if(empty($monitorUsers)):?><div class="tdset-empty"><i class="fa-solid fa-user-slash"></i><div><strong>Nenhum usuário operacional disponível</strong><span>Cadastre um vendedor vinculado à Omie ou um usuário de cobrança.</span></div></div><?php endif;?></div>
-      <?php if(!empty($monitorUsers)):?><div class="tdset-monitor-actions"><span><i class="fa-solid fa-eye"></i>Selecionados: <b data-monitor-selected><?=count($monitorIds??[])?></b></span><button class="tdset-btn tdset-btn-primary" type="submit" data-submit-loading="Salvando regra..."><i class="fa-solid fa-check"></i>Salvar regra do acompanhamento</button></div><?php endif;?>
-     </form>
-    </section>
-    <section class="tdset-card" id="task-results">
-     <div class="tdset-card-head"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Resultados de tarefas e atendimentos</strong><small>Admin e supervisor podem ampliar a lista usada no Comercial e na Cobrança sem alterar código.</small></div></div>
-     <form method="post" action="<?=APP_URL?>/settings/task-results" class="tdset-result-create">
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <label>Nome do resultado<input class="form-control" name="label" maxlength="80" placeholder="Ex.: Cliente pediu retorno na próxima semana" required></label>
-      <fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked> Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked> Cobrança</label></fieldset>
-      <button class="tdset-btn tdset-btn-primary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar resultado</button>
-     </form>
-     <div class="tdset-result-list">
-      <?php foreach($taskResults??[] as $resultItem):?>
-       <div class="tdset-result-row <?=!empty($resultItem['active'])?'active':'inactive'?>">
-        <div><strong><?=e($resultItem['label'])?></strong><small><?=in_array('sales',(array)$resultItem['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$resultItem['contexts'],true)&&in_array('collection',(array)$resultItem['contexts'],true)?' · ':''?><?=in_array('collection',(array)$resultItem['contexts'],true)?'Cobrança':''?><?=!empty($resultItem['system'])?' · padrão do sistema':''?></small></div>
-        <form method="post" action="<?=APP_URL?>/settings/task-results/<?=e($resultItem['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdset-btn" type="submit"><i class="fa-solid <?=!empty($resultItem['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($resultItem['active'])?'Ativo':'Inativo'?></button></form>
-       </div>
-      <?php endforeach;?>
-     </div>
-    </section>
+  case 'settings':
+   $activeTaskResults=count(array_filter($taskResults??[],static fn($item)=>!empty($item['active'])));
+   $flowActive=sales_flow_enabled();
+   ?>
+   <section class="tdcfg-page">
+    <header class="tdcfg-head">
+     <div class="tdcfg-title"><span class="tdcfg-title-icon"><i class="fa-solid fa-gears"></i></span><div><span class="tdcfg-kicker">SISTEMA / CONFIGURAÇÕES</span><h1>Configurações</h1><p>Gerencie regras, preferências e integrações do CRM em um só lugar.</p></div></div>
+     <div class="tdcfg-health"><i class="fa-solid fa-circle-check"></i><div><strong>Sistema operacional</strong><small>As configurações essenciais estão disponíveis.</small></div></div>
+    </header>
 
-    <?php if($settingsAdmin):?>
-    <form method="post" action="<?=APP_URL?>/settings" class="tdset-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
-     <section class="tdset-card"><div class="tdset-card-head"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Padrões do pedido</strong><small>Valores iniciais que podem ser ajustados pelo vendedor durante a criação.</small></div></div><div class="tdset-grid"><?php $fields=[['stage','Etapa',$stages,'code','name'],['category','Categoria',$categories,'code','description'],['account','Conta corrente',$accounts,'omie_code','name'],['payment_term','Condição de pagamento',$terms,'code','description'],['payment_method','Meio de pagamento',$methods,'code','description'],['document_type','Tipo documento',$documents,'code','description'],['tax_scenario','Cenário fiscal',$taxes,'omie_code','name'],['stock_location','Local estoque',$stocks,'omie_code','name']];foreach($fields as [$key,$label,$list,$vk,$lk]):?><label><?=$label?><select class="form-select" name="<?=$key?>"><option value="">Selecione</option><?php foreach($list as $r):?><option value="<?=e($r[$vk])?>" <?=($defaults[$key]??'')===(string)$r[$vk]?'selected':''?>><?=e($r[$lk])?></option><?php endforeach;?></select></label><?php endforeach;?><label>Frete padrão<select class="form-select" name="freight_mode" data-freight-default-autosave><?php foreach(['9'=>'Sem frete','0'=>'CIF','1'=>'FOB','2'=>'Terceiros','3'=>'Próprio remetente','4'=>'Próprio destinatário'] as $k=>$vv):?><option value="<?=$k?>" <?=($defaults['freight_mode']??'9')===$k?'selected':''?>><?=$vv?></option><?php endforeach;?></select><small data-freight-default-status>Salvamento automático</small></label><label>Consumidor final<select class="form-select" name="consumer_final"><option value="S">Sim</option><option value="N" <?=($defaults['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></label><label class="tdset-check"><input type="checkbox" name="send_email" value="1" <?=($defaults['send_email']??'N')==='S'?'checked':''?>>Enviar e-mail pela Omie</label></div></section>
-     <section class="tdset-card"><div class="tdset-card-head"><span><i class="fa-solid fa-truck-fast"></i></span><div><strong>Transportadoras disponíveis</strong><small>Clientes ativos com a tag Transportadora sincronizada da Omie.</small></div></div><?php if(!empty($carriers)):?><div class="tdset-options"><?php foreach($carriers as $carrier):?><label><input type="checkbox" name="carrier_codes[]" value="<?=e((string)$carrier['omie_code'])?>" <?=!empty($carrier['selected'])?'checked':''?>><span><strong><?=e((string)$carrier['name'])?></strong><small>Omie <?=e((string)$carrier['omie_code'])?><?=!empty($carrier['city'])?' · '.e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):''?></small></span></label><?php endforeach;?></div><?php else:?><div class="tdset-empty"><i class="fa-solid fa-truck-fast"></i><div><strong>Nenhuma transportadora encontrada</strong><span>Adicione a tag na Omie e sincronize Clientes.</span></div><a class="tdset-btn" href="<?=APP_URL?>/sync">Sincronizar clientes</a></div><?php endif;?></section>
-     <section class="tdset-card"><div class="tdset-card-head"><span><i class="fa-solid fa-building-columns"></i></span><div><strong>Contas usadas na cobrança</strong><small>Defina quais contas financeiras entram na operação de cobrança.</small></div></div><div class="tdset-options"><?php foreach($accounts as $r):?><label><input type="checkbox" name="collection_accounts[]" value="<?=e($r['omie_code'])?>" <?=$r['selected']?'checked':''?>><span><strong><?=e($r['name'])?></strong><small><?=e($r['omie_code'])?></small></span></label><?php endforeach;?></div></section>
-     <div class="tdset-save"><button class="tdset-btn tdset-btn-primary"><i class="fa-solid fa-check"></i>Salvar configurações</button></div>
-    </form>
-    <section class="tdset-card"><div class="tdset-card-head"><span><i class="fa-solid fa-layer-group"></i></span><div><strong>Perfis operacionais de pedido</strong><small>Comportamento inicial de estoque, financeiro e NF-e.</small></div></div><div class="tdset-profiles"><?php foreach($profiles as $p):?><article><div><strong><?=e($p['name'])?></strong><small><?=e($p['description']??'')?></small></div><div><?php if($p['default_no_stock']==='S'):?><b>Sem estoque</b><?php endif;?><?php if($p['default_no_finance']==='S'):?><b>Sem financeiro</b><?php endif;?><?php if($p['default_no_total']==='S'):?><b>Fora total NF-e</b><?php endif;?><?php if($p['default_reserve_stock']==='S'):?><b>Reserva</b><?php endif;?></div></article><?php endforeach;?></div><form class="tdset-profile-form" method="post" action="<?=APP_URL?>/settings/order-profile"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Código<input class="form-control" name="code" placeholder="EX: VENDA_ESPECIAL" required></label><label>Nome<input class="form-control" name="name" required></label><label class="wide">Descrição<input class="form-control" name="description"></label><label class="tdset-check"><input type="checkbox" name="default_no_stock" value="1">Não movimentar estoque</label><label class="tdset-check"><input type="checkbox" name="default_no_finance" value="1">Não gerar financeiro</label><label class="tdset-check"><input type="checkbox" name="default_no_total" value="1">Não somar na NF-e</label><label class="tdset-check"><input type="checkbox" name="default_reserve_stock" value="1">Reservar estoque</label><input type="hidden" name="active" value="1"><button class="tdset-btn"><i class="fa-solid fa-plus"></i>Criar tipo</button></form></section>
-    <?php endif;?>
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e((string)($flash['type']??'info'))?>"><?=e((string)($flash['message']??''))?></div><?php endif;?>
+
+    <nav class="tdcfg-categories" aria-label="Áreas de configuração">
+     <a class="active" href="#geral"><span class="blue"><i class="fa-solid fa-sliders"></i></span><strong>Geral</strong><small>Preferências operacionais</small></a>
+     <a href="<?=APP_URL?>/sales-flow-settings"><span class="green"><i class="fa-solid fa-filter-circle-dollar"></i></span><strong>Fluxo comercial</strong><small>Funil e oportunidades</small></a>
+     <a href="#tarefas"><span class="red"><i class="fa-regular fa-calendar-check"></i></span><strong>Agenda e tarefas</strong><small>Resultados e rotinas</small></a>
+     <a href="<?=APP_URL?>/sync"><span class="blue"><i class="fa-solid fa-link"></i></span><strong>Integrações</strong><small>Omie e sincronização</small></a>
+     <a href="#acompanhamento"><span class="yellow"><i class="fa-solid fa-bell"></i></span><strong>Acompanhamento</strong><small>Usuários monitorados</small></a>
+     <?php if($settingsAdmin):?><a href="<?=APP_URL?>/users"><span class="orange"><i class="fa-solid fa-shield-halved"></i></span><strong>Segurança</strong><small>Usuários e acessos</small></a><?php endif;?>
+    </nav>
+
+    <div class="tdcfg-layout">
+     <div class="tdcfg-main">
+      <section class="tdcfg-card" id="acompanhamento">
+       <header><span class="blue"><i class="fa-solid fa-headset"></i></span><div><strong>Participantes do acompanhamento</strong><small>Escolha quem deve aparecer nos indicadores de acompanhamento comercial e cobrança.</small></div><b class="tdcfg-state <?=$monitorConfigured?'ok':'neutral'?>"><?=$monitorConfigured?'Regra ativa':'Padrão automático'?></b></header>
+       <form method="post" action="<?=APP_URL?>/settings/contact-monitoring" class="tdcfg-monitor"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
+        <div class="tdcfg-info"><i class="fa-solid fa-circle-info"></i><span><?=$monitorConfigured?'Somente os participantes selecionados entram nessa visão.':'Sem regra específica: o CRM considera os usuários operacionais ativos.'?></span></div>
+        <div class="tdcfg-users"><?php foreach($monitorUsers??[] as $monitorUser):?><label><input type="checkbox" name="monitor_user_ids[]" value="<?=(int)$monitorUser['id']?>" <?=in_array((int)$monitorUser['id'],$monitorIds??[],true)?'checked':''?>><span class="avatar <?=$monitorUser['role']==='collector'?'collection':''?>"><?=e(mb_strtoupper(mb_substr((string)$monitorUser['name'],0,1)))?></span><span><strong><?=e($monitorUser['name'])?></strong><small><?=$monitorUser['role']==='collector'?'Cobrança':'Vendas'?> · <?=e($monitorUser['email'])?></small></span><i class="fa-solid fa-check"></i></label><?php endforeach;?><?php if(empty($monitorUsers)):?><div class="tdcfg-empty">Nenhum usuário operacional disponível.</div><?php endif;?></div>
+        <?php if(!empty($monitorUsers)):?><footer><span>Selecionados: <b data-monitor-selected><?=count($monitorIds??[])?></b></span><button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-check"></i>Salvar acompanhamento</button></footer><?php endif;?>
+       </form>
+      </section>
+
+      <section class="tdcfg-card" id="tarefas">
+       <header><span class="red"><i class="fa-solid fa-list-check"></i></span><div><strong>Resultados de tarefas e atendimentos</strong><small>Personalize os resultados usados no Comercial e na Cobrança.</small></div><b class="tdcfg-state ok"><?=$activeTaskResults?> ativos</b></header>
+       <form method="post" action="<?=APP_URL?>/settings/task-results" class="tdcfg-result-create">
+        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+        <label><span>Nome do resultado</span><input class="form-control" name="label" maxlength="80" placeholder="Ex.: Retornar na próxima semana" required></label>
+        <fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked> Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked> Cobrança</label></fieldset>
+        <button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar</button>
+       </form>
+       <div class="tdcfg-result-list"><?php foreach($taskResults??[] as $resultItem):?><div class="<?=!empty($resultItem['active'])?'active':'inactive'?>"><span><strong><?=e($resultItem['label'])?></strong><small><?=in_array('sales',(array)$resultItem['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$resultItem['contexts'],true)&&in_array('collection',(array)$resultItem['contexts'],true)?' · ':''?><?=in_array('collection',(array)$resultItem['contexts'],true)?'Cobrança':''?><?=!empty($resultItem['system'])?' · padrão do sistema':''?></small></span><form method="post" action="<?=APP_URL?>/settings/task-results/<?=e($resultItem['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="tdcfg-toggle <?=!empty($resultItem['active'])?'on':'off'?>"><i class="fa-solid <?=!empty($resultItem['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($resultItem['active'])?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></div>
+      </section>
+
+      <?php if($settingsAdmin):?>
+      <form method="post" action="<?=APP_URL?>/settings" class="tdcfg-admin-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
+       <section class="tdcfg-card" id="geral">
+        <header><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><strong>Padrões operacionais do pedido</strong><small>Valores iniciais usados na criação de pedidos. O vendedor ainda pode ajustar durante o atendimento.</small></div></header>
+        <div class="tdcfg-fields"><?php $fields=[['stage','Etapa',$stages,'code','name'],['category','Categoria',$categories,'code','description'],['account','Conta corrente',$accounts,'omie_code','name'],['payment_term','Condição de pagamento',$terms,'code','description'],['payment_method','Meio de pagamento',$methods,'code','description'],['document_type','Tipo documento',$documents,'code','description'],['tax_scenario','Cenário fiscal',$taxes,'omie_code','name'],['stock_location','Local estoque',$stocks,'omie_code','name']];foreach($fields as [$key,$label,$list,$vk,$lk]):?><label><span><?=$label?></span><select class="form-select" name="<?=$key?>"><option value="">Selecione</option><?php foreach($list as $row):?><option value="<?=e($row[$vk])?>" <?=($defaults[$key]??'')===(string)$row[$vk]?'selected':''?>><?=e($row[$lk])?></option><?php endforeach;?></select></label><?php endforeach;?>
+         <label><span>Frete padrão</span><select class="form-select" name="freight_mode" data-freight-default-autosave><?php foreach(['9'=>'Sem frete','0'=>'CIF','1'=>'FOB','2'=>'Terceiros','3'=>'Próprio remetente','4'=>'Próprio destinatário'] as $k=>$vv):?><option value="<?=$k?>" <?=($defaults['freight_mode']??'9')===$k?'selected':''?>><?=$vv?></option><?php endforeach;?></select><small data-freight-default-status>Salvamento automático</small></label>
+         <label><span>Consumidor final</span><select class="form-select" name="consumer_final"><option value="S">Sim</option><option value="N" <?=($defaults['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></label>
+         <label class="tdcfg-check"><input type="checkbox" name="send_email" value="1" <?=($defaults['send_email']??'N')==='S'?'checked':''?>><span><strong>Enviar e-mail pela Omie</strong><small>Permite o disparo conforme o fluxo do pedido.</small></span></label>
+        </div>
+       </section>
+
+       <div class="tdcfg-two">
+        <section class="tdcfg-card">
+         <header><span class="blue"><i class="fa-solid fa-truck-fast"></i></span><div><strong>Transportadoras</strong><small>Defina quais transportadoras estarão disponíveis no pedido.</small></div></header>
+         <?php if(!empty($carriers)):?><div class="tdcfg-options"><?php foreach($carriers as $carrier):?><label><input type="checkbox" name="carrier_codes[]" value="<?=e((string)$carrier['omie_code'])?>" <?=!empty($carrier['selected'])?'checked':''?>><span><strong><?=e((string)$carrier['name'])?></strong><small><?=!empty($carrier['city'])?e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):'Omie '.e((string)$carrier['omie_code'])?></small></span></label><?php endforeach;?></div><?php else:?><div class="tdcfg-empty">Nenhuma transportadora encontrada. Sincronize os clientes após configurar a tag na Omie.</div><?php endif;?>
+        </section>
+        <section class="tdcfg-card">
+         <header><span class="green"><i class="fa-solid fa-building-columns"></i></span><div><strong>Contas da cobrança</strong><small>Escolha as contas financeiras que entram na operação de cobrança.</small></div></header>
+         <div class="tdcfg-options"><?php foreach($accounts as $row):?><label><input type="checkbox" name="collection_accounts[]" value="<?=e($row['omie_code'])?>" <?=$row['selected']?'checked':''?>><span><strong><?=e($row['name'])?></strong><small><?=e($row['omie_code'])?></small></span></label><?php endforeach;?></div>
+        </section>
+       </div>
+       <div class="tdcfg-save"><span><i class="fa-solid fa-lightbulb"></i>Revise os padrões antes de salvar. Eles serão usados como ponto de partida nos novos pedidos.</span><button class="tdcfg-btn primary"><i class="fa-solid fa-floppy-disk"></i>Salvar configurações</button></div>
+      </form>
+
+      <section class="tdcfg-card">
+       <header><span class="orange"><i class="fa-solid fa-layer-group"></i></span><div><strong>Perfis operacionais de pedido</strong><small>Crie comportamentos específicos para estoque, financeiro e NF-e sem alterar o fluxo padrão.</small></div></header>
+       <div class="tdcfg-profiles"><?php foreach($profiles as $profile):?><article><div><strong><?=e($profile['name'])?></strong><small><?=e($profile['description']??'')?></small></div><div><?php if($profile['default_no_stock']==='S'):?><b>Sem estoque</b><?php endif;?><?php if($profile['default_no_finance']==='S'):?><b>Sem financeiro</b><?php endif;?><?php if($profile['default_no_total']==='S'):?><b>Fora total NF-e</b><?php endif;?><?php if($profile['default_reserve_stock']==='S'):?><b>Reserva</b><?php endif;?></div></article><?php endforeach;?></div>
+       <form class="tdcfg-profile-form" method="post" action="<?=APP_URL?>/settings/order-profile"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Código<input class="form-control" name="code" placeholder="EX: VENDA_ESPECIAL" required></label><label>Nome<input class="form-control" name="name" required></label><label class="wide">Descrição<input class="form-control" name="description"></label><label class="tdcfg-check compact"><input type="checkbox" name="default_no_stock" value="1"><span>Não movimentar estoque</span></label><label class="tdcfg-check compact"><input type="checkbox" name="default_no_finance" value="1"><span>Não gerar financeiro</span></label><label class="tdcfg-check compact"><input type="checkbox" name="default_no_total" value="1"><span>Não somar na NF-e</span></label><label class="tdcfg-check compact"><input type="checkbox" name="default_reserve_stock" value="1"><span>Reservar estoque</span></label><input type="hidden" name="active" value="1"><button class="tdcfg-btn"><i class="fa-solid fa-plus"></i>Criar perfil</button></form>
+      </section>
+      <?php endif;?>
+     </div>
+
+     <aside class="tdcfg-side">
+      <section class="tdcfg-side-card">
+       <header><span class="green"><i class="fa-solid fa-diagram-project"></i></span><div><strong>Fluxo comercial</strong><small>Oportunidades e funil</small></div></header>
+       <div class="tdcfg-big-state <?=$flowActive?'ok':'off'?>"><i class="fa-solid <?=$flowActive?'fa-circle-check':'fa-circle-pause'?>"></i><div><strong><?=$flowActive?'Ativado':'Desativado'?></strong><span><?=$flowActive?'O módulo está disponível para a equipe comercial.':'O CRM segue no fluxo tradicional atual.'?></span></div></div>
+       <a class="tdcfg-link" href="<?=APP_URL?>/sales-flow-settings">Configurar fluxo <i class="fa-solid fa-arrow-right"></i></a>
+      </section>
+
+      <section class="tdcfg-side-card">
+       <header><span class="blue"><i class="fa-solid fa-plug"></i></span><div><strong>Integrações</strong><small>Dados e sincronização</small></div></header>
+       <div class="tdcfg-integration"><i class="fa-solid fa-arrows-rotate"></i><div><strong>Omie</strong><span>Clientes, pedidos, serviços e financeiro.</span></div><b>Integrado</b></div>
+       <a class="tdcfg-link" href="<?=APP_URL?>/sync">Gerenciar sincronização <i class="fa-solid fa-arrow-right"></i></a>
+      </section>
+
+      <?php if($settingsAdmin):?>
+      <section class="tdcfg-side-card">
+       <header><span class="orange"><i class="fa-solid fa-shield-halved"></i></span><div><strong>Usuários e segurança</strong><small>Perfis e permissões</small></div></header>
+       <p>Gerencie administradores, supervisores, vendedores e cobrança em uma tela própria de acessos.</p>
+       <a class="tdcfg-link" href="<?=APP_URL?>/users">Gerenciar acessos <i class="fa-solid fa-arrow-right"></i></a>
+      </section>
+      <?php endif;?>
+
+      <section class="tdcfg-tip"><i class="fa-solid fa-lightbulb"></i><div><strong>Dica</strong><span>Mantenha as configurações simples. Ative somente os recursos que sua operação realmente utiliza.</span></div></section>
+     </aside>
+    </div>
    </section>
   <?php break;
   case 'test_data':?>
