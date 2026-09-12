@@ -1280,44 +1280,85 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
   <?php break;
   case 'admin_center':
    $s=$stats??[];$syncRows=$syncRows??[];$syncOk=0;$syncFail=0;foreach($syncRows as $syncRow){if(!empty($syncRow['last_error']))$syncFail++;elseif(!empty($syncRow['last_success_at']))$syncOk++;}
+   $adminUser=Auth::user();$firstName=trim(explode(' ',trim((string)($adminUser['name']??'Administrador')))[0]??'Administrador');
+   $syncTotal=count($syncRows);$syncHealthy=max(0,$syncTotal-$syncFail);
    ?>
-   <section class="tdadmin-page">
-    <header class="tdadmin-head">
-     <div><span class="tdadmin-kicker">ADMINISTRAÇÃO</span><h1>Centro Administrativo</h1><p>Gestão do CRM organizada por operação, equipe, regras e integrações.</p></div>
-     <a class="tdadmin-primary" href="<?=APP_URL?>/"><i class="fa-solid fa-chart-line"></i>Ver resultados</a>
+   <section class="tdadmin2-page">
+    <header class="tdadmin2-hero">
+     <div class="tdadmin2-title">
+      <span class="tdadmin2-kicker">TECNODATA EDUCACIONAL</span>
+      <h1>Centro Administrativo</h1>
+      <p>Visão completa da operação, gestão e sistema em um só lugar.</p>
+      <nav class="tdadmin2-quick">
+       <a class="green" href="<?=APP_URL?>/users"><i class="fa-solid fa-users"></i>Usuários<i class="fa-solid fa-chevron-right"></i></a>
+       <a class="blue" href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i>Fluxo comercial<i class="fa-solid fa-chevron-right"></i></a>
+       <a class="orange" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização<i class="fa-solid fa-chevron-right"></i></a>
+       <a class="neutral" href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i>Configurações</a>
+      </nav>
+     </div>
+     <div class="tdadmin2-welcome">
+      <small><?=date('d/m/Y')?></small>
+      <strong>Olá, <?=e($firstName)?>!</strong>
+      <span>Aqui você gerencia o que faz a Tecnodata ir mais longe.</span>
+     </div>
+     <div class="tdadmin2-brand-card"><i class="fa-solid fa-leaf"></i><div><span>Mais gestão.</span><span>Mais educação.</span><strong>Mais impacto.</strong></div></div>
     </header>
 
-    <div class="tdadmin-overview">
-     <article><span class="green"><i class="fa-solid fa-users-gear"></i></span><div><small>Usuários ativos</small><strong><?=number_format((int)($s['active_users']??0),0,',','.')?></strong><em><?=number_format((int)($s['users']??0),0,',','.')?> cadastrados</em></div></article>
-     <article><span class="blue"><i class="fa-solid fa-user-tie"></i></span><div><small>Vendedores</small><strong><?=number_format((int)($s['sellers']??0),0,',','.')?></strong><em>Perfis comerciais ativos</em></div></article>
-     <article><span class="orange"><i class="fa-solid fa-headset"></i></span><div><small>Cobrança</small><strong><?=number_format((int)($s['collectors']??0),0,',','.')?></strong><em>Usuários ativos</em></div></article>
-     <article><span class="<?=$flowEnabled?'green':'muted'?>"><i class="fa-solid fa-diagram-project"></i></span><div><small>Fluxo comercial</small><strong><?=$flowEnabled?'Ativo':'Desativado'?></strong><em><?=$flowEnabled?'Oportunidades e funil em uso':'CRM operando no modo tradicional'?></em></div></article>
+    <div class="tdadmin2-kpis">
+     <article><span class="green"><i class="fa-solid fa-users"></i></span><div><small>Usuários ativos</small><strong><?=number_format((int)($s['active_users']??0),0,',','.')?></strong><em><?=number_format((int)($s['users']??0),0,',','.')?> cadastrados</em></div></article>
+     <article><span class="blue"><i class="fa-solid fa-sack-dollar"></i></span><div><small>Pipeline em negociação</small><strong><?=money($s['pipeline_value']??0)?></strong><em><?=number_format((int)($s['open_opportunities']??0),0,',','.')?> oportunidades abertas</em></div></article>
+     <article><span class="yellow"><i class="fa-regular fa-calendar-check"></i></span><div><small>Agenda da equipe</small><strong><?=number_format((int)($s['today_tasks']??0),0,',','.')?></strong><em><?=number_format((int)($s['overdue_tasks']??0),0,',','.')?> atrasadas</em></div></article>
+     <article><span class="red"><i class="fa-solid fa-circle-dollar-to-slot"></i></span><div><small>Cobrança em aberto</small><strong><?=money($s['open_collection']??0)?></strong><em><?=number_format((int)($s['collectors']??0),0,',','.')?> usuários de cobrança</em></div></article>
     </div>
 
-    <div class="tdadmin-section-title"><span>GESTÃO E OPERAÇÃO</span><p>Recursos usados para organizar equipe, rotina e processo comercial.</p></div>
-    <div class="tdadmin-grid">
-     <a class="tdadmin-card" href="<?=APP_URL?>/users"><span class="icon green"><i class="fa-solid fa-users-gear"></i></span><div><strong>Usuários e acessos</strong><p>Cadastre vendedores, cobrança, supervisores e administradores. Controle vínculos e permissões.</p><small><?=number_format((int)($s['active_users']??0),0,',','.')?> usuários ativos</small></div><i class="fa-solid fa-arrow-right"></i></a>
-     <a class="tdadmin-card" href="<?=APP_URL?>/sales-flow-settings"><span class="icon lime"><i class="fa-solid fa-diagram-project"></i></span><div><strong>Fluxo comercial</strong><p>Ative oportunidades e funil, escolha tipos de atividade e mantenha o processo simples para vendas.</p><small><?=$flowEnabled?'Fluxo ativo':'Fluxo desativado'?></small></div><i class="fa-solid fa-arrow-right"></i></a>
-     <a class="tdadmin-card" href="<?=APP_URL?>/settings"><span class="icon blue"><i class="fa-solid fa-headset"></i></span><div><strong>Acompanhamento</strong><p>Defina quem entra no acompanhamento e personalize resultados de tarefas e atendimentos.</p><small><?=number_format((int)($s['monitored']??0),0,',','.')?> participantes configurados</small></div><i class="fa-solid fa-arrow-right"></i></a>
-     <a class="tdadmin-card" href="<?=APP_URL?>/goals"><span class="icon yellow"><i class="fa-solid fa-bullseye"></i></span><div><strong>Metas e resultados</strong><p>Gerencie metas gerais e individuais de vendas, contatos e recuperação financeira.</p><small>Gestão mensal da equipe</small></div><i class="fa-solid fa-arrow-right"></i></a>
-    </div>
+    <div class="tdadmin2-main">
+     <div class="tdadmin2-left">
+      <section class="tdadmin2-section">
+       <header><div><span class="lime"><i class="fa-solid fa-chart-line"></i></span><strong>Operação</strong><small>Acompanhe e gerencie o dia a dia da operação comercial.</small></div></header>
+       <div class="tdadmin2-modules">
+        <a href="<?=sales_flow_enabled()?APP_URL.'/opportunities':APP_URL.'/sales-flow-settings'?>"><span class="green"><i class="fa-solid fa-arrow-trend-up"></i></span><div><strong>Comercial</strong><small>Gerencie oportunidades, funil e conversões.</small><em><?=sales_flow_enabled()?number_format((int)($s['open_opportunities']??0),0,',','.').' oportunidades ativas':'Fluxo opcional desativado'?></em></div><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="<?=APP_URL?>/collection"><span class="blue"><i class="fa-solid fa-wallet"></i></span><div><strong>Cobrança</strong><small>Acompanhe recebimentos, inadimplência e status.</small><em><?=money($s['open_collection']??0)?> em aberto</em></div><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="<?=APP_URL?>/agenda"><span class="cyan"><i class="fa-regular fa-calendar-days"></i></span><div><strong>Agenda da equipe</strong><small>Visualize compromissos e distribua atendimentos.</small><em><?=number_format((int)($s['today_tasks']??0),0,',','.')?> compromissos hoje</em></div><i class="fa-solid fa-chevron-right"></i></a>
+       </div>
+      </section>
 
-    <div class="tdadmin-section-title"><span>SISTEMA E INTEGRAÇÕES</span><p>Configurações técnicas e serviços que sustentam a operação.</p></div>
-    <div class="tdadmin-grid tdadmin-grid-system">
-     <a class="tdadmin-card" href="<?=APP_URL?>/sync"><span class="icon navy"><i class="fa-solid fa-arrows-rotate"></i></span><div><strong>Sincronização Omie</strong><p>Acompanhe clientes, pedidos, serviços, financeiro e demais módulos sincronizados.</p><small><?=$syncFail>0?$syncFail.' módulo(s) com erro':$syncOk.' módulo(s) atualizados'?></small></div><i class="fa-solid fa-arrow-right"></i></a>
-     <a class="tdadmin-card" href="<?=APP_URL?>/settings"><span class="icon slate"><i class="fa-solid fa-gears"></i></span><div><strong>Configurações gerais</strong><p>Padrões de pedido, frete, estoque, pagamento e regras operacionais do CRM.</p><small><?=number_format((int)($taskResultCount??0),0,',','.')?> resultados de tarefas disponíveis</small></div><i class="fa-solid fa-arrow-right"></i></a>
-     <a class="tdadmin-card" href="<?=APP_URL?>/test-data"><span class="icon orange"><i class="fa-solid fa-flask"></i></span><div><strong>Ferramentas de teste</strong><p>Recursos técnicos para homologação e validação. Use somente quando necessário.</p><small>Área técnica</small></div><i class="fa-solid fa-arrow-right"></i></a>
-    </div>
+      <section class="tdadmin2-section">
+       <header><div><span class="lime"><i class="fa-solid fa-chart-simple"></i></span><strong>Gestão</strong><small>Dados e pessoas para decisões mais estratégicas.</small></div></header>
+       <div class="tdadmin2-modules">
+        <a href="<?=APP_URL?>/goals"><span class="cyan"><i class="fa-solid fa-bullseye"></i></span><div><strong>Metas</strong><small>Acompanhe desempenho e resultados da equipe.</small><em>Gestão mensal</em></div><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="<?=APP_URL?>/settings"><span class="blue"><i class="fa-solid fa-chart-line"></i></span><div><strong>Acompanhamento</strong><small>Indicadores, regras e evolução da operação.</small><em><?=number_format((int)($s['monitored']??0),0,',','.')?> participantes</em></div><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="<?=APP_URL?>/users"><span class="blue"><i class="fa-solid fa-users-gear"></i></span><div><strong>Usuários e acessos</strong><small>Gerencie perfis, permissões e atividade da equipe.</small><em><?=number_format((int)($s['active_users']??0),0,',','.')?> usuários ativos</em></div><i class="fa-solid fa-chevron-right"></i></a>
+       </div>
+      </section>
 
-    <section class="tdadmin-status">
-     <header><div><span><i class="fa-solid fa-heart-pulse"></i></span><div><strong>Saúde das integrações</strong><small>Visão rápida do estado das sincronizações do CRM.</small></div></div><a href="<?=APP_URL?>/sync">Abrir sincronização</a></header>
-     <div class="tdadmin-status-grid">
-      <?php foreach(array_slice($syncRows,0,8) as $row):$hasError=!empty($row['last_error']);?>
-       <article><span class="<?=$hasError?'error':'ok'?>"><i class="fa-solid <?=$hasError?'fa-triangle-exclamation':'fa-check'?>"></i></span><div><strong><?=e($row['module_key'])?></strong><small><?=$hasError?'Requer atenção':(!empty($row['last_success_at'])?'Última atualização '.date('d/m H:i',strtotime($row['last_success_at'])):'Ainda não sincronizado')?></small></div></article>
-      <?php endforeach;?>
-      <?php if(empty($syncRows)):?><div class="tdadmin-empty">Nenhum módulo de sincronização registrado ainda.</div><?php endif;?>
+      <section class="tdadmin2-section">
+       <header><div><span class="lime"><i class="fa-solid fa-gear"></i></span><strong>Sistema</strong><small>Mantenha tudo integrado e funcionando perfeitamente.</small></div></header>
+       <div class="tdadmin2-modules">
+        <a href="<?=APP_URL?>/sync"><span class="blue"><i class="fa-solid fa-arrows-rotate"></i></span><div><strong>Sincronização Omie</strong><small>Integração de dados financeiros e comerciais.</small><em><?=$syncFail>0?$syncFail.' módulo(s) com atenção':'Sincronizações operacionais'?></em></div><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="<?=APP_URL?>/settings"><span class="cyan"><i class="fa-solid fa-gears"></i></span><div><strong>Configurações gerais</strong><small>Ajustes do sistema, parâmetros e preferências.</small><em><?=number_format((int)($taskResultCount??0),0,',','.')?> resultados configurados</em></div><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="<?=APP_URL?>/test-data"><span class="blue"><i class="fa-solid fa-flask"></i></span><div><strong>Ferramentas de teste</strong><small>Ambiente de validação e testes de integrações.</small><em>Área técnica</em></div><i class="fa-solid fa-chevron-right"></i></a>
+       </div>
+      </section>
      </div>
-    </section>
+
+     <aside class="tdadmin2-right">
+      <section class="tdadmin2-health">
+       <header><div><i class="fa-solid fa-share-nodes"></i><span><strong>Saúde das integrações</strong><small>Status em tempo real dos principais serviços.</small></span></div></header>
+       <div class="tdadmin2-health-list">
+        <?php foreach(array_slice($syncRows,0,6) as $row):$hasError=!empty($row['last_error']);?>
+         <div><span class="<?=$hasError?'error':'ok'?>"></span><strong><?=e($row['module_key'])?></strong><em class="<?=$hasError?'error':'ok'?>"><?=$hasError?'Atenção':'Operacional'?></em><small><?=!empty($row['last_success_at'])?'Há '.max(1,(int)round((time()-strtotime($row['last_success_at']))/60)).' min':'—'?></small></div>
+        <?php endforeach;?>
+        <?php if(empty($syncRows)):?><div class="tdadmin2-health-empty">Nenhuma integração registrada.</div><?php endif;?>
+       </div>
+       <a class="tdadmin2-health-action" href="<?=APP_URL?>/sync">Ver detalhes das integrações <i class="fa-solid fa-arrow-right"></i></a>
+      </section>
+
+      <section class="tdadmin2-impact">
+       <div><i class="fa-solid fa-trophy"></i><span>Tecnologia que aproxima pessoas e transforma a educação.</span><strong>Grupo Tecnodata</strong></div>
+       <span class="tdadmin2-impact-art"><i class="fa-solid fa-building"></i></span>
+      </section>
+     </aside>
+    </div>
    </section>
   <?php break;
   case 'settings':?>
