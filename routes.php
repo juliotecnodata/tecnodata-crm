@@ -1046,7 +1046,7 @@ $router->get('/admin',function(){
   'pipeline_value'=>0.0,
   'today_tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)=CURDATE()")??0),
   'overdue_tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)<CURDATE()")??0),
-  'open_collection'=>(float)(DB::scalar("SELECT COALESCE(SUM(amount_due),0) FROM collection_cases")??0),
+  'open_collection'=>(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0),
  ];
  if(sales_flow_enabled()){
   try{
