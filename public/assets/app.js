@@ -1073,7 +1073,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   timer=setTimeout(async()=>{
    try{
     if(controller)controller.abort();controller=new AbortController();
-    const res=await fetch((window.APP_URL||'')+'/api/clients?q='+encodeURIComponent(q),{headers:{'Accept':'application/json'},signal:controller.signal});
+    const res=await fetch((input.dataset.api||'/api/clients')+'?q='+encodeURIComponent(q),{headers:{'Accept':'application/json'},signal:controller.signal});
     const data=await res.json();const items=Array.isArray(data.items)?data.items:[];
     if(!items.length){box.innerHTML='<div class="empty">Nenhum cliente encontrado</div>';box.hidden=false;return;}
     box.innerHTML=items.map(item=>'<button type="button" data-id="'+item.id+'" data-name="'+String(item.name||'').replace(/"/g,'&quot;')+'"><strong>'+String(item.name||'')+'</strong><small>'+[item.document,item.city,item.uf].filter(Boolean).join(' · ')+'</small></button>').join('');
