@@ -83,6 +83,10 @@ function ensure_sales_flow_tables(): void{
  foreach($stages as $s)DB::exec("INSERT IGNORE INTO pipeline_stages(code,name,position,active,is_won,is_lost,created_at,updated_at) VALUES(?,?,?,1,0,0,NOW(),NOW())",$s);
  $types=[['call','Ligação','fa-phone',10],['whatsapp','WhatsApp','fa-brands fa-whatsapp',20],['email','E-mail','fa-envelope',30],['meeting','Reunião','fa-users',40],['proposal','Enviar proposta','fa-file-signature',50],['followup','Retorno','fa-clock',60]];
  foreach($types as $t)DB::exec("INSERT IGNORE INTO sales_activity_types(code,name,icon,position,active,created_at,updated_at) VALUES(?,?,?,?,1,NOW(),NOW())",$t);
+ try{
+  $hasOpportunityTask=DB::one("SHOW COLUMNS FROM tasks LIKE 'opportunity_id'");
+  if(!$hasOpportunityTask)DB::exec("ALTER TABLE tasks ADD COLUMN opportunity_id BIGINT UNSIGNED NULL AFTER client_id, ADD INDEX idx_tasks_opportunity(opportunity_id,status)");
+ }catch(Throwable){}
 }
 
 function sales_flow_stages(bool $activeOnly=true): array{
@@ -99,6 +103,14 @@ function sales_flow_require_enabled(): void{
 function opportunity_scope_where(array $u,string $alias='o'): array{
  if(($u['role']??'')==='seller')return ["{$alias}.owner_user_id=?",[(int)$u['id']]];
  return ['1=1',[]];
+}
+
+function opportunity_sync_task(array $opp,string $title): void{
+ if(empty($opp['next_action_at']))return;
+ try{
+  DB::exec("UPDATE tasks SET status='cancelled' WHERE opportunity_id=? AND status='pending'",[(int)$opp['id']]);
+  DB::exec("INSERT INTO tasks(client_id,opportunity_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?, ?, ?, 'sales', ?, ?, 'pending', NOW())",[(int)$opp['client_id'],(int)$opp['id'],(int)$opp['owner_user_id'],$title,(string)$opp['next_action_at']]);
+ }catch(Throwable){}
 }
 
 function opportunity_render(string $name,array $vars=[]): void{
@@ -141,7 +153,7 @@ function opportunity_render(string $name,array $vars=[]): void{
  }elseif($name==='opportunity_detail'){
   ?>
   <section class="tdopp-page"><a class="tdopp-back" href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-left"></i>Voltar ao funil</a><header class="tdopp-head"><div><span class="tdopp-kicker">OPORTUNIDADE #<?=$opp['id']?></span><h1><?=e($opp['client_name'])?></h1><p><?=e($opp['title'])?></p></div><span class="tdopp-status <?=e($opp['status'])?>"><?=e(mb_strtoupper($opp['status']))?></span></header>
-   <div class="tdopp-detail-grid"><section class="tdopp-panel"><h3>Resumo</h3><dl><div><dt>Interesse</dt><dd><?=e($opp['interest']?:'Não informado')?></dd></div><div><dt>Valor estimado</dt><dd><?=money($opp['estimated_value'])?></dd></div><div><dt>Responsável</dt><dd><?=e($opp['owner_name'])?></dd></div><div><dt>Etapa</dt><dd><?=e($opp['stage_name'])?></dd></div></dl></section>
+   <div class="tdopp-detail-grid"><section class="tdopp-panel"><h3>Resumo</h3><dl><div><dt>Interesse</dt><dd><?=e($opp['interest']?:'Não informado')?></dd></div><div><dt>Valor estimado</dt><dd><?=money($opp['estimated_value'])?></dd></div><div><dt>Responsável</dt><dd><?=e($opp['owner_name'])?></dd></div><div><dt>Etapa</dt><dd><form class="tdopp-stage-form" method="post" action="<?=APP_URL?>/opportunities/<?=$opp['id']?>/stage"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><select class="form-select" name="stage_id" onchange="this.form.submit()"><?php foreach($stages as $stage):?><option value="<?=$stage['id']?>" <?=$opp['stage_id']==$stage['id']?'selected':''?>><?=e($stage['name'])?></option><?php endforeach;?></select></form></dd></div></dl></section>
    <section class="tdopp-panel"><h3>Próxima ação</h3><form method="post" action="<?=APP_URL?>/opportunities/<?=$opp['id']?>/action"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Tipo<select class="form-select" name="next_action_type"><?php foreach($activityTypes as $type):?><option value="<?=e($type['code'])?>" <?=$opp['next_action_type']===$type['code']?'selected':''?>><?=e($type['name'])?></option><?php endforeach;?></select></label><label>Quando<input class="form-control" type="datetime-local" name="next_action_at" value="<?=!empty($opp['next_action_at'])?date('Y-m-d\TH:i',strtotime($opp['next_action_at'])):''?>" required></label><label>Nota<input class="form-control" name="next_action_note" value="<?=e($opp['next_action_note']??'')?>" placeholder="Opcional"></label><button class="tdopp-btn primary" type="submit">Salvar próxima ação</button></form></section></div>
    <?php if($opp['status']==='open'):?><div class="tdopp-close-grid"><form method="post" action="<?=APP_URL?>/opportunities/<?=$opp['id']?>/close"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="status" value="won"><button class="tdopp-close won"><i class="fa-solid fa-trophy"></i><span><strong>Ganhou</strong><small>Fechar e seguir para o pedido</small></span></button></form><form method="post" action="<?=APP_URL?>/opportunities/<?=$opp['id']?>/close"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="status" value="lost"><label>Motivo da perda<input class="form-control" name="lost_reason" maxlength="180" placeholder="Ex.: preço, concorrente, adiou compra" required></label><button class="tdopp-close lost"><i class="fa-solid fa-xmark"></i><span><strong>Não converteu</strong><small>Encerrar mantendo o histórico</small></span></button></form></div><?php elseif($opp['status']==='won'):?><div class="tdopp-won-box"><i class="fa-solid fa-circle-check"></i><div><strong>Oportunidade ganha</strong><span>Agora transforme a venda em pedido sem redigitar o cliente.</span></div><a class="tdopp-btn primary" href="<?=APP_URL?>/orders/new?client_id=<?=$opp['client_id']?>&opportunity_id=<?=$opp['id']?>">Gerar pedido</a></div><?php endif;?>
    <section class="tdopp-panel"><h3>Histórico</h3><div class="tdopp-history"><?php foreach($history??[] as $h):?><div><i></i><span><strong><?=e($h['description'])?></strong><small><?=e($h['user_name'])?> · <?=date('d/m/Y H:i',strtotime($h['created_at']))?></small></span></div><?php endforeach;?></div></section>
@@ -184,6 +196,7 @@ function register_opportunity_routes(Router $router): void{
   $interest=trim((string)($_POST['interest']??''));$value=(float)str_replace(',','.',preg_replace('/[^0-9,.-]/','',(string)($_POST['estimated_value']??'0')));
   DB::exec("INSERT INTO opportunities(client_id,owner_user_id,stage_id,title,interest,estimated_value,status,next_action_type,next_action_at,created_at,updated_at) VALUES(?,?,?,?,?,?,'open',?,?,NOW(),NOW())",[$clientId,(int)$u['id'],(int)$stage['id'],'Oportunidade · '.$client['name'],$interest,max(0,$value),$type,date('Y-m-d H:i:s',strtotime($at))]);
   $id=(int)DB::scalar("SELECT LAST_INSERT_ID()");DB::exec("INSERT INTO opportunity_history(opportunity_id,user_id,event_type,description,created_at) VALUES(?,?, 'created','Oportunidade criada',NOW())",[$id,(int)$u['id']]);
+  opportunity_sync_task(['id'=>$id,'client_id'=>$clientId,'owner_user_id'=>(int)$u['id'],'next_action_at'=>date('Y-m-d H:i:s',strtotime($at))],'Oportunidade · '.$client['name']);
   redirect('/opportunities/'.$id);
  });
  $router->get('/opportunities/{id}',function($p){
@@ -191,7 +204,14 @@ function register_opportunity_routes(Router $router): void{
   [$scope,$params]=opportunity_scope_where($u);
   $opp=DB::one("SELECT o.*,c.name client_name,u.name owner_name,s.name stage_name FROM opportunities o JOIN clients c ON c.id=o.client_id JOIN users u ON u.id=o.owner_user_id JOIN pipeline_stages s ON s.id=o.stage_id WHERE o.id=? AND ".$scope,array_merge([$id],$params));if(!$opp){http_response_code(404);exit('Oportunidade não encontrada.');}
   $history=DB::all("SELECT h.*,u.name user_name FROM opportunity_history h JOIN users u ON u.id=h.user_id WHERE h.opportunity_id=? ORDER BY h.created_at DESC,h.id DESC",[$id]);
-  opportunity_render('opportunity_detail',['opp'=>$opp,'history'=>$history,'activityTypes'=>sales_activity_types()]);
+  opportunity_render('opportunity_detail',['opp'=>$opp,'history'=>$history,'activityTypes'=>sales_activity_types(),'stages'=>sales_flow_stages()]);
+ });
+ $router->post('/opportunities/{id}/stage',function($p){
+  Auth::requireRole('admin','supervisor','seller');sales_flow_require_enabled();CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$u=Auth::user();$id=(int)$p['id'];[$scope,$params]=opportunity_scope_where($u);$opp=DB::one("SELECT * FROM opportunities o WHERE o.id=? AND ".$scope,array_merge([$id],$params));if(!$opp){http_response_code(404);exit('Oportunidade não encontrada.');}
+  $stageId=(int)($_POST['stage_id']??0);$stage=DB::one("SELECT * FROM pipeline_stages WHERE id=? AND active=1",[$stageId]);if(!$stage)throw new RuntimeException('Etapa inválida.');
+  DB::exec("UPDATE opportunities SET stage_id=?,updated_at=NOW() WHERE id=?",[$stageId,$id]);
+  DB::exec("INSERT INTO opportunity_history(opportunity_id,user_id,event_type,description,created_at) VALUES(?,?, 'stage',?,NOW())",[$id,(int)$u['id'],'Etapa alterada para '.$stage['name']]);
+  redirect('/opportunities/'.$id);
  });
  $router->post('/opportunities/{id}/action',function($p){
   Auth::requireRole('admin','supervisor','seller');sales_flow_require_enabled();CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$u=Auth::user();$id=(int)$p['id'];[$scope,$params]=opportunity_scope_where($u);$opp=DB::one("SELECT * FROM opportunities o WHERE o.id=? AND ".$scope,array_merge([$id],$params));if(!$opp){http_response_code(404);exit('Oportunidade não encontrada.');}
@@ -199,12 +219,13 @@ function register_opportunity_routes(Router $router): void{
   $label=$type;foreach(sales_activity_types() as $t)if($t['code']===$type)$label=$t['name'];
   DB::exec("UPDATE opportunities SET next_action_type=?,next_action_at=?,next_action_note=?,updated_at=NOW() WHERE id=?",[$type,date('Y-m-d H:i:s',strtotime($at)),trim((string)($_POST['next_action_note']??'')),$id]);
   DB::exec("INSERT INTO opportunity_history(opportunity_id,user_id,event_type,description,created_at) VALUES(?,?, 'action',?,NOW())",[$id,(int)$u['id'],'Próxima ação: '.$label.' em '.date('d/m/Y H:i',strtotime($at))]);
+  $opp['next_action_at']=date('Y-m-d H:i:s',strtotime($at));opportunity_sync_task($opp,'Oportunidade · '.$label);
   redirect('/opportunities/'.$id);
  });
  $router->post('/opportunities/{id}/close',function($p){
   Auth::requireRole('admin','supervisor','seller');sales_flow_require_enabled();CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$u=Auth::user();$id=(int)$p['id'];[$scope,$params]=opportunity_scope_where($u);$opp=DB::one("SELECT * FROM opportunities o WHERE o.id=? AND ".$scope,array_merge([$id],$params));if(!$opp){http_response_code(404);exit('Oportunidade não encontrada.');}
   $status=(string)($_POST['status']??'');if(!in_array($status,['won','lost'],true))throw new RuntimeException('Status inválido.');$reason=trim((string)($_POST['lost_reason']??''));if($status==='lost'&&$reason==='')throw new RuntimeException('Informe o motivo da perda.');
-  DB::exec("UPDATE opportunities SET status=?,lost_reason=?,closed_at=NOW(),updated_at=NOW() WHERE id=?",[$status,$status==='lost'?$reason:null,$id]);
+  DB::exec("UPDATE opportunities SET status=?,lost_reason=?,closed_at=NOW(),updated_at=NOW() WHERE id=?",[$status,$status==='lost'?$reason:null,$id]);try{DB::exec("UPDATE tasks SET status='cancelled' WHERE opportunity_id=? AND status='pending'",[$id]);}catch(Throwable){}
   DB::exec("INSERT INTO opportunity_history(opportunity_id,user_id,event_type,description,created_at) VALUES(?,?, 'closed',?,NOW())",[$id,(int)$u['id'],$status==='won'?'Oportunidade marcada como ganha':'Oportunidade perdida: '.$reason]);
   redirect('/opportunities/'.$id);
  });
