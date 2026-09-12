@@ -72,3 +72,50 @@
  .sync-summary{grid-template-columns:1fr 1fr!important}
  .tdsys-kpis{grid-template-columns:1fr 1fr!important}
 }
+
+
+/* Cobrança — detalhe e recuperações */
+.tdcob4-recovery-page,.tdcob4-case-page{display:grid;gap:14px}
+.tdcob4-recovery-page .tdcob-head,.tdcob4-case-page .tdcob-head{align-items:flex-end}
+.tdcob4-recovery-page .tdcob-head h1,.tdcob4-case-page .tdcob-head h1{font-size:30px!important}
+.tdcob4-recovery-page .tdcob-recovery-grid{display:grid!important;grid-template-columns:340px minmax(0,1fr)!important;gap:12px!important}
+.tdcob4-recovery-page .tdcob-card,.tdcob4-recovery-page .tdcob-shell,
+.tdcob4-case-page .tdcob-card{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important;overflow:hidden!important}
+.tdcob4-recovery-page .tdcob-card-head,.tdcob4-case-page .tdcob-card-head{padding:12px 14px!important;border-bottom:1px solid #E8EEF2!important;background:#FBFCFD!important}
+.tdcob4-recovery-page .tdcob-recovery-form,.tdcob4-case-page .tdcob-form{padding:13px!important}
+.tdcob4-recovery-page .tdcob-recovery-total{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important}
+.tdcob4-case-page .tdcob-case-summary{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:10px!important}
+.tdcob4-case-page .tdcob-case-summary>div{padding:13px!important;border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important}
+.tdcob4-case-page .tdcob-case-summary span{font-size:9px!important;color:#718391!important}.tdcob4-case-page .tdcob-case-summary strong{font-size:15px!important;color:#173248!important}
+.tdcob4-case-page .tdcob-assign{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#F8FBFD!important;box-shadow:none!important}
+.tdcob4-case-page .tdcob-grid{display:grid!important;grid-template-columns:360px minmax(0,1fr)!important;gap:12px!important}
+.tdcob4-case-page .tdcob-timeline>div{padding:11px 13px!important;border-bottom:1px solid #EEF2F4!important}.tdcob4-case-page .tdcob-timeline strong{font-size:11px!important}.tdcob4-case-page .tdcob-timeline small{font-size:9px!important}.tdcob4-case-page .tdcob-timeline p{font-size:10px!important}
+
+/* Pedido detalhe */
+.tdo-detail .tdo-detail-summary{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:10px!important}.tdo-detail .tdo-detail-summary>div{padding:13px!important;border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important}.tdo-detail .tdo-detail-kpis{gap:10px!important}.tdo-detail .tdo-detail-kpis article{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important}.tdo-detail .tdo-detail-card{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important;overflow:hidden!important}.tdo-detail .tdo-detail-card-head{padding:12px 14px!important;border-bottom:1px solid #E8EEF2!important;background:#FBFCFD!important}.tdo-detail .tdo-detail-grid{gap:12px!important}
+
+/* Cadastro de cliente */
+.tdc-form-layout{gap:12px!important}.tdc-steps,.tdc-section{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important}.tdc-steps{overflow:hidden!important}.tdc-steps-head{background:#FBFCFD!important;border-bottom:1px solid #E8EEF2!important}.tdc-section-head{background:#FBFCFD!important;border-bottom:1px solid #E8EEF2!important}.tdc-form .form-control,.tdc-form .form-select{min-height:40px!important}.tdc-step-list a{font-size:10px!important}
+
+/* Usuários — sem valores técnicos crus */
+.tdsys-badge.role-seller{background:#EAF5FD!important;color:#0A6DA8!important}.tdsys-badge.role-collector{background:#FFF2E9!important;color:#B96324!important}.tdsys-badge.role-supervisor{background:#F2F8D9!important;color:#6B8600!important}.tdsys-badge.role-admin{background:#E9EEF2!important;color:#173248!important}
+
+/* Tabelas e painéis restantes */
+.tdc-table-card,.tdc-card,.tdo-drafts,.tds-health{box-shadow:none!important}
+.tdc-table-card,.tdc-card{border-color:#DDE6EC!important}
+.tdc-list-filterbar{background:#FBFCFD!important;border-color:#E3E9ED!important}
+.tdo-drafts{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important}
+.tds-health{border:1px solid #DDE6EC!important;border-radius:10px!important;background:#fff!important}
+
+/* Interação coerente */
+.tdc-btn,.tdo-btn,.tds-btn,.tdcob-btn,.tdsys-btn,.tdg4-btn{box-shadow:none!important}
+.tdc-btn:hover,.tdo-btn:hover,.tds-btn:hover,.tdcob-btn:hover,.tdsys-btn:hover,.tdg4-btn:hover{filter:none}
+
+/* Responsivo final */
+@media(max-width:980px){
+ .tdcob4-recovery-page .tdcob-recovery-grid,.tdcob4-case-page .tdcob-grid{grid-template-columns:1fr!important}
+ .tdcob4-case-page .tdcob-case-summary,.tdo-detail .tdo-detail-summary{grid-template-columns:repeat(2,1fr)!important}
+}
+@media(max-width:640px){
+ .tdcob4-case-page .tdcob-case-summary,.tdo-detail .tdo-detail-summary{grid-template-columns:1fr!important}
+}
