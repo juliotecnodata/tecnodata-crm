@@ -22,6 +22,8 @@
 html,body{letter-spacing:0!important}
 body:not([data-page="login"]){background:var(--crm-bg)!important;color:var(--crm-text)!important;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-size:13px!important}
 body:not([data-page="login"]) *{letter-spacing:0!important}
+body:not([data-page="login"]) .tdcrm-content *{box-shadow:none!important}
+body:not([data-page="login"]) .clients-premium-kpi:after{display:none!important}
 body:not([data-page="login"]) .tdcrm-shell{background:var(--crm-bg)!important}
 body:not([data-page="login"]) .tdcrm-sidebar{width:var(--crm-sidebar)!important;background:var(--crm-navy)!important;border-right:1px solid #203744!important;box-shadow:none!important}
 body:not([data-page="login"]) .tdcrm-main{margin-left:var(--crm-sidebar)!important;background:var(--crm-bg)!important;min-height:100vh!important}
