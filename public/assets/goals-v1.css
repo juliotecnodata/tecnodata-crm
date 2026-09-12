@@ -1,0 +1,126 @@
+/* Metas — gestão mensal */
+.tdgoal-page{display:grid;gap:16px}
+.tdgoal-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
+.tdgoal-head-main{display:flex;align-items:flex-start;gap:12px}
+.tdgoal-head-icon{width:44px;height:44px;display:grid;place-items:center;flex:0 0 44px;border:1px solid #d9e3e9;border-radius:10px;background:#fff;color:#009657;font-size:18px}
+.tdgoal-kicker{display:block;margin-bottom:3px;font-size:10px;font-weight:800;color:#778b99}
+.tdgoal-head h1{margin:0;color:#122b3b;font-size:30px;line-height:1.05;font-weight:800}
+.tdgoal-head p{margin:6px 0 0;max-width:720px;color:#667b89;font-size:12px;line-height:1.55}
+.tdgoal-period{min-width:220px;padding:10px 12px;border:1px solid #dde6ec;border-radius:10px;background:#fff}
+.tdgoal-period label{display:grid;gap:5px}
+.tdgoal-period label>span{font-size:10px;font-weight:800;color:#526b7a}
+.tdgoal-period .form-control{min-height:40px;border-color:#d6e0e7;border-radius:8px;font-size:12px}
+
+.tdgoal-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tdgoal-kpi{min-height:118px;display:flex;align-items:center;gap:12px;padding:15px;border:1px solid #dde6ec;border-radius:10px;background:#fff}
+.tdgoal-kpi-icon{width:46px;height:46px;display:grid;place-items:center;flex:0 0 46px;border-radius:10px;font-size:18px}
+.tdgoal-kpi.green .tdgoal-kpi-icon{background:#eaf8f0;color:#009657}
+.tdgoal-kpi.blue .tdgoal-kpi-icon{background:#eaf5fd;color:#007fc7}
+.tdgoal-kpi.orange .tdgoal-kpi-icon{background:#fff1ed;color:#ea5127}
+.tdgoal-kpi.yellow .tdgoal-kpi-icon{background:#fff6d8;color:#c98b00}
+.tdgoal-kpi-main{min-width:0;flex:1}
+.tdgoal-kpi small{display:block;color:#607687;font-size:10px;font-weight:700}
+.tdgoal-kpi strong{display:block;margin:3px 0;color:#122b3b;font-size:21px;line-height:1.1;font-weight:800;white-space:nowrap}
+.tdgoal-kpi p{margin:0;color:#7e8f9a;font-size:9px;line-height:1.35}
+.tdgoal-kpi>b{align-self:flex-start;padding:5px 7px;border-radius:7px;background:#f3f6f8;color:#344f60;font-size:10px}
+.tdgoal-progress{height:7px;margin-top:9px;overflow:hidden;border-radius:999px;background:#e9eff2}
+.tdgoal-progress>span{display:block;height:100%;border-radius:inherit;background:#009657}
+.tdgoal-progress.orange>span{background:#ea5127}
+.tdgoal-progress.yellow>span{background:#d5a000}
+.tdgoal-progress.blue>span{background:#007fc7}
+
+.tdgoal-general,.tdgoal-team-section{border:1px solid #dde6ec;border-radius:10px;background:#fff;overflow:hidden}
+.tdgoal-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 16px;border-bottom:1px solid #e5ecef;background:#fbfcfd}
+.tdgoal-section-title{display:flex;align-items:center;gap:11px;min-width:0}
+.tdgoal-section-title>span{width:40px;height:40px;display:grid;place-items:center;flex:0 0 40px;border-radius:10px;font-size:15px}
+.tdgoal-section-title>span.green{background:#eaf8f0;color:#009657}
+.tdgoal-section-title>span.blue{background:#eaf5fd;color:#007fc7}
+.tdgoal-section-title>span.orange{background:#fff1ed;color:#ea5127}
+.tdgoal-section-title small{display:block;margin-bottom:2px;color:#7b8e9a;font-size:9px;font-weight:800}
+.tdgoal-section-title strong{display:block;color:#173248;font-size:14px;font-weight:800}
+.tdgoal-section-title p{margin:3px 0 0;color:#718391;font-size:10px;line-height:1.4}
+.tdgoal-month-badge,.tdgoal-count{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding:7px 9px;border:1px solid #dce5ea;border-radius:8px;background:#fff;color:#526b7a;font-size:10px;font-weight:700}
+
+.tdgoal-general-form{display:grid;gap:0}
+.tdgoal-goal-field{display:grid;grid-template-columns:42px minmax(0,1fr) minmax(190px,260px);align-items:center;gap:12px;padding:14px 16px;margin:0;border-bottom:1px solid #edf1f3}
+.tdgoal-field-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:10px;font-size:14px}
+.tdgoal-field-icon.green{background:#eaf8f0;color:#009657}
+.tdgoal-field-icon.orange{background:#fff1ed;color:#ea5127}
+.tdgoal-field-icon.yellow{background:#fff6d8;color:#c98b00}
+.tdgoal-field-copy strong{display:block;color:#173248;font-size:12px;font-weight:800}
+.tdgoal-field-copy small{display:block;margin-top:3px;color:#7b8e9a;font-size:9px}
+.tdgoal-input{position:relative;display:flex;align-items:center}
+.tdgoal-input.money i{position:absolute;left:11px;z-index:2;color:#607687;font-size:10px;font-style:normal;font-weight:800}
+.tdgoal-input .form-control{min-height:42px;border:1px solid #d6e0e7;border-radius:8px;background:#fff;color:#173248;font-size:12px;font-weight:700}
+.tdgoal-input.money .form-control{padding-left:34px}
+.tdgoal-input .form-control:focus{border-color:#007fc7;box-shadow:0 0 0 2px rgba(0,127,199,.08)}
+.tdgoal-general-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;background:#fbfcfd}
+.tdgoal-general-actions>span{display:flex;align-items:center;gap:7px;color:#667b89;font-size:9px}
+.tdgoal-general-actions>span i{color:#007fc7}
+.tdgoal-btn{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 13px;border:1px solid #d4dfe5;border-radius:8px;background:#fff;color:#27485b;font-size:11px;font-weight:800;text-decoration:none}
+.tdgoal-btn.primary,.tdgoal-btn.save{border-color:#009657;background:#009657;color:#fff}
+.tdgoal-btn:hover{filter:brightness(.98)}
+
+.tdgoal-person-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px}
+.tdgoal-person-card,.tdgoal-virtual-card{display:grid;gap:12px;padding:14px;border:1px solid #dfe7eb;border-radius:10px;background:#fff}
+.tdgoal-person-head{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:10px}
+.tdgoal-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:10px;background:#eaf8f0;color:#009657;font-size:13px;font-weight:800}
+.tdgoal-avatar.orange{background:#fff1ed;color:#ea5127}
+.tdgoal-avatar.blue{background:#eaf5fd;color:#007fc7}
+.tdgoal-person-head>div{min-width:0}
+.tdgoal-person-head strong{display:block;overflow:hidden;color:#173248;font-size:12px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.tdgoal-person-head small{display:block;margin-top:2px;overflow:hidden;color:#81919c;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.tdgoal-person-head>b{color:#173248;font-size:11px}
+.tdgoal-status{padding:5px 7px;border-radius:7px;font-size:9px;font-weight:800}
+.tdgoal-status.success{background:#eaf8f0;color:#00864e}
+.tdgoal-status.progress{background:#eaf5fd;color:#0073b6}
+.tdgoal-status.attention{background:#fff6d8;color:#a97500}
+.tdgoal-performance{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.tdgoal-performance small{display:block;color:#718391;font-size:9px;font-weight:700}
+.tdgoal-performance strong{display:block;margin:3px 0;color:#122b3b;font-size:18px;font-weight:800}
+.tdgoal-performance span{display:block;color:#80909b;font-size:9px;line-height:1.4}
+.tdgoal-performance>b{color:#173248;font-size:14px}
+.tdgoal-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:3px}
+.tdgoal-edit-grid label,.tdgoal-virtual-input{display:grid;gap:5px;margin:0}
+.tdgoal-edit-grid label>span,.tdgoal-virtual-input>span{color:#526b7a;font-size:9px;font-weight:800}
+.tdgoal-edit-grid label>small{color:#82919b;font-size:8px}
+.tdgoal-person-card.collection .tdgoal-progress>span{background:#ea5127}
+.tdgoal-person-card .tdgoal-btn.save,.tdgoal-virtual-card .tdgoal-btn.save{width:100%;margin-top:1px}
+
+.tdgoal-empty{display:flex;align-items:center;gap:11px;padding:20px 16px;color:#708391}
+.tdgoal-empty>i{width:40px;height:40px;display:grid;place-items:center;border-radius:10px;background:#f0f4f6;color:#7b8d99}
+.tdgoal-empty strong{display:block;color:#314f60;font-size:12px}
+.tdgoal-empty p{margin:3px 0 0;font-size:10px}
+
+.tdgoal-virtual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px}
+.tdgoal-virtual-card .tdgoal-person-head{grid-template-columns:42px minmax(0,1fr) auto}
+.tdgoal-virtual-input{padding-top:2px}
+
+@media (max-width:1180px){
+ .tdgoal-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tdgoal-virtual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:900px){
+ .tdgoal-head{align-items:stretch;flex-direction:column}
+ .tdgoal-period{min-width:0;width:100%}
+ .tdgoal-person-grid{grid-template-columns:1fr}
+ .tdgoal-goal-field{grid-template-columns:42px minmax(0,1fr)}
+ .tdgoal-goal-field>.tdgoal-input{grid-column:1/-1}
+}
+@media (max-width:680px){
+ .tdgoal-page{gap:12px}
+ .tdgoal-head-main{gap:10px}
+ .tdgoal-head h1{font-size:26px}
+ .tdgoal-head p{font-size:11px}
+ .tdgoal-kpis{grid-template-columns:1fr}
+ .tdgoal-kpi{min-height:100px}
+ .tdgoal-section-head{align-items:flex-start;flex-direction:column}
+ .tdgoal-month-badge,.tdgoal-count{align-self:flex-start}
+ .tdgoal-general-actions{align-items:stretch;flex-direction:column}
+ .tdgoal-general-actions .tdgoal-btn{width:100%}
+ .tdgoal-person-grid,.tdgoal-virtual-grid{grid-template-columns:1fr;padding:10px}
+ .tdgoal-edit-grid{grid-template-columns:1fr}
+ .tdgoal-person-head{grid-template-columns:40px minmax(0,1fr)}
+ .tdgoal-person-head .tdgoal-status,.tdgoal-person-head>b{grid-column:1/-1;justify-self:start}
+ .tdgoal-goal-field{padding:12px}
+}
