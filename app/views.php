@@ -1775,24 +1775,24 @@ function layout(string $body,?array $u,string $page=''): void{
   'clients'=>['Clientes','Base e carteiras','fa-users'],
   'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
   'client'=>['Clientes','Detalhes do cliente','fa-address-card'],
-  'contact_monitoring'=>['Acompanhamento','Contatos e próximos passos','fa-headset'],
+  'contact_monitoring'=>['Comercial','Contatos e retornos','fa-headset'],
   'orders'=>['Pedidos','Operação comercial','fa-receipt'],
   'order_detail'=>['Pedidos','Detalhes do pedido','fa-file-invoice'],
   'order_new'=>['Pedidos','Novo pedido','fa-cart-plus'],
   'services'=>['Serviços','Ordens de serviço','fa-screwdriver-wrench'],
-  'collection'=>['Cobrança','Carteira financeira','fa-hand-holding-dollar'],
-  'collection_recoveries'=>['Cobrança','Valores recuperados','fa-money-bill-transfer'],
-  'collection_case'=>['Cobrança','Atendimento financeiro','fa-file-invoice-dollar'],
-  'agenda'=>['Agenda','Rotina da equipe','fa-calendar-check'],
-  'users'=>['Gestão','Usuários e acessos','fa-users-gear'],
-  'goals'=>['Gestão','Metas','fa-bullseye'],
+  'collection'=>['Cobrança','Carteira de cobrança','fa-hand-holding-dollar'],
+  'collection_recoveries'=>['Cobrança','Pagamentos recuperados','fa-money-bill-transfer'],
+  'collection_case'=>['Cobrança','Atendimento de cobrança','fa-file-invoice-dollar'],
+  'agenda'=>['Agenda','Agenda e retornos','fa-calendar-check'],
+  'users'=>['Gestão','Usuários e permissões','fa-users-gear'],
+  'goals'=>['Gestão','Metas da equipe','fa-bullseye'],
   'admin_center'=>['Administração','Centro administrativo','fa-table-cells-large'],
-  'settings'=>['Sistema','Configurações','fa-gears'],
-  'test_data'=>['Sistema','Ferramentas de teste','fa-flask'],
-  'sync'=>['Sistema','Sincronização Omie','fa-arrows-rotate'],
+  'settings'=>['Sistema','Configurações do CRM','fa-gears'],
+  'test_data'=>['Sistema','Ferramentas técnicas','fa-flask'],
+  'sync'=>['Sistema','Sincronização com Omie','fa-arrows-rotate'],
   'opportunities'=>['Comercial','Oportunidades','fa-chart-column'],
   'opportunity_detail'=>['Comercial','Detalhe da oportunidade','fa-handshake'],
-  'sales_flow_settings'=>['Gestão','Fluxo comercial','fa-diagram-project'],
+  'sales_flow_settings'=>['Gestão','Funil de vendas','fa-diagram-project'],
   'management_result'=>['Gestão','Resultados','fa-chart-column'],
   'result'=>['Resultados','Meu desempenho','fa-chart-line']
  ];
@@ -1809,19 +1809,19 @@ function layout(string $body,?array $u,string $page=''): void{
    </div>
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Início</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Todos os clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha Carteira</span></a></div></div>
-     <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a></div></div>
-     <div class="tdcrm-nav-group" data-nav-group="seller-routine"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-regular fa-calendar"></i>Rotina</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a></div></div>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
+     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-list"></i><span>Lista de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
+     <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
+     <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
     <?php elseif($u['role']==='collector'):?>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Início</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="collector-routine" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-list-check"></i>Rotina</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a></div></div>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
+     <div class="tdcrm-nav-group" data-nav-group="collector-collection" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Carteira de cobrança</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a></div></div>
     <?php else:?>
      <div class="tdcrm-nav-context">
       <span><?=e($u['role']==='admin'?'ADMINISTRAÇÃO':'SUPERVISÃO')?></span>
       <small><?=e($u['role']==='admin'?'Gestão completa do CRM':'Gestão da operação comercial')?></small>
      </div>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?><?=$u['role']==='admin'?'/admin':'/'?>"><i class="fa-solid fa-house"></i><span>Visão geral</span></a>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?><?=$u['role']==='admin'?'/admin':'/'?>"><i class="fa-solid <?=$u['role']==='admin'?'fa-table-cells-large':'fa-chart-line'?>"></i><span><?=$u['role']==='admin'?'Centro administrativo':'Dashboard'?></span></a>
 
      <div class="tdcrm-nav-section-label">OPERAÇÃO</div>
 
@@ -1830,7 +1830,7 @@ function layout(string $body,?array $u,string $page=''): void{
       <div class="tdcrm-nav-group-links">
        <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
        <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
-       <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Acompanhamento</span></a>
+       <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
        <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
        <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
       </div>
@@ -1847,24 +1847,24 @@ function layout(string $body,?array $u,string $page=''): void{
      <div class="tdcrm-nav-section-label">GESTÃO</div>
 
      <div class="tdcrm-nav-group" data-nav-group="management" data-default-open="1">
-      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-chart-line"></i>Gestão</span><i class="fa-solid fa-chevron-down"></i></button>
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-chart-line"></i>Gestão da equipe</span><i class="fa-solid fa-chevron-down"></i></button>
       <div class="tdcrm-nav-group-links">
        <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-days"></i><span>Agenda da equipe</span></a>
-       <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a>
-       <?php if($u['role']==='admin'):?><a href="<?=APP_URL?>/users"><i class="fa-solid fa-users-gear"></i><span>Usuários e acessos</span></a><?php endif;?>
-       <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Fluxo comercial</span></a>
-       <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i><span>Acompanhamento</span></a>
+       <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas da equipe</span></a>
+       <?php if($u['role']==='admin'):?><a href="<?=APP_URL?>/users"><i class="fa-solid fa-users-gear"></i><span>Usuários e permissões</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Configurar funil de vendas</span></a>
+       <?php if($u['role']==='supervisor'):?><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i><span>Configurações da operação</span></a><?php endif;?>
       </div>
      </div>
 
      <?php if($u['role']==='admin'):?>
       <div class="tdcrm-nav-section-label">SISTEMA</div>
       <div class="tdcrm-nav-group" data-nav-group="system">
-       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-gears"></i>Sistema</span><i class="fa-solid fa-chevron-down"></i></button>
+       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-gears"></i>Administração do CRM</span><i class="fa-solid fa-chevron-down"></i></button>
        <div class="tdcrm-nav-group-links">
-        <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização Omie</span></a>
-        <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações gerais</span></a>
-        <a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Ferramentas de teste</span></a>
+        <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização com Omie</span></a>
+        <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações do CRM</span></a>
+        <a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Ferramentas técnicas</span></a>
        </div>
       </div>
      <?php endif;?>
