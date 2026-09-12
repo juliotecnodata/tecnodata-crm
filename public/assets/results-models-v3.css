@@ -196,3 +196,5 @@
  .tdres-area-tabs a{flex:1;justify-content:center}
  .tdres-collection-cards{grid-template-columns:1fr}
 }
+
+.tdres-toolbar-actions{gap:14px}
