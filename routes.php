@@ -1042,7 +1042,19 @@ $router->get('/admin',function(){
   'collectors'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE role='collector' AND active=1")??0),
   'sync_errors'=>(int)(DB::scalar("SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>''")??0),
   'monitored'=>count(contact_monitoring_user_ids()??[]),
+  'open_opportunities'=>0,
+  'pipeline_value'=>0.0,
+  'today_tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)=CURDATE()")??0),
+  'overdue_tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)<CURDATE()")??0),
+  'open_collection'=>(float)(DB::scalar("SELECT COALESCE(SUM(amount_due),0) FROM collection_cases")??0),
  ];
+ if(sales_flow_enabled()){
+  try{
+   ensure_sales_flow_tables();
+   $stats['open_opportunities']=(int)(DB::scalar("SELECT COUNT(*) FROM opportunities WHERE status='open'")??0);
+   $stats['pipeline_value']=(float)(DB::scalar("SELECT COALESCE(SUM(estimated_value),0) FROM opportunities WHERE status='open'")??0);
+  }catch(Throwable){}
+ }
  render('admin_center',[
   'stats'=>$stats,
   'flowEnabled'=>sales_flow_enabled(),
