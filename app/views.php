@@ -146,41 +146,65 @@ function render(string $name,array $vars=[]): void{
      <div class="tdd-performance single"><section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="blue"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Atingimento da cobrança</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($resultData['collection_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($resultData['recovered']??0)?></strong><span>de <?=money($g['collection_goal']??0)?></span></div><div class="tdd-progress blue"><span style="width:<?=min(100,(float)($resultData['collection_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Clientes trabalhados <strong><?=number_format((int)($data['worked']??0),0,',','.')?></strong></span><span>Ações no período <strong><?=number_format((int)($resultData['contacts']??0),0,',','.')?></strong></span></div></div></section></div>
 
     <?php else:
+      $area=$resultArea??'commercial';
+      $collectionMode=$area==='collection';
       $teamRows=[];
-      foreach(($mg['sellers']??[]) as $row){
-       $goal=(float)($row['goal']['sales_goal']??0);
-       $teamRows[]=[
-        'key'=>'u:'.(int)($row['user']['id']??0),
-        'name'=>(string)($row['user']['name']??'Vendedor'),
-        'subtitle'=>'Vendedor',
-        'virtual'=>false,
-        'sales'=>(float)($row['sales']??0),
-        'goal'=>$goal,
-        'percent'=>(float)($row['sales_percent']??0),
-        'orders'=>(float)($row['orders_sales']??0),
-        'services'=>(float)($row['services_sales']??0),
-        'contacts'=>(int)($row['contacts']??0)
-       ];
-      }
-      foreach(($mg['virtual_sellers']??[]) as $row){
-       $goal=(float)($row['goal']['sales_goal']??0);
-       $teamRows[]=[
-        'key'=>'v:'.(string)($row['seller']['omie_code']??''),
-        'name'=>(string)($row['seller']['name']??'Vendedor virtual'),
-        'subtitle'=>!empty($row['ead_reciclagem'])?'Vendas online':'Canal automático',
-        'virtual'=>true,
-        'ead'=>!empty($row['ead_reciclagem']),
-        'sales'=>(float)($row['sales']??0),
-        'goal'=>$goal,
-        'percent'=>(float)($row['sales_percent']??0),
-        'orders'=>(float)($row['orders']??0),
-        'services'=>(float)($row['services']??0),
-        'contacts'=>0
-       ];
+      if($collectionMode){
+       foreach(($mg['collectors']??[]) as $row){
+        $goal=(float)($row['goal']['collection_goal']??0);
+        $recovered=(float)($row['recovered']??0);
+        $teamRows[]=[
+         'key'=>'u:'.(int)($row['user']['id']??0),
+         'name'=>(string)($row['user']['name']??'Cobrança'),
+         'subtitle'=>'Cobrança',
+         'virtual'=>false,
+         'sales'=>$recovered,
+         'goal'=>$goal,
+         'percent'=>(float)($row['collection_percent']??0),
+         'orders'=>0.0,
+         'services'=>0.0,
+         'contacts'=>(int)($row['contacts']??0),
+         'remaining'=>max(0,$goal-$recovered)
+        ];
+       }
+      }else{
+       foreach(($mg['sellers']??[]) as $row){
+        $goal=(float)($row['goal']['sales_goal']??0);
+        $teamRows[]=[
+         'key'=>'u:'.(int)($row['user']['id']??0),
+         'name'=>(string)($row['user']['name']??'Vendedor'),
+         'subtitle'=>'Vendedor',
+         'virtual'=>false,
+         'sales'=>(float)($row['sales']??0),
+         'goal'=>$goal,
+         'percent'=>(float)($row['sales_percent']??0),
+         'orders'=>(float)($row['orders_sales']??0),
+         'services'=>(float)($row['services_sales']??0),
+         'contacts'=>(int)($row['contacts']??0),
+         'remaining'=>max(0,$goal-(float)($row['sales']??0))
+        ];
+       }
+       foreach(($mg['virtual_sellers']??[]) as $row){
+        $goal=(float)($row['goal']['sales_goal']??0);
+        $teamRows[]=[
+         'key'=>'v:'.(string)($row['seller']['omie_code']??''),
+         'name'=>(string)($row['seller']['name']??'Vendedor virtual'),
+         'subtitle'=>!empty($row['ead_reciclagem'])?'Vendas online':'Canal automático',
+         'virtual'=>true,
+         'ead'=>!empty($row['ead_reciclagem']),
+         'sales'=>(float)($row['sales']??0),
+         'goal'=>$goal,
+         'percent'=>(float)($row['sales_percent']??0),
+         'orders'=>(float)($row['orders']??0),
+         'services'=>(float)($row['services']??0),
+         'contacts'=>0,
+         'remaining'=>max(0,$goal-(float)($row['sales']??0))
+        ];
+       }
       }
       usort($teamRows,static fn($a,$b)=>$b['sales']<=>$a['sales']);
       $model=$resultModel??'executive';
-      $resultBase=['month'=>$month,'result_model'=>$model];
+      $resultBase=['month'=>$month,'result_model'=>$model,'result_area'=>$area];
       if($selectedDays)$resultBase['days']=$selectedDays;
       $selectedKey=$resultSeller??'';
       $selectedSeller=null;
