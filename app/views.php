@@ -145,24 +145,144 @@ function render(string $name,array $vars=[]): void{
      </div>
      <div class="tdd-performance single"><section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="blue"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Atingimento da cobrança</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($resultData['collection_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($resultData['recovered']??0)?></strong><span>de <?=money($g['collection_goal']??0)?></span></div><div class="tdd-progress blue"><span style="width:<?=min(100,(float)($resultData['collection_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Clientes trabalhados <strong><?=number_format((int)($data['worked']??0),0,',','.')?></strong></span><span>Ações no período <strong><?=number_format((int)($resultData['contacts']??0),0,',','.')?></strong></span></div></div></section></div>
 
-    <?php else:?>
-     <div class="tdd-info-strip"><i class="fa-solid fa-circle-info"></i><span>O resultado comercial soma Pedidos OK + Serviços válidos. Pedidos usam o valor total com frete e serviços cancelados ficam fora do realizado.</span></div>
-     <div class="tdd-kpis">
-      <article class="tdd-kpi green"><span class="tdd-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><div><small>Resultado comercial</small><strong><?=money($mg['sales']??0)?></strong><span class="note ok"><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>% da meta</span></div></article>
-      <article class="tdd-kpi blue"><span class="tdd-kpi-icon"><i class="fa-solid fa-receipt"></i></span><div><small>Pedidos OK</small><strong><?=money($mg['order_sales']??0)?></strong><span class="note">Sem frete: <?=money($mg['order_sales_without_freight']??0)?></span></div></article>
-      <article class="tdd-kpi orange"><span class="tdd-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Recuperado</small><strong><?=money($mg['recovered']??0)?></strong><span class="note"><?=number_format((float)($mg['collection_percent']??0),1,',','.')?>% da meta</span></div></article>
-      <article class="tdd-kpi yellow"><span class="tdd-kpi-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><small>Serviços</small><strong><?=money($mg['service_sales']??0)?></strong><span class="note">Somam no resultado</span></div></article>
-     </div>
+    <?php else:
+      $teamRows=[];
+      foreach(($mg['sellers']??[]) as $row){
+       $goal=(float)($row['goal']['sales_goal']??0);
+       $teamRows[]=[
+        'key'=>'u:'.(int)($row['user']['id']??0),
+        'name'=>(string)($row['user']['name']??'Vendedor'),
+        'subtitle'=>'Vendedor',
+        'virtual'=>false,
+        'sales'=>(float)($row['sales']??0),
+        'goal'=>$goal,
+        'percent'=>(float)($row['sales_percent']??0),
+        'orders'=>(float)($row['orders_sales']??0),
+        'services'=>(float)($row['services_sales']??0),
+        'contacts'=>(int)($row['contacts']??0)
+       ];
+      }
+      foreach(($mg['virtual_sellers']??[]) as $row){
+       $goal=(float)($row['goal']['sales_goal']??0);
+       $teamRows[]=[
+        'key'=>'v:'.(string)($row['seller']['omie_code']??''),
+        'name'=>(string)($row['seller']['name']??'Vendedor virtual'),
+        'subtitle'=>!empty($row['ead_reciclagem'])?'Vendas online':'Canal automático',
+        'virtual'=>true,
+        'ead'=>!empty($row['ead_reciclagem']),
+        'sales'=>(float)($row['sales']??0),
+        'goal'=>$goal,
+        'percent'=>(float)($row['sales_percent']??0),
+        'orders'=>(float)($row['orders']??0),
+        'services'=>(float)($row['services']??0),
+        'contacts'=>0
+       ];
+      }
+      usort($teamRows,static fn($a,$b)=>$b['sales']<=>$a['sales']);
+      $model=$resultModel??'executive';
+      $resultBase=['month'=>$month,'result_model'=>$model];
+      if($selectedDays)$resultBase['days']=$selectedDays;
+      $selectedKey=$resultSeller??'';
+      $selectedSeller=null;
+      foreach($teamRows as $candidate)if($candidate['key']===$selectedKey){$selectedSeller=$candidate;break;}
+      if(!$selectedSeller&&$teamRows)$selectedSeller=$teamRows[0];
+      $statusFor=static function(float $percent): array{
+       if($percent>=100)return ['class'=>'success','label'=>'Acima da meta','icon'=>'fa-trophy'];
+       if($percent>=90)return ['class'=>'near','label'=>'Muito próximo','icon'=>'fa-bullseye'];
+       if($percent>=75)return ['class'=>'progress','label'=>'Em evolução','icon'=>'fa-chart-line'];
+       return ['class'=>'danger','label'=>'Atenção','icon'=>'fa-triangle-exclamation'];
+      };
+    ?>
+     <section class="tdres">
+      <div class="tdres-toolbar">
+       <div><span class="tdd-kicker">GESTÃO / RESULTADOS</span><h2>Resultados comerciais</h2><p>Analise a equipe em diferentes formatos usando os mesmos dados do período.</p></div>
+       <nav class="tdres-models" aria-label="Modelos de visualização">
+        <?php foreach(['executive'=>['fa-table-list','Executivo'],'cards'=>['fa-grip','Cards'],'compare'=>['fa-chart-column','Comparativo'],'detail'=>['fa-user-chart','Detalhe']] as $mode=>$meta):$query=['month'=>$month,'result_model'=>$mode];if($selectedDays)$query['days']=$selectedDays;?>
+         <a class="<?=$model===$mode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($query))?>#resultados"><i class="fa-solid <?=$meta[0]?>"></i><span><?=$meta[1]?></span></a>
+        <?php endforeach;?>
+       </nav>
+      </div>
 
-     <div class="tdd-performance">
-      <section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="green"><i class="fa-solid fa-bullseye"></i></span><div><strong>Meta comercial</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($mg['sales']??0)?></strong><span>de <?=money($mg['effective_sales_goal']??0)?></span></div><div class="tdd-progress"><span style="width:<?=min(100,(float)($mg['sales_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Pedidos <strong><?=money($mg['order_sales']??0)?></strong></span><span>Serviços <strong><?=money($mg['service_sales']??0)?></strong></span><span>Sem frete + serviços <strong><?=money($mg['commercial_without_freight']??0)?></strong></span></div></div></section>
-      <section class="tdd-card"><div class="tdd-card-head"><div class="tdd-card-title"><span class="blue"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Meta de cobrança</strong><small><?=e($periodLabel)?></small></div></div><span class="tdd-percent"><?=number_format((float)($mg['collection_percent']??0),1,',','.')?>%</span></div><div class="tdd-card-body"><div class="tdd-value"><strong><?=money($mg['recovered']??0)?></strong><span>de <?=money($mg['effective_collection_goal']??0)?></span></div><div class="tdd-progress blue"><span style="width:<?=min(100,(float)($mg['collection_percent']??0))?>%"></span></div><div class="tdd-card-foot"><span>Saldo em aberto <strong><?=money($data['debt']??0)?></strong></span><span>Clientes ativos <strong><?=number_format((int)($data['clients']??0),0,',','.')?></strong></span></div></div></section>
-     </div>
+      <div class="tdres-kpis">
+       <article><span class="green"><i class="fa-solid fa-bullseye"></i></span><div><small>Meta geral</small><strong><?=money($mg['effective_sales_goal']??0)?></strong><em><?=e($periodLabel)?></em></div></article>
+       <article><span class="green"><i class="fa-solid fa-chart-column"></i></span><div><small>Resultado comercial</small><strong><?=money($mg['sales']??0)?></strong><em>Pedidos + serviços</em></div></article>
+       <article><span class="blue"><i class="fa-regular fa-file-lines"></i></span><div><small>Pedidos</small><strong><?=money($mg['order_sales']??0)?></strong><em>Pedidos OK</em></div></article>
+       <article><span class="orange"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><small>Serviços</small><strong><?=money($mg['service_sales']??0)?></strong><em>Serviços válidos</em></div></article>
+       <article class="achievement"><div class="tdres-ring" style="--p:<?=min(100,max(0,(float)($mg['sales_percent']??0)))?>"><b><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>%</b></div><div><small>Atingimento</small><strong><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>%</strong><em><?=((float)($mg['effective_sales_goal']??0)>(float)($mg['sales']??0))?'Faltam '.money((float)$mg['effective_sales_goal']-(float)$mg['sales']):'Meta atingida'?></em></div></article>
+      </div>
 
-     <?php if(!empty($mg['virtual_sellers'])):?><section class="tdr-card"><div class="tdr-card-head"><div class="tdr-card-title"><span class="blue"><i class="fa-solid fa-robot"></i></span><div><small>VENDEDORES VIRTUAIS</small><strong>Canais automáticos</strong></div></div></div><div class="tdr-virtual-grid"><?php foreach($mg['virtual_sellers'] as $row):$goal=(float)($row['goal']['sales_goal']??0);?><article class="tdr-virtual"><div class="tdr-virtual-head"><span><i class="fa-solid <?=!empty($row['ead_reciclagem'])?'fa-graduation-cap':'fa-headset'?>"></i></span><div><small>VENDEDOR VIRTUAL</small><strong><?=e($row['seller']['name'])?></strong></div><b><?=number_format((float)($row['sales_percent']??0),1,',','.')?>%</b></div><div class="tdr-virtual-value"><strong><?=money($row['sales'])?></strong><span> de <?=money($goal)?></span></div><div class="tdr-mini-progress <?=!empty($row['ead_reciclagem'])?'':'blue'?>"><span style="width:<?=min(100,(float)($row['sales_percent']??0))?>%"></span></div><div class="tdr-virtual-foot"><i class="fa-solid fa-receipt"></i> Pedidos <strong><?=money($row['orders'])?></strong> · Serviços <strong><?=money($row['services']??0)?></strong></div></article><?php endforeach;?></div></section><?php endif;?>
-    <?php endif;?>
+      <?php if(!$teamRows):?>
+       <div class="tdres-empty"><i class="fa-solid fa-users-slash"></i><strong>Nenhum vendedor com resultado no período.</strong></div>
+      <?php elseif($model==='executive'):?>
+       <section class="tdres-panel">
+        <header><div><i class="fa-solid fa-users"></i><span><strong>Desempenho dos vendedores</strong><small>Visão executiva consolidada da equipe.</small></span></div></header>
+        <div class="tdres-table-wrap"><table class="tdres-table"><thead><tr><th>#</th><th>Vendedor</th><th>Meta</th><th>Realizado</th><th>Pedidos</th><th>Serviços</th><th>Contatos</th><th>Atingimento</th><th>Status</th></tr></thead><tbody>
+        <?php foreach($teamRows as $idx=>$row):$status=$statusFor($row['percent']);?>
+         <tr><td><?=($idx+1)?></td><td><div class="tdres-person"><span class="<?=$row['virtual']?'virtual':''?>"><?=e(mb_strtoupper(mb_substr($row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['subtitle'])?></small></div></div></td><td><?=money($row['goal'])?></td><td><strong class="tdres-money"><?=$row['sales']>=$row['goal']&&$row['goal']>0?'':''?><?=money($row['sales'])?></strong></td><td><?=money($row['orders'])?></td><td><?=money($row['services'])?></td><td><?=number_format($row['contacts'],0,',','.')?></td><td><div class="tdres-progress"><span style="width:<?=min(100,$row['percent'])?>%"></span></div><b><?=number_format($row['percent'],1,',','.')?>%</b></td><td><span class="tdres-status <?=$status['class']?>"><i class="fa-solid <?=$status['icon']?>"></i><?=$status['label']?></span></td></tr>
+        <?php endforeach;?>
+        </tbody></table></div>
+       </section>
 
-    <div class="tdd-section-head"><div><span class="tdd-kicker">OPERAÇÃO</span><h2>Acessos rápidos</h2><p>As rotinas continuam separadas; somente Dashboard e Resultados foram unificados.</p></div></div>
+       <div class="tdres-bottom-grid">
+        <section class="tdres-panel attention"><header><div><i class="fa-solid fa-triangle-exclamation"></i><span><strong>Pontos de atenção</strong><small>Vendedores abaixo de 85% da meta.</small></span></div></header><div class="tdres-attention-list">
+        <?php $attention=array_values(array_filter($teamRows,static fn($row)=>$row['percent']<85));foreach(array_slice($attention,0,5) as $row):?>
+         <div><strong><?=e($row['name'])?></strong><span><?=number_format($row['percent'],1,',','.')?>%</span><em>Faltam <?=money(max(0,$row['goal']-$row['sales']))?></em></div>
+        <?php endforeach;?><?php if(!$attention):?><div class="empty">Nenhum vendedor abaixo de 85%.</div><?php endif;?>
+        </div></section>
+        <section class="tdres-panel"><header><div><i class="fa-solid fa-ranking-star"></i><span><strong>Participação no resultado</strong><small>Distribuição do realizado entre os vendedores.</small></span></div></header><div class="tdres-share">
+        <?php $totalSales=max(0.01,(float)($mg['sales']??0));foreach(array_slice($teamRows,0,6) as $row):$share=$row['sales']/$totalSales*100;?>
+         <div><span><?=e($row['name'])?></span><div><i style="width:<?=min(100,$share)?>%"></i></div><strong><?=number_format($share,1,',','.')?>%</strong></div>
+        <?php endforeach;?>
+        </div></section>
+       </div>
+
+      <?php elseif($model==='cards'):?>
+       <section class="tdres-panel">
+        <header><div><i class="fa-solid fa-chart-simple"></i><span><strong>Painel comercial da equipe</strong><small>Desempenho individual no período selecionado.</small></span></div></header>
+        <div class="tdres-card-grid">
+        <?php foreach($teamRows as $row):$status=$statusFor($row['percent']);?>
+         <article class="tdres-seller-card">
+          <div class="tdres-seller-head"><span class="avatar <?=$row['virtual']?'virtual':''?>"><?=e(mb_strtoupper(mb_substr($row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['subtitle'])?></small></div><i class="state"></i></div>
+          <div class="tdres-seller-main"><div class="tdres-ring large" style="--p:<?=min(100,max(0,$row['percent']))?>"><b><?=number_format($row['percent'],0,',','.')?>%</b><small>Atingimento</small></div><div><small>Meta</small><strong><?=money($row['goal'])?></strong><small>Realizado</small><strong class="green"><?=money($row['sales'])?></strong></div></div>
+          <div class="tdres-seller-stats"><span><i class="fa-regular fa-file-lines"></i><small>Pedidos</small><strong><?=money($row['orders'])?></strong></span><span><i class="fa-solid fa-screwdriver-wrench"></i><small>Serviços</small><strong><?=money($row['services'])?></strong></span><span><i class="fa-solid fa-users"></i><small>Contatos</small><strong><?=number_format($row['contacts'],0,',','.')?></strong></span></div>
+          <div class="tdres-progress"><span style="width:<?=min(100,$row['percent'])?>%"></span></div>
+         </article>
+        <?php endforeach;?>
+        </div>
+       </section>
+       <div class="tdres-bottom-grid">
+        <section class="tdres-panel"><header><div><i class="fa-solid fa-chart-line"></i><span><strong>Evolução do período</strong><small>Distribuição visual do resultado da equipe.</small></span></div></header><div class="tdres-bars"><?php foreach(array_slice($teamRows,0,10) as $row):?><div title="<?=e($row['name'])?>"><i style="height:<?=max(12,min(100,$row['percent']))?>%"></i><span><?=e(mb_substr($row['name'],0,8))?></span></div><?php endforeach;?></div></section>
+        <section class="tdres-panel"><header><div><i class="fa-solid fa-chart-pie"></i><span><strong>Distribuição do resultado</strong><small>Participação no faturamento do período.</small></span></div></header><div class="tdres-share"><?php $totalSales=max(0.01,(float)($mg['sales']??0));foreach(array_slice($teamRows,0,6) as $row):$share=$row['sales']/$totalSales*100;?><div><span><?=e($row['name'])?></span><div><i style="width:<?=min(100,$share)?>%"></i></div><strong><?=number_format($share,1,',','.')?>%</strong></div><?php endforeach;?></div></section>
+       </div>
+
+      <?php elseif($model==='compare'):?>
+       <section class="tdres-panel">
+        <header><div><i class="fa-solid fa-chart-column"></i><span><strong>Resultado por vendedor</strong><small>Cards resumidos para comparação rápida.</small></span></div></header>
+        <div class="tdres-compare-cards">
+        <?php foreach($teamRows as $row):?>
+         <article><div class="top"><span><?=e(mb_strtoupper(mb_substr($row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['subtitle'])?></small></div><b><?=number_format($row['percent'],1,',','.')?>%</b></div><div class="numbers"><span>Meta <strong><?=money($row['goal'])?></strong></span><span>Realizado <strong><?=money($row['sales'])?></strong></span></div><div class="tdres-progress"><span style="width:<?=min(100,$row['percent'])?>%"></span></div><footer><span>Pedidos <b><?=money($row['orders'])?></b></span><span>Serviços <b><?=money($row['services'])?></b></span><span>Contatos <b><?=number_format($row['contacts'],0,',','.')?></b></span></footer></article>
+        <?php endforeach;?>
+        </div>
+       </section>
+       <section class="tdres-panel">
+        <header><div><i class="fa-regular fa-table"></i><span><strong>Comparativo de vendedores</strong><small>Visão consolidada dos resultados no período.</small></span></div></header>
+        <div class="tdres-table-wrap"><table class="tdres-table"><thead><tr><th>Vendedor</th><th>Meta</th><th>Realizado</th><th>Atingimento</th><th>Pedidos</th><th>Serviços</th><th>Contatos</th></tr></thead><tbody><?php foreach($teamRows as $row):?><tr><td><strong><?=e($row['name'])?></strong></td><td><?=money($row['goal'])?></td><td><strong><?=money($row['sales'])?></strong></td><td><div class="tdres-progress"><span style="width:<?=min(100,$row['percent'])?>%"></span></div><b><?=number_format($row['percent'],1,',','.')?>%</b></td><td><?=money($row['orders'])?></td><td><?=money($row['services'])?></td><td><?=number_format($row['contacts'],0,',','.')?></td></tr><?php endforeach;?></tbody><tfoot><tr><th>Total da equipe</th><th><?=money($mg['effective_sales_goal']??0)?></th><th><?=money($mg['sales']??0)?></th><th><?=number_format((float)($mg['sales_percent']??0),1,',','.')?>%</th><th><?=money($mg['order_sales']??0)?></th><th><?=money($mg['service_sales']??0)?></th><th><?=number_format((int)($mg['contacts']??0),0,',','.')?></th></tr></tfoot></table></div>
+       </section>
+
+      <?php else:?>
+       <div class="tdres-detail-layout">
+        <aside class="tdres-seller-list"><header><strong>Vendedores</strong><small>Selecione para analisar</small></header><?php foreach($teamRows as $row):$q=['month'=>$month,'result_model'=>'detail','seller'=>$row['key']];if($selectedDays)$q['days']=$selectedDays;?><a class="<?=$selectedSeller&&$selectedSeller['key']===$row['key']?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($q))?>#resultados"><span><?=e(mb_strtoupper(mb_substr($row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><b><?=money($row['sales'])?></b><small>Meta: <?=money($row['goal'])?></small></div><em><?=number_format($row['percent'],0,',','.')?>%</em></a><?php endforeach;?></aside>
+        <?php if($selectedSeller):$status=$statusFor($selectedSeller['percent']);?>
+        <section class="tdres-detail">
+         <header><div class="person"><span><?=e(mb_strtoupper(mb_substr($selectedSeller['name'],0,1)))?></span><div><strong><?=e($selectedSeller['name'])?></strong><small><?=e($selectedSeller['subtitle'])?></small></div><b class="tdres-status <?=$status['class']?>"><?=$status['label']?></b></div><small><?=e($periodLabel)?></small></header>
+         <div class="tdres-detail-kpis"><article class="primary"><small>Resultado total</small><strong><?=money($selectedSeller['sales'])?></strong><em><?=number_format($selectedSeller['percent'],1,',','.')?>% da meta</em></article><article><i class="fa-regular fa-file-lines"></i><small>Pedidos</small><strong><?=money($selectedSeller['orders'])?></strong></article><article><i class="fa-solid fa-screwdriver-wrench"></i><small>Serviços</small><strong><?=money($selectedSeller['services'])?></strong></article><article><i class="fa-solid fa-users"></i><small>Contatos</small><strong><?=number_format($selectedSeller['contacts'],0,',','.')?></strong></article></div>
+         <div class="tdres-detail-bottom"><article><small>Atingimento da meta</small><strong><?=number_format($selectedSeller['percent'],1,',','.')?>%</strong><div class="tdres-progress"><span style="width:<?=min(100,$selectedSeller['percent'])?>%"></span></div><p><b><?=money($selectedSeller['sales'])?></b> de <?=money($selectedSeller['goal'])?></p></article><article><small>Composição do resultado</small><div class="tdres-composition"><span><b>Pedidos</b><strong><?=money($selectedSeller['orders'])?></strong><i style="width:<?=$selectedSeller['sales']>0?min(100,$selectedSeller['orders']/$selectedSeller['sales']*100):0?>%"></i></span><span><b>Serviços</b><strong><?=money($selectedSeller['services'])?></strong><i style="width:<?=$selectedSeller['sales']>0?min(100,$selectedSeller['services']/$selectedSeller['sales']*100):0?>%"></i></span></div></article></div>
+        </section>
+        <?php endif;?>
+       </div>
+      <?php endif;?>
+     </section>
+    <?php endif;?>   <div class="tdd-section-head"><div><span class="tdd-kicker">OPERAÇÃO</span><h2>Acessos rápidos</h2><p>As rotinas continuam separadas; somente Dashboard e Resultados foram unificados.</p></div></div>
     <div class="tdd-actions">
      <?php if($u['role']==='seller'):?><a class="tdd-action green" href="<?=APP_URL?>/orders/new"><span><i class="fa-solid fa-plus"></i></span><div><strong>Novo pedido</strong><small>Criar e enviar para Omie</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action blue" href="<?=APP_URL?>/my-portfolio"><span><i class="fa-solid fa-briefcase"></i></span><div><strong>Minha Carteira</strong><small>Clientes vinculados a você</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Retornos e compromissos</small></div><i class="fa-solid fa-arrow-right"></i></a>
      <?php elseif($u['role']==='collector'):?><a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Priorizar devedores</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Promessas e retornos</small></div><i class="fa-solid fa-arrow-right"></i></a>
