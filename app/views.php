@@ -1620,97 +1620,122 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
   case 'sync':
    $summary=$sync['summary'];$items=$sync['items'];
    $icons=['sellers'=>'fa-user-tie','clients'=>'fa-users','products'=>'fa-boxes-stacked','categories'=>'fa-tags','departments'=>'fa-sitemap','accounts'=>'fa-building-columns','stages'=>'fa-layer-group','payment_terms'=>'fa-calendar-check','tax_scenarios'=>'fa-file-invoice-dollar','stock_locations'=>'fa-warehouse','payment_methods'=>'fa-credit-card','document_types'=>'fa-file-lines','orders'=>'fa-receipt','services'=>'fa-screwdriver-wrench','financial'=>'fa-hand-holding-dollar'];
+   $syncGroups=[
+    'base'=>['label'=>'Cadastros base','description'=>'Dados essenciais usados no CRM comercial.','icon'=>'fa-database','keys'=>['sellers','clients','products']],
+    'references'=>['label'=>'Referências Omie','description'=>'Cadastros auxiliares usados em pedidos, serviços e financeiro.','icon'=>'fa-diagram-project','keys'=>['categories','departments','accounts','stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types']],
+    'movement'=>['label'=>'Movimentação','description'=>'Dados operacionais que mudam diariamente e exigem acompanhamento mais próximo.','icon'=>'fa-arrows-rotate','keys'=>['orders','services','financial']]
+   ];
+   $modeLabels=['manual_period'=>'Período escolhido','forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
+   $lastSuccessLabel=$summary['last_success']?date('d/m/Y H:i',strtotime($summary['last_success'])):'Nenhuma execução concluída';
    ?>
-   <section class="tdsync-page"><div class="tdsync-head">
-    <div class="tdsync-head-main"><span class="tdsync-head-icon"><i class="fa-solid fa-arrows-rotate"></i></span><div><span class="tdsync-kicker">OMIE / OPERAÇÃO</span><h1>Central de sincronização</h1><p>Controle cada integração separadamente, acompanhe progresso, erros e retome processos interrompidos sem perder o que já foi importado.</p></div></div>
-    <div class="sync-page-head-note"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>Zerar apaga os dados locais</strong><small>Depois você escolhe manualmente qual sincronização deseja executar.</small></span></div>
-   </div>
-
-   <div class="sync-summary">
-    <div><span class="sync-summary-icon blue"><i class="fa-solid fa-plug-circle-check"></i></span><p>Módulos</p><strong><?=(int)$summary['modules']?></strong><small>integrações configuradas</small></div>
-    <div><span class="sync-summary-icon green"><i class="fa-solid fa-circle-check"></i></span><p>Com sucesso</p><strong><?=(int)$summary['synced']?></strong><small>já executados</small></div>
-    <div><span class="sync-summary-icon red"><i class="fa-solid fa-triangle-exclamation"></i></span><p>Com alerta</p><strong><?=(int)$summary['errors']?></strong><small>exigem atenção</small></div>
-    <div><span class="sync-summary-icon yellow"><i class="fa-solid fa-database"></i></span><p>Registros locais</p><strong><?=number_format((int)$summary['local_total'],0,',','.')?></strong><small>somados nos módulos</small></div>
-    <div><span class="sync-summary-icon slate"><i class="fa-regular fa-clock"></i></span><p>Último sucesso</p><strong><?=$summary['last_success']?date('d/m H:i',strtotime($summary['last_success'])):'—'?></strong><small><?=$summary['last_success']?date('Y',strtotime($summary['last_success'])):'nenhuma execução'?></small></div>
-   </div>
-
-   <div class="sync-toolbar">
-    <div><i class="fa-solid fa-circle-info"></i><span>Em Pedidos e Serviços, escolha o <strong>período exato</strong> que deseja buscar na Omie.</span></div>
-    <div class="sync-legend"><span><i class="dot ok"></i>Sucesso</span><span><i class="dot warn"></i>Pendente</span><span><i class="dot err"></i>Erro</span></div>
-   </div>
-
-   <div class="sync-ops-grid">
-   <?php foreach($items as $key=>$item):
-    $state=$item['state'];$ctx=$item['context'];$hasError=$item['has_error'];$lastPage=(int)($state['last_page']??0);$totalPages=(int)($state['total_pages']??0);
-    $lastSuccess=$state['last_success_at']??null;$lastError=(string)($state['last_error']??'');
-    $statusClass=$hasError?'error':($lastSuccess?'success':'idle');
-    $statusLabel=$hasError?'Erro':($lastSuccess?'Sincronizado':'Aguardando');
-    $modeLabels=['manual_period'=>'Período escolhido','forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
-    $modeLabel=$modeLabels[$item['mode']]??ucfirst(str_replace('_',' ',$item['mode']));
-   ?>
-    <article class="sync-module-card" data-sync-card="<?=$key?>">
-     <header class="sync-module-head">
-      <div class="sync-module-title">
-       <span class="sync-module-icon"><i class="fa-solid <?=e($icons[$key]??'fa-arrows-rotate')?>"></i></span>
-       <div><span class="eyebrow"><?=e(strtoupper($key))?></span><h2><?=e($item['label'])?></h2></div>
-      </div>
-      <span class="sync-status sync-status-<?=$statusClass?>" data-sync-badge><?=$statusLabel?></span>
-     </header>
-
-     <div class="sync-module-metrics">
-      <div><span>Registros locais</span><strong><?=number_format((int)$item['local_count'],0,',','.')?></strong></div>
-      <div><span>Última página</span><strong><?=$lastPage?:'—'?><?=$totalPages?' / '.$totalPages:''?></strong></div>
-      <div><span>Último lote</span><strong><?=isset($state['last_count'])?(int)$state['last_count']:'—'?></strong></div>
-      <div><span>Modo</span><strong><?=e($modeLabel)?></strong></div>
+   <section class="tdsync2-page">
+    <header class="tdsync2-head">
+     <div class="tdsync2-head-main">
+      <span class="tdsync2-head-icon"><i class="fa-solid fa-arrows-rotate"></i></span>
+      <div><span class="tdsync2-kicker">SISTEMA / OMIE</span><h1>Sincronização Omie</h1><p>Gerencie os dados trazidos da Omie com leitura clara de status, volume local e última execução de cada módulo.</p></div>
      </div>
-
-     <div class="sync-module-meta">
-      <div><i class="fa-regular fa-clock"></i><span>Último sucesso</span><strong><?=$lastSuccess?date('d/m/Y H:i:s',strtotime($lastSuccess)):'Nunca executado'?></strong></div>
-      <?php if(!empty($item['period_start'])&&!empty($item['period_end'])):?><div><i class="fa-regular fa-calendar"></i><span>Janela atual</span><strong><?=e($item['period_start'])?> → <?=e($item['period_end'])?></strong></div><?php endif;?>
+     <div class="tdsync2-head-status <?=$summary['errors']>0?'attention':'ok'?>">
+      <span><i class="fa-solid <?=$summary['errors']>0?'fa-triangle-exclamation':'fa-circle-check'?>"></i></span>
+      <div><small>Saúde da integração</small><strong><?=$summary['errors']>0?(int)$summary['errors'].' módulo(s) com atenção':'Sem erros registrados'?></strong><em><?=$lastSuccessLabel?></em></div>
      </div>
+    </header>
 
-     <div class="sync-flow-alert sync-flow-alert-<?=$hasError?'error':($lastSuccess?'success':'info')?>" data-sync-alert>
-      <i class="fa-solid <?=$hasError?'fa-circle-exclamation':($lastSuccess?'fa-circle-check':'fa-circle-info')?>"></i>
-      <div><strong data-sync-alert-title><?=$hasError?'Última execução com erro':($lastSuccess?'Última execução concluída':'Pronto para sincronizar')?></strong><span data-sync-alert-message><?=e($hasError?$lastError:($lastSuccess?'O módulo está atualizado conforme a última execução concluída.':'Nenhuma execução registrada ainda.'))?></span></div>
-     </div>
-
-     <div class="sync-progress-wrap" data-sync-progress-wrap hidden>
-      <div class="sync-progress-copy"><span data-sync-progress-label>Preparando...</span><strong data-sync-progress-percent>0%</strong></div>
-      <div class="sync-progress"><span data-sync-progress-bar style="width:0%"></span></div>
-     </div>
-
-     <?php if(in_array($key,['orders','services'],true)):?>
-     <div class="sync-period-control">
-      <div><label>Data inicial<input class="form-control" type="date" value="<?=date('Y-m-01')?>" data-sync-date-from></label><label>Data final<input class="form-control" type="date" value="<?=date('Y-m-d')?>" data-sync-date-to></label></div>
-      <button class="btn btn-primary btn-sm" type="button" data-sync-action="period" data-module="<?=$key?>"><i class="fa-solid fa-calendar-check"></i>Sincronizar período</button>
-     </div>
-     <?php endif;?>
-
-     <footer class="sync-module-actions">
-      <?php if(in_array($key,['orders','services'],true)):?>
-       <button class="btn btn-primary btn-sm" data-sync-action="catchup" data-module="<?=$key?>" data-sync-confirm="Atualizar todo o intervalo faltante de <?=e($item['label'])?> desde a última data local até hoje? Os registros existentes serão preservados."><i class="fa-solid fa-forward-step"></i>Atualizar lacuna</button>
-       <button class="btn btn-primary btn-sm" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
-       <button class="btn btn-outline-secondary btn-sm" data-sync-action="full" data-module="<?=$key?>" data-sync-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
-      <?php else:?>
-       <button class="btn btn-primary btn-sm" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar</button>
-      <?php endif;?>
-      <button class="btn btn-outline-secondary btn-sm" data-sync-action="resume" data-module="<?=$key?>" <?=$item['resumable']?'':'disabled'?>><i class="fa-solid fa-play"></i>Retomar</button>
-      <button class="btn btn-outline-danger btn-sm" data-sync-action="reset" data-module="<?=$key?>" data-sync-confirm="Zerar <?=e($item['label'])?>? TODOS os dados locais deste módulo serão excluídos. Depois você escolherá manualmente uma nova sincronização."><i class="fa-solid fa-rotate-left"></i>Zerar</button>
-     </footer>
-    </article>
-   <?php endforeach;?>
-   </div>
-
-   <div class="panel sync-help-panel">
-    <div class="panel-title-row"><div><span class="eyebrow">COMO FUNCIONA</span><h2>Regras operacionais</h2></div></div>
-    <div class="sync-help-grid">
-     <div><i class="fa-solid fa-arrows-rotate"></i><strong>Sincronizar</strong><span>Executa a regra padrão do módulo e percorre todas as páginas necessárias.</span></div>
-     <div><i class="fa-solid fa-forward-step"></i><strong>Atualizar lacuna</strong><span>Busca automaticamente do dia seguinte ao último registro local até hoje, sem apagar dados existentes.</span></div>
-     <div><i class="fa-regular fa-calendar-days"></i><strong>Últimos 5 dias</strong><span>Força Pedidos ou Serviços para a janela móvel de hoje + 4 dias anteriores, atualizando registros existentes.</span></div>
-     <div><i class="fa-solid fa-play"></i><strong>Retomar</strong><span>Continua da próxima página salva após uma interrupção ou erro.</span></div>
-     <div><i class="fa-solid fa-rotate-left"></i><strong>Zerar</strong><span>Exclui todos os dados locais daquele módulo e limpa o progresso. Nenhuma nova carga começa automaticamente.</span></div>
+    <div class="tdsync2-kpis">
+     <article><span class="blue"><i class="fa-solid fa-puzzle-piece"></i></span><div><small>Módulos configurados</small><strong><?=(int)$summary['modules']?></strong><em>integrações disponíveis</em></div></article>
+     <article><span class="green"><i class="fa-solid fa-circle-check"></i></span><div><small>Com execução concluída</small><strong><?=(int)$summary['synced']?></strong><em>módulos já processados</em></div></article>
+     <article class="<?=$summary['errors']>0?'has-alert':''?>"><span class="red"><i class="fa-solid fa-triangle-exclamation"></i></span><div><small>Com erro registrado</small><strong><?=(int)$summary['errors']?></strong><em><?=$summary['errors']>0?'requerem revisão':'nenhuma pendência técnica'?></em></div></article>
+     <article><span class="yellow"><i class="fa-solid fa-database"></i></span><div><small>Registros locais</small><strong><?=number_format((int)$summary['local_total'],0,',','.')?></strong><em>soma das bases sincronizadas</em></div></article>
     </div>
-   </div>
+
+    <div class="tdsync2-guidance">
+     <div><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Sincronize sem apagar o histórico local.</strong><small>Use “Zerar” apenas quando realmente precisar excluir todos os dados locais daquele módulo e recomeçar.</small></div></div>
+     <div class="tdsync2-legend"><span><i class="ok"></i>Sincronizado</span><span><i class="idle"></i>Aguardando</span><span><i class="error"></i>Erro</span></div>
+    </div>
+
+    <?php foreach($syncGroups as $groupKey=>$group):?>
+     <section class="tdsync2-section <?=$groupKey==='movement'?'movement':''?>">
+      <header class="tdsync2-section-head">
+       <div><span><i class="fa-solid <?=$group['icon']?>"></i></span><div><small><?=strtoupper($groupKey==='base'?'BASE LOCAL':($groupKey==='references'?'ESTRUTURA OMIE':'OPERAÇÃO'))?></small><strong><?=$group['label']?></strong><p><?=$group['description']?></p></div></div>
+      </header>
+
+      <div class="tdsync2-grid <?=$groupKey==='movement'?'featured':''?>">
+       <?php foreach($group['keys'] as $key):if(empty($items[$key]))continue;$item=$items[$key];
+        $state=$item['state'];$hasError=$item['has_error'];$lastPage=(int)($state['last_page']??0);$totalPages=(int)($state['total_pages']??0);
+        $lastSuccess=$state['last_success_at']??null;$lastError=(string)($state['last_error']??'');
+        $statusClass=$hasError?'error':($lastSuccess?'success':'idle');
+        $statusLabel=$hasError?'Erro':($lastSuccess?'Sincronizado':'Aguardando');
+        $modeLabel=$modeLabels[$item['mode']]??ucfirst(str_replace('_',' ',$item['mode']));
+       ?>
+        <article class="tdsync2-card sync-module-card <?=$groupKey==='movement'?'featured':''?>" data-sync-card="<?=$key?>">
+         <header class="tdsync2-card-head">
+          <div class="tdsync2-card-title">
+           <span><i class="fa-solid <?=e($icons[$key]??'fa-arrows-rotate')?>"></i></span>
+           <div><small><?=e(strtoupper($key))?></small><strong><?=e($item['label'])?></strong></div>
+          </div>
+          <span class="sync-status sync-status-<?=$statusClass?>" data-sync-badge><i class="fa-solid <?=$hasError?'fa-triangle-exclamation':($lastSuccess?'fa-check':'fa-minus')?>"></i><?=$statusLabel?></span>
+         </header>
+
+         <div class="tdsync2-card-stats">
+          <div><small>Registros locais</small><strong><?=number_format((int)$item['local_count'],0,',','.')?></strong></div>
+          <div><small>Última página</small><strong><?=$lastPage?:'—'?><?=$totalPages?' / '.$totalPages:''?></strong></div>
+          <div><small>Último lote</small><strong><?=isset($state['last_count'])?(int)$state['last_count']:'—'?></strong></div>
+         </div>
+
+         <div class="tdsync2-card-info">
+          <div><i class="fa-regular fa-clock"></i><span><small>Último sucesso</small><strong><?=$lastSuccess?date('d/m/Y H:i',strtotime($lastSuccess)):'Nunca executado'?></strong></span></div>
+          <div><i class="fa-solid fa-code-branch"></i><span><small>Modo atual</small><strong><?=e($modeLabel)?></strong></span></div>
+          <?php if(!empty($item['period_start'])&&!empty($item['period_end'])):?><div class="wide"><i class="fa-regular fa-calendar"></i><span><small>Janela atual</small><strong><?=e($item['period_start'])?> até <?=e($item['period_end'])?></strong></span></div><?php endif;?>
+         </div>
+
+         <div class="sync-flow-alert tdsync2-alert sync-flow-alert-<?=$hasError?'error':($lastSuccess?'success':'info')?>" data-sync-alert>
+          <i class="fa-solid <?=$hasError?'fa-circle-exclamation':($lastSuccess?'fa-circle-check':'fa-circle-info')?>"></i>
+          <div><strong data-sync-alert-title><?=$hasError?'Última execução com erro':($lastSuccess?'Última execução concluída':'Pronto para sincronizar')?></strong><span data-sync-alert-message><?=e($hasError?$lastError:($lastSuccess?'O módulo está atualizado conforme a última execução concluída.':'Nenhuma execução registrada ainda.'))?></span></div>
+         </div>
+
+         <div class="sync-progress-wrap tdsync2-progress" data-sync-progress-wrap hidden>
+          <div class="sync-progress-copy"><span data-sync-progress-label>Preparando...</span><strong data-sync-progress-percent>0%</strong></div>
+          <div class="sync-progress"><span data-sync-progress-bar style="width:0%"></span></div>
+         </div>
+
+         <?php if(in_array($key,['orders','services'],true)):?>
+          <div class="tdsync2-period">
+           <div class="tdsync2-period-copy"><span><i class="fa-regular fa-calendar-days"></i></span><div><strong>Sincronizar um período específico</strong><small>Escolha a janela exata que deseja consultar na Omie.</small></div></div>
+           <div class="tdsync2-period-fields">
+            <label><span>Data inicial</span><input class="form-control" type="date" value="<?=date('Y-m-01')?>" data-sync-date-from></label>
+            <label><span>Data final</span><input class="form-control" type="date" value="<?=date('Y-m-d')?>" data-sync-date-to></label>
+           </div>
+           <button class="tdsync2-btn primary" type="button" data-sync-action="period" data-module="<?=$key?>"><i class="fa-solid fa-calendar-check"></i>Sincronizar período</button>
+          </div>
+         <?php endif;?>
+
+         <footer class="tdsync2-actions sync-module-actions">
+          <div class="tdsync2-actions-main">
+           <?php if(in_array($key,['orders','services'],true)):?>
+            <button class="tdsync2-btn primary" data-sync-action="catchup" data-module="<?=$key?>" data-sync-confirm="Atualizar todo o intervalo faltante de <?=e($item['label'])?> desde a última data local até hoje? Os registros existentes serão preservados."><i class="fa-solid fa-forward-step"></i>Atualizar lacuna</button>
+            <button class="tdsync2-btn" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
+            <button class="tdsync2-btn" data-sync-action="full" data-module="<?=$key?>" data-sync-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
+           <?php else:?>
+            <button class="tdsync2-btn primary" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar agora</button>
+           <?php endif;?>
+           <button class="tdsync2-btn" data-sync-action="resume" data-module="<?=$key?>" <?=$item['resumable']?'':'disabled'?>><i class="fa-solid fa-play"></i>Retomar</button>
+          </div>
+          <button class="tdsync2-btn danger" data-sync-action="reset" data-module="<?=$key?>" data-sync-confirm="Zerar <?=e($item['label'])?>? TODOS os dados locais deste módulo serão excluídos. Depois você escolherá manualmente uma nova sincronização."><i class="fa-solid fa-trash-can"></i>Zerar dados locais</button>
+         </footer>
+        </article>
+       <?php endforeach;?>
+      </div>
+     </section>
+    <?php endforeach;?>
+
+    <section class="tdsync2-help">
+     <header><div><span><i class="fa-solid fa-circle-info"></i></span><div><small>REFERÊNCIA RÁPIDA</small><strong>Como usar as ações</strong><p>As operações foram separadas para reduzir risco e facilitar a recuperação quando uma carga é interrompida.</p></div></div></header>
+     <div class="tdsync2-help-grid">
+      <div><span class="green"><i class="fa-solid fa-arrows-rotate"></i></span><strong>Sincronizar agora</strong><p>Executa a regra padrão do módulo e percorre automaticamente todas as páginas.</p></div>
+      <div><span class="blue"><i class="fa-solid fa-forward-step"></i></span><strong>Atualizar lacuna</strong><p>Em Pedidos e Serviços, busca o intervalo que falta desde a última data local até hoje.</p></div>
+      <div><span class="yellow"><i class="fa-solid fa-play"></i></span><strong>Retomar</strong><p>Continua da próxima página quando uma sincronização anterior foi interrompida.</p></div>
+      <div><span class="red"><i class="fa-solid fa-trash-can"></i></span><strong>Zerar dados locais</strong><p>Exclui a base local do módulo. Use somente quando uma reconstrução completa for necessária.</p></div>
+     </div>
+    </section>
    </section>
   <?php break;
  }
@@ -1719,7 +1744,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
