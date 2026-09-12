@@ -1057,3 +1057,33 @@ document.addEventListener('DOMContentLoaded',()=>{
  if(close)close.addEventListener('click',()=>modal.close());
  modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
 })();
+
+
+/* Oportunidades: busca incremental de clientes */
+(()=>{
+ const input=document.querySelector('[data-opp-client-search]');
+ const hidden=document.querySelector('[data-opp-client-id]');
+ const box=document.querySelector('[data-opp-client-results]');
+ if(!input||!hidden||!box)return;
+ let timer=null,controller=null;
+ const hide=()=>{box.hidden=true;box.innerHTML='';};
+ input.addEventListener('input',()=>{
+  hidden.value='';const q=input.value.trim();
+  clearTimeout(timer);if(q.length<2){hide();return;}
+  timer=setTimeout(async()=>{
+   try{
+    if(controller)controller.abort();controller=new AbortController();
+    const res=await fetch((window.APP_URL||'')+'/api/clients?q='+encodeURIComponent(q),{headers:{'Accept':'application/json'},signal:controller.signal});
+    const data=await res.json();const items=Array.isArray(data.items)?data.items:[];
+    if(!items.length){box.innerHTML='<div class="empty">Nenhum cliente encontrado</div>';box.hidden=false;return;}
+    box.innerHTML=items.map(item=>'<button type="button" data-id="'+item.id+'" data-name="'+String(item.name||'').replace(/"/g,'&quot;')+'"><strong>'+String(item.name||'')+'</strong><small>'+[item.document,item.city,item.uf].filter(Boolean).join(' · ')+'</small></button>').join('');
+    box.hidden=false;
+   }catch(err){if(err.name!=='AbortError')hide();}
+  },250);
+ });
+ box.addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-id]');if(!btn)return;
+  hidden.value=btn.dataset.id;input.value=btn.dataset.name;hide();
+ });
+ document.addEventListener('click',e=>{if(!e.target.closest('.tdopp-client-search'))hide();});
+})();
