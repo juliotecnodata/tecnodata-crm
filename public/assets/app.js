@@ -1045,3 +1045,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(icon)icon.className=show?'fa-regular fa-eye-slash':'fa-regular fa-eye';
  });
 })();
+
+
+/* Oportunidades: modal de registro rápido */
+(()=>{
+ const modal=document.querySelector('[data-opp-modal]');
+ const open=document.querySelector('[data-opp-new]');
+ const close=document.querySelector('[data-opp-close]');
+ if(!modal||!open)return;
+ open.addEventListener('click',()=>modal.showModal());
+ if(close)close.addEventListener('click',()=>modal.close());
+ modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
+})();
