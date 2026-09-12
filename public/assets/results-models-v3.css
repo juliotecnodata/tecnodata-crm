@@ -160,3 +160,39 @@
  .tdres-models a span{display:none}
  .tdres-share>div{grid-template-columns:95px 1fr 44px}
 }
+
+
+/* Alternância de área e painel exclusivo de cobrança */
+.tdres-toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.tdres-area-tabs{display:flex;gap:4px;padding:4px;border:1px solid #DDE6EC;border-radius:10px;background:#fff}
+.tdres-area-tabs a{min-height:36px;display:flex;align-items:center;gap:7px;padding:0 12px;border-radius:7px;color:#526878;font-size:11px;font-weight:800;text-decoration:none}
+.tdres-area-tabs a:hover{background:#F4F8FA;color:#173248}
+.tdres-area-tabs a.active{background:#0F3247;color:#fff}
+.tdres-area-tabs i{font-size:11px}
+
+.tdres-collection-overview{border:1px solid #DDE6EC;border-radius:10px;background:#fff;padding:12px}
+.tdres-collection-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tdres-collection-cards article{padding:13px;border:1px solid #DDE6EC;border-radius:9px;background:#fff}
+.tdres-collection-cards .head{display:grid;grid-template-columns:36px 1fr auto;gap:8px;align-items:center}
+.tdres-collection-cards .head>span{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#EEF6FA;color:#0B5F8A;font-size:11px;font-weight:800}
+.tdres-collection-cards .head strong{display:block;font-size:11px;color:#173248}
+.tdres-collection-cards .head small{display:block;margin-top:2px;font-size:8px;color:#7A8C98}
+.tdres-collection-cards .money{margin:14px 0 10px}
+.tdres-collection-cards .money small{display:block;font-size:8px;color:#7A8C98}
+.tdres-collection-cards .money strong{display:block;margin-top:3px;font-size:20px;color:#0B8C4C}
+.tdres-collection-cards .money span{display:block;margin-top:3px;font-size:8px;color:#6E8290}
+.tdres-collection-cards .tdres-progress{display:block;width:100%;margin:0}
+.tdres-collection-cards footer{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px;padding-top:10px;border-top:1px solid #EDF2F5}
+.tdres-collection-cards footer span{display:block}
+.tdres-collection-cards footer small{display:block;font-size:7px;color:#7B8D99}
+.tdres-collection-cards footer b{display:block;margin-top:2px;font-size:9px;color:#173248}
+
+@media(max-width:1150px){
+ .tdres-collection-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ .tdres-toolbar-actions{width:100%;justify-content:stretch}
+ .tdres-area-tabs,.tdres-models{width:100%}
+ .tdres-area-tabs a{flex:1;justify-content:center}
+ .tdres-collection-cards{grid-template-columns:1fr}
+}
