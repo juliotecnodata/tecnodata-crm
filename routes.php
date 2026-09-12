@@ -152,13 +152,18 @@ $router->get('/',function(){
  $selectedDays=array_values($selectedDays);sort($selectedDays);
  $periodLabel=$selectedDays?'Dias '.implode(', ',array_map(static fn($value)=>str_pad((string)$value,2,'0',STR_PAD_LEFT),$selectedDays)).' de '.date('m/Y',strtotime($month.'-01')):date('m/Y',strtotime($month.'-01'));
  $u=Auth::user();
+ $resultModel=(string)($_GET['result_model']??'executive');
+ if(!in_array($resultModel,['executive','cards','compare','detail'],true))$resultModel='executive';
+ $resultSeller=trim((string)($_GET['seller']??''));
  $payload=[
   'u'=>$u,
   'data'=>CRMService::dashboard($u),
   'month'=>$month,
   'selectedDays'=>$selectedDays,
   'daysInMonth'=>$daysInMonth,
-  'periodLabel'=>$periodLabel
+  'periodLabel'=>$periodLabel,
+  'resultModel'=>$resultModel,
+  'resultSeller'=>$resultSeller
  ];
  if(in_array($u['role'],['admin','supervisor'],true))$payload['management']=GoalService::managementMonth($month,$selectedDays);
  else $payload['result']=GoalService::userMonth(Auth::id(),$month,$selectedDays);
