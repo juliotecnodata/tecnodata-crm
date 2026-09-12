@@ -154,6 +154,8 @@ $router->get('/',function(){
  $u=Auth::user();
  $resultModel=(string)($_GET['result_model']??'executive');
  if(!in_array($resultModel,['executive','cards','compare','detail'],true))$resultModel='executive';
+ $resultArea=(string)($_GET['result_area']??'commercial');
+ if(!in_array($resultArea,['commercial','collection'],true))$resultArea='commercial';
  $resultSeller=trim((string)($_GET['seller']??''));
  $payload=[
   'u'=>$u,
@@ -163,6 +165,7 @@ $router->get('/',function(){
   'daysInMonth'=>$daysInMonth,
   'periodLabel'=>$periodLabel,
   'resultModel'=>$resultModel,
+  'resultArea'=>$resultArea,
   'resultSeller'=>$resultSeller
  ];
  if(in_array($u['role'],['admin','supervisor'],true))$payload['management']=GoalService::managementMonth($month,$selectedDays);
