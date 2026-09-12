@@ -329,3 +329,191 @@ body:not([data-page="login"]) [class*="-state"]{letter-spacing:0!important}
  .tdopp-head-actions .tdopp-btn{flex:1}
  .tdopp-kpis{grid-template-columns:1fr 1fr!important}
 }
+
+
+/* ===== SIDEBAR V2 — comportamento estrutural definitivo ===== */
+:root{
+ --crm-sidebar-expanded:248px;
+ --crm-sidebar-collapsed:78px;
+}
+
+/* Desktop: sidebar participa da largura real do layout */
+@media(min-width:901px){
+ body:not([data-page="login"]) .tdcrm-sidebar{
+  width:var(--crm-sidebar-expanded)!important;
+  transition:width .2s ease!important;
+  overflow-x:hidden!important;
+ }
+ body:not([data-page="login"]) .tdcrm-main{
+  width:calc(100% - var(--crm-sidebar-expanded))!important;
+  max-width:calc(100% - var(--crm-sidebar-expanded))!important;
+  margin-left:var(--crm-sidebar-expanded)!important;
+  min-width:0!important;
+  transition:margin-left .2s ease,width .2s ease,max-width .2s ease!important;
+ }
+ body:not([data-page="login"]) .tdcrm-content{
+  width:100%!important;
+  min-width:0!important;
+ }
+ body:not([data-page="login"]) .tdcrm-menu-button{
+  display:grid!important;
+  place-items:center!important;
+  flex:0 0 36px!important;
+ }
+
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-sidebar{
+  width:var(--crm-sidebar-collapsed)!important;
+  padding-left:10px!important;
+  padding-right:10px!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-main{
+  width:calc(100% - var(--crm-sidebar-collapsed))!important;
+  max-width:calc(100% - var(--crm-sidebar-collapsed))!important;
+  margin-left:var(--crm-sidebar-collapsed)!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-brand{
+  justify-content:center!important;
+  padding-left:0!important;
+  padding-right:0!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-brand-copy,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-context,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-section-label,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-sidebar-footer>div{
+  display:none!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav{
+  overflow-x:hidden!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-home,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group-toggle{
+  justify-content:center!important;
+  padding-left:6px!important;
+  padding-right:6px!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-home>span,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group-toggle>i:last-child{
+  display:none!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group-toggle>span{
+  width:32px!important;
+  height:32px!important;
+  display:grid!important;
+  place-items:center!important;
+  font-size:0!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group-toggle>span>i{
+  width:32px!important;
+  height:32px!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  font-size:12px!important;
+  color:#C9D7DE!important;
+  border-radius:8px!important;
+  background:rgba(255,255,255,.04)!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group.has-active .tdcrm-nav-group-toggle>span>i{
+  color:var(--crm-lime)!important;
+  background:rgba(189,214,48,.10)!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group-links{
+  display:none!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-home{
+  min-height:42px!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-home>i{
+  width:32px!important;
+  height:32px!important;
+  flex:0 0 32px!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-sidebar-footer{
+  justify-content:center!important;
+  padding-left:0!important;
+  padding-right:0!important;
+ }
+}
+
+/* Tablet/mobile: offcanvas; conteúdo sempre ocupa 100% */
+@media(max-width:900px){
+ body:not([data-page="login"]) .tdcrm-sidebar,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-sidebar{
+  width:min(280px,86vw)!important;
+  padding-left:12px!important;
+  padding-right:12px!important;
+  transform:translateX(-100%)!important;
+  transition:transform .2s ease!important;
+ }
+ body:not([data-page="login"]) .tdcrm-sidebar.open,
+ body.menu-open:not([data-page="login"]) .tdcrm-sidebar{
+  transform:translateX(0)!important;
+ }
+ body:not([data-page="login"]) .tdcrm-main,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-main{
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  min-width:0!important;
+ }
+ body:not([data-page="login"]) .tdcrm-content{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+ }
+ body:not([data-page="login"]) .tdcrm-menu-button{
+  display:grid!important;
+  place-items:center!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-brand-copy,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-context,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-section-label,
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-sidebar-footer>div{
+  display:initial!important;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group-links{
+  display:none;
+ }
+ body.sidebar-collapsed:not([data-page="login"]) .tdcrm-nav-group.is-open .tdcrm-nav-group-links{
+  display:grid!important;
+ }
+ .sidebar-backdrop{
+  position:fixed!important;
+  inset:0!important;
+  z-index:990!important;
+  display:block!important;
+  border:0!important;
+  background:rgba(7,20,29,.48)!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  transition:opacity .2s ease!important;
+ }
+ body.menu-open .sidebar-backdrop{
+  opacity:1!important;
+  pointer-events:auto!important;
+ }
+ body.menu-open{overflow:hidden!important}
+}
+
+/* Páginas largas devem responder à largura do shell */
+.tdcrm-main,
+.tdcrm-content,
+.tdcrm-content>section,
+.table-card,
+.tdo-shell,
+.tds-shell,
+.tdcob4-table-card,
+.tdcontact4-table-card,
+.tdres-panel,
+.tdsync2-section{
+ min-width:0!important;
+}
+.table-card,
+.tdo-shell,
+.tds-shell,
+.tdcob4-table-card,
+.tdcontact4-table-card,
+.tdres-panel,
+.tdsync2-section{
+ max-width:100%!important;
+}
