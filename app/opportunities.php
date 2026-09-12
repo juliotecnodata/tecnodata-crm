@@ -120,6 +120,7 @@ function opportunity_render(string $name,array $vars=[]): void{
   $stages=$stages??[];$rows=$rows??[];$activityTypes=$activityTypes??[];
   $byStage=[];foreach($stages as $s)$byStage[(int)$s['id']]=[];
   foreach($rows as $r)$byStage[(int)$r['stage_id']][]=$r;
+  $stageTotals=[];foreach($stages as $st){$stageTotals[(int)$st['id']]=0.0;foreach($byStage[(int)$st['id']]??[] as $or)$stageTotals[(int)$st['id']]+=(float)$or['estimated_value'];}
   ?>
   <section class="tdopp-page">
    <header class="tdopp-head">
@@ -133,7 +134,7 @@ function opportunity_render(string $name,array $vars=[]): void{
 
    <div class="tdopp-board">
     <?php foreach($stages as $stage):?>
-     <section class="tdopp-column"><header><strong><?=e($stage['name'])?></strong><span><?=count($byStage[(int)$stage['id']]??[])?></span></header><div class="tdopp-column-body">
+     <section class="tdopp-column"><header><div><strong><?=e($stage['name'])?></strong><small><?=money($stageTotals[(int)$stage['id']]??0)?></small></div><span><?=count($byStage[(int)$stage['id']]??[])?></span></header><div class="tdopp-column-body">
       <?php foreach($byStage[(int)$stage['id']]??[] as $opp):?>
        <article class="tdopp-card">
         <div class="tdopp-card-top"><div><strong><?=e($opp['client_name'])?></strong><small><?=e($opp['title'])?></small></div><a href="<?=APP_URL?>/opportunities/<?=$opp['id']?>" aria-label="Abrir"><i class="fa-solid fa-ellipsis-vertical"></i></a></div>
@@ -164,7 +165,9 @@ function opportunity_render(string $name,array $vars=[]): void{
   <section class="tdopp-page"><header class="tdopp-head"><div><span class="tdopp-kicker">CONFIGURAÇÃO / COMERCIAL</span><h1>Fluxo comercial simplificado</h1><p>Você escolhe se a equipe usa o novo fluxo. Desativado, o CRM continua funcionando como hoje.</p></div></header>
    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'info')?>"><?=e($flash['message']??'')?></div><?php endif;?>
    <section class="tdopp-setting-hero"><div><i class="fa-solid fa-toggle-on"></i><span><strong>Ativar oportunidades e funil</strong><small>Adiciona Oportunidades, Funil e próxima ação ao comercial. Não altera pedidos, clientes ou cobrança existentes.</small></span></div><form method="post" action="<?=APP_URL?>/sales-flow-settings/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="enabled" value="<?=$enabled?'0':'1'?>"><button class="tdopp-btn <?=$enabled?'danger':'primary'?>" type="submit"><?=$enabled?'Desativar fluxo':'Ativar fluxo'?></button></form></section>
-   <div class="tdopp-settings-grid"><section class="tdopp-panel"><h3>Tipos de próxima ação</h3><p class="hint">O supervisor escolhe o que aparece para o vendedor. Desative o que não fizer sentido.</p><form class="tdopp-inline-form" method="post" action="<?=APP_URL?>/sales-flow-settings/activity-type"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input class="form-control" name="name" placeholder="Nova atividade" required><button class="tdopp-btn primary">Adicionar</button></form><?php foreach($activityTypes as $type):?><div class="tdopp-setting-row"><span><i class="fa-solid fa-check-circle"></i><strong><?=e($type['name'])?></strong></span><form method="post" action="<?=APP_URL?>/sales-flow-settings/activity-type/<?=$type['id']?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdopp-mini <?=$type['active']?'on':'off'?>"><?=$type['active']?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></section>
+   <div class="tdopp-settings-grid">
+   <section class="tdopp-panel tdopp-stage-settings"><h3>Etapas do funil</h3><p class="hint">Mantenha poucas etapas. Elas aparecem da esquerda para a direita pela ordem configurada.</p><form class="tdopp-inline-form stage" method="post" action="<?=APP_URL?>/sales-flow-settings/stage"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input class="form-control" name="name" maxlength="100" placeholder="Nova etapa" required><input class="form-control position" type="number" name="position" min="1" max="999" value="60" title="Ordem"><button class="tdopp-btn primary">Adicionar</button></form><div class="tdopp-stage-setting-list"><?php foreach($stages??[] as $stage):?><form method="post" action="<?=APP_URL?>/sales-flow-settings/stage/<?=$stage['id']?>/update"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><span class="drag"><i class="fa-solid fa-grip-vertical"></i></span><input class="form-control" name="name" maxlength="100" value="<?=e($stage['name'])?>" required><input class="form-control position" type="number" name="position" min="1" max="999" value="<?=(int)$stage['position']?>" title="Ordem"><button class="tdopp-mini save" type="submit">Salvar</button><button class="tdopp-mini <?=$stage['active']?'on':'off'?>" type="submit" formaction="<?=APP_URL?>/sales-flow-settings/stage/<?=$stage['id']?>/toggle"><?=$stage['active']?'Ativa':'Inativa'?></button></form><?php endforeach;?></div></section>
+   <section class="tdopp-panel"><h3>Tipos de próxima ação</h3><p class="hint">O supervisor escolhe o que aparece para o vendedor. Desative o que não fizer sentido.</p><form class="tdopp-inline-form" method="post" action="<?=APP_URL?>/sales-flow-settings/activity-type"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input class="form-control" name="name" placeholder="Nova atividade" required><button class="tdopp-btn primary">Adicionar</button></form><?php foreach($activityTypes as $type):?><div class="tdopp-setting-row"><span><i class="fa-solid fa-check-circle"></i><strong><?=e($type['name'])?></strong></span><form method="post" action="<?=APP_URL?>/sales-flow-settings/activity-type/<?=$type['id']?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdopp-mini <?=$type['active']?'on':'off'?>"><?=$type['active']?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></section>
    <section class="tdopp-panel"><h3>Google Agenda</h3><p class="hint">Integração será opcional por vendedor. O CRM já guarda a preferência individual sem obrigar ninguém a conectar o Gmail.</p><div class="tdopp-google-plan"><div><i class="fa-brands fa-google"></i><span><strong>3 modos planejados</strong><small>Não usar · enviar tarefas do CRM · sincronização bidirecional</small></span></div><p>Para ativar a conexão real usaremos OAuth 2.0 do Google Calendar. Cada vendedor autoriza a própria conta e pode desconectar quando quiser.</p></div></section></div>
   </section>
   <?php
@@ -229,8 +232,26 @@ function register_opportunity_routes(Router $router): void{
   DB::exec("INSERT INTO opportunity_history(opportunity_id,user_id,event_type,description,created_at) VALUES(?,?, 'closed',?,NOW())",[$id,(int)$u['id'],$status==='won'?'Oportunidade marcada como ganha':'Oportunidade perdida: '.$reason]);
   redirect('/opportunities/'.$id);
  });
- $router->get('/sales-flow-settings',function(){Auth::requireRole('admin','supervisor');ensure_sales_flow_tables();$flash=$_SESSION['sales_flow_flash']??null;unset($_SESSION['sales_flow_flash']);opportunity_render('sales_flow_settings',['enabled'=>sales_flow_enabled(),'activityTypes'=>sales_activity_types(false),'flash'=>$flash]);});
+ $router->get('/sales-flow-settings',function(){Auth::requireRole('admin','supervisor');ensure_sales_flow_tables();$flash=$_SESSION['sales_flow_flash']??null;unset($_SESSION['sales_flow_flash']);opportunity_render('sales_flow_settings',['enabled'=>sales_flow_enabled(),'activityTypes'=>sales_activity_types(false),'stages'=>sales_flow_stages(false),'flash'=>$flash]);});
  $router->post('/sales-flow-settings/toggle',function(){Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);$enabled=!empty($_POST['enabled']);DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('sales_flow_enabled',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['enabled'=>$enabled])]);$_SESSION['sales_flow_flash']=['type'=>'success','message'=>$enabled?'Fluxo comercial ativado.':'Fluxo comercial desativado. O CRM voltou ao modo atual.'];redirect('/sales-flow-settings');});
+ $router->post('/sales-flow-settings/stage',function(){
+  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();
+  $name=trim((string)($_POST['name']??''));$position=max(1,(int)($_POST['position']??60));if($name==='')throw new RuntimeException('Informe o nome da etapa.');
+  $code='custom_'.substr(hash('sha256',$name.microtime(true)),0,12);
+  DB::exec("INSERT INTO pipeline_stages(code,name,position,active,is_won,is_lost,created_at,updated_at) VALUES(?,?,?,1,0,0,NOW(),NOW())",[$code,$name,$position]);
+  redirect('/sales-flow-settings');
+ });
+ $router->post('/sales-flow-settings/stage/{id}/update',function($p){
+  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();
+  $id=(int)$p['id'];$name=trim((string)($_POST['name']??''));$position=max(1,(int)($_POST['position']??0));if($name==='')throw new RuntimeException('Informe o nome da etapa.');
+  DB::exec("UPDATE pipeline_stages SET name=?,position=?,updated_at=NOW() WHERE id=?",[$name,$position,$id]);redirect('/sales-flow-settings');
+ });
+ $router->post('/sales-flow-settings/stage/{id}/toggle',function($p){
+  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$id=(int)$p['id'];
+  $stage=DB::one("SELECT id,active FROM pipeline_stages WHERE id=?",[$id]);if(!$stage)throw new RuntimeException('Etapa inválida.');
+  if((int)$stage['active']===1){$active=(int)(DB::scalar("SELECT COUNT(*) FROM pipeline_stages WHERE active=1")??0);if($active<=1)throw new RuntimeException('O funil precisa manter pelo menos uma etapa ativa.');}
+  DB::exec("UPDATE pipeline_stages SET active=IF(active=1,0,1),updated_at=NOW() WHERE id=?",[$id]);redirect('/sales-flow-settings');
+ });
  $router->post('/sales-flow-settings/activity-type',function(){Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$name=trim((string)($_POST['name']??''));if($name==='')throw new RuntimeException('Informe o nome.');$code='custom_'.substr(hash('sha256',$name.microtime(true)),0,12);DB::exec("INSERT INTO sales_activity_types(code,name,active,position,created_at,updated_at) VALUES(?,?,1,999,NOW(),NOW())",[$code,$name]);redirect('/sales-flow-settings');});
  $router->post('/sales-flow-settings/activity-type/{id}/toggle',function($p){Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();DB::exec("UPDATE sales_activity_types SET active=IF(active=1,0,1),updated_at=NOW() WHERE id=?",[(int)$p['id']]);redirect('/sales-flow-settings');});
 }
