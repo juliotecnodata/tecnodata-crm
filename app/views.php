@@ -1235,42 +1235,190 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    </section>
   <?php break;
   case 'goals':
-   $general=$management['general_goal'];$sellerRows=[];$collectorRows=[];foreach($rows as $goalRow){if(($goalRow['user']['role']??'')==='seller')$sellerRows[]=$goalRow;else $collectorRows[]=$goalRow;}
-   $salesRemaining=max(0,(float)$management['effective_sales_goal']-(float)$management['sales']);
-   $collectionRemaining=max(0,(float)$management['effective_collection_goal']-(float)$management['recovered']);
+   $monthRef=(string)($management['month']??$month);
+   $general=$management['general_goal'];
+   $sellerRows=[];$collectorRows=[];
+   foreach($rows as $goalRow){
+    if(($goalRow['user']['role']??'')==='seller')$sellerRows[]=$goalRow;
+    else $collectorRows[]=$goalRow;
+   }
+   $salesGoal=(float)($management['effective_sales_goal']??0);
+   $collectionGoal=(float)($management['effective_collection_goal']??0);
+   $contactGoal=(float)($management['effective_contact_goal']??0);
+   $salesValue=(float)($management['sales']??0);
+   $collectionValue=(float)($management['recovered']??0);
+   $contactValue=(int)($management['contacts']??0);
+   $salesRemaining=max(0,$salesGoal-$salesValue);
+   $collectionRemaining=max(0,$collectionGoal-$collectionValue);
+   $salesProgress=min(100,max(0,(float)($management['sales_percent']??0)));
+   $collectionProgress=min(100,max(0,(float)($management['collection_percent']??0)));
+   $contactProgress=min(100,max(0,(float)($management['contact_percent']??0)));
+   $monthLabel=date('m/Y',strtotime($monthRef.'-01'));
    ?>
-   <section class="tdg4-page">
-    <header class="tdg4-head"><div><span class="tdg4-kicker">GESTÃO / METAS</span><h1>Metas e desempenho</h1><p>Defina objetivos claros para vendas, cobrança e contatos, acompanhando o realizado em uma única visão.</p></div><form method="get"><label><span>Mês de referência</span><input class="form-control" type="month" name="month" value="<?=e($month)?>" onchange="this.form.submit()"></label></form></header>
-    <div class="tdg4-kpis">
-     <article><span class="green"><i class="fa-solid fa-chart-line"></i></span><div><small>Resultado comercial</small><strong><?=money($management['sales'])?></strong><em>Meta <?=money($management['effective_sales_goal'])?></em></div><b><?=number_format($management['sales_percent'],1,',','.')?>%</b></article>
-     <article><span class="blue"><i class="fa-solid fa-bullseye"></i></span><div><small>Falta para a meta</small><strong><?=money($salesRemaining)?></strong><em>Resultado de vendas</em></div></article>
-     <article><span class="orange"><i class="fa-solid fa-hand-holding-dollar"></i></span><div><small>Recuperado</small><strong><?=money($management['recovered'])?></strong><em>Meta <?=money($management['effective_collection_goal'])?></em></div><b><?=number_format($management['collection_percent'],1,',','.')?>%</b></article>
-     <article><span class="yellow"><i class="fa-solid fa-phone-volume"></i></span><div><small>Contatos / ações</small><strong><?=number_format((int)$management['contacts'],0,',','.')?></strong><em>Meta <?=number_format((int)$management['effective_contact_goal'],0,',','.')?></em></div><b><?=number_format($management['contact_percent'],1,',','.')?>%</b></article>
+   <section class="tdgoal-page">
+    <header class="tdgoal-head">
+     <div class="tdgoal-head-main">
+      <span class="tdgoal-head-icon"><i class="fa-solid fa-bullseye"></i></span>
+      <div>
+       <span class="tdgoal-kicker">GESTÃO / METAS</span>
+       <h1>Metas</h1>
+       <p>Defina os objetivos do mês e acompanhe o avanço da operação, da equipe e dos canais automáticos.</p>
+      </div>
+     </div>
+     <form class="tdgoal-period" method="get">
+      <label><span>Mês de referência</span><input class="form-control" type="month" name="month" value="<?=e($monthRef)?>" onchange="this.form.submit()"></label>
+     </form>
+    </header>
+
+    <div class="tdgoal-kpis">
+     <article class="tdgoal-kpi green">
+      <span class="tdgoal-kpi-icon"><i class="fa-solid fa-chart-line"></i></span>
+      <div class="tdgoal-kpi-main"><small>Resultado comercial</small><strong><?=money($salesValue)?></strong><p>Meta <?=money($salesGoal)?></p><div class="tdgoal-progress"><span style="width:<?=$salesProgress?>%"></span></div></div>
+      <b><?=number_format((float)($management['sales_percent']??0),1,',','.')?>%</b>
+     </article>
+     <article class="tdgoal-kpi blue">
+      <span class="tdgoal-kpi-icon"><i class="fa-solid fa-flag-checkered"></i></span>
+      <div class="tdgoal-kpi-main"><small><?=$salesRemaining>0?'Falta para a meta':'Meta comercial alcançada'?></small><strong><?=money($salesRemaining)?></strong><p><?=$salesRemaining>0?'Saldo necessário no mês':'Objetivo comercial cumprido'?></p></div>
+     </article>
+     <article class="tdgoal-kpi orange">
+      <span class="tdgoal-kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
+      <div class="tdgoal-kpi-main"><small>Recuperação</small><strong><?=money($collectionValue)?></strong><p>Meta <?=money($collectionGoal)?> · faltam <?=money($collectionRemaining)?></p><div class="tdgoal-progress orange"><span style="width:<?=$collectionProgress?>%"></span></div></div>
+      <b><?=number_format((float)($management['collection_percent']??0),1,',','.')?>%</b>
+     </article>
+     <article class="tdgoal-kpi yellow">
+      <span class="tdgoal-kpi-icon"><i class="fa-solid fa-phone-volume"></i></span>
+      <div class="tdgoal-kpi-main"><small>Contatos / ações</small><strong><?=number_format($contactValue,0,',','.')?></strong><p>Meta <?=number_format((int)$contactGoal,0,',','.')?></p><div class="tdgoal-progress yellow"><span style="width:<?=$contactProgress?>%"></span></div></div>
+      <b><?=number_format((float)($management['contact_percent']??0),1,',','.')?>%</b>
+     </article>
     </div>
 
-    <section class="tdg4-general">
-     <header><div><span><i class="fa-solid fa-building"></i></span><div><strong>Meta geral da operação</strong><small>Se deixar um campo zerado, o CRM usa automaticamente a soma das metas individuais.</small></div></div></header>
-     <form method="post" action="<?=APP_URL?>/goals/general"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>">
-      <label><span>Meta de vendas</span><input class="form-control" name="sales_goal" value="<?=e((string)$general['sales_goal'])?>"><small>Soma individual: <?=money($management['sales_goal_sum'])?></small></label>
-      <label><span>Meta de recuperação</span><input class="form-control" name="collection_goal" value="<?=e((string)$general['collection_goal'])?>"><small>Soma individual: <?=money($management['collection_goal_sum'])?></small></label>
-      <label><span>Meta de contatos</span><input class="form-control" type="number" name="contact_goal" value="<?=(int)$general['contact_goal']?>"><small>Soma individual: <?=$management['contact_goal_sum']?></small></label>
-      <button class="tdg4-btn primary"><i class="fa-solid fa-check"></i>Salvar meta geral</button>
+    <section class="tdgoal-general">
+     <header class="tdgoal-section-head">
+      <div class="tdgoal-section-title">
+       <span class="blue"><i class="fa-solid fa-building"></i></span>
+       <div><small>OBJETIVO CORPORATIVO</small><strong>Meta geral da operação</strong><p>Use uma meta geral própria ou deixe o campo zerado para o CRM adotar automaticamente a soma das metas individuais.</p></div>
+      </div>
+      <span class="tdgoal-month-badge"><i class="fa-regular fa-calendar"></i><?=$monthLabel?></span>
+     </header>
+     <form class="tdgoal-general-form" method="post" action="<?=APP_URL?>/goals/general">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($monthRef)?>">
+      <label class="tdgoal-goal-field">
+       <span class="tdgoal-field-icon green"><i class="fa-solid fa-sack-dollar"></i></span>
+       <span class="tdgoal-field-copy"><strong>Meta comercial</strong><small><?=((float)($general['sales_goal']??0)>0)?'Meta geral definida':'Usando soma da equipe: '.money($management['sales_goal_sum'])?></small></span>
+       <span class="tdgoal-input money"><i>R$</i><input class="form-control" type="number" min="0" step="0.01" name="sales_goal" value="<?=e((string)($general['sales_goal']??0))?>"></span>
+      </label>
+      <label class="tdgoal-goal-field">
+       <span class="tdgoal-field-icon orange"><i class="fa-solid fa-wallet"></i></span>
+       <span class="tdgoal-field-copy"><strong>Meta de recuperação</strong><small><?=((float)($general['collection_goal']??0)>0)?'Meta geral definida':'Usando soma da equipe: '.money($management['collection_goal_sum'])?></small></span>
+       <span class="tdgoal-input money"><i>R$</i><input class="form-control" type="number" min="0" step="0.01" name="collection_goal" value="<?=e((string)($general['collection_goal']??0))?>"></span>
+      </label>
+      <label class="tdgoal-goal-field">
+       <span class="tdgoal-field-icon yellow"><i class="fa-solid fa-headset"></i></span>
+       <span class="tdgoal-field-copy"><strong>Meta de contatos</strong><small><?=((int)($general['contact_goal']??0)>0)?'Meta geral definida':'Usando soma da equipe: '.number_format((int)$management['contact_goal_sum'],0,',','.')?></small></span>
+       <span class="tdgoal-input"><input class="form-control" type="number" min="0" step="1" name="contact_goal" value="<?=(int)($general['contact_goal']??0)?>"></span>
+      </label>
+      <div class="tdgoal-general-actions">
+       <span><i class="fa-solid fa-circle-info"></i>Valor zero mantém a composição automática pelas metas individuais.</span>
+       <button class="tdgoal-btn primary" type="submit"><i class="fa-solid fa-check"></i>Salvar meta geral</button>
+      </div>
      </form>
     </section>
 
-    <div class="tdg4-sections">
-     <section class="tdg4-card">
-      <header><div><span class="green"><i class="fa-solid fa-user-tie"></i></span><div><strong>Equipe comercial</strong><small>Metas individuais de vendas e atividade.</small></div></div><b><?=count($sellerRows)?> vendedor(es)</b></header>
-      <div class="tdg4-table"><div class="head"><span>Vendedor</span><span>Meta</span><span>Realizado</span><span>Atingimento</span><span>Contatos</span><span></span></div><?php foreach($sellerRows as $row):$usr=$row['user'];$g=$row['goal'];?><form method="post" action="<?=APP_URL?>/goals/<?=$usr['id']?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div class="person"><span><?=e(mb_strtoupper(mb_substr((string)$usr['name'],0,1)))?></span><strong><?=e($usr['name'])?></strong></div><label><input class="form-control" name="sales_goal" value="<?=e((string)$g['sales_goal'])?>"></label><strong><?=money($row['sales'])?></strong><div class="progress"><span><i style="width:<?=min(100,(float)$row['sales_percent'])?>%"></i></span><b><?=number_format($row['sales_percent'],1,',','.')?>%</b></div><label class="contact"><input class="form-control" type="number" name="contact_goal" value="<?=(int)$g['contact_goal']?>"><small><?=$row['contacts']?> realizados</small></label><button class="tdg4-icon"><i class="fa-solid fa-check"></i></button></form><?php endforeach;?></div>
-     </section>
+    <section class="tdgoal-team-section">
+     <header class="tdgoal-section-head">
+      <div class="tdgoal-section-title">
+       <span class="green"><i class="fa-solid fa-user-tie"></i></span>
+       <div><small>COMERCIAL</small><strong>Metas da equipe de vendas</strong><p>Edite a meta financeira e a meta de contatos de cada vendedor sem perder a leitura do realizado.</p></div>
+      </div>
+      <span class="tdgoal-count"><?=count($sellerRows)?> vendedor(es)</span>
+     </header>
+     <?php if(!$sellerRows):?>
+      <div class="tdgoal-empty"><i class="fa-solid fa-user-slash"></i><div><strong>Nenhum vendedor ativo</strong><p>Não há usuários comerciais disponíveis para configurar neste mês.</p></div></div>
+     <?php else:?>
+      <div class="tdgoal-person-grid">
+       <?php foreach($sellerRows as $row):$usr=$row['user'];$g=$row['goal'];$pct=(float)($row['sales_percent']??0);$bar=min(100,max(0,$pct));?>
+        <form class="tdgoal-person-card" method="post" action="<?=APP_URL?>/goals/<?=$usr['id']?>">
+         <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($monthRef)?>">
+         <div class="tdgoal-person-head">
+          <span class="tdgoal-avatar"><?=e(mb_strtoupper(mb_substr((string)$usr['name'],0,1)))?></span>
+          <div><strong><?=e($usr['name'])?></strong><small>Vendedor<?=!empty($usr['seller_omie_code'])?' · Omie '.e($usr['seller_omie_code']):''?></small></div>
+          <span class="tdgoal-status <?=$pct>=100?'success':($pct>=75?'progress':'attention')?>"><?=$pct>=100?'Meta atingida':($pct>=75?'Em evolução':'Acompanhar')?></span>
+         </div>
+         <div class="tdgoal-performance">
+          <div><small>Realizado</small><strong><?=money($row['sales'])?></strong><span>Pedidos <?=money($row['orders_sales']??0)?> · Serviços <?=money($row['services_sales']??0)?></span></div>
+          <b><?=number_format($pct,1,',','.')?>%</b>
+         </div>
+         <div class="tdgoal-progress"><span style="width:<?=$bar?>%"></span></div>
+         <div class="tdgoal-edit-grid">
+          <label><span>Meta de vendas</span><div class="tdgoal-input money"><i>R$</i><input class="form-control" type="number" min="0" step="0.01" name="sales_goal" value="<?=e((string)($g['sales_goal']??0))?>"></div></label>
+          <label><span>Meta de contatos</span><div class="tdgoal-input"><input class="form-control" type="number" min="0" step="1" name="contact_goal" value="<?=(int)($g['contact_goal']??0)?>"></div><small><?=number_format((int)($row['contacts']??0),0,',','.')?> realizados</small></label>
+         </div>
+         <button class="tdgoal-btn save" type="submit"><i class="fa-solid fa-check"></i>Salvar metas de <?=e(explode(' ',trim((string)$usr['name']))[0]??'vendedor')?></button>
+        </form>
+       <?php endforeach;?>
+      </div>
+     <?php endif;?>
+    </section>
 
-     <section class="tdg4-card">
-      <header><div><span class="orange"><i class="fa-solid fa-headset"></i></span><div><strong>Equipe de cobrança</strong><small>Meta de recuperação e produtividade por responsável.</small></div></div><b><?=count($collectorRows)?> responsável(is)</b></header>
-      <div class="tdg4-table"><div class="head"><span>Responsável</span><span>Meta</span><span>Recuperado</span><span>Atingimento</span><span>Contatos</span><span></span></div><?php foreach($collectorRows as $row):$usr=$row['user'];$g=$row['goal'];?><form method="post" action="<?=APP_URL?>/goals/<?=$usr['id']?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div class="person"><span><?=e(mb_strtoupper(mb_substr((string)$usr['name'],0,1)))?></span><strong><?=e($usr['name'])?></strong></div><label><input class="form-control" name="collection_goal" value="<?=e((string)$g['collection_goal'])?>"></label><strong><?=money($row['recovered'])?></strong><div class="progress"><span><i style="width:<?=min(100,(float)$row['collection_percent'])?>%"></i></span><b><?=number_format($row['collection_percent'],1,',','.')?>%</b></div><label class="contact"><input class="form-control" type="number" name="contact_goal" value="<?=(int)$g['contact_goal']?>"><small><?=$row['contacts']?> realizados</small></label><button class="tdg4-icon"><i class="fa-solid fa-check"></i></button></form><?php endforeach;?></div>
-     </section>
-    </div>
+    <section class="tdgoal-team-section">
+     <header class="tdgoal-section-head">
+      <div class="tdgoal-section-title">
+       <span class="orange"><i class="fa-solid fa-headset"></i></span>
+       <div><small>COBRANÇA</small><strong>Metas da equipe de cobrança</strong><p>Configure recuperação e produtividade por responsável, acompanhando o valor recuperado no mês.</p></div>
+      </div>
+      <span class="tdgoal-count"><?=count($collectorRows)?> responsável(is)</span>
+     </header>
+     <?php if(!$collectorRows):?>
+      <div class="tdgoal-empty"><i class="fa-solid fa-user-slash"></i><div><strong>Nenhum responsável ativo</strong><p>Não há usuários de cobrança disponíveis para configurar neste mês.</p></div></div>
+     <?php else:?>
+      <div class="tdgoal-person-grid">
+       <?php foreach($collectorRows as $row):$usr=$row['user'];$g=$row['goal'];$pct=(float)($row['collection_percent']??0);$bar=min(100,max(0,$pct));?>
+        <form class="tdgoal-person-card collection" method="post" action="<?=APP_URL?>/goals/<?=$usr['id']?>">
+         <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($monthRef)?>">
+         <div class="tdgoal-person-head">
+          <span class="tdgoal-avatar orange"><?=e(mb_strtoupper(mb_substr((string)$usr['name'],0,1)))?></span>
+          <div><strong><?=e($usr['name'])?></strong><small>Responsável de cobrança</small></div>
+          <span class="tdgoal-status <?=$pct>=100?'success':($pct>=75?'progress':'attention')?>"><?=$pct>=100?'Meta atingida':($pct>=75?'Em evolução':'Acompanhar')?></span>
+         </div>
+         <div class="tdgoal-performance">
+          <div><small>Recuperado</small><strong><?=money($row['recovered'])?></strong><span><?=number_format((int)($row['contacts']??0),0,',','.')?> ações registradas no mês</span></div>
+          <b><?=number_format($pct,1,',','.')?>%</b>
+         </div>
+         <div class="tdgoal-progress orange"><span style="width:<?=$bar?>%"></span></div>
+         <div class="tdgoal-edit-grid">
+          <label><span>Meta de recuperação</span><div class="tdgoal-input money"><i>R$</i><input class="form-control" type="number" min="0" step="0.01" name="collection_goal" value="<?=e((string)($g['collection_goal']??0))?>"></div></label>
+          <label><span>Meta de contatos</span><div class="tdgoal-input"><input class="form-control" type="number" min="0" step="1" name="contact_goal" value="<?=(int)($g['contact_goal']??0)?>"></div><small><?=number_format((int)($row['contacts']??0),0,',','.')?> realizados</small></label>
+         </div>
+         <button class="tdgoal-btn save" type="submit"><i class="fa-solid fa-check"></i>Salvar metas de <?=e(explode(' ',trim((string)$usr['name']))[0]??'responsável')?></button>
+        </form>
+       <?php endforeach;?>
+      </div>
+     <?php endif;?>
+    </section>
 
-    <?php if(!empty($management['virtual_sellers'])):?><section class="tdg4-card virtual"><header><div><span class="blue"><i class="fa-solid fa-robot"></i></span><div><strong>Vendedores virtuais</strong><small>Canais automáticos que participam do resultado comercial.</small></div></div></header><div class="tdg4-virtual-grid"><?php foreach($management['virtual_sellers'] as $vr):$vg=$vr['goal']??['sales_goal'=>0];?><form method="post" action="<?=APP_URL?>/goals/virtual/<?=e($vr['seller']['omie_code'])?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div class="person"><span><i class="fa-solid fa-robot"></i></span><div><strong><?=e($vr['seller']['name'])?></strong><small>Canal virtual</small></div></div><div><small>Realizado</small><strong><?=money($vr['sales'])?></strong></div><div><small>Meta</small><input class="form-control" name="sales_goal" value="<?=e((string)($vg['sales_goal']??0))?>"></div><div><small>Atingimento</small><strong><?=number_format($vr['sales_percent']??0,1,',','.')?>%</strong></div><button class="tdg4-btn">Salvar</button></form><?php endforeach;?></div></section><?php endif;?>
+    <?php if(!empty($management['virtual_sellers'])):?>
+     <section class="tdgoal-team-section virtual">
+      <header class="tdgoal-section-head">
+       <div class="tdgoal-section-title">
+        <span class="blue"><i class="fa-solid fa-robot"></i></span>
+        <div><small>CANAIS AUTOMÁTICOS</small><strong>Vendedores virtuais</strong><p>Defina a meta comercial dos canais que entram automaticamente no resultado geral.</p></div>
+       </div>
+       <span class="tdgoal-count"><?=count($management['virtual_sellers'])?> canal(is)</span>
+      </header>
+      <div class="tdgoal-virtual-grid">
+       <?php foreach($management['virtual_sellers'] as $vr):$vg=$vr['goal']??['sales_goal'=>0];$vpct=(float)($vr['sales_percent']??0);$vbar=min(100,max(0,$vpct));?>
+        <form class="tdgoal-virtual-card" method="post" action="<?=APP_URL?>/goals/virtual/<?=e($vr['seller']['omie_code'])?>">
+         <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($monthRef)?>">
+         <div class="tdgoal-person-head"><span class="tdgoal-avatar blue"><i class="fa-solid <?=!empty($vr['ead_reciclagem'])?'fa-graduation-cap':'fa-robot'?>"></i></span><div><strong><?=e($vr['seller']['name'])?></strong><small><?=!empty($vr['ead_reciclagem'])?'Canal EAD':'Canal automático'?></small></div><b><?=number_format($vpct,1,',','.')?>%</b></div>
+         <div class="tdgoal-performance"><div><small>Realizado</small><strong><?=money($vr['sales'])?></strong><span>Pedidos <?=money($vr['orders']??0)?> · Serviços <?=money($vr['services']??0)?></span></div></div>
+         <div class="tdgoal-progress blue"><span style="width:<?=$vbar?>%"></span></div>
+         <label class="tdgoal-virtual-input"><span>Meta comercial</span><div class="tdgoal-input money"><i>R$</i><input class="form-control" type="number" min="0" step="0.01" name="sales_goal" value="<?=e((string)($vg['sales_goal']??0))?>"></div></label>
+         <button class="tdgoal-btn save" type="submit"><i class="fa-solid fa-check"></i>Salvar meta</button>
+        </form>
+       <?php endforeach;?>
+      </div>
+     </section>
+    <?php endif;?>
    </section>
   <?php break;
 
@@ -1571,7 +1719,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 }
 
 function layout(string $body,?array $u): void{
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"></head><body><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
