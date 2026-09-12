@@ -1821,7 +1821,7 @@ function layout(string $body,?array $u,string $page=''): void{
       <span><?=e($u['role']==='admin'?'ADMINISTRAÇÃO':'SUPERVISÃO')?></span>
       <small><?=e($u['role']==='admin'?'Gestão completa do CRM':'Gestão da operação comercial')?></small>
      </div>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?><?=$u['role']==='admin'?'/admin':'/'?>"><i class="fa-solid <?=$u['role']==='admin'?'fa-table-cells-large':'fa-chart-line'?>"></i><span><?=$u['role']==='admin'?'Centro administrativo':'Dashboard'?></span></a>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
 
      <div class="tdcrm-nav-section-label">OPERAÇÃO</div>
 
@@ -1862,6 +1862,7 @@ function layout(string $body,?array $u,string $page=''): void{
       <div class="tdcrm-nav-group" data-nav-group="system">
        <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-gears"></i>Administração do CRM</span><i class="fa-solid fa-chevron-down"></i></button>
        <div class="tdcrm-nav-group-links">
+        <a href="<?=APP_URL?>/admin"><i class="fa-solid fa-table-cells-large"></i><span>Centro administrativo</span></a>
         <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização com Omie</span></a>
         <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações do CRM</span></a>
         <a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Ferramentas técnicas</span></a>
