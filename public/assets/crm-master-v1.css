@@ -1,0 +1,253 @@
+/* Tecnodata CRM — Design mestre aprovado
+   Camada final para manter todas as telas no mesmo sistema visual.
+   Sem gradientes decorativos, sem sombras artificiais, radius padrão 10px. */
+:root{
+ --crm-navy:#121B25;
+ --crm-navy-2:#183142;
+ --crm-lime:#BDD630;
+ --crm-green:#009657;
+ --crm-blue:#007FC7;
+ --crm-yellow:#FECC00;
+ --crm-orange:#EA5127;
+ --crm-red:#D94B42;
+ --crm-bg:#F5F8FA;
+ --crm-surface:#FFFFFF;
+ --crm-soft:#F8FAFB;
+ --crm-line:#DDE6EC;
+ --crm-line-strong:#CBD8E0;
+ --crm-text:#122B3B;
+ --crm-muted:#6F808D;
+ --crm-sidebar:248px;
+}
+html,body{letter-spacing:0!important}
+body:not([data-page="login"]){background:var(--crm-bg)!important;color:var(--crm-text)!important;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-size:13px!important}
+body:not([data-page="login"]) *{letter-spacing:0!important}
+body:not([data-page="login"]) .tdcrm-shell{background:var(--crm-bg)!important}
+body:not([data-page="login"]) .tdcrm-sidebar{width:var(--crm-sidebar)!important;background:var(--crm-navy)!important;border-right:1px solid #203744!important;box-shadow:none!important}
+body:not([data-page="login"]) .tdcrm-main{margin-left:var(--crm-sidebar)!important;background:var(--crm-bg)!important;min-height:100vh!important}
+body:not([data-page="login"]) .tdcrm-topbar{height:68px!important;background:var(--crm-navy)!important;border-bottom:1px solid #203744!important;box-shadow:none!important}
+body:not([data-page="login"]) .tdcrm-content{width:100%!important;max-width:1540px!important;margin:0 auto!important;padding:24px 28px 38px!important}
+body:not([data-page="login"]) .tdcrm-brand-mark,
+body:not([data-page="login"]) .tdcrm-footer-mark{background:var(--crm-lime)!important;color:var(--crm-navy)!important;border-radius:10px!important}
+body:not([data-page="login"]) .tdcrm-brand-copy strong b{color:var(--crm-lime)!important}
+body:not([data-page="login"]) .tdcrm-nav-section-label{margin:15px 10px 5px!important;color:#728A97!important;font-size:9px!important;font-weight:800!important}
+body:not([data-page="login"]) .tdcrm-nav a,
+body:not([data-page="login"]) .tdcrm-nav-group-toggle{letter-spacing:0!important}
+body:not([data-page="login"]) .tdcrm-nav a.active{background:#263D2D!important;color:#D9EF63!important;border-color:#52672F!important;box-shadow:none!important}
+body:not([data-page="login"]) .tdcrm-nav a.active:before{background:var(--crm-lime)!important}
+body:not([data-page="login"]) .tdcrm-nav a.active>i{color:var(--crm-lime)!important;background:rgba(189,214,48,.10)!important}
+body:not([data-page="login"]) .tdcrm-sidebar-footer{align-items:center!important}
+body:not([data-page="login"]) .tdcrm-sidebar-footer p{margin:5px 0 0!important;color:#8299A5!important;font-size:9px!important;line-height:1.35!important}
+body:not([data-page="login"]) .tdcrm-user>span{background:#EEF7D8!important;color:#506300!important;border-color:rgba(255,255,255,.28)!important}
+body:not([data-page="login"]) .tdcrm-notification,
+body:not([data-page="login"]) .tdcrm-logout button,
+body:not([data-page="login"]) .tdcrm-menu-button{box-shadow:none!important}
+
+/* Base de páginas */
+.tdc-page,.tdo-page,.tds-page,.tdcob-page,.tda-page,.tdr-page,.tdsys-page,.tdgoal-page,.tdcfg-page,.tdadmin2-page,.tdtest-page,.tdsync2-page,.tdcontact4-page,.tdcob4-page,.tdca4-page,.tdopp-page,.order-create-experience{gap:16px!important}
+.tdc-head,.tdo-head,.tds-head,.tdcob-head,.tda-head,.tdr-head,.tdsys-head,.tdgoal-head,.tdtest-head,.tdsync2-head,.tdcontact4-head,.tdcob4-head,.tdca4-head{margin:0!important}
+.tdc-head h1,.tdo-head h1,.tds-head h1,.tdcob-head h1,.tda-head h1,.tdr-head h1,.tdsys-head h1,.tdgoal-head h1,.tdtest-head h1,.tdsync2-head h1,.tdcontact4-head h1,.tdcob4-head h1,.tdca4-head h1,.tdcfg-title h1,.tdadmin2-title h1{
+ margin:0!important;color:var(--crm-text)!important;font-size:30px!important;line-height:1.08!important;font-weight:800!important
+}
+.tdc-head p,.tdo-head p,.tds-head p,.tdcob-head p,.tda-head p,.tdr-head p,.tdsys-head p,.tdgoal-head p,.tdtest-head p,.tdsync2-head p,.tdcontact4-head p,.tdcob4-head p,.tdca4-head p,.tdcfg-title p,.tdadmin2-title p{
+ margin-top:6px!important;color:var(--crm-muted)!important;font-size:12px!important;line-height:1.5!important
+}
+.tdc-kicker,.tdo-kicker,.tds-kicker,.tdcob-kicker,.tda-kicker,.tdr-kicker,.tdsys-kicker,.tdgoal-kicker,.tdtest-kicker,.tdsync2-kicker,.tdcontact4-kicker,.tdcob4-kicker,.tdca4-kicker,.tdcfg-kicker,.tdadmin2-kicker,.tdd-kicker{
+ color:var(--crm-green)!important;font-size:10px!important;font-weight:800!important;letter-spacing:0!important
+}
+.tdc-head-icon,.tdo-head-icon,.tds-head-icon,.tdcob-head-icon,.tda-head-icon,.tdr-head-icon,.tdsys-head-icon,.tdgoal-head-icon,.tdtest-head-icon,.tdsync2-head-icon,.tdcfg-title-icon{
+ width:48px!important;height:48px!important;flex:0 0 48px!important;border-radius:10px!important;box-shadow:none!important
+}
+
+/* Componentes globais */
+body:not([data-page="login"]) .form-control,
+body:not([data-page="login"]) .form-select{
+ min-height:40px!important;border:1px solid var(--crm-line-strong)!important;border-radius:8px!important;background:#fff!important;color:var(--crm-text)!important;font-size:12px!important;box-shadow:none!important
+}
+body:not([data-page="login"]) .form-control:focus,
+body:not([data-page="login"]) .form-select:focus{
+ border-color:var(--crm-blue)!important;box-shadow:none!important;outline:2px solid rgba(0,127,199,.10)!important;outline-offset:1px!important
+}
+body:not([data-page="login"]) label{color:#4D6473!important;font-size:11px!important;font-weight:700!important}
+body:not([data-page="login"]) .btn{min-height:40px!important;border-radius:8px!important;box-shadow:none!important;font-size:11px!important;font-weight:700!important}
+body:not([data-page="login"]) .btn-primary{background:var(--crm-green)!important;border-color:var(--crm-green)!important}
+body:not([data-page="login"]) .alert{border-radius:10px!important;box-shadow:none!important;font-size:11px!important}
+body:not([data-page="login"]) .panel,
+body:not([data-page="login"]) .table-card{border:1px solid var(--crm-line)!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important}
+
+/* KPIs */
+.tdc-kpi,.tdo-kpi,.tds-kpi,.tdcob-kpi,.tda-kpis article,.tdr-kpis article,.tdsys-kpis article,.tdgoal-kpi,.tdcontact4-kpis article,.tdcob4-kpis article,.tdca4-kpis article,.tdadmin2-kpis article,.tdsync2-kpis article{
+ border:1px solid var(--crm-line)!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important
+}
+.tdc-kpi small,.tdo-kpi small,.tds-kpi small,.tdcob-kpi small,.tda-kpis small,.tdr-kpis small,.tdsys-kpis small,.tdgoal-kpi small,.tdcontact4-kpis small,.tdcob4-kpis small,.tdca4-kpis small,.tdadmin2-kpis small,.tdsync2-kpis small{
+ font-size:10px!important;line-height:1.3!important;font-weight:700!important;color:#637783!important
+}
+.tdc-kpi strong,.tdo-kpi strong,.tds-kpi strong,.tdcob-kpi strong,.tda-kpis strong,.tdr-kpis strong,.tdsys-kpis strong,.tdgoal-kpi strong,.tdcontact4-kpis strong,.tdcob4-kpis strong,.tdca4-kpis strong,.tdadmin2-kpis strong,.tdsync2-kpis strong{
+ font-size:21px!important;line-height:1.05!important;font-weight:800!important;color:var(--crm-text)!important
+}
+
+/* Cards, painéis e cabeçalhos */
+.tdc-card,.tdo-shell,.tdo-detail-card,.tds-shell,.tdcob-card,.tda-card,.tdr-card,.tdr-panel,.tdsys-card,.tdgoal-general,.tdgoal-team-section,.tdcfg-card,.tdcfg-side-card,.tdadmin2-section,.tdadmin2-health,.tdadmin2-impact,.tdtest-card,.tdsync2-section,.tdsync2-card,.tdsync2-help,.tdcontact4-table-card,.tdcob4-table-card,.tdca4-card{
+ border-color:var(--crm-line)!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important
+}
+.tdc-card-head,.tdo-detail-card-head,.tdcob-card-head,.tdsys-card-head,.tdtest-card-head,.tdcfg-card>header,.tdcfg-side-card>header,.tdsync2-section-head,.tdsync2-card-head{
+ background:#FBFCFD!important;border-bottom-color:#E7EDF1!important
+}
+.tdsys-card-head strong,.tdtest-card-head strong,.tdcfg-card>header strong,.tdcfg-side-card>header strong,.tdsync2-section-head strong{
+ font-size:13px!important;font-weight:800!important;color:var(--crm-text)!important
+}
+.tdsys-card-head small,.tdtest-card-head small,.tdcfg-card>header small,.tdcfg-side-card>header small,.tdsync2-section-head p{
+ font-size:10px!important;color:var(--crm-muted)!important
+}
+
+/* Tabelas */
+body:not([data-page="login"]) table{font-size:12px!important;line-height:1.35!important}
+body:not([data-page="login"]) table thead th{
+ padding:10px 11px!important;background:#F2F6F9!important;border-bottom:1px solid var(--crm-line)!important;color:#506777!important;font-size:10px!important;font-weight:800!important
+}
+body:not([data-page="login"]) table tbody td{
+ padding:10px 11px!important;border-color:#EDF1F3!important;color:#405765!important;font-size:11px!important;vertical-align:middle!important
+}
+body:not([data-page="login"]) table tbody td strong{font-size:11px!important;color:var(--crm-text)!important}
+body:not([data-page="login"]) table tbody td small{font-size:9px!important;color:#7E8E98!important}
+body:not([data-page="login"]) table tbody tr:hover{background:#FBFDFE!important}
+body:not([data-page="login"]) div.dt-container{font-size:11px!important}
+body:not([data-page="login"]) div.dt-container .dt-search input,
+body:not([data-page="login"]) div.dt-container .dt-length select{min-height:36px!important;font-size:11px!important;border-radius:8px!important}
+body:not([data-page="login"]) div.dt-container .dt-info,
+body:not([data-page="login"]) div.dt-container .dt-paging{font-size:10px!important}
+
+/* Dashboard mestre */
+body[data-page="dashboard"] .tdcrm-content{max-width:1540px!important;padding-top:26px!important}
+body[data-page="dashboard"] .tdd-page{gap:18px!important}
+body[data-page="dashboard"] .tdd-head-tools{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+body[data-page="dashboard"] .tdd-head-icon{width:48px!important;height:48px!important;flex-basis:48px!important;border-radius:10px!important;background:#EAF5FD!important;color:var(--crm-blue)!important;border:1px solid #CFE7F7!important}
+body[data-page="dashboard"] .tdd-head h1{font-size:30px!important;color:var(--crm-text)!important}
+body[data-page="dashboard"] .tdd-head p{font-size:12px!important;color:var(--crm-muted)!important}
+body[data-page="dashboard"] .tdd-date{min-height:44px!important}
+body[data-page="dashboard"] .tdd-period-select{padding:0!important;border:0!important;background:transparent!important}
+body[data-page="dashboard"] .tdd-period-select label>span{font-size:10px!important}
+body[data-page="dashboard"] .tdd-period-select .form-control{min-width:168px!important;min-height:44px!important}
+body[data-page="dashboard"] .tdd-kpi{min-height:118px!important;border-color:var(--crm-line)!important;box-shadow:none!important}
+body[data-page="dashboard"] .tdd-kpi small{font-size:10px!important}
+body[data-page="dashboard"] .tdd-kpi strong{font-size:23px!important}
+body[data-page="dashboard"] .tdd-kpi .note{font-size:10px!important}
+body[data-page="dashboard"] .tdd-card{border-color:var(--crm-line)!important;box-shadow:none!important}
+body[data-page="dashboard"] .tdd-analysis-head{padding-top:4px}
+body[data-page="dashboard"] .tdd-analysis-head h2{font-size:20px!important}
+body[data-page="dashboard"] .tdd-period-panel{
+ border:1px solid var(--crm-line)!important;border-radius:10px!important;background:#fff!important;overflow:hidden!important
+}
+body[data-page="dashboard"] .tdd-period-panel>summary{
+ min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;cursor:pointer;list-style:none;color:var(--crm-text)
+}
+body[data-page="dashboard"] .tdd-period-panel>summary::-webkit-details-marker{display:none}
+body[data-page="dashboard"] .tdd-period-panel>summary>span{display:grid;grid-template-columns:34px auto;column-gap:9px;align-items:center}
+body[data-page="dashboard"] .tdd-period-panel>summary>span>i{grid-row:1/3;width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:#EAF5FD;color:var(--crm-blue)}
+body[data-page="dashboard"] .tdd-period-panel>summary b{font-size:11px}
+body[data-page="dashboard"] .tdd-period-panel>summary small{font-size:9px;color:var(--crm-muted)}
+body[data-page="dashboard"] .tdd-period-panel>summary>i{font-size:9px;color:#738591;transition:transform .16s ease}
+body[data-page="dashboard"] .tdd-period-panel[open]>summary>i{transform:rotate(180deg)}
+body[data-page="dashboard"] .tdd-period-panel .tdd-result-filter{margin:0!important;border:0!important;border-top:1px solid #E8EEF2!important;border-radius:0!important;background:#FBFCFD!important}
+body[data-page="dashboard"] .tdres{display:grid;gap:14px;padding:16px;border:1px solid var(--crm-line);border-radius:10px;background:#F9FBFC}
+body[data-page="dashboard"] .tdres-kpis{display:none!important}
+body[data-page="dashboard"] .tdres-toolbar{padding:0 0 12px!important;border-bottom:1px solid #E4EBEF!important}
+body[data-page="dashboard"] .tdres-toolbar h2{font-size:20px!important}
+body[data-page="dashboard"] .tdres-toolbar p{font-size:10px!important}
+body[data-page="dashboard"] .tdres-panel{border-color:var(--crm-line)!important;box-shadow:none!important}
+body[data-page="dashboard"] .tdres-nav-label{font-size:9px!important}
+body[data-page="dashboard"] .tdres-area-tabs a,
+body[data-page="dashboard"] .tdres-models a{min-height:36px!important;font-size:10px!important;border-radius:8px!important;box-shadow:none!important}
+body[data-page="dashboard"] .tdres-table{font-size:11px!important}
+
+/* Gestão: mantém os modelos aprovados e harmoniza escala */
+.tdcontact4-page,.tdcob4-page,.tdca4-page{gap:16px!important}
+.tdcontact4-head,.tdcob4-head,.tdca4-head{align-items:flex-start!important}
+.tdcontact4-head h1,.tdcob4-head h1,.tdca4-head h1{font-size:30px!important}
+.tdcontact4-head p,.tdcob4-head p,.tdca4-head p{font-size:12px!important}
+.tdcontact4-filters,.tdcob4-filters,.tdca4-filters{padding:14px!important;border-color:var(--crm-line)!important;background:#fff!important}
+.tdcontact4-kpis article,.tdcob4-kpis article,.tdca4-kpis article{min-height:108px!important;padding:15px!important}
+.tdcontact4-kpis article>span,.tdcob4-kpis article>span,.tdca4-kpis article>span{width:44px!important;height:44px!important;flex-basis:44px!important}
+.tdcontact4-table-card,.tdcob4-table-card{overflow:hidden!important}
+
+/* Usuários */
+.tdsys-kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important}
+.tdsys-kpis article{min-height:104px!important;padding:14px!important}
+.tdsys-two{display:grid!important;grid-template-columns:minmax(330px,390px) minmax(0,1fr)!important;gap:14px!important;align-items:start!important}
+.tdsys-card{overflow:hidden!important}
+.tdsys-form{padding:14px!important}
+.tdsys-form label{margin-top:3px!important}
+.tdsys-table-wrap{border:0!important;border-radius:0!important}
+
+/* Pedidos e Serviços */
+.tdo-head,.tds-head{align-items:flex-start!important}
+.tdo-kpis,.tds-kpis{gap:12px!important}
+.tdo-shell,.tds-shell{overflow:hidden!important}
+.tdo-tabs a,.tds-tabs a{font-size:11px!important}
+.tdo-btn,.tds-btn{min-height:40px!important;border-radius:8px!important;box-shadow:none!important}
+
+/* Cobrança */
+.tdcob4-page .tdcob4-primary,.tdca4-page .tdca4-primary{min-height:40px!important;border-radius:8px!important;box-shadow:none!important}
+.tdcob4-recovery-page .tdcob-card,.tdcob4-case-page .tdcob-card{border-color:var(--crm-line)!important;box-shadow:none!important}
+
+/* Agenda */
+.tda-page .tda-kpis article{min-height:105px!important}
+.tda-page .tda-item{border-color:var(--crm-line)!important;box-shadow:none!important}
+.tda-page .tda-item strong{font-size:12px!important}
+.tda-page .tda-item small{font-size:10px!important}
+
+/* Metas */
+.tdgoal-page{gap:16px!important}
+.tdgoal-kpis{gap:12px!important}
+.tdgoal-kpi{min-height:112px!important}
+.tdgoal-section-head{padding:15px 16px!important}
+.tdgoal-person-card,.tdgoal-virtual-card{box-shadow:none!important;border-color:var(--crm-line)!important}
+
+/* Configurações / Centro administrativo */
+.tdcfg-page,.tdadmin2-page{gap:16px!important}
+.tdcfg-categories a,.tdadmin2-modules>a{box-shadow:none!important}
+.tdcfg-card,.tdcfg-side-card,.tdadmin2-section,.tdadmin2-health,.tdadmin2-impact{border-color:var(--crm-line)!important}
+.tdcfg-page .form-control,.tdcfg-page .form-select{font-size:12px!important}
+
+/* Sincronização */
+.tdsync2-page{gap:16px!important}
+.tdsync2-section,.tdsync2-card,.tdsync2-help{border-color:var(--crm-line)!important;box-shadow:none!important}
+.tdsync2-btn{min-height:38px!important;font-size:10px!important;box-shadow:none!important}
+
+/* Ferramentas técnicas */
+.tdtest-grid{gap:14px!important}
+.tdtest-card{overflow:hidden!important}
+.tdtest-form{padding:14px!important}
+.tdtest-snapshot article{border-color:var(--crm-line)!important;border-radius:9px!important;background:#FBFCFD!important}
+
+/* Acessibilidade visual e limpeza */
+body:not([data-page="login"]) [class*="shadow"]{box-shadow:none!important}
+body:not([data-page="login"]) button,
+body:not([data-page="login"]) a{letter-spacing:0!important}
+body:not([data-page="login"]) .badge,
+body:not([data-page="login"]) [class*="-status"],
+body:not([data-page="login"]) [class*="-state"]{letter-spacing:0!important}
+
+/* Responsivo */
+@media(max-width:1280px){
+ body:not([data-page="login"]) .tdcrm-content{padding:20px!important}
+ .tdsys-two{grid-template-columns:1fr!important}
+}
+@media(max-width:980px){
+ body:not([data-page="login"]) .tdcrm-sidebar{width:260px!important}
+ body:not([data-page="login"]) .tdcrm-main{margin-left:0!important}
+ body:not([data-page="login"]) .tdcrm-content{padding:16px!important}
+ body[data-page="dashboard"] .tdd-head-tools{width:100%;justify-content:flex-start}
+ body[data-page="dashboard"] .tdd-period-select{flex:1}
+ body[data-page="dashboard"] .tdd-period-select .form-control{width:100%!important}
+ .tdsys-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:680px){
+ body:not([data-page="login"]) .tdcrm-content{padding:12px!important}
+ .tdc-head h1,.tdo-head h1,.tds-head h1,.tdcob-head h1,.tda-head h1,.tdr-head h1,.tdsys-head h1,.tdgoal-head h1,.tdtest-head h1,.tdsync2-head h1,.tdcontact4-head h1,.tdcob4-head h1,.tdca4-head h1,.tdcfg-title h1,.tdadmin2-title h1{font-size:25px!important}
+ body[data-page="dashboard"] .tdd-head h1{font-size:26px!important}
+ body[data-page="dashboard"] .tdd-head-tools{display:grid;grid-template-columns:1fr}
+ body[data-page="dashboard"] .tdd-date{width:100%}
+ body[data-page="dashboard"] .tdd-period-panel>summary{align-items:flex-start}
+ .tdsys-kpis{grid-template-columns:1fr!important}
+}
