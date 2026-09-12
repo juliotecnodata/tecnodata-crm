@@ -812,7 +812,42 @@ $router->post('/orders/drafts/{id}/delete',function($p){
  redirect('/orders');
 });
 
-$router->get('/collection',function(){Auth::requireRole('admin','supervisor','collector');$view=(string)($_GET['view']??'open');$flash=$_SESSION['collection_flash']??null;unset($_SESSION['collection_flash']);$rows=DB::all("SELECT cc.*,c.name,c.document,c.uf,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.status=? ORDER BY cc.open_amount DESC LIMIT 500",[$view==='settled'?'settled':'open']);render('collection',['rows'=>$rows,'view'=>$view,'flash'=>$flash]);});
+$router->get('/collection',function(){
+ Auth::requireRole('admin','supervisor','collector');
+ $u=Auth::user();$view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
+ $assigned=max(0,(int)($_GET['assigned_user_id']??0));$uf=mb_strtoupper(trim((string)($_GET['uf']??'')));$delay=(string)($_GET['delay']??'all');
+ if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';
+ if($u['role']==='collector')$assigned=(int)$u['id'];
+ $where=['cc.status=?'];$params=[$view];
+ if($assigned>0){$where[]='cc.assigned_user_id=?';$params[]=$assigned;}
+ if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
+ if($delay==='current')$where[]='cc.max_overdue_days<=0';
+ elseif($delay==='1_30')$where[]='cc.max_overdue_days BETWEEN 1 AND 30';
+ elseif($delay==='31_60')$where[]='cc.max_overdue_days BETWEEN 31 AND 60';
+ elseif($delay==='60_plus')$where[]='cc.max_overdue_days>60';
+ $rows=DB::all("SELECT cc.*,c.name,c.document,c.uf,c.city,c.seller_omie_code,s.name seller_name,u.name assigned_name,
+   la.result last_result,la.channel last_channel,la.created_at last_contact_at,
+   nt.id next_task_id,nt.title next_title,nt.due_at next_due_at
+   FROM collection_cases cc
+   JOIN clients c ON c.id=cc.client_id
+   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+   LEFT JOIN users u ON u.id=cc.assigned_user_id
+   LEFT JOIN collection_actions la ON la.id=(SELECT ca.id FROM collection_actions ca WHERE ca.client_id=cc.client_id ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1)
+   LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND t.type='collection' AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1)
+   WHERE ".implode(' AND ',$where)." ORDER BY cc.open_amount DESC LIMIT 500",$params);
+ $collectors=DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name");
+ $ufs=DB::all("SELECT DISTINCT c.uf FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY c.uf");
+ $actionWhere=["ca.result='payment'","ca.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01')"];$actionParams=[];
+ if($assigned>0){$actionWhere[]='ca.assigned_user_id=?';$actionParams[]=$assigned;}
+ if($uf!==''){$actionWhere[]='c.uf=?';$actionParams[]=$uf;}
+ $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(ca.amount),0) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$actionWhere),$actionParams)??0);
+ $promiseWhere=["ca.result='promise'","ca.promise_date>=CURDATE()"];$promiseParams=[];
+ if($assigned>0){$promiseWhere[]='ca.assigned_user_id=?';$promiseParams[]=$assigned;}
+ if($uf!==''){$promiseWhere[]='c.uf=?';$promiseParams[]=$uf;}
+ $promises=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$promiseWhere),$promiseParams)??0);
+ $flash=$_SESSION['collection_flash']??null;unset($_SESSION['collection_flash']);
+ render('collection',['rows'=>$rows,'view'=>$view,'flash'=>$flash,'collectionCollectors'=>$collectors,'collectionUfs'=>$ufs,'collectionAssigned'=>$assigned,'collectionUf'=>$uf,'collectionDelay'=>$delay,'collectionRecovered'=>$recovered,'collectionPromises'=>$promises]);
+});
 $router->get('/collection/recoveries',function(){
  Auth::requireRole('admin','supervisor');
  $period=selected_date_period();$flash=$_SESSION['collection_recovery_flash']??null;$old=$_SESSION['collection_recovery_old']??[];$defaults=$_SESSION['collection_recovery_defaults']??[];
