@@ -1278,6 +1278,48 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     <?php if(!empty($management['virtual_sellers'])):?><section class="tdg-card"><div class="tdg-card-head"><span><i class="fa-solid fa-robot"></i></span><div><strong>Vendedores virtuais</strong><small>Canais automáticos que participam da meta sem usuário de acesso.</small></div></div><div class="tdg-list"><?php foreach($management['virtual_sellers'] as $vr):$vg=$vr['goal']??['sales_goal'=>0];?><form class="tdg-row virtual" method="post" action="<?=APP_URL?>/goals/virtual/<?=e($vr['seller']['omie_code'])?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="month" value="<?=e($month)?>"><div class="tdg-person"><span><i class="fa-solid fa-robot"></i></span><div><strong><?=e($vr['seller']['name'])?></strong><small>Vendedor virtual</small></div></div><label>Meta vendas<input class="form-control" name="sales_goal" value="<?=e((string)($vg['sales_goal']??0))?>"><small>Realizado <?=money($vr['sales'])?> · <?=number_format($vr['sales_percent']??0,1,',','.')?>%</small></label><div class="tdg-composition"><small>Pedidos OK</small><strong><?=money($vr['orders'])?></strong><span>Sem frete <?=money($vr['orders_without_freight']??0)?></span></div><button class="tdg-btn"><i class="fa-solid fa-check"></i>Salvar</button></form><?php endforeach;?></div></section><?php endif;?>
    </section>
   <?php break;
+  case 'admin_center':
+   $s=$stats??[];$syncRows=$syncRows??[];$syncOk=0;$syncFail=0;foreach($syncRows as $syncRow){if(!empty($syncRow['last_error']))$syncFail++;elseif(!empty($syncRow['last_success_at']))$syncOk++;}
+   ?>
+   <section class="tdadmin-page">
+    <header class="tdadmin-head">
+     <div><span class="tdadmin-kicker">ADMINISTRAÇÃO</span><h1>Centro Administrativo</h1><p>Gestão do CRM organizada por operação, equipe, regras e integrações.</p></div>
+     <a class="tdadmin-primary" href="<?=APP_URL?>/"><i class="fa-solid fa-chart-line"></i>Ver resultados</a>
+    </header>
+
+    <div class="tdadmin-overview">
+     <article><span class="green"><i class="fa-solid fa-users-gear"></i></span><div><small>Usuários ativos</small><strong><?=number_format((int)($s['active_users']??0),0,',','.')?></strong><em><?=number_format((int)($s['users']??0),0,',','.')?> cadastrados</em></div></article>
+     <article><span class="blue"><i class="fa-solid fa-user-tie"></i></span><div><small>Vendedores</small><strong><?=number_format((int)($s['sellers']??0),0,',','.')?></strong><em>Perfis comerciais ativos</em></div></article>
+     <article><span class="orange"><i class="fa-solid fa-headset"></i></span><div><small>Cobrança</small><strong><?=number_format((int)($s['collectors']??0),0,',','.')?></strong><em>Usuários ativos</em></div></article>
+     <article><span class="<?=$flowEnabled?'green':'muted'?>"><i class="fa-solid fa-diagram-project"></i></span><div><small>Fluxo comercial</small><strong><?=$flowEnabled?'Ativo':'Desativado'?></strong><em><?=$flowEnabled?'Oportunidades e funil em uso':'CRM operando no modo tradicional'?></em></div></article>
+    </div>
+
+    <div class="tdadmin-section-title"><span>GESTÃO E OPERAÇÃO</span><p>Recursos usados para organizar equipe, rotina e processo comercial.</p></div>
+    <div class="tdadmin-grid">
+     <a class="tdadmin-card" href="<?=APP_URL?>/users"><span class="icon green"><i class="fa-solid fa-users-gear"></i></span><div><strong>Usuários e acessos</strong><p>Cadastre vendedores, cobrança, supervisores e administradores. Controle vínculos e permissões.</p><small><?=number_format((int)($s['active_users']??0),0,',','.')?> usuários ativos</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="tdadmin-card" href="<?=APP_URL?>/sales-flow-settings"><span class="icon lime"><i class="fa-solid fa-diagram-project"></i></span><div><strong>Fluxo comercial</strong><p>Ative oportunidades e funil, escolha tipos de atividade e mantenha o processo simples para vendas.</p><small><?=$flowEnabled?'Fluxo ativo':'Fluxo desativado'?></small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="tdadmin-card" href="<?=APP_URL?>/settings"><span class="icon blue"><i class="fa-solid fa-headset"></i></span><div><strong>Acompanhamento</strong><p>Defina quem entra no acompanhamento e personalize resultados de tarefas e atendimentos.</p><small><?=number_format((int)($s['monitored']??0),0,',','.')?> participantes configurados</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="tdadmin-card" href="<?=APP_URL?>/goals"><span class="icon yellow"><i class="fa-solid fa-bullseye"></i></span><div><strong>Metas e resultados</strong><p>Gerencie metas gerais e individuais de vendas, contatos e recuperação financeira.</p><small>Gestão mensal da equipe</small></div><i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+
+    <div class="tdadmin-section-title"><span>SISTEMA E INTEGRAÇÕES</span><p>Configurações técnicas e serviços que sustentam a operação.</p></div>
+    <div class="tdadmin-grid tdadmin-grid-system">
+     <a class="tdadmin-card" href="<?=APP_URL?>/sync"><span class="icon navy"><i class="fa-solid fa-arrows-rotate"></i></span><div><strong>Sincronização Omie</strong><p>Acompanhe clientes, pedidos, serviços, financeiro e demais módulos sincronizados.</p><small><?=$syncFail>0?$syncFail.' módulo(s) com erro':$syncOk.' módulo(s) atualizados'?></small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="tdadmin-card" href="<?=APP_URL?>/settings"><span class="icon slate"><i class="fa-solid fa-gears"></i></span><div><strong>Configurações gerais</strong><p>Padrões de pedido, frete, estoque, pagamento e regras operacionais do CRM.</p><small><?=number_format((int)($taskResultCount??0),0,',','.')?> resultados de tarefas disponíveis</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a class="tdadmin-card" href="<?=APP_URL?>/test-data"><span class="icon orange"><i class="fa-solid fa-flask"></i></span><div><strong>Ferramentas de teste</strong><p>Recursos técnicos para homologação e validação. Use somente quando necessário.</p><small>Área técnica</small></div><i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+
+    <section class="tdadmin-status">
+     <header><div><span><i class="fa-solid fa-heart-pulse"></i></span><div><strong>Saúde das integrações</strong><small>Visão rápida do estado das sincronizações do CRM.</small></div></div><a href="<?=APP_URL?>/sync">Abrir sincronização</a></header>
+     <div class="tdadmin-status-grid">
+      <?php foreach(array_slice($syncRows,0,8) as $row):$hasError=!empty($row['last_error']);?>
+       <article><span class="<?=$hasError?'error':'ok'?>"><i class="fa-solid <?=$hasError?'fa-triangle-exclamation':'fa-check'?>"></i></span><div><strong><?=e($row['module_key'])?></strong><small><?=$hasError?'Requer atenção':(!empty($row['last_success_at'])?'Última atualização '.date('d/m H:i',strtotime($row['last_success_at'])):'Ainda não sincronizado')?></small></div></article>
+      <?php endforeach;?>
+      <?php if(empty($syncRows)):?><div class="tdadmin-empty">Nenhum módulo de sincronização registrado ainda.</div><?php endif;?>
+     </div>
+    </section>
+   </section>
+  <?php break;
   case 'settings':?>
    <section class="tdset-page">
     <header class="tdset-head"><div class="tdset-head-main"><span class="tdset-head-icon"><i class="fa-solid fa-gear"></i></span><div><span class="tdset-kicker">SISTEMA / CONFIGURAÇÕES</span><h1>Configurações</h1><p>Defina os participantes do acompanhamento<?=$settingsAdmin?' e os padrões operacionais do sistema':''?>.</p></div></div></header>
@@ -1456,7 +1498,7 @@ function layout(string $body,?array $u): void{
       <span><?=e($u['role']==='admin'?'ADMINISTRAÇÃO':'SUPERVISÃO')?></span>
       <small><?=e($u['role']==='admin'?'Gestão completa do CRM':'Gestão da operação comercial')?></small>
      </div>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Visão geral</span></a>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?><?=$u['role']==='admin'?'/admin':'/'?>"><i class="fa-solid fa-house"></i><span>Visão geral</span></a>
 
      <div class="tdcrm-nav-section-label">OPERAÇÃO</div>
 
