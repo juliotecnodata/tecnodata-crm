@@ -1452,11 +1452,56 @@ function layout(string $body,?array $u): void{
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Início</span></a>
      <div class="tdcrm-nav-group" data-nav-group="collector-routine" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-list-check"></i>Rotina</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a></div></div>
     <?php else:?>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Início</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="commercial" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-handshake"></i>Comercial</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a><a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Acompanhamento</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a><a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a></div></div>
-     <div class="tdcrm-nav-group" data-nav-group="operation"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-chart-line"></i>Operação</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Cobrança</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Agenda</span></a><a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a><?php if($u['role']==='supervisor'):?><a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Fluxo comercial</span></a><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-user-gear"></i><span>Config. acompanhamento</span></a><?php endif;?></div></div>
+     <div class="tdcrm-nav-context">
+      <span><?=e($u['role']==='admin'?'ADMINISTRAÇÃO':'SUPERVISÃO')?></span>
+      <small><?=e($u['role']==='admin'?'Gestão completa do CRM':'Gestão da operação comercial')?></small>
+     </div>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Visão geral</span></a>
+
+     <div class="tdcrm-nav-section-label">OPERAÇÃO</div>
+
+     <div class="tdcrm-nav-group" data-nav-group="commercial" data-default-open="1">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-handshake"></i>Comercial</span><i class="fa-solid fa-chevron-down"></i></button>
+      <div class="tdcrm-nav-group-links">
+       <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+       <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Acompanhamento</span></a>
+       <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
+       <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
+      </div>
+     </div>
+
+     <div class="tdcrm-nav-group" data-nav-group="collection">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-circle-dollar-to-slot"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button>
+      <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><span>Carteira de cobrança</span></a>
+       <a href="<?=APP_URL?>/agenda?type=collection"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a>
+      </div>
+     </div>
+
+     <div class="tdcrm-nav-section-label">GESTÃO</div>
+
+     <div class="tdcrm-nav-group" data-nav-group="management" data-default-open="1">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-chart-line"></i>Gestão</span><i class="fa-solid fa-chevron-down"></i></button>
+      <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-days"></i><span>Agenda da equipe</span></a>
+       <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas</span></a>
+       <?php if($u['role']==='admin'):?><a href="<?=APP_URL?>/users"><i class="fa-solid fa-users-gear"></i><span>Usuários e acessos</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Fluxo comercial</span></a>
+       <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i><span>Acompanhamento</span></a>
+      </div>
+     </div>
+
      <?php if($u['role']==='admin'):?>
-      <div class="tdcrm-nav-group" data-nav-group="administration"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-shield-halved"></i>Administração</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/users"><i class="fa-solid fa-users-gear"></i><span>Usuários</span></a><a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Fluxo comercial</span></a><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações</span></a><a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização</span></a><a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Carga de teste</span></a></div></div>
+      <div class="tdcrm-nav-section-label">SISTEMA</div>
+      <div class="tdcrm-nav-group" data-nav-group="system">
+       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-gears"></i>Sistema</span><i class="fa-solid fa-chevron-down"></i></button>
+       <div class="tdcrm-nav-group-links">
+        <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização Omie</span></a>
+        <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações gerais</span></a>
+        <a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Ferramentas de teste</span></a>
+       </div>
+      </div>
      <?php endif;?>
     <?php endif;?>
    </nav>
