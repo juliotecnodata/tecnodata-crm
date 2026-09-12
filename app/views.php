@@ -221,17 +221,23 @@ function render(string $name,array $vars=[]): void{
       <div class="tdres-toolbar">
        <div><span class="tdd-kicker">GESTÃO / RESULTADOS</span><h2><?=$collectionMode?'Resultados de cobrança':'Resultados comerciais'?></h2><p><?=$collectionMode?'Acompanhe recuperação, metas e desempenho da equipe de cobrança.':'Analise a equipe comercial em diferentes formatos usando os mesmos dados do período.'?></p></div>
        <div class="tdres-toolbar-actions">
-        <nav class="tdres-area-tabs" aria-label="Área de resultados">
-         <?php $qCommercial=['month'=>$month,'result_area'=>'commercial','result_model'=>$model];$qCollection=['month'=>$month,'result_area'=>'collection'];if($selectedDays){$qCommercial['days']=$selectedDays;$qCollection['days']=$selectedDays;}?>
-         <a class="<?=!$collectionMode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($qCommercial))?>#resultados"><i class="fa-solid fa-chart-line"></i>Comercial</a>
-         <a class="<?=$collectionMode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($qCollection))?>#resultados"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</a>
-        </nav>
+        <div class="tdres-nav-group">
+         <span class="tdres-nav-label">Área</span>
+         <nav class="tdres-area-tabs" aria-label="Área de resultados">
+          <?php $qCommercial=['month'=>$month,'result_area'=>'commercial','result_model'=>$model];$qCollection=['month'=>$month,'result_area'=>'collection'];if($selectedDays){$qCommercial['days']=$selectedDays;$qCollection['days']=$selectedDays;}?>
+          <a class="<?=!$collectionMode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($qCommercial))?>#resultados"><i class="fa-solid fa-chart-line"></i>Comercial</a>
+          <a class="<?=$collectionMode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($qCollection))?>#resultados"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</a>
+         </nav>
+        </div>
         <?php if(!$collectionMode):?>
-        <nav class="tdres-models" aria-label="Modelos de visualização">
-         <?php foreach(['executive'=>['fa-table-list','Executivo'],'cards'=>['fa-grip','Cards'],'compare'=>['fa-chart-column','Comparativo'],'detail'=>['fa-address-card','Detalhe']] as $mode=>$meta):$query=['month'=>$month,'result_area'=>'commercial','result_model'=>$mode];if($selectedDays)$query['days']=$selectedDays;?>
-          <a class="<?=$model===$mode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($query))?>#resultados"><i class="fa-solid <?=$meta[0]?>"></i><span><?=$meta[1]?></span></a>
-         <?php endforeach;?>
-        </nav>
+        <div class="tdres-nav-group secondary">
+         <span class="tdres-nav-label">Visualização</span>
+         <nav class="tdres-models" aria-label="Modelos de visualização">
+          <?php foreach(['executive'=>['fa-table-list','Executivo'],'cards'=>['fa-grip','Cards'],'compare'=>['fa-chart-column','Comparativo'],'detail'=>['fa-address-card','Detalhe']] as $mode=>$meta):$query=['month'=>$month,'result_area'=>'commercial','result_model'=>$mode];if($selectedDays)$query['days']=$selectedDays;?>
+           <a class="<?=$model===$mode?'active':''?>" href="<?=APP_URL?>/?<?=e(http_build_query($query))?>#resultados"><i class="fa-solid <?=$meta[0]?>"></i><span><?=$meta[1]?></span></a>
+          <?php endforeach;?>
+         </nav>
+        </div>
         <?php endif;?>
        </div>
       </div>
