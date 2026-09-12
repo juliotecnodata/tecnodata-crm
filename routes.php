@@ -1033,6 +1033,24 @@ $router->post('/agenda/{id}/delete',function($p){
  redirect('/agenda'.($params?'?'.http_build_query($params):''));
 });
 
+$router->get('/admin',function(){
+ Auth::requireRole('admin');
+ $stats=[
+  'users'=>(int)(DB::scalar("SELECT COUNT(*) FROM users")??0),
+  'active_users'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE active=1")??0),
+  'sellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE role='seller' AND active=1")??0),
+  'collectors'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE role='collector' AND active=1")??0),
+  'sync_errors'=>(int)(DB::scalar("SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>''")??0),
+  'monitored'=>count(contact_monitoring_user_ids()??[]),
+ ];
+ render('admin_center',[
+  'stats'=>$stats,
+  'flowEnabled'=>sales_flow_enabled(),
+  'syncRows'=>DB::all("SELECT module_key,last_success_at,last_error FROM sync_state ORDER BY module_key"),
+  'taskResultCount'=>count(task_result_catalog())
+ ]);
+});
+
 $router->get('/settings',function(){
  Auth::requireRole('admin','supervisor');
  $isAdmin=Auth::can('admin');if($isAdmin)OrderService::ensureCoreCatalogs();
