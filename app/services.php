@@ -90,6 +90,27 @@ final class ClientPortfolioService {
   $next=$sellerCode??'';
   if($previous!==$next)DB::exec("INSERT INTO client_seller_audit(client_id,actor_user_id,change_type,month_ref,previous_seller_omie_code,new_seller_omie_code,previous_omie_seller_code,new_omie_seller_code,notes,created_at) VALUES(?,?,'monthly_assignment',?,?,?,?,?,?,NOW())",[$clientId,$actorId?:null,$month,$previous!==''?$previous:null,$next!==''?$next:null,$client['omie_seller_code']??null,$client['omie_seller_code']??null,mb_substr($notes,0,255)]);
  }
+ public static function setAssignments(array $clientIds,?string $month,?string $sellerCode,int $actorId,string $notes=''): int{
+  ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);$sellerCode=trim((string)$sellerCode);$sellerCode=$sellerCode!==''?$sellerCode:null;
+  $ids=[];foreach($clientIds as $id){$id=(int)$id;if($id>0)$ids[$id]=$id;}$ids=array_values($ids);if(!$ids)return 0;
+  if($sellerCode!==null&&!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]))throw new RuntimeException('Vendedor inválido ou inativo.');
+  $changed=0;$pdo=DB::conn();$pdo->beginTransaction();
+  try{
+   foreach(array_chunk($ids,500) as $chunk){
+    $ph=implode(',',array_fill(0,count($chunk),'?'));
+    $clients=DB::all("SELECT c.id,c.seller_omie_code,c.omie_seller_code,pa.id assignment_id,pa.seller_omie_code month_seller FROM clients c LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=? WHERE c.active=1 AND c.id IN (".$ph.")",array_merge([$month],$chunk));
+    foreach($clients as $client){
+     $id=(int)$client['id'];$previous=$client['assignment_id']!==null?trim((string)($client['month_seller']??'')):trim((string)($client['seller_omie_code']??''));$next=$sellerCode??'';
+     DB::exec("INSERT INTO client_portfolio_assignments(month_ref,client_id,seller_omie_code,created_by,updated_by,created_at,updated_at) VALUES(?,?,?,?,?,NOW(),NOW()) ON DUPLICATE KEY UPDATE seller_omie_code=VALUES(seller_omie_code),updated_by=VALUES(updated_by),updated_at=NOW()",[$month,$id,$sellerCode,$actorId?:null,$actorId?:null]);
+     if($previous!==$next){
+      DB::exec("INSERT INTO client_seller_audit(client_id,actor_user_id,change_type,month_ref,previous_seller_omie_code,new_seller_omie_code,previous_omie_seller_code,new_omie_seller_code,notes,created_at) VALUES(?,?,'monthly_assignment',?,?,?,?,?,?,NOW())",[$id,$actorId?:null,$month,$previous!==''?$previous:null,$next!==''?$next:null,$client['omie_seller_code']??null,$client['omie_seller_code']??null,mb_substr($notes,0,255)]);
+      $changed++;
+     }
+    }
+   }
+   $pdo->commit();return $changed;
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+ }
  public static function clearAssignment(int $clientId,?string $month,int $actorId,string $notes=''): void{
   ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);$assignment=self::assignment($clientId,$month);if(!$assignment)return;
   $previous=self::effectiveSellerCode($clientId,$month);$client=DB::one("SELECT seller_omie_code,omie_seller_code FROM clients WHERE id=?",[$clientId]);
@@ -788,6 +809,8 @@ final class ClientService {
 
   $localOmieCode=(string)($client['omie_code']??'');
   if(str_starts_with($localOmieCode,'LOCAL-')){
+   $history=(int)(DB::scalar("SELECT (SELECT COUNT(*) FROM activities WHERE client_id=?)+(SELECT COUNT(*) FROM tasks WHERE client_id=?)+(SELECT COUNT(*) FROM collection_actions WHERE client_id=?)+(SELECT COUNT(*) FROM collection_cases WHERE client_id=?)",[$id,$id,$id,$id])??0);
+   if($history>0){DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);return ['status'=>'local_archived','client'=>$client,'response'=>null];}
    DB::exec("DELETE FROM clients WHERE id=?",[$id]);
    return ['status'=>'local_deleted','client'=>$client,'response'=>null];
   }
@@ -801,10 +824,13 @@ final class ClientService {
    throw new RuntimeException('O código Omie não corresponde ao CPF/CNPJ deste cliente. Nenhuma exclusão foi realizada.');
   }
   $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$localOmieCode]);
-
-  DB::exec("DELETE FROM clients WHERE id=?",[$id]);
+  $history=(int)(DB::scalar("SELECT (SELECT COUNT(*) FROM activities WHERE client_id=?)+(SELECT COUNT(*) FROM tasks WHERE client_id=?)+(SELECT COUNT(*) FROM collection_actions WHERE client_id=?)+(SELECT COUNT(*) FROM collection_cases WHERE client_id=?)",[$id,$id,$id,$id])??0);
+  if($history>0){
+   $raw=json_decode((string)($client['raw_json']??''),true);if(!is_array($raw))$raw=[];$raw['omie_status']='deleted_remote';$raw['omie_delete_response']=$response;
+   DB::exec("UPDATE clients SET active=0,raw_json=?,updated_at=NOW() WHERE id=?",[json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$id]);
+  }else DB::exec("DELETE FROM clients WHERE id=?",[$id]);
   return [
-   'status'=>'synced_deleted',
+   'status'=>$history>0?'synced_archived':'synced_deleted',
    'client'=>$client,
    'response'=>$response,
    'remote_code'=>$remoteCode,
