@@ -429,6 +429,13 @@ final class ClientService {
   $contactName=trim((string)($i['contact_name']??''));
   $phoneDdd=preg_replace('/\D+/','',(string)($i['phone_ddd']??''));
   $phoneNumber=preg_replace('/\D+/','',(string)($i['phone_number']??''));
+  // Cadastros antigos podem não ter contato/telefone. Em edições e sincronizações,
+  // usamos valores neutros para não bloquear correções de vendedor, tags ou demais dados.
+  if($sellerOverride!==null){
+   if($contactName==='')$contactName='Sem contato';
+   if($phoneDdd==='')$phoneDdd='00';
+   if($phoneNumber==='')$phoneNumber='00000000';
+  }
   $zip=preg_replace('/\D+/','',(string)($i['zip_code']??''));
   $address=trim((string)($i['address']??''));
   $number=trim((string)($i['address_number']??''));
@@ -761,14 +768,20 @@ final class ClientService {
    if(is_array($t)&&isset($t['tag']))$tags[]=(string)$t['tag'];
    elseif(is_string($t))$tags[]=$t;
   }
+  $contactName=trim((string)($src['contato']??''));
+  $phoneDdd=preg_replace('/\D+/','',(string)($src['telefone1_ddd']??''));
+  $phoneNumber=preg_replace('/\D+/','',(string)($src['telefone1_numero']??''));
+  if($contactName==='')$contactName='Sem contato';
+  if($phoneDdd==='')$phoneDdd='00';
+  if($phoneNumber==='')$phoneNumber='00000000';
   return [
    'legal_name'=>(string)($src['razao_social']??$client['legal_name']??$client['name']??''),
    'trade_name'=>(string)($src['nome_fantasia']??$client['name']??''),
    'document'=>(string)($src['cnpj_cpf']??$client['document']??''),
    'email'=>(string)($src['email']??$client['email']??''),
-   'contact_name'=>(string)($src['contato']??''),
-   'phone_ddd'=>(string)($src['telefone1_ddd']??''),
-   'phone_number'=>(string)($src['telefone1_numero']??''),
+   'contact_name'=>$contactName,
+   'phone_ddd'=>$phoneDdd,
+   'phone_number'=>$phoneNumber,
    'zip_code'=>(string)($src['cep']??''),
    'address'=>(string)($src['endereco']??''),
    'address_number'=>(string)($src['endereco_numero']??''),
