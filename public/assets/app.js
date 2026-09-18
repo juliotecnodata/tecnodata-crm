@@ -293,43 +293,142 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   }
 
-  const agendaActionModal=document.querySelector('[data-agenda-action-modal]');
-  if(agendaActionModal){
-    const agendaActionForm=agendaActionModal.querySelector('[data-agenda-action-form]');
-    const agendaActionTitle=agendaActionModal.querySelector('[data-agenda-action-title]');
-    const agendaActionClient=agendaActionModal.querySelector('[data-agenda-action-client]');
-    const agendaActionOwner=agendaActionModal.querySelector('[data-agenda-action-owner]');
-    const agendaActionIcon=agendaActionModal.querySelector('[data-agenda-action-icon]');
-    const agendaEditField=agendaActionModal.querySelector('[data-agenda-edit-field]');
-    const agendaRescheduleField=agendaActionModal.querySelector('[data-agenda-reschedule-field]');
-    const agendaDescription=agendaActionModal.querySelector('[data-agenda-action-description]');
-    const agendaDue=agendaActionModal.querySelector('[data-agenda-action-due]');
-    const agendaSubmit=agendaActionModal.querySelector('[data-agenda-action-submit]');
-    const agendaBase=String(window.APP_URL||'').replace(/\/$/,'');
-    const openAgendaAction=button=>{
-      const mode=String(button.dataset.agendaTaskAction||'edit');
+  const agendaTaskModal=document.querySelector('[data-agenda-task-modal]');
+  if(agendaTaskModal){
+    const form=agendaTaskModal.querySelector('[data-agenda-task-form]');
+    const modeInput=agendaTaskModal.querySelector('[data-agenda-task-mode]');
+    const heading=agendaTaskModal.querySelector('[data-agenda-task-heading]');
+    const icon=agendaTaskModal.querySelector('[data-agenda-task-icon]');
+    const headClient=agendaTaskModal.querySelector('[data-agenda-task-client]');
+    const headStatus=agendaTaskModal.querySelector('[data-agenda-task-status]');
+    const clientName=agendaTaskModal.querySelector('[data-agenda-task-client-name]');
+    const clientMeta=agendaTaskModal.querySelector('[data-agenda-task-client-meta]');
+    const clientLink=agendaTaskModal.querySelector('[data-agenda-task-client-link]');
+    const created=agendaTaskModal.querySelector('[data-agenda-task-created]');
+    const createdBy=agendaTaskModal.querySelector('[data-agenda-task-created-by]');
+    const statusLabel=agendaTaskModal.querySelector('[data-agenda-task-status-label]');
+    const updated=agendaTaskModal.querySelector('[data-agenda-task-updated]');
+    const context=agendaTaskModal.querySelector('[data-agenda-task-context]');
+    const type=agendaTaskModal.querySelector('[data-agenda-task-type]');
+    const assigned=agendaTaskModal.querySelector('[data-agenda-task-assigned]');
+    const due=agendaTaskModal.querySelector('[data-agenda-task-due]');
+    const description=agendaTaskModal.querySelector('[data-agenda-task-description]');
+    const completion=agendaTaskModal.querySelector('[data-agenda-task-completion]');
+    const result=agendaTaskModal.querySelector('[data-agenda-task-result]');
+    const notes=agendaTaskModal.querySelector('[data-agenda-task-notes]');
+    const submit=agendaTaskModal.querySelector('[data-agenda-task-submit]');
+    const base=String(window.APP_URL||'').replace(/\/$/,'');
+    const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    let payload=null,taskId=0,currentMode='view';
+
+    const setOptions=(select,items,value,labelKey='name',valueKey='id',emptyLabel='Selecione')=>{
+      select.innerHTML='<option value="">'+esc(emptyLabel)+'</option>'+items.map(item=>'<option value="'+esc(item[valueKey])+'">'+esc(item[labelKey])+(item.active===false?' · inativo':'')+'</option>').join('');
+      select.value=String(value??'');
+    };
+    const renderContextChoices=()=>{
+      if(!payload)return;
+      const ctx=context.value==='collection'?'collection':'sales';
+      const task=payload.task||{};
+      const users=payload.users?.[ctx]||[];
+      const types=payload.types?.[ctx]||[];
+      const previousAssigned=assigned.value||String(task.assigned_user_id||'');
+      const previousType=type.value||String(task.task_type_code||'');
+      setOptions(assigned,users,previousAssigned,'name','id','Selecione o responsável');
+      setOptions(type,types,previousType,'label','code','Selecione o tipo');
+      if(!assigned.value&&String(task.assigned_user_id||''))assigned.value=String(task.assigned_user_id);
+      if(!type.value&&String(task.task_type_code||''))type.value=String(task.task_type_code);
+    };
+    const setMode=mode=>{
+      currentMode=mode;modeInput.value=mode;agendaTaskModal.dataset.mode=mode;
+      const task=payload?.task||{};
+      const role=String(payload?.current_role||'');
+      const isView=mode==='view',isEdit=mode==='edit',isReschedule=mode==='reschedule',isComplete=mode==='complete';
+      const contextLocked=!isEdit||['seller','collector'].includes(role);
+      context.disabled=contextLocked;
+      type.disabled=!isEdit;
+      assigned.disabled=!isEdit;
+      due.disabled=!(isEdit||isReschedule);
+      description.disabled=isView;
+      description.readOnly=isView;
+      completion.hidden=!isComplete;
+      result.disabled=!isComplete;
+      notes.disabled=!isComplete;
+      submit.hidden=isView;
+      const settings={
+        view:['Tarefa completa','<i class="fa-solid fa-eye"></i>','Fechar',''],
+        edit:['Editar tarefa completa','<i class="fa-solid fa-pen"></i>','Salvar tarefa','edit'],
+        reschedule:['Reagendar tarefa','<i class="fa-regular fa-calendar-plus"></i>','Confirmar reagendamento','reschedule'],
+        complete:['Concluir tarefa','<i class="fa-solid fa-check"></i>','Concluir tarefa','complete']
+      }[mode]||[];
+      heading.textContent=settings[0];icon.innerHTML=settings[1];
+      submit.className='tda-btn tda-task-submit '+(settings[3]||'');
+      submit.innerHTML=mode==='complete'?'<i class="fa-solid fa-check"></i><span>Concluir tarefa</span>':mode==='reschedule'?'<i class="fa-solid fa-calendar-check"></i><span>Confirmar reagendamento</span>':'<i class="fa-solid fa-floppy-disk"></i><span>Salvar tarefa</span>';
+      agendaTaskModal.querySelector('[data-agenda-task-close]').textContent='';
+      if(isComplete){
+        const results=payload?.results?.[task.context]||[];
+        result.innerHTML='<option value="">Somente concluir tarefa</option>'+results.map(item=>'<option value="'+esc(item.code)+'">'+esc(item.label)+'</option>').join('');
+        result.value=String(task.completion_result_code||'');
+        notes.value=String(task.completion_notes||'');
+      }
+    };
+    const populate=data=>{
+      payload=data;const task=data.task||{};
+      headClient.textContent=task.client_name||'Cliente';
+      headStatus.textContent=task.status_label||'';
+      clientName.textContent=task.client_name||'—';
+      clientMeta.textContent=[task.client_document,task.client_city,task.client_uf].filter(Boolean).join(' • ')||'Sem dados complementares';
+      clientLink.href=base+(task.context==='collection'?'/collection/':'/clients/')+Number(task.client_id||0);
+      created.textContent=task.created_at_label||'—';
+      createdBy.textContent=task.created_by_name||'Sistema / legado';
+      statusLabel.textContent=task.status_label||'—';
+      updated.textContent=task.updated_at_label||'Sem edição posterior';
+      context.value=task.context||'sales';
+      due.value=task.due_at||'';
+      description.value=task.title||'';
+      renderContextChoices();
+      assigned.value=String(task.assigned_user_id||'');
+      type.value=String(task.task_type_code||'');
+      setMode(currentMode);
+    };
+    const loading=mode=>{
+      currentMode=mode;payload=null;taskId=0;form.reset();
+      heading.textContent='Carregando tarefa...';icon.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+      headClient.textContent='Aguarde';headStatus.textContent='';
+      clientName.textContent='Carregando...';clientMeta.textContent='Consultando dados completos da tarefa';
+      created.textContent=createdBy.textContent=statusLabel.textContent=updated.textContent='—';
+      [context,type,assigned,due,description,result,notes].forEach(el=>{if(el)el.disabled=true;});
+      completion.hidden=true;submit.hidden=true;
+    };
+    const open=async button=>{
       const id=Number(button.dataset.taskId||0);if(!id)return;
-      const editing=mode==='edit';
-      agendaActionForm.action=agendaBase+'/agenda/'+id+'/'+(editing?'edit':'reschedule');
-      agendaActionModal.dataset.mode=mode;
-      agendaActionTitle.textContent=editing?'Editar descrição':'Reagendar tarefa';
-      agendaActionClient.textContent=button.dataset.taskClient||'Tarefa';
-      agendaActionOwner.textContent=button.dataset.taskOwner?'Responsável: '+button.dataset.taskOwner:'';
-      agendaActionIcon.innerHTML=editing?'<i class="fa-solid fa-pen"></i>':'<i class="fa-regular fa-calendar-plus"></i>';
-      agendaEditField.hidden=!editing;agendaRescheduleField.hidden=editing;
-      agendaDescription.disabled=!editing;agendaDescription.required=editing;agendaDescription.value=button.dataset.taskTitle||'';
-      agendaDue.disabled=editing;agendaDue.required=!editing;agendaDue.value=button.dataset.taskDue||'';
-      agendaSubmit.classList.toggle('edit',editing);agendaSubmit.classList.toggle('reschedule',!editing);
-      agendaSubmit.innerHTML=editing?'<i class="fa-solid fa-check"></i><span>Salvar alteração</span>':'<i class="fa-solid fa-calendar-check"></i><span>Confirmar novo horário</span>';
-      agendaActionModal.showModal();
-      setTimeout(()=>editing?agendaDescription.focus():agendaDue.focus(),0);
+      const mode=String(button.dataset.agendaTaskAction||'view');
+      loading(mode);taskId=id;agendaTaskModal.showModal();
+      try{
+        const response=await fetch(base+'/api/tasks/'+id,{credentials:'same-origin',headers:{Accept:'application/json'}});
+        const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível carregar a tarefa.');
+        populate(data);
+      }catch(error){agendaTaskModal.close();showNotice('danger','Tarefa',error.message||'Não foi possível carregar a tarefa completa.',10000);}
     };
     document.addEventListener('click',event=>{
       const button=event.target.closest?.('[data-agenda-task-action]');if(!button)return;
-      event.preventDefault();openAgendaAction(button);
+      event.preventDefault();open(button);
     });
-    agendaActionModal.querySelectorAll('[data-agenda-action-close]').forEach(button=>button.addEventListener('click',()=>agendaActionModal.close()));
-    agendaActionModal.addEventListener('click',event=>{if(event.target===agendaActionModal)agendaActionModal.close();});
+    context.addEventListener('change',()=>{if(payload)renderContextChoices();});
+    agendaTaskModal.querySelectorAll('[data-agenda-task-close]').forEach(button=>button.addEventListener('click',()=>agendaTaskModal.close()));
+    agendaTaskModal.addEventListener('click',event=>{if(event.target===agendaTaskModal)agendaTaskModal.close();});
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(!payload||!taskId||currentMode==='view')return;
+      const original=submit.innerHTML;submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i><span>Salvando...</span>';
+      try{
+        const data=new FormData(form);data.set('mode',currentMode);data.set('context',context.value);data.set('assigned_user_id',assigned.value);data.set('task_type_code',type.value);data.set('due_at',due.value);data.set('title',description.value);
+        const url=currentMode==='complete'?base+'/api/tasks/'+taskId+'/complete':base+'/api/tasks/'+taskId;
+        const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},body:data});
+        const body=await response.json().catch(()=>({}));if(!response.ok||!body.ok)throw new Error(body.error||'Não foi possível salvar a tarefa.');
+        agendaTaskModal.close();showNotice('success',currentMode==='complete'?'Tarefa concluída':'Tarefa atualizada',body.message||'Operação concluída com sucesso.',8000);
+        setTimeout(()=>location.reload(),550);
+      }catch(error){showNotice('danger','Não foi possível salvar',error.message||'Revise os dados e tente novamente.',10000);}
+      finally{submit.disabled=false;submit.innerHTML=original;}
+    });
   }
 
   let lastValidationNotice=0;
