@@ -280,9 +280,9 @@ function task_status_meta(array $task): array{
  if($status==='done')return ['label'=>'Concluída','tone'=>'done','lifecycle'=>'Concluída'];
  if($status==='cancelled')return ['label'=>'Cancelada','tone'=>'cancelled','lifecycle'=>'Cancelada'];
  $due=!empty($task['due_at'])?strtotime((string)$task['due_at']):false;
- if($due!==false&&$due<time())return ['label'=>'Atrasada','tone'=>'late','lifecycle'=>'Pendente'];
- if($due!==false&&date('Y-m-d',$due)===date('Y-m-d'))return ['label'=>'Hoje','tone'=>'today','lifecycle'=>'Pendente'];
- return ['label'=>'Agendada','tone'=>'scheduled','lifecycle'=>'Pendente'];
+ if($due!==false&&$due<time())return ['label'=>'Pendente · atrasada','tone'=>'late','lifecycle'=>'Pendente'];
+ if($due!==false&&date('Y-m-d',$due)===date('Y-m-d'))return ['label'=>'Pendente · hoje','tone'=>'today','lifecycle'=>'Pendente'];
+ return ['label'=>'Pendente · agendada','tone'=>'scheduled','lifecycle'=>'Pendente'];
 }
 function task_updated_label(array $task): string{
  if(empty($task['updated_at']))return 'Sem alteração posterior';
