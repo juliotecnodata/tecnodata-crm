@@ -1474,6 +1474,7 @@ $router->get('/agenda',function(){
  }
 
  $users=$teamAgenda?DB::all("SELECT id,name,role FROM users WHERE active=1 ORDER BY FIELD(role,'seller','collector','supervisor','admin'),name"):[];
+ $agendaAssignableUsers=$teamAgenda?$users:($role==='seller'?DB::all("SELECT id,name,role FROM users WHERE active=1 AND role='seller' ORDER BY name"):[]);
  $workload=[];
  if($teamAgenda){
   $teamWhere=["t.status='pending'"];$teamParams=[];
@@ -1494,30 +1495,53 @@ $router->get('/agenda',function(){
  }
 
  render('agenda',[
-  'rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
+  'rows'=>$rows,'agendaUsers'=>$users,'agendaAssignableUsers'=>$agendaAssignableUsers,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
   'agendaType'=>$agendaType,'agendaPeriod'=>$agendaPeriod,'agendaStats'=>$stats,'agendaWorkload'=>$workload,'agendaVision'=>$vision,
   'agendaCreatedDate'=>$createdDate,'flash'=>$flash
  ]);
 });
 $router->post('/agenda/create',function(){
  Auth::requireLogin();CSRF::require($_POST['_token']??null);
- $u=Auth::user();$teamAgenda=in_array((string)$u['role'],['admin','supervisor'],true);
- $clientId=max(0,(int)($_POST['client_id']??0));$assignedId=$teamAgenda?max(0,(int)($_POST['assigned_user_id']??0)):(int)$u['id'];
+ $u=Auth::user();$role=(string)($u['role']??'');$teamAgenda=in_array($role,['admin','supervisor'],true);$sellerCanDirect=$role==='seller';
+ $clientId=max(0,(int)($_POST['client_id']??0));
+ $requestedAssigned=max(0,(int)($_POST['assigned_user_id']??0));
+ $assignedId=($teamAgenda||$sellerCanDirect)?($requestedAssigned>0?$requestedAssigned:(int)$u['id']):(int)$u['id'];
  $type=(string)($_POST['type']??'sales');if(!in_array($type,['sales','collection'],true))$type='sales';
- if(!$teamAgenda)$type=(string)$u['role']==='collector'?'collection':'sales';
+ if($role==='collector')$type='collection';
+ if($role==='seller'&&$assignedId!==(int)$u['id'])$type='sales';
  $title=trim((string)($_POST['title']??''));$value=trim((string)($_POST['due_at']??''));$date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
  try{
-  $client=$clientId>0?DB::one("SELECT id,seller_omie_code FROM clients WHERE id=? AND active=1",[$clientId]):null;
-  if(!$client)throw new RuntimeException('Selecione um cliente válido.');
-  if(!$teamAgenda&&(string)$u['role']==='seller'&&!in_array((string)($client['seller_omie_code']??''),['',(string)($u['seller_omie_code']??'')],true))throw new RuntimeException('Este cliente não está disponível para sua agenda.');
-  if($assignedId<=0||!DB::one("SELECT id FROM users WHERE id=? AND active=1",[$assignedId]))throw new RuntimeException('Selecione um responsável ativo.');
+  [$generalSql,$generalParams]=client_segment_filter('general','clients');
+  $client=$clientId>0?DB::one("SELECT id,name,seller_omie_code FROM clients WHERE id=? AND active=1 AND ".$generalSql,array_merge([$clientId],$generalParams)):null;
+  if(!$client)throw new RuntimeException('Selecione um cliente comercial válido.');
+
+  $assignedUser=$assignedId>0?DB::one("SELECT id,name,role,seller_omie_code FROM users WHERE id=? AND active=1",[$assignedId]):null;
+  if(!$assignedUser)throw new RuntimeException('Selecione um responsável ativo.');
+
+  if($sellerCanDirect){
+   if((string)$assignedUser['role']!=='seller')throw new RuntimeException('O agendamento direcionado comercial deve ser enviado para um consultor de vendas.');
+   $effectiveSeller=ClientPortfolioService::effectiveSellerCode($clientId);
+   $ownOrShared=$effectiveSeller===''||$effectiveSeller===(string)($u['seller_omie_code']??'');
+   if(!$ownOrShared&&$assignedId===(int)$u['id'])throw new RuntimeException('Este cliente pertence a outra carteira. Direcione o compromisso para outro consultor.');
+  }
+
+  if($teamAgenda){
+   if($type==='sales'&&(string)$assignedUser['role']==='collector')throw new RuntimeException('Para compromisso comercial, selecione um usuário de vendas.');
+   if($type==='collection'&&(string)$assignedUser['role']==='seller')throw new RuntimeException('Para compromisso de cobrança, selecione um usuário da cobrança.');
+  }
+
   if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
+
   DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$type,$title,$date->format('Y-m-d H:i:00')]);
-  $_SESSION['agenda_flash']=['type'=>'success','message'=>'Novo compromisso incluído na agenda.'];
+  $directed=$assignedId!==(int)$u['id'];
+  $_SESSION['agenda_flash']=['type'=>'success','message'=>$directed
+   ?'Agendamento de '.$client['name'].' enviado para '.$assignedUser['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'. A carteira do cliente não foi alterada.'
+   :'Novo compromisso incluído na agenda.'];
  }catch(Throwable $e){$_SESSION['agenda_flash']=['type'=>'danger','message'=>$e->getMessage()];}
  redirect('/agenda');
 });
+
 $router->post('/agenda/{id}/done',function($p){
  Auth::requireLogin();CSRF::require($_POST['_token']??null);
  $u=Auth::user();$id=(int)$p['id'];$teamAgenda=in_array((string)$u['role'],['admin','supervisor'],true);
@@ -2032,11 +2056,23 @@ $router->get('/api/clients/datatable',function(){
 });
 
 $router->get('/api/clients',function(){
- Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));
+ Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$agendaScope=(string)($_GET['scope']??'')==='agenda';
  [$segmentSql,$segmentParams]=client_segment_filter('general','clients');$effective=client_effective_seller_sql('clients');$w=['active=1',$segmentSql];$p=$segmentParams;
- if($u['role']==='seller'){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
+ if($u['role']==='seller'&&!$agendaScope){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('clients'),['CAST(clients.id AS CHAR)']));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
- json_response(['items'=>DB::all("SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,name,document,email,city,uf,(SELECT assigned_user_id FROM collection_cases WHERE client_id=clients.id) collection_assigned_user_id FROM clients WHERE ".implode(' AND ',$w)." ORDER BY CASE WHEN (".$effective.")=? THEN 0 ELSE 1 END,name LIMIT 25",array_merge($p,[$u['role']==='seller'?$u['seller_omie_code']:'']))]);
+ $items=DB::all(
+  "SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,
+          name,document,email,city,uf,
+          (".$effective.") portfolio_seller_code,
+          (SELECT ags.name FROM sellers ags WHERE ags.omie_code=(".$effective.") LIMIT 1) portfolio_seller_name,
+          (SELECT assigned_user_id FROM collection_cases WHERE client_id=clients.id) collection_assigned_user_id
+   FROM clients
+   WHERE ".implode(' AND ',$w)."
+   ORDER BY CASE WHEN (".$effective.")=? THEN 0 ELSE 1 END,name
+   LIMIT 25",
+  array_merge($p,[$u['role']==='seller'?(string)($u['seller_omie_code']??''):''])
+ );
+ json_response(['items'=>$items]);
 });
 
 $router->get('/api/orders/datatable',function(){
