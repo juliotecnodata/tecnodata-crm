@@ -751,30 +751,33 @@ $router->post('/clients/{id}/activity',function($p){
 $router->get('/contact-monitoring',function(){
  Auth::requireRole('admin','supervisor');
  $context=contact_monitoring_context($_GET);$where=$context['where'];$params=$context['params'];$effectiveSellerSql=client_effective_seller_sql('c');
+ $portfolioMonth=ClientPortfolioService::monthRef();$portfolioJoin=" LEFT JOIN client_portfolio_assignments pa_monitor ON pa_monitor.client_id=c.id AND pa_monitor.month_ref='".$portfolioMonth."'";
+ $effectiveSellerExpr="CASE WHEN pa_monitor.id IS NOT NULL THEN pa_monitor.seller_omie_code ELSE c.seller_omie_code END";
+ $whereSql=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
  $stats=DB::one(
   "SELECT COUNT(*) total,
           COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM activities stat_activity WHERE stat_activity.client_id=c.id) OR EXISTS (SELECT 1 FROM collection_actions stat_collection WHERE stat_collection.client_id=c.id) THEN 1 ELSE 0 END),0) contacted,
           COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM tasks stat_task WHERE stat_task.client_id=c.id AND stat_task.type IN ('sales','collection') AND stat_task.status='pending') THEN 1 ELSE 0 END),0) scheduled,
           COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM tasks overdue_task WHERE overdue_task.client_id=c.id AND overdue_task.type IN ('sales','collection') AND overdue_task.status='pending' AND overdue_task.due_at<NOW()) THEN 1 ELSE 0 END),0) overdue,
           COALESCE(SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM tasks next_task WHERE next_task.client_id=c.id AND next_task.type IN ('sales','collection') AND next_task.status='pending') THEN 1 ELSE 0 END),0) without_next
-   FROM clients c
-   WHERE ".implode(' AND ',$where),$params
+   FROM clients c".$portfolioJoin."
+   WHERE ".$whereSql,$params
  )?:['total'=>0,'contacted'=>0,'scheduled'=>0,'overdue'=>0,'without_next'=>0];
  $attentionRows=DB::all(
   "SELECT c.id,c.name,
           NULLIF(GREATEST(COALESCE((SELECT MAX(a.created_at) FROM activities a WHERE a.client_id=c.id),'1000-01-01'),COALESCE((SELECT MAX(ca.created_at) FROM collection_actions ca WHERE ca.client_id=c.id),'1000-01-01')),'1000-01-01') last_contact_at,
-          (SELECT u.name FROM users u WHERE u.role='seller' AND u.active=1 AND u.seller_omie_code=(".$effectiveSellerSql.") ORDER BY u.id LIMIT 1) portfolio_user_name,
+          (SELECT u.name FROM users u WHERE u.role='seller' AND u.active=1 AND u.seller_omie_code=(".$effectiveSellerExpr.") ORDER BY u.id LIMIT 1) portfolio_user_name,
           (SELECT u.name FROM collection_cases cc JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=c.id LIMIT 1) collection_user_name,
           (SELECT u.name FROM tasks t JOIN users u ON u.id=t.assigned_user_id WHERE t.client_id=c.id AND t.type IN ('sales','collection') AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1) next_user_name,
           (SELECT t.due_at FROM tasks t WHERE t.client_id=c.id AND t.type IN ('sales','collection') AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1) next_due_at
-   FROM clients c WHERE ".implode(' AND ',$where)."
+   FROM clients c".$portfolioJoin." WHERE ".$whereSql."
    AND (NOT EXISTS (SELECT 1 FROM activities a WHERE a.client_id=c.id) OR NOT EXISTS (SELECT 1 FROM tasks t WHERE t.client_id=c.id AND t.type IN ('sales','collection') AND t.status='pending') OR EXISTS (SELECT 1 FROM tasks t WHERE t.client_id=c.id AND t.type IN ('sales','collection') AND t.status='pending' AND t.due_at<NOW()))
    ORDER BY last_contact_at ASC,c.name ASC LIMIT 5",$params
  );
  $agendaRows=DB::all(
   "SELECT c.id,c.name,t.due_at next_due_at,t.title next_title,u.name next_user_name
-   FROM tasks t JOIN clients c ON c.id=t.client_id JOIN users u ON u.id=t.assigned_user_id
-   WHERE t.type IN ('sales','collection') AND t.status='pending' AND ".implode(' AND ',$where)."
+   FROM tasks t JOIN clients c ON c.id=t.client_id".$portfolioJoin." JOIN users u ON u.id=t.assigned_user_id
+   WHERE t.type IN ('sales','collection') AND t.status='pending' AND ".$whereSql."
    ORDER BY t.due_at,t.id LIMIT 5",$params
  );
  $flash=$_SESSION['contact_monitoring_flash']??null;unset($_SESSION['contact_monitoring_flash']);
@@ -1737,20 +1740,24 @@ $router->get('/api/contact-monitoring/datatable',function(){
  Auth::requireRole('admin','supervisor');
  $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??5)));
  $context=contact_monitoring_context($_GET);$baseWhere=$context['where'];$baseParams=$context['params'];$effectiveSellerSql=client_effective_seller_sql('c');
- $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$baseWhere),$baseParams)??0);
+ $portfolioMonth=ClientPortfolioService::monthRef();$portfolioJoin=" LEFT JOIN client_portfolio_assignments pa_monitor ON pa_monitor.client_id=c.id AND pa_monitor.month_ref='".$portfolioMonth."'";
+ $effectiveSellerExpr="CASE WHEN pa_monitor.id IS NOT NULL THEN pa_monitor.seller_omie_code ELSE c.seller_omie_code END";
+ $baseWhereSql=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$baseWhere));
+ $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin." WHERE ".$baseWhereSql,$baseParams)??0);
  $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
   $needle='%'.$search.'%';
-  $where[]="(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR (".$effectiveSellerSql.") LIKE ? OR EXISTS (SELECT 1 FROM sellers search_seller WHERE search_seller.omie_code=(".$effectiveSellerSql.") AND search_seller.name LIKE ?) OR EXISTS (SELECT 1 FROM collection_cases search_case JOIN users search_user ON search_user.id=search_case.assigned_user_id WHERE search_case.client_id=c.id AND search_user.name LIKE ?))";
+  $where[]="(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR (".$effectiveSellerExpr.") LIKE ? OR EXISTS (SELECT 1 FROM sellers search_seller WHERE search_seller.omie_code=(".$effectiveSellerExpr.") AND search_seller.name LIKE ?) OR EXISTS (SELECT 1 FROM collection_cases search_case JOIN users search_user ON search_user.id=search_case.assigned_user_id WHERE search_case.client_id=c.id AND search_user.name LIKE ?))";
   array_push($params,$needle,$needle,$needle,$needle,$needle,$needle,$needle);
  }
- $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$where),$params)??0);
+ $whereSql=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
+ $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin." WHERE ".$whereSql,$params)??0);
  $orderInput=$_GET['order']??[];$orderRow=is_array($orderInput)&&isset($orderInput[0])&&is_array($orderInput[0])?$orderInput[0]:[];$orderColumn=(int)($orderRow['column']??2);$direction=strtolower((string)($orderRow['dir']??'desc'))==='asc'?'ASC':'DESC';
  $lastContactOrder="GREATEST(COALESCE(la.created_at,'1000-01-01'),COALESCE(lca.created_at,'1000-01-01'))";
  $orderColumns=[0=>'c.name',1=>'COALESCE(s.name,collection_user.name)',2=>$lastContactOrder,3=>'DATEDIFF(NOW(),'.$lastContactOrder.')',4=>'nt.due_at',5=>'COALESCE(la.result,lca.result)',6=>'nt.due_at'];
  $orderSql=($orderColumns[$orderColumn]??$orderColumns[2]).' '.$direction.',c.name ASC';
  $rows=DB::all(
-  "SELECT c.id,c.name,c.document,c.city,c.uf,c.phone,c.seller_omie_code,(".$effectiveSellerSql.") effective_seller_code,
+  "SELECT c.id,c.name,c.document,c.city,c.uf,c.phone,c.seller_omie_code,(".$effectiveSellerExpr.") effective_seller_code,
           s.name seller_name,portfolio_user.id portfolio_user_id,portfolio_user.name portfolio_user_name,
           collection_user.id collection_user_id,collection_user.name collection_user_name,
           la.id last_activity_id,la.channel last_channel,la.result last_result,la.notes last_notes,la.created_at last_contact_at,activity_user.name last_contact_user,
@@ -1758,8 +1765,9 @@ $router->get('/api/contact-monitoring/datatable',function(){
           ((SELECT COUNT(*) FROM activities ac WHERE ac.client_id=c.id)+(SELECT COUNT(*) FROM collection_actions cac WHERE cac.client_id=c.id)) contact_count,
           nt.id next_task_id,nt.title next_title,nt.due_at next_due_at,next_user.id next_user_id,next_user.name next_user_name
    FROM clients c
-   LEFT JOIN sellers s ON s.omie_code=(".$effectiveSellerSql.")
-   LEFT JOIN users portfolio_user ON portfolio_user.id=(SELECT pu.id FROM users pu WHERE pu.role='seller' AND pu.active=1 AND pu.seller_omie_code=(".$effectiveSellerSql.") ORDER BY pu.id LIMIT 1)
+   ".$portfolioJoin."
+   LEFT JOIN sellers s ON s.omie_code=(".$effectiveSellerExpr.")
+   LEFT JOIN users portfolio_user ON portfolio_user.id=(SELECT pu.id FROM users pu WHERE pu.role='seller' AND pu.active=1 AND pu.seller_omie_code=(".$effectiveSellerExpr.") ORDER BY pu.id LIMIT 1)
    LEFT JOIN collection_cases cc ON cc.client_id=c.id
    LEFT JOIN users collection_user ON collection_user.id=cc.assigned_user_id
    LEFT JOIN activities la ON la.id=(SELECT a2.id FROM activities a2 WHERE a2.client_id=c.id ORDER BY a2.created_at DESC,a2.id DESC LIMIT 1)
@@ -1768,7 +1776,7 @@ $router->get('/api/contact-monitoring/datatable',function(){
    LEFT JOIN users collection_author ON collection_author.id=lca.author_user_id
    LEFT JOIN tasks nt ON nt.id=(SELECT t2.id FROM tasks t2 WHERE t2.client_id=c.id AND t2.type IN ('sales','collection') AND t2.status='pending' ORDER BY t2.due_at,t2.id LIMIT 1)
    LEFT JOIN users next_user ON next_user.id=nt.assigned_user_id
-   WHERE ".implode(' AND ',$where)." ORDER BY ".$orderSql." LIMIT ".$length." OFFSET ".$start,
+   WHERE ".$whereSql." ORDER BY ".$orderSql." LIMIT ".$length." OFFSET ".$start,
   $params
  );
  json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>array_map('contact_monitoring_row_cells',$rows)]);
