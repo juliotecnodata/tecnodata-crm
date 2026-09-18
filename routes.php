@@ -849,28 +849,8 @@ $router->get('/clients/{id}',function($p){
  $form=ClientService::formFromClient($c);
  $sellerName=$c['seller_omie_code']?DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['seller_omie_code']]):null;
  $effectiveSellerName=$effectiveSellerCode!==''?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[$effectiveSellerCode])?:$effectiveSellerCode):null;$omieSellerName=!empty($c['omie_seller_code'])?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['omie_seller_code']])?:$c['omie_seller_code']):null;
- $scheduleConsultants=DB::all("SELECT id,name,seller_omie_code FROM users WHERE active=1 AND role='seller' ORDER BY name");
- render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code'),'scheduleConsultants'=>$scheduleConsultants]);
+ render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
 });
-$router->post('/clients/{id}/schedule-consultant',function($p){
- Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
- $id=(int)$p['id'];$assignedId=max(0,(int)($_POST['assigned_user_id']??0));
- $title=trim((string)($_POST['title']??''));$value=trim((string)($_POST['due_at']??''));
- try{
-  [$segmentSql,$segmentParams]=client_segment_filter('general','c');
-  $client=DB::one("SELECT c.id,c.name FROM clients c WHERE c.id=? AND c.active=1 AND ".$segmentSql,array_merge([$id],$segmentParams));
-  if(!$client)throw new RuntimeException('Cliente comercial não encontrado.');
-  $consultant=$assignedId>0?DB::one("SELECT id,name FROM users WHERE id=? AND active=1 AND role='seller'",[$assignedId]):null;
-  if(!$consultant)throw new RuntimeException('Selecione um consultor ativo.');
-  $date=DateTime::createFromFormat('Y-m-d\\TH:i',$value);
-  if(!$date||$date->format('Y-m-d\\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
-  if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe o motivo do agendamento com até 180 caracteres.');
-  DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales',?,?,'pending',NOW())",[$id,$assignedId,$title,$date->format('Y-m-d H:i:00')]);
-  $_SESSION['client_flash']=['type'=>'success','message'=>'Agendamento enviado para '.$consultant['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'. A carteira do cliente não foi alterada.'];
- }catch(Throwable $e){$_SESSION['client_flash']=['type'=>'danger','message'=>$e->getMessage()];}
- redirect('/clients/'.$id);
-});
-
 $router->post('/clients/{id}/activity',function($p){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');
