@@ -139,15 +139,15 @@ function contact_monitoring_context(array $query): array{
  if(is_array($monitorUserIds)){$sellerSql.=' AND id IN ('.($monitorUserIds?implode(',',array_fill(0,count($monitorUserIds),'?')):'0').')';$sellerParams=$monitorUserIds;}
  $sellers=DB::all($sellerSql.' ORDER BY name',$sellerParams);
  [$generalClientSql,$generalClientParams]=client_segment_filter('general','c');
- $where=['c.active=1',$generalClientSql];$params=$generalClientParams;
+ $where=['c.active=1',$generalClientSql];$params=$generalClientParams;$effectiveSellerSql=client_effective_seller_sql('c');
  $codes=array_values(array_unique(array_filter(array_map(static fn($seller)=>$seller['role']==='seller'?trim((string)$seller['seller_omie_code']):'',$sellers))));
  $collectorIds=array_values(array_map(static fn($seller)=>(int)$seller['id'],array_filter($sellers,static fn($seller)=>$seller['role']==='collector')));$participantWhere=[];$participantParams=[];
- if($codes){$participantWhere[]='c.seller_omie_code IN ('.implode(',',array_fill(0,count($codes),'?')).')';array_push($participantParams,...$codes);}
+ if($codes){$participantWhere[]='('.$effectiveSellerSql.') IN ('.implode(',',array_fill(0,count($codes),'?')).')';array_push($participantParams,...$codes);}
  if($collectorIds){$participantWhere[]='EXISTS (SELECT 1 FROM collection_cases participant_case WHERE participant_case.client_id=c.id AND participant_case.assigned_user_id IN ('.implode(',',array_fill(0,count($collectorIds),'?')).'))';array_push($participantParams,...$collectorIds);}
  if($participantWhere){$where[]='('.implode(' OR ',$participantWhere).')';array_push($params,...$participantParams);}else $where[]='1=0';
  if($sellerId>0){
   $selectedSeller=null;foreach($sellers as $availableSeller)if((int)$availableSeller['id']===$sellerId){$selectedSeller=$availableSeller;break;}
-  if($selectedSeller&&$selectedSeller['role']==='seller'){$where[]='c.seller_omie_code=?';$params[]=(string)($selectedSeller['seller_omie_code']??'');}
+  if($selectedSeller&&$selectedSeller['role']==='seller'){$where[]='('.$effectiveSellerSql.')=?';$params[]=(string)($selectedSeller['seller_omie_code']??'');}
   elseif($selectedSeller&&$selectedSeller['role']==='collector'){$where[]='EXISTS (SELECT 1 FROM collection_cases selected_case WHERE selected_case.client_id=c.id AND selected_case.assigned_user_id=?)';$params[]=(int)$selectedSeller['id'];}
   else $sellerId=0;
  }
@@ -566,7 +566,9 @@ $router->get('/clients/{id}/edit',function($p){
   'preview'=>null,'error'=>null,'old'=>$old,'createSuccess'=>null,'createError'=>null,
   'editClient'=>$client,'editError'=>$error,
   'editSellerName'=>$client['seller_omie_code']?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$client['seller_omie_code']])?:$client['seller_omie_code']):'Sem vendedor',
-  'sellers'=>DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name")
+  'sellers'=>($u['role']??'')==='seller'
+   ?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".(client_virtual_seller_codes()?' AND omie_code NOT IN ('.implode(',',array_fill(0,count(client_virtual_seller_codes()),'?')).')':'')." ORDER BY name",client_virtual_seller_codes())
+   :DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name")
  ]);
 });
 $router->post('/clients/{id}/update',function($p){
@@ -1674,6 +1676,7 @@ $router->post('/api/clients/bulk',function(){
   $ddds=client_portfolio_ddds($input['ddds']??[],$uf);
   $tag=trim((string)($input['tag']??''));if(mb_strlen($tag)>190)$tag='';
   $sellerFilter=trim((string)($input['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
+   $portfolioMonth=ClientPortfolioService::monthRef($input['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
   $search=trim((string)($input['search']??''));if(mb_strlen($search)>190)$search=mb_substr($search,0,190);
   $cursor=max(0,(int)($input['cursor']??0));
   $ids=[];foreach((array)($input['client_ids']??[]) as $id){$id=(int)$id;if($id>0)$ids[$id]=$id;}
@@ -1684,8 +1687,8 @@ $router->post('/api/clients/bulk',function(){
   if($uf!==''){$where[]='UPPER(TRIM(c.uf))=?';$params[]=$uf;}
   if($ddds){$where[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($params,...$ddds);}
   if($tag!==''){$where[]=client_tag_filter_sql('c');$params[]=$tag;}
-  if($sellerFilter==='__none__')$where[]="(c.seller_omie_code IS NULL OR TRIM(c.seller_omie_code)='')";
-  elseif($sellerFilter!==''){$where[]='c.seller_omie_code=?';$params[]=$sellerFilter;}
+   if($sellerFilter==='__none__')$where[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
+   elseif($sellerFilter!==''){$where[]='('.$effectiveSellerSql.')=?';$params[]=$sellerFilter;}
   if($search!==''){$like='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR s.name LIKE ? OR c.seller_omie_code LIKE ?)';array_push($params,$like,$like,$like,$like,$like,$like,$like);}
   if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
   if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
@@ -1736,18 +1739,19 @@ $router->get('/api/clients/datatable',function(){
  $ddds=client_portfolio_ddds($_GET['ddds']??[],$uf);
  $tag=trim((string)($_GET['tag']??''));if(mb_strlen($tag)>190)$tag='';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
+ $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
 
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
  $baseWhere=['c.active=1',$segmentSql];$baseParams=$segmentParams;
  if(($u['role']??'')==='seller'){
-  if($portfolioOnly){$baseWhere[]='c.seller_omie_code=?';$baseParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
-  elseif($clientScope==='unassigned')$baseWhere[]="(c.seller_omie_code IS NULL OR c.seller_omie_code='')";
+  if($portfolioOnly){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
+  elseif($clientScope==='unassigned')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  }
  if($uf!==''){$baseWhere[]='UPPER(TRIM(c.uf))=?';$baseParams[]=$uf;}
  if($ddds){$baseWhere[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($baseParams,...$ddds);}
  if($tag!==''){$baseWhere[]=client_tag_filter_sql('c');$baseParams[]=$tag;}
- if($sellerFilter==='__none__')$baseWhere[]="(c.seller_omie_code IS NULL OR TRIM(c.seller_omie_code)='')";
- elseif($sellerFilter!==''){$baseWhere[]='c.seller_omie_code=?';$baseParams[]=$sellerFilter;}
+ if($sellerFilter==='__none__')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
+ elseif($sellerFilter!==''){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=$sellerFilter;}
  $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$baseWhere),$baseParams)??0);
 
  $where=$baseWhere;$params=$baseParams;
@@ -1767,7 +1771,10 @@ $router->get('/api/clients/datatable',function(){
  $orderBy=$orderColumns[$orderIndex]??'c.name';
  $orderDirection=strtolower((string)(is_array($orderInput)?($orderInput[0]['dir']??'asc'):'asc'))==='desc'?'DESC':'ASC';
  $rows=DB::all(
-  "SELECT c.*,s.name seller_name,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
+  "SELECT c.*,s.name seller_name,os.name omie_seller_name,(".$effectiveSellerSql.") effective_seller_code,
+          (SELECT es.name FROM sellers es WHERE es.omie_code=(".$effectiveSellerSql.") LIMIT 1) effective_seller_name,
+          (SELECT pa_row.id FROM client_portfolio_assignments pa_row WHERE pa_row.client_id=c.id AND pa_row.month_ref='".$portfolioMonth."' LIMIT 1) portfolio_assignment_id,
+          m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
           CASE
            WHEN act.last_activity_at IS NULL THEN col.last_collection_at
            WHEN col.last_collection_at IS NULL THEN act.last_activity_at
@@ -1776,6 +1783,7 @@ $router->get('/api/clients/datatable',function(){
           END last_contact_at
    FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id
    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+   LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
    LEFT JOIN (SELECT client_id,MAX(created_at) last_activity_at FROM activities GROUP BY client_id) act ON act.client_id=c.id
    LEFT JOIN (SELECT client_id,MAX(created_at) last_collection_at FROM collection_actions GROUP BY client_id) col ON col.client_id=c.id
    WHERE ".$sqlWhere." ORDER BY ".$orderBy." ".$orderDirection.",c.id ASC LIMIT ".$length." OFFSET ".$start,
@@ -1786,16 +1794,16 @@ $router->get('/api/clients/datatable',function(){
  foreach($rows as $row){
   $id=(int)$row['id'];$name=(string)$row['name'];$document=(string)($row['document']??'');
   $canEdit=$canManage||$u['role']==='seller';
-  $unassigned=trim((string)($row['seller_omie_code']??''))==='';
+  $effectiveSeller=trim((string)($row['effective_seller_code']??''));$unassigned=$effectiveSeller==='';
   $canOpen=$canManage||$u['role']==='seller';
   $initial=mb_strtoupper(mb_substr($name,0,1));
   $identity='<div class="client-table-identity"><span>'.e($initial).'</span><div>'.($canOpen?'<a href="'.APP_URL.'/clients/'.$id.'"><strong>'.e($name).'</strong></a>':'<strong>'.e($name).'</strong>').'<small>'.e($document!==''?$document:'Documento não informado').'</small></div></div>';
   $location=trim((string)($row['city']??'').' / '.(string)($row['uf']??''),' /');
   $phoneDigits=preg_replace('/\D+/','',(string)($row['phone']??''));$rowDdd=strlen($phoneDigits)>=2?substr($phoneDigits,0,2):'';
   $locationHtml='<span class="client-location"><i class="fa-solid fa-location-dot"></i>'.e($location!==''?$location:'Não informado').($rowDdd!==''?'<b>DDD '.e($rowDdd).'</b>':'').'</span>';
-  if(!empty($row['seller_name']))$sellerHtml='<span class="client-seller"><i class="fa-solid fa-user-tie"></i><span><strong>'.e($row['seller_name']).'</strong><small>'.e($row['seller_omie_code']).'</small></span></span>';
-  elseif(!empty($row['seller_omie_code']))$sellerHtml='<span class="client-seller"><i class="fa-solid fa-user-tie"></i><span><strong>'.e($row['seller_omie_code']).'</strong><small>Vendedor não sincronizado</small></span></span>';
-  else $sellerHtml='<span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem vendedor</strong><small>'.($u['role']==='seller'?'Atendimento compartilhado':'Disponível para vincular').'</small></span></span>';
+  $principalCode=trim((string)($row['seller_omie_code']??''));$omieCode=trim((string)($row['omie_seller_code']??''));$hasOverride=!empty($row['portfolio_assignment_id']);$diverged=$principalCode!==$omieCode;
+  if($effectiveSeller!==''){$effectiveName=(string)($row['effective_seller_name']??$effectiveSeller);$meta=$hasOverride?'Carteira '.$portfolioMonth.' · principal '.(($row['seller_name']??'')?:($principalCode?:'sem vendedor')):($diverged?'Principal · Omie '.(($row['omie_seller_name']??'')?:($omieCode?:'sem vendedor')):'Principal alinhado com a Omie');$sellerHtml='<span class="client-seller'.($hasOverride?' monthly':'').($diverged?' divergent':'').'"><i class="fa-solid '.($hasOverride?'fa-calendar-check':'fa-user-tie').'"></i><span><strong>'.e($effectiveName).'</strong><small>'.e($meta).'</small></span></span>';}
+  else $sellerHtml='<span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem responsável</strong><small>'.($hasOverride?'Sem vendedor na carteira '.$portfolioMonth:($u['role']==='seller'?'Atendimento compartilhado':'Disponível para vincular')).'</small></span></span>';
   $rowTags=client_tags_from_raw($row['raw_json']??null);$visibleTags=array_slice($rowTags,0,3);
   $tagsHtml='<div class="client-tag-list" title="'.e(implode(', ',$rowTags)).'">';foreach($visibleTags as $rowTag)$tagsHtml.='<span>'.e($rowTag).'</span>';if(count($rowTags)>3)$tagsHtml.='<b>+'.(count($rowTags)-3).'</b>';if(!$rowTags)$tagsHtml.='<small>Sem tag</small>';$tagsHtml.='</div>';
   $cycle=CRMService::cycle($row['last_purchase_at']??null,(float)($row['avg_interval_days']??0));
@@ -1822,7 +1830,13 @@ $router->get('/api/clients/datatable',function(){
  json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
 });
 
-$router->get('/api/clients',function(){Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));[$segmentSql,$segmentParams]=client_segment_filter('general','clients');$w=['active=1',$segmentSql];$p=$segmentParams;if($u['role']==='seller'){$w[]="(seller_omie_code=? OR seller_omie_code IS NULL OR seller_omie_code='')";$p[]=$u['seller_omie_code'];}if($q!==''){$w[]="(name LIKE ? OR document LIKE ? OR omie_code LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) LIKE ? OR CAST(id AS CHAR)=?)";$x='%'.$q.'%';array_push($p,$x,$x,$x,$x,$q);}json_response(['items'=>DB::all("SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,name,document,email,city,uf,(SELECT assigned_user_id FROM collection_cases WHERE client_id=clients.id) collection_assigned_user_id FROM clients WHERE ".implode(' AND ',$w)." ORDER BY CASE WHEN seller_omie_code=? THEN 0 ELSE 1 END,name LIMIT 25",array_merge($p,[$u['role']==='seller'?$u['seller_omie_code']:'']))]);});
+$router->get('/api/clients',function(){
+ Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));
+ [$segmentSql,$segmentParams]=client_segment_filter('general','clients');$effective=client_effective_seller_sql('clients');$w=['active=1',$segmentSql];$p=$segmentParams;
+ if($u['role']==='seller'){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
+ if($q!==''){$w[]="(name LIKE ? OR document LIKE ? OR omie_code LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) LIKE ? OR CAST(id AS CHAR)=?)";$needle='%'.$q.'%';array_push($p,$needle,$needle,$needle,$needle,$q);}
+ json_response(['items'=>DB::all("SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,name,document,email,city,uf,(SELECT assigned_user_id FROM collection_cases WHERE client_id=clients.id) collection_assigned_user_id FROM clients WHERE ".implode(' AND ',$w)." ORDER BY CASE WHEN (".$effective.")=? THEN 0 ELSE 1 END,name LIMIT 25",array_merge($p,[$u['role']==='seller'?$u['seller_omie_code']:'']))]);
+});
 $router->get('/api/products/datatable',function(){
  Auth::requireRole('admin','supervisor','seller');
  $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??5)));
