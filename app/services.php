@@ -100,7 +100,10 @@ final class ClientSegmentPolicy {
   return array_values($codes);
  }
  public static function isVirtualSeller(?string $sellerCode): bool{return in_array(trim((string)$sellerCode),self::virtualSellerCodes(),true);}
- public static function segmentSeller(array $client): string{return trim((string)($client['seller_omie_code']??''));}
+ public static function segmentSeller(array $client): string{
+  $remote=trim((string)($client['omie_seller_code']??''));
+  return $remote!==''?$remote:trim((string)($client['seller_omie_code']??''));
+ }
  public static function crmPortfolioSellerCodes(): array{
   $codes=[];foreach((array)($GLOBALS['config']['crm_portfolio_seller_codes']??[]) as $code){$code=trim((string)$code);if($code!=='')$codes[$code]=$code;}
   return array_values($codes);
