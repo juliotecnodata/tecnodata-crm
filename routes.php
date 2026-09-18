@@ -379,15 +379,20 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  elseif($sellerFilter!==''){$w[]='('.$effectiveSellerSql.')=?';$p[]=$sellerFilter;}
  if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}
  $where=implode(' AND ',$w);
+ $summaryEffective="CASE WHEN pa_summary.id IS NOT NULL THEN pa_summary.seller_omie_code ELSE c.seller_omie_code END";
+ $summaryWhere=str_replace($effectiveSellerSql,$summaryEffective,$where);
  $summary=DB::one(
   "SELECT COUNT(*) total_clients,
           COALESCE(SUM(COALESCE(m.revenue_12m,0)),0) revenue_12m,
           COALESCE(SUM(COALESCE(m.orders_12m,0)),0) orders_12m,
-          SUM(CASE WHEN (".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='' THEN 1 ELSE 0 END) without_seller,
+          SUM(CASE WHEN (".$summaryEffective.") IS NULL OR TRIM((".$summaryEffective."))='' THEN 1 ELSE 0 END) without_seller,
           SUM(CASE WHEN COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'') THEN 1 ELSE 0 END) seller_divergences,
-          SUM(CASE WHEN EXISTS (SELECT 1 FROM client_portfolio_assignments pa_summary WHERE pa_summary.client_id=c.id AND pa_summary.month_ref='".$portfolioMonth."') THEN 1 ELSE 0 END) monthly_overrides,
+          SUM(CASE WHEN pa_summary.id IS NOT NULL THEN 1 ELSE 0 END) monthly_overrides,
           SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')) IN ('pending','pending_update') THEN 1 ELSE 0 END) pending_sync
-   FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE ".$where,
+   FROM clients c
+   LEFT JOIN client_metrics m ON m.client_id=c.id
+   LEFT JOIN client_portfolio_assignments pa_summary ON pa_summary.client_id=c.id AND pa_summary.month_ref='".$portfolioMonth."'
+   WHERE ".$summaryWhere,
   $p
  )?:[];
  $perPage=5;
@@ -1845,40 +1850,41 @@ $router->get('/api/clients/datatable',function(){
  if($tag!==''){$baseWhere[]=client_tag_filter_sql('c');$baseParams[]=$tag;}
  if($sellerFilter==='__none__')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  elseif($sellerFilter!==''){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=$sellerFilter;}
- $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$baseWhere),$baseParams)??0);
+ $portfolioJoin=" LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref='".$portfolioMonth."'";
+ $effectiveSellerExpr="CASE WHEN pa.id IS NOT NULL THEN pa.seller_omie_code ELSE c.seller_omie_code END";
+ $baseSqlWhere=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$baseWhere));
+ $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin." WHERE ".$baseSqlWhere,$baseParams)??0);
 
  $where=$baseWhere;$params=$baseParams;
  $searchInput=$_GET['search']??[];
  $search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
   $like='%'.$search.'%';
-   $where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR EXISTS (SELECT 1 FROM sellers search_effective WHERE search_effective.omie_code=('.$effectiveSellerSql.') AND search_effective.name LIKE ?) OR ('.$effectiveSellerSql.') LIKE ?)';
+  $where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR es.name LIKE ? OR ('.$effectiveSellerSql.') LIKE ?)';
   array_push($params,$like,$like,$like,$like,$like,$like,$like);
  }
- $sqlWhere=implode(' AND ',$where);
- $recordsFiltered=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".$sqlWhere,$params)??0);
+ $sqlWhere=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
+ $sellerJoin=" LEFT JOIN sellers es ON es.omie_code=(".$effectiveSellerExpr.")";
+ $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$sqlWhere,$params)??0);
  $canManage=Auth::can('admin','supervisor');
- $orderColumns=$canManage?['c.id','c.name','c.city','('.$effectiveSellerSql.')','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerSql.')','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id'];
+ $lastContactOrder="GREATEST(COALESCE((SELECT MAX(a_order.created_at) FROM activities a_order WHERE a_order.client_id=c.id),'1000-01-01'),COALESCE((SELECT MAX(ca_order.created_at) FROM collection_actions ca_order WHERE ca_order.client_id=c.id),'1000-01-01'))";
+ $orderColumns=$canManage?['c.id','c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id'];
  $orderInput=$_GET['order']??[];
  $orderIndex=(int)(is_array($orderInput)?($orderInput[0]['column']??0):0);
  $orderBy=$orderColumns[$orderIndex]??'c.name';
  $orderDirection=strtolower((string)(is_array($orderInput)?($orderInput[0]['dir']??'asc'):'asc'))==='desc'?'DESC':'ASC';
  $rows=DB::all(
-  "SELECT c.*,s.name seller_name,os.name omie_seller_name,(".$effectiveSellerSql.") effective_seller_code,
-          (SELECT es.name FROM sellers es WHERE es.omie_code=(".$effectiveSellerSql.") LIMIT 1) effective_seller_name,
-          (SELECT pa_row.id FROM client_portfolio_assignments pa_row WHERE pa_row.client_id=c.id AND pa_row.month_ref='".$portfolioMonth."' LIMIT 1) portfolio_assignment_id,
+  "SELECT c.*,s.name seller_name,os.name omie_seller_name,(".$effectiveSellerExpr.") effective_seller_code,
+          es.name effective_seller_name,pa.id portfolio_assignment_id,pa.seller_omie_code portfolio_seller_code,
           m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
-          CASE
-           WHEN act.last_activity_at IS NULL THEN col.last_collection_at
-           WHEN col.last_collection_at IS NULL THEN act.last_activity_at
-           WHEN act.last_activity_at>=col.last_collection_at THEN act.last_activity_at
-           ELSE col.last_collection_at
-          END last_contact_at
-   FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id
+          (SELECT MAX(a_last.created_at) FROM activities a_last WHERE a_last.client_id=c.id) last_activity_at,
+          (SELECT MAX(ca_last.created_at) FROM collection_actions ca_last WHERE ca_last.client_id=c.id) last_collection_at
+   FROM clients c
+   LEFT JOIN client_metrics m ON m.client_id=c.id
+   ".$portfolioJoin."
    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
    LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
-   LEFT JOIN (SELECT client_id,MAX(created_at) last_activity_at FROM activities GROUP BY client_id) act ON act.client_id=c.id
-   LEFT JOIN (SELECT client_id,MAX(created_at) last_collection_at FROM collection_actions GROUP BY client_id) col ON col.client_id=c.id
+   ".$sellerJoin."
    WHERE ".$sqlWhere." ORDER BY ".$orderBy." ".$orderDirection.",c.id ASC LIMIT ".$length." OFFSET ".$start,
   $params
  );
@@ -1903,7 +1909,7 @@ $router->get('/api/clients/datatable',function(){
   $cycleHtml='<span class="cycle cycle-'.e($cycle['status']).'">'.e($cycle['label']).'</span>';
   $orders=(int)($row['orders_12m']??0);
   $purchaseHtml='<strong>'.brdate($row['last_purchase_at']??null).'</strong><small>'.($orders>0?$orders.' pedido(s) em 12 meses':'Sem pedidos recentes').'</small>';
-  $lastContactAt=trim((string)($row['last_contact_at']??''));
+  $activityAt=trim((string)($row['last_activity_at']??''));$collectionAt=trim((string)($row['last_collection_at']??''));$lastContactAt=$activityAt===''?$collectionAt:($collectionAt===''?$activityAt:($activityAt>=$collectionAt?$activityAt:$collectionAt));
   if($lastContactAt===''){
    $daysContactHtml='<span class="tdc-contact-days never"><strong>Nunca</strong></span>';
   }else{
