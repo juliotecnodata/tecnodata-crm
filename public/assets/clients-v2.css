@@ -158,11 +158,13 @@ body[data-page="client-sync"] .tdcrm-content *{box-shadow:none!important;letter-
 .tdc-list-filterbar label>span i{color:var(--tdc-blue)}
 .tdc-list-filterbar .form-select{min-height:40px!important;border:1px solid var(--tdc-line-2)!important;border-radius:8px!important;background-color:#fff!important;font-size:12px!important}
 .tdc-uf-filter{position:relative;min-width:0}
-.tdc-uf-filter>summary{min-height:40px;padding:6px 10px;border:1px solid var(--tdc-line-2);border-radius:8px;background:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;cursor:pointer;list-style:none}
+.tdc-uf-filter>summary{min-height:48px;padding:6px 10px;border:1px solid var(--tdc-line-2);border-radius:8px;background:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;cursor:pointer;list-style:none;overflow:hidden}
 .tdc-uf-filter>summary::-webkit-details-marker{display:none}
-.tdc-uf-filter>summary>span{display:flex!important;align-items:center;gap:6px;margin:0!important;color:#506574!important;font-size:11px!important;font-weight:700!important}
-.tdc-uf-filter>summary>strong{font-size:12px;color:var(--tdc-text);white-space:nowrap}
-.tdc-uf-filter>summary>i:last-child{font-size:10px;color:var(--tdc-muted);transition:transform .18s ease}
+.tdc-uf-filter-copy{display:flex!important;flex-direction:column;align-items:flex-start!important;justify-content:center;gap:1px;min-width:0;margin:0!important}
+.tdc-uf-filter-copy small{display:flex;align-items:center;gap:6px;min-width:0;color:#647986;font-size:9px;line-height:1.1;font-weight:700;white-space:nowrap}
+.tdc-uf-filter-copy small i{color:var(--tdc-blue);font-size:10px}
+.tdc-uf-filter-copy strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;color:var(--tdc-text);font-size:12px;line-height:1.25;font-weight:800;white-space:nowrap}
+.tdc-uf-filter>summary>i:last-child{font-size:10px;color:var(--tdc-muted);transition:transform .18s ease;flex:0 0 auto}
 .tdc-uf-filter[open]>summary>i:last-child{transform:rotate(180deg)}
 .tdc-uf-filter-panel{position:absolute;z-index:40;top:calc(100% + 6px);left:0;width:340px;max-width:min(90vw,340px);padding:12px;border:1px solid var(--tdc-line-2);border-radius:10px;background:#fff}
 .tdc-uf-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
