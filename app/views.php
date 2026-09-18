@@ -578,7 +578,7 @@ function render(string $name,array $vars=[]): void{
        <?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
        <?php $clientUfs=$clientUfs??[];$ufFilterLabel=!$clientUfs?'Todos os estados':(count($clientUfs)===1?$clientUfs[0]:count($clientUfs).' UFs selecionadas');?>
        <details class="tdc-uf-filter" data-client-uf-filter>
-        <summary><span><i class="fa-solid fa-map-location-dot"></i> Estados</span><strong><?=e($ufFilterLabel)?></strong><i class="fa-solid fa-chevron-down"></i></summary>
+        <summary><span class="tdc-uf-filter-copy"><small><i class="fa-solid fa-map-location-dot"></i> Estados</small><strong><?=e($ufFilterLabel)?></strong></span><i class="fa-solid fa-chevron-down"></i></summary>
         <div class="tdc-uf-filter-panel">
          <div class="tdc-uf-filter-grid"><?php foreach($clientStates??[] as $state):$stateUf=(string)$state['uf'];?><label><input type="checkbox" name="ufs[]" value="<?=e($stateUf)?>" <?=in_array($stateUf,$clientUfs,true)?'checked':''?>><span><?=e($stateUf)?></span></label><?php endforeach;?></div>
          <div class="tdc-uf-filter-actions"><button class="tdc-btn" type="button" data-client-uf-clear>Limpar</button><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar UFs</button></div>
