@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const clearSelection=()=>{selected.clear();excluded.clear();allFiltered=false;syncSelection();};
     const currentFilters=()=>{
       const url=new URL(clientBulkTable.dataset.serverUrl,location.origin);
-      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',uf:url.searchParams.get('uf')||'',tag:url.searchParams.get('tag')||'',seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
+      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',month:url.searchParams.get('month')||'',uf:url.searchParams.get('uf')||'',tag:url.searchParams.get('tag')||'',seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
     };
     const payloadFor=(action,onlyId=null,cursor=0)=>({
       _token:clientBulk.dataset.csrf,
