@@ -1,7 +1,7 @@
 name: PHP lint
 on:
   push:
-    branches: [rebuild-clean]
+    branches: [feature/ui-tecnodata-crm-premium]
   pull_request:
 jobs:
   lint:
