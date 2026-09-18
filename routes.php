@@ -16,6 +16,11 @@ function client_portfolio_ddds(mixed $input,string $uf=''): array{
  if($uf!==''&&isset(client_portfolio_ddd_map()[$uf]))$selected=array_values(array_intersect(client_portfolio_ddd_map()[$uf],$selected));
  return $selected;
 }
+function client_filter_ufs(mixed $input): array{
+ $values=is_array($input)?$input:($input===null||$input===''?[]:[$input]);$selected=[];
+ foreach($values as $value){$uf=mb_strtoupper(trim((string)$value),'UTF-8');if(preg_match('/^[A-Z]{2}$/',$uf))$selected[$uf]=$uf;}
+ $selected=array_values($selected);sort($selected);return $selected;
+}
 function client_ddd_sql(string $alias='c'): string{
  if(!in_array($alias,['c',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
  return "LEFT(REGEXP_REPLACE(COALESCE(".($alias!==''?$alias.'.':'')."phone,''),'[^0-9]',''),2)";
@@ -386,9 +391,9 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
- $uf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');
- if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))$uf='';
- $ddds=client_portfolio_ddds($_GET['ddds']??[],$uf);
+ $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
+ $uf=count($clientUfs)===1?$clientUfs[0]:'';
+ $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
  $tag=trim((string)($_GET['tag']??''));if(mb_strlen($tag)>190)$tag='';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
@@ -398,7 +403,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
   if($portfolioOnly){$w[]='('.$effectiveSellerSql.')=?';$p[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
   elseif($clientScope==='unassigned')$w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  }
- if($uf!==''){$w[]='UPPER(TRIM(c.uf))=?';$p[]=$uf;}
+ if($clientUfs){$w[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($p,...$clientUfs);}
  if($ddds){$w[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($p,...$ddds);}
  if($tag!==''){$w[]=client_tag_filter_sql('c');$p[]=$tag;}
  if($sellerFilter==='__none__')$w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
@@ -439,7 +444,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $baseCounts=client_base_counts_cached();
  if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.$stateEffectiveSql.')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
  $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
- render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
+ render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
   'orders'=>(int)($summary['orders_12m']??0),
@@ -1841,8 +1846,8 @@ $router->post('/api/clients/bulk',function(){
   $action=(string)($input['action']??'apply');
   if(!in_array($action,['apply','sync','apply_sync'],true))throw new RuntimeException('Ação inválida.');
    $segment=(string)($input['segment']??'all');if($segment!=='all'&&!isset(client_segment_catalog()[$segment]))$segment='all';
-  $uf=mb_strtoupper(trim((string)($input['uf']??'')),'UTF-8');if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))$uf='';
-  $ddds=client_portfolio_ddds($input['ddds']??[],$uf);
+  $clientUfs=client_filter_ufs($input['ufs']??($input['uf']??[]));$uf=count($clientUfs)===1?$clientUfs[0]:'';
+  $ddds=$uf!==''?client_portfolio_ddds($input['ddds']??[],$uf):[];
   $tag=trim((string)($input['tag']??''));if(mb_strlen($tag)>190)$tag='';
   $sellerFilter=trim((string)($input['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
    $portfolioMonth=ClientPortfolioService::monthRef($input['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
@@ -1853,7 +1858,7 @@ $router->post('/api/clients/bulk',function(){
   if($selection==='selected'&&!$ids)throw new RuntimeException('Selecione pelo menos um cliente.');
 
   [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');$where=['c.active=1',$segmentSql];$params=$segmentParams;
-  if($uf!==''){$where[]='UPPER(TRIM(c.uf))=?';$params[]=$uf;}
+  if($clientUfs){$where[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($params,...$clientUfs);}
   if($ddds){$where[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($params,...$ddds);}
   if($tag!==''){$where[]=client_tag_filter_sql('c');$params[]=$tag;}
    if($sellerFilter==='__none__')$where[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
@@ -1907,9 +1912,9 @@ $router->get('/api/clients/datatable',function(){
  $portfolioOnly=$u['role']==='seller'&&(string)($_GET['portfolio']??'')==='mine';
  if($portfolioOnly)$segment='general';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
- $uf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');
- if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))$uf='';
- $ddds=client_portfolio_ddds($_GET['ddds']??[],$uf);
+ $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
+ $uf=count($clientUfs)===1?$clientUfs[0]:'';
+ $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
  $tag=trim((string)($_GET['tag']??''));if(mb_strlen($tag)>190)$tag='';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
@@ -1920,7 +1925,7 @@ $router->get('/api/clients/datatable',function(){
   if($portfolioOnly){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
   elseif($clientScope==='unassigned')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  }
- if($uf!==''){$baseWhere[]='UPPER(TRIM(c.uf))=?';$baseParams[]=$uf;}
+ if($clientUfs){$baseWhere[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($baseParams,...$clientUfs);}
  if($ddds){$baseWhere[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($baseParams,...$ddds);}
  if($tag!==''){$baseWhere[]=client_tag_filter_sql('c');$baseParams[]=$tag;}
  if($sellerFilter==='__none__')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
