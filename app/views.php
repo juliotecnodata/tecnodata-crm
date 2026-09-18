@@ -584,13 +584,20 @@ function render(string $name,array $vars=[]): void{
          <div class="tdc-uf-filter-actions"><button class="tdc-btn" type="button" data-client-uf-clear>Limpar</button><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar UFs</button></div>
         </div>
        </details>
+       <?php $clientTagsSelected=$clientTagsSelected??[];$clientTagFilterLabel=!$clientTagsSelected?'Todas as tags':(count($clientTagsSelected)===1?$clientTagsSelected[0]:count($clientTagsSelected).' tags selecionadas');?>
+       <details class="tdc-tag-filter" data-client-tag-multi>
+        <summary><span class="tdc-uf-filter-copy"><small><i class="fa-solid fa-tags"></i> Tags</small><strong><?=e($clientTagFilterLabel)?></strong></span><i class="fa-solid fa-chevron-down"></i></summary>
+        <div class="tdc-tag-filter-panel">
+         <div class="tdc-tag-filter-grid"><?php foreach($clientTags??[] as $clientTag):$tagName=(string)$clientTag['tag'];?><label><input type="checkbox" name="tags[]" value="<?=e($tagName)?>" <?=in_array($tagName,$clientTagsSelected,true)?'checked':''?>><span><?=e($tagName)?></span><small><?=number_format((int)$clientTag['client_count'],0,',','.')?></small></label><?php endforeach;?></div>
+         <div class="tdc-uf-filter-actions"><button class="tdc-btn" type="button" data-client-tags-clear>Limpar</button><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar tags</button></div>
+        </div>
+       </details>
        <?php if(!$portfolioMode):?>
-        <label><span><i class="fa-solid fa-tags"></i> Filtrar por tag</span><select class="form-select" name="tag" data-client-tag-filter><option value="">Todas as tags</option><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>" <?=$tag===$clientTag['tag']?'selected':''?>><?=e($clientTag['tag'])?> (<?=number_format((int)$clientTag['client_count'],0,',','.')?>)</option><?php endforeach;?></select></label>
         <label><span><i class="fa-solid fa-user-tie"></i> Responsável em <?=$portfolioMonthLabel?></span><select class="form-select" name="seller_filter" onchange="this.form.submit()"><option value="">Todos os responsáveis</option><option value="__none__" <?=$sellerFilter==='__none__'?'selected':''?>>⚠ Sem responsável</option><?php foreach($clientSellerFilters??[] as $filterSeller):?><option value="<?=e($filterSeller['omie_code'])?>" <?=$sellerFilter===(string)$filterSeller['omie_code']?'selected':''?>><?=e($filterSeller['name'])?><?=empty($filterSeller['active'])?' (inativo)':''?></option><?php endforeach;?></select></label>
        <?php endif;?>
-       <?php if(!empty($clientUfs)||(!$portfolioMode&&($tag!==''||$sellerFilter!==''))):?><?php $clearParams=[];if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
+       <?php if(!empty($clientUfs)||!empty($clientTagsSelected)||(!$portfolioMode&&$sellerFilter!=='')):?><?php $clearParams=[];if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
       </form>
-      <small class="tdc-filter-meta"><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; o Estado apenas refina a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
+      <small class="tdc-filter-meta"><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; Estados e tags apenas refinam a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
      </div>
      <?php if(Auth::can('admin','supervisor')):?>
      <section class="tdc-bulk" data-client-bulk data-endpoint="<?=APP_URL?>/api/clients/bulk" data-csrf="<?=CSRF::token()?>" data-segment="<?=e($clientSegment)?>">
@@ -616,7 +623,7 @@ function render(string $name,array $vars=[]): void{
      </section>
      <?php endif;?>
      <div class="table-card tdc-table-wrap">
-      <?php $clientDataParams=['ufs'=>$clientUfs,'segment'=>$clientSegment,'month'=>$portfolioMonth];if($ddds)$clientDataParams['ddds']=$ddds;if($tag!=='')$clientDataParams['tag']=$tag;if($sellerFilter!=='')$clientDataParams['seller_filter']=$sellerFilter;if($portfolioMode)$clientDataParams['portfolio']='mine';elseif(Auth::can('seller')&&($clientScope??'all')==='unassigned')$clientDataParams['scope']='unassigned';?>
+      <?php $clientDataParams=['ufs'=>$clientUfs,'segment'=>$clientSegment,'month'=>$portfolioMonth];if($ddds)$clientDataParams['ddds']=$ddds;if($clientTagsSelected)$clientDataParams['tags']=$clientTagsSelected;if($sellerFilter!=='')$clientDataParams['seller_filter']=$sellerFilter;if($portfolioMode)$clientDataParams['portfolio']='mine';elseif(Auth::can('seller')&&($clientScope??'all')==='unassigned')$clientDataParams['scope']='unassigned';?>
       <table class="table tdc-table clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="5" data-length-change="1" data-order-column="<?=Auth::can('admin','supervisor')?1:0?>" data-order-direction="asc">
        <thead><tr><?php if(Auth::can('admin','supervisor')):?><th class="tdc-select-column" data-dt-order="disable"><label class="tdc-row-check" title="Selecionar página"><input type="checkbox" data-client-select-page><span></span></label></th><?php endif;?><th>Cliente</th><th>Localização</th><th>Responsabilidade</th><th data-dt-order="disable">Tags</th><th>Ciclo</th><th>Dias sem contato</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
        <tbody><?php foreach($rows as $r):?><tr>
@@ -1167,15 +1174,28 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    $collectionTotal=(int)($collectionStats['total']??0);$collectionAmount=(float)($collectionStats['available_amount']??0);
    $collectionOverdue=(int)($collectionStats['overdue_count']??0);$collectionCritical=(int)($collectionStats['critical_count']??0);$collectionCurrent=(int)($collectionStats['current_count']??0);
    $topAttention=$collectionTopAttention??[];
+   $collectionTagsSelected=$collectionTagsSelected??[];$collectionTagFilterLabel=!$collectionTagsSelected?'Todas as tags':(count($collectionTagsSelected)===1?$collectionTagsSelected[0]:count($collectionTagsSelected).' tags selecionadas');
    $collectionDataParams=['view'=>$view,'delay'=>$collectionDelay??'all'];
    if((int)($collectionAssigned??0)>0)$collectionDataParams['assigned_user_id']=(int)$collectionAssigned;
    if(!empty($collectionUf))$collectionDataParams['uf']=$collectionUf;
+   if($collectionTagsSelected)$collectionDataParams['tags']=$collectionTagsSelected;
    ?>
    <section class="tdcob4-page">
     <header class="tdcob4-head"><div><span class="tdcob4-kicker">FINANCEIRO / COBRANÇA</span><h1>Carteira de cobrança</h1><p>Acompanhe todos os clientes devedores, organize ações e aumente a recuperação.</p></div><div class="tdcob4-head-actions"><a class="tdcob4-secondary" href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-column"></i>Relatório de cobranças</a><?php if(Auth::can('admin','supervisor')):?><a class="tdcob4-primary" href="<?=APP_URL?>/collection/recoveries"><i class="fa-solid fa-money-bill-transfer"></i>Lançar recuperação</a><?php endif;?></div></header>
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <section class="tdcob4-filters"><form method="get"><input type="hidden" name="view" value="<?=e($view)?>"><?php if($u['role']!=='collector'):?><label><span>Responsável pela cobrança</span><select class="form-select" name="assigned_user_id"><option value="0">Todos os responsáveis</option><?php foreach($collectionCollectors??[] as $collector):?><option value="<?=(int)$collector['id']?>" <?=((int)($collectionAssigned??0)===(int)$collector['id'])?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label><?php endif;?><label><span>Faixa de atraso</span><select class="form-select" name="delay"><?php foreach(['all'=>'Todos','current'=>'Em dia','1_30'=>'1 a 30 dias','31_60'=>'31 a 60 dias','60_plus'=>'Acima de 60 dias'] as $key=>$label):?><option value="<?=$key?>" <?=($collectionDelay??'all')===$key?'selected':''?>><?=$label?></option><?php endforeach;?></select></label><label><span>UF</span><select class="form-select" name="uf"><option value="">Todas</option><?php foreach($collectionUfs??[] as $ufRow):?><option value="<?=e($ufRow['uf'])?>" <?=($collectionUf??'')===$ufRow['uf']?'selected':''?>><?=e($ufRow['uf'])?></option><?php endforeach;?></select></label><a class="tdcob4-clear" href="<?=APP_URL?>/collection?view=<?=e($view)?>">Limpar filtros</a><button class="tdcob4-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar filtros</button></form></section>
+    <section class="tdcob4-filters"><form method="get">
+     <input type="hidden" name="view" value="<?=e($view)?>">
+     <?php if($u['role']!=='collector'):?><label><span>Responsável pela cobrança</span><select class="form-select" name="assigned_user_id"><option value="0">Todos os responsáveis</option><?php foreach($collectionCollectors??[] as $collector):?><option value="<?=(int)$collector['id']?>" <?=((int)($collectionAssigned??0)===(int)$collector['id'])?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+     <label><span>Faixa de atraso</span><select class="form-select" name="delay"><?php foreach(['all'=>'Todos','current'=>'Em dia','1_30'=>'1 a 30 dias','31_60'=>'31 a 60 dias','60_plus'=>'Acima de 60 dias'] as $key=>$label):?><option value="<?=$key?>" <?=($collectionDelay??'all')===$key?'selected':''?>><?=$label?></option><?php endforeach;?></select></label>
+     <label><span>UF</span><select class="form-select" name="uf"><option value="">Todas</option><?php foreach($collectionUfs??[] as $ufRow):?><option value="<?=e($ufRow['uf'])?>" <?=($collectionUf??'')===$ufRow['uf']?'selected':''?>><?=e($ufRow['uf'])?></option><?php endforeach;?></select></label>
+     <details class="tdcob4-tag-filter" data-collection-tag-filter>
+      <summary><span><i class="fa-solid fa-tags"></i> Tags</span><strong><?=e($collectionTagFilterLabel)?></strong><i class="fa-solid fa-chevron-down"></i></summary>
+      <div class="tdcob4-tag-panel"><div><?php foreach($collectionTags??[] as $clientTag):$tagName=(string)$clientTag['tag'];?><label><input type="checkbox" name="tags[]" value="<?=e($tagName)?>" <?=in_array($tagName,$collectionTagsSelected,true)?'checked':''?>><span><?=e($tagName)?></span></label><?php endforeach;?></div><footer><button type="button" class="tdcob4-clear" data-collection-tags-clear>Limpar tags</button></footer></div>
+     </details>
+     <a class="tdcob4-clear" href="<?=APP_URL?>/collection?view=<?=e($view)?>">Limpar filtros</a>
+     <button class="tdcob4-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar filtros</button>
+    </form></section>
 
     <div class="tdcob4-kpis">
      <article><span class="green"><i class="fa-solid fa-dollar-sign"></i></span><div><small>Saldo disponível</small><strong><?=money($collectionAmount)?></strong><em>Omie menos baixas locais pendentes</em></div></article>
