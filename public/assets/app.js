@@ -235,6 +235,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     agendaForm?.addEventListener('submit',event=>{if(!clientId.value){event.preventDefault();showNotice('warning','Selecione um cliente','Use a busca e escolha o cliente antes de salvar.');clientSearch.hidden=false;clientSearch.focus();}});
   }
 
+  const clientConsultantDialog=document.querySelector('[data-client-consultant-dialog]');
+  if(clientConsultantDialog){
+    const dueInput=clientConsultantDialog.querySelector('[data-client-consultant-due]');
+    const form=clientConsultantDialog.querySelector('[data-client-consultant-form]');
+    const localDateTime=minutes=>{
+      const date=new Date(Date.now()+minutes*60000);
+      const pad=n=>String(n).padStart(2,'0');
+      return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+    };
+    document.querySelectorAll('[data-client-consultant-schedule]').forEach(button=>button.addEventListener('click',()=>{
+      form?.reset();
+      if(dueInput){dueInput.min=localDateTime(0);dueInput.value=localDateTime(30);}
+      clientConsultantDialog.showModal();
+    }));
+    clientConsultantDialog.querySelectorAll('[data-client-consultant-close]').forEach(button=>button.addEventListener('click',()=>clientConsultantDialog.close()));
+    clientConsultantDialog.addEventListener('click',event=>{if(event.target===clientConsultantDialog)clientConsultantDialog.close();});
+  }
+
   let lastValidationNotice=0;
   document.addEventListener('invalid',event=>{
     event.preventDefault();
