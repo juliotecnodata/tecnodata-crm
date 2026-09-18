@@ -640,6 +640,12 @@ final class ClientService {
   return ['client'=>$client,'payload'=>$p];
  }
 
+ public static function markSyncError(int $id,string $message): void{
+  $client=DB::one("SELECT raw_json FROM clients WHERE id=? LIMIT 1",[$id]);if(!$client)return;
+  $raw=json_decode((string)($client['raw_json']??''),true);if(!is_array($raw))$raw=[];
+  $raw['omie_status']='error';$raw['sync_error']=mb_substr(trim($message),0,1500);$raw['sync_error_at']=date('Y-m-d H:i:s');
+  DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$id]);
+ }
  public static function syncLocalWithOmie(int $id,array $u): array{
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
