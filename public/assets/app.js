@@ -53,6 +53,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     const root=event.currentTarget.closest('[data-client-uf-filter]');
     root?.querySelectorAll('input[name="ufs[]"]').forEach(input=>{input.checked=false;});
   });
+  document.querySelector('[data-client-tags-clear]')?.addEventListener('click',event=>{
+    const root=event.currentTarget.closest('[data-client-tag-multi]');
+    root?.querySelectorAll('input[name="tags[]"]').forEach(input=>{input.checked=false;});
+  });
+  document.querySelector('[data-collection-tags-clear]')?.addEventListener('click',event=>{
+    const root=event.currentTarget.closest('[data-collection-tag-filter]');
+    root?.querySelectorAll('input[name="tags[]"]').forEach(input=>{input.checked=false;});
+  });
   const monitorForm=document.querySelector('.tdset-monitor-form');
   if(monitorForm){
     const monitorChecks=Array.from(monitorForm.querySelectorAll('[name="monitor_user_ids[]"]'));
@@ -381,7 +389,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const currentFilters=()=>{
       const url=new URL(clientBulkTable.dataset.serverUrl,location.origin);
       const ufs=Array.from(url.searchParams.entries()).filter(([key])=>key==='ufs'||key.startsWith('ufs[')).map(([,value])=>value);
-      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',month:url.searchParams.get('month')||'',ufs:ufs.length?ufs:(url.searchParams.get('uf')?[url.searchParams.get('uf')]:[]),uf:url.searchParams.get('uf')||'',tag:url.searchParams.get('tag')||'',seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
+      const filterTags=Array.from(url.searchParams.entries()).filter(([key])=>key==='tags'||key.startsWith('tags[')).map(([,value])=>value);
+      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',month:url.searchParams.get('month')||'',ufs:ufs.length?ufs:(url.searchParams.get('uf')?[url.searchParams.get('uf')]:[]),uf:url.searchParams.get('uf')||'',filter_tags:filterTags.length?filterTags:(url.searchParams.get('tag')?[url.searchParams.get('tag')]:[]),seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
     };
     const payloadFor=(action,onlyId=null,cursor=0)=>({
       _token:clientBulk.dataset.csrf,
