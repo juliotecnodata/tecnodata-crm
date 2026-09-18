@@ -1803,7 +1803,7 @@ $router->post('/api/clients/bulk',function(){
     if(in_array($action,['apply','apply_sync'],true))ClientService::applyBulkLocal($id,$changeSeller,$sellerCode,$tagOperation,$requestedTags,false);
     if(in_array($action,['sync','apply_sync'],true))ClientService::syncLocalWithOmie($id,$u);
     $success++;
-   }catch(Throwable $e){$failed++;if(count($errors)<20)$errors[]=['id'=>$id,'name'=>(string)$row['name'],'message'=>$e->getMessage()];}
+   }catch(Throwable $e){if(in_array($action,['sync','apply_sync'],true))ClientService::markSyncError($id,$e->getMessage());$failed++;if(count($errors)<20)$errors[]=['id'=>$id,'name'=>(string)$row['name'],'message'=>$e->getMessage()];}
   }
   $done=count($rows)<$limit||$nextCursor===0||(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".implode(' AND ',$baseWhere)." AND c.id>?",array_merge($baseParams,[$nextCursor]))??0)===0;
   unset($_SESSION['client_tag_catalog_cache']);
