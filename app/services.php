@@ -1137,6 +1137,8 @@ final class OrderService {
              VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())
              ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),omie_seller_code=VALUES(omie_seller_code),seller_omie_code=IF(portfolio_locked=1,seller_omie_code,VALUES(seller_omie_code)),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
     [$code,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
+   $indexedClientId=(int)(DB::scalar("SELECT id FROM clients WHERE omie_code=? LIMIT 1",[$code])??0);
+   if($indexedClientId>0)ClientTagIndex::replaceFromRaw($indexedClientId,$client);
   }catch(Throwable $e){throw new RuntimeException('O cliente deste orçamento ainda não está no CRM e não pôde ser carregado da Omie agora: '.$e->getMessage(),0,$e);}
  }
 
