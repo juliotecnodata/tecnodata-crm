@@ -548,8 +548,8 @@ $router->post('/clients/portfolio/assign',function(){
   if($source==='__unassigned__'){$where[]="((".$effective.") IS NULL OR TRIM((".$effective."))='')";$sourceLabel='clientes sem responsável no mês';}
   elseif($source!=='__all__'){$sourceSeller=DB::one("SELECT name FROM sellers WHERE omie_code=?",[$source]);if($source===$target)throw new RuntimeException('O responsável atual e o vendedor de destino são iguais.');$where[]='('.$effective.')=?';$params[]=$source;$sourceLabel='carteira de '.($sourceSeller['name']??$source);}
   $clients=DB::all("SELECT c.id,c.name FROM clients c WHERE ".implode(' AND ',$where)." ORDER BY c.id",$params);
-  foreach($clients as $client)ClientPortfolioService::setAssignment((int)$client['id'],$month,$target,Auth::id(),'Redistribuição mensal por UF/DDD: '.$uf.' · '.implode(', ',$ddds).'.');
-  $affected=count($clients);$label=date('m/Y',strtotime($month.'-01'));
+  $affected=ClientPortfolioService::setAssignments(array_column($clients,'id'),$month,$target,Auth::id(),'Redistribuição mensal por UF/DDD: '.$uf.' · '.implode(', ',$ddds).'.');
+  $label=date('m/Y',strtotime($month.'-01'));
   $_SESSION['clients_flash']=['type'=>$affected>0?'success':'info','message'=>$affected>0?number_format($affected,0,',','.').' cliente(s) de '.$uf.' nos DDDs '.implode(', ',$ddds).' atribuídos à carteira de '.$targetSeller['name'].' em '.$label.'. O vendedor principal e a Omie não foram alterados.':'Nenhum cliente corresponde à carteira selecionada para '.$label.'.'];
  }catch(Throwable $e){$_SESSION['clients_flash']=['type'=>'danger','message'=>'Não foi possível atualizar a carteira mensal: '.$e->getMessage()];}
  $redirect=['uf'=>$uf,'month'=>$month];if($ddds)$redirect['ddds']=$ddds;redirect('/clients?'.http_build_query($redirect));
@@ -600,11 +600,12 @@ $router->post('/clients/{id}/delete',function($p){
   $result=ClientService::deleteFromOmie($id,Auth::user());
   $_SESSION['clients_flash']=[
    'type'=>'success',
-   'message'=>($result['status']??'')==='local_deleted'
-    ?'Cliente local removido com sucesso. Como ainda não estava integrado, nenhuma chamada à Omie foi necessária.'
-    :(!empty($result['corrected_code'])
-      ?'Cliente localizado pelo CPF/CNPJ, código Omie corrigido e exclusão concluída com sucesso na Omie e no CRM.'
-      :'Cliente excluído com sucesso na Omie e removido do CRM local.')
+   'message'=>match((string)($result['status']??'')){
+    'local_deleted'=>'Cliente local removido com sucesso. Como ainda não estava integrado, nenhuma chamada à Omie foi necessária.',
+    'local_archived'=>'Cliente local arquivado. Agenda, tarefas e atendimentos foram preservados.',
+    'synced_archived'=>'Cliente excluído na Omie e arquivado no CRM para preservar agenda, tarefas e histórico.',
+    default=>!empty($result['corrected_code'])?'Cliente localizado pelo CPF/CNPJ, código Omie corrigido e exclusão concluída com sucesso na Omie e no CRM.':'Cliente excluído com sucesso na Omie e removido do CRM local.'
+   }
   ];
   redirect('/clients');
  }catch(Throwable $e){
@@ -621,11 +622,12 @@ $router->get('/clients/{id}',function($p){
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioAssignment=ClientPortfolioService::assignment($id,$portfolioMonth);$effectiveSellerCode=ClientPortfolioService::effectiveSellerCode($id,$portfolioMonth);
  $isUnassigned=$effectiveSellerCode==='';
  $a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);
+ $sellerAudit=DB::all("SELECT sa.*,u.name actor_name,ps.name previous_seller_name,ns.name new_seller_name,pos.name previous_omie_seller_name,nos.name new_omie_seller_name FROM client_seller_audit sa LEFT JOIN users u ON u.id=sa.actor_user_id LEFT JOIN sellers ps ON ps.omie_code=sa.previous_seller_omie_code LEFT JOIN sellers ns ON ns.omie_code=sa.new_seller_omie_code LEFT JOIN sellers pos ON pos.omie_code=sa.previous_omie_seller_code LEFT JOIN sellers nos ON nos.omie_code=sa.new_omie_seller_code WHERE sa.client_id=? ORDER BY sa.created_at DESC,sa.id DESC LIMIT 30",[$id]);
  $o=DB::all("SELECT * FROM orders WHERE client_omie_code=? ORDER BY order_date DESC,id DESC LIMIT 20",[$c['omie_code']]);
  $form=ClientService::formFromClient($c);
  $sellerName=$c['seller_omie_code']?DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['seller_omie_code']]):null;
  $effectiveSellerName=$effectiveSellerCode!==''?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[$effectiveSellerCode])?:$effectiveSellerCode):null;$omieSellerName=!empty($c['omie_seller_code'])?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['omie_seller_code']])?:$c['omie_seller_code']):null;
- render('client',['client'=>$c,'activities'=>$a,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
+ render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
 });
 $router->post('/clients/{id}/activity',function($p){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
