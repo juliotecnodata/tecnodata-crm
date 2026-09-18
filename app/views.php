@@ -363,9 +363,11 @@ function render(string $name,array $vars=[]): void{
    <section class="tdc-page tdc-sync-center" data-client-sync-hub data-endpoint="<?=APP_URL?>/api/clients-sync/bulk" data-csrf="<?=CSRF::token()?>" data-total="<?=(int)$syncPagination['total']?>" data-status="<?=e($syncStatus)?>" data-query="<?=e($syncQuery)?>">
     <nav class="tdc-hub-nav" aria-label="Central de clientes">
      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-layer-group"></i><span><strong>Todos</strong><small>Base ativa completa</small></span></a>
-     <a href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small>Carteiras comerciais</small></span></a>
+     <a href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small>Clientes comerciais</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a class="operational supplier" href="<?=APP_URL?>/clients?segment=supplier"><i class="fa-solid fa-boxes-packing"></i><span><strong>Fornecedores</strong><small>Tag Fornecedor</small></span></a>
+     <a class="operational carrier" href="<?=APP_URL?>/clients?segment=carrier"><i class="fa-solid fa-truck-fast"></i><span><strong>Transportadoras</strong><small>Tag Transportadora</small></span></a>
      <a class="active" href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
@@ -408,9 +410,11 @@ function render(string $name,array $vars=[]): void{
    <section class="tdaudit-page">
     <nav class="tdc-hub-nav" aria-label="Central de clientes">
      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-layer-group"></i><span><strong>Todos</strong><small>Base ativa completa</small></span></a>
-     <a href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small>Carteiras comerciais</small></span></a>
+     <a href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small>Clientes comerciais</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a class="operational supplier" href="<?=APP_URL?>/clients?segment=supplier"><i class="fa-solid fa-boxes-packing"></i><span><strong>Fornecedores</strong><small>Tag Fornecedor</small></span></a>
+     <a class="operational carrier" href="<?=APP_URL?>/clients?segment=carrier"><i class="fa-solid fa-truck-fast"></i><span><strong>Transportadoras</strong><small>Tag Transportadora</small></span></a>
      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
      <a class="active" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
@@ -496,7 +500,7 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
   case 'clients':?>
-   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??(Auth::can('admin','supervisor')?'all':'general');$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralUrl=APP_URL.'/clients'.($clientSegment!=='all'?'?'.http_build_query(['segment'=>$clientSegment]):'');?>
+   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'supplier'=>0,'carrier'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??(Auth::can('admin','supervisor')?'all':'general');$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralUrl=APP_URL.'/clients'.($clientSegment!=='all'?'?'.http_build_query(['segment'=>$clientSegment]):'');?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
     <header class="tdc-head">
      <div class="tdc-head-main">
@@ -512,6 +516,8 @@ function render(string $name,array $vars=[]): void{
      <a class="<?=$clientSegment==='general'?'active':''?>" href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small><?=number_format((int)($baseCounts['general']??0),0,',','.')?> ativos</small></span></a>
      <a class="<?=$clientSegment==='ead_reciclagem'?'active':''?>" href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small><?=number_format((int)($baseCounts['ead_reciclagem']??0),0,',','.')?> ativos</small></span></a>
      <a class="<?=$clientSegment==='suporte_pet'?'active':''?>" href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small><?=number_format((int)($baseCounts['suporte_pet']??0),0,',','.')?> ativos</small></span></a>
+     <a class="<?=$clientSegment==='supplier'?'active':''?> operational supplier" href="<?=APP_URL?>/clients?segment=supplier"><i class="fa-solid fa-boxes-packing"></i><span><strong>Fornecedores</strong><small><?=number_format((int)($baseCounts['supplier']??0),0,',','.')?> ativos</small></span></a>
+     <a class="<?=$clientSegment==='carrier'?'active':''?> operational carrier" href="<?=APP_URL?>/clients?segment=carrier"><i class="fa-solid fa-truck-fast"></i><span><strong>Transportadoras</strong><small><?=number_format((int)($baseCounts['carrier']??0),0,',','.')?> ativos</small></span></a>
      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
@@ -561,7 +567,7 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
 
     <section class="tdc-table-card">
-     <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'SEGMENTO ATUAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':e($clientSegmentLabel)?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':e($clientSegmentDescription).' · Busque por nome, documento, cidade ou responsável.'?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
+     <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'SEGMENTO ATUAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':e($clientSegmentLabel)?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':e($clientSegmentDescription).' · '.(in_array($clientSegment,['supplier','carrier'],true)?'Classificação originada das tags sincronizadas da Omie.':'Busque por nome, documento, cidade ou responsável.')?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
      <div class="tdc-list-filterbar">
       <div class="tdc-filter-title"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine estado, tag e vendedor para encontrar exatamente os clientes que deseja revisar.</small></div></div>
       <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>">
