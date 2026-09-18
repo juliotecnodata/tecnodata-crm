@@ -408,8 +408,11 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $crmPortfolioCodes=ClientSegmentPolicy::crmPortfolioSellerCodes();$crmPortfolioSql=$crmPortfolioCodes?' AND omie_code IN ('.implode(',',array_fill(0,count($crmPortfolioCodes),'?')).')':' AND 1=0';
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
  $stateWhere='c.active=1 AND '.$stateSegmentSql;$stateParams=$stateSegmentParams;$stateEffectiveSql=client_effective_seller_sql('c',$portfolioMonth);
+ $statePortfolioJoin=" LEFT JOIN client_portfolio_assignments pa_state ON pa_state.client_id=c.id AND pa_state.month_ref='".$portfolioMonth."'";
+ $stateEffectiveExpr="CASE WHEN pa_state.id IS NOT NULL THEN pa_state.seller_omie_code ELSE c.seller_omie_code END";
  $baseCounts=client_base_counts_cached();
- if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.client_effective_seller_sql('c',$portfolioMonth).')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
+ if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.$stateEffectiveSql.')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
+ $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
  render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
@@ -423,10 +426,10 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
   'from'=>$totalClients?($offset+1):0,'to'=>min($offset+$perPage,$totalClients),
  ],'baseCounts'=>$baseCounts,'portfolioSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".$crmPortfolioSql." ORDER BY name",$crmPortfolioCodes):[],
  'bulkSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
- 'portfolioSourceSellers'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT (".$stateEffectiveSql.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveSql."))) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveSql.") WHERE c.active=1 AND (".$stateEffectiveSql.") IS NOT NULL AND TRIM((".$stateEffectiveSql."))<>''".($virtualCodes?' AND ('.$stateEffectiveSql.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
- 'clientSellerFilters'=>DB::all("SELECT DISTINCT (".$stateEffectiveSql.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveSql."))) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveSql.") WHERE ".$stateWhere." AND (".$stateEffectiveSql.") IS NOT NULL AND TRIM((".$stateEffectiveSql."))<>'' ORDER BY active DESC,name",$stateParams),
- 'portfolioStates'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c WHERE ".$stateWhere." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams):[],
- 'clientStates'=>DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c WHERE ".$stateWhere." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams)
+ 'portfolioSourceSellers'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE c.active=1 AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>''".($virtualCodes?' AND ('.$stateEffectiveExpr.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
+ 'clientSellerFilters'=>DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE ".$stateWhereJoined." AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>'' ORDER BY active DESC,name",$stateParams),
+ 'portfolioStates'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams):[],
+ 'clientStates'=>DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams)
  ]);
 };
 $router->get('/clients',function()use($renderClients){$renderClients(false);});
@@ -1787,11 +1790,14 @@ $router->post('/api/clients/bulk',function(){
   if($tag!==''){$where[]=client_tag_filter_sql('c');$params[]=$tag;}
    if($sellerFilter==='__none__')$where[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
    elseif($sellerFilter!==''){$where[]='('.$effectiveSellerSql.')=?';$params[]=$sellerFilter;}
-  if($search!==''){$like='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR EXISTS (SELECT 1 FROM sellers search_effective WHERE search_effective.omie_code=('.$effectiveSellerSql.') AND search_effective.name LIKE ?) OR ('.$effectiveSellerSql.') LIKE ?)';array_push($params,$like,$like,$like,$like,$like,$like,$like);}
+  if($search!==''){$like='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR search_effective.name LIKE ? OR ('.$effectiveSellerSql.') LIKE ?)';array_push($params,$like,$like,$like,$like,$like,$like,$like);}
   if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
   if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
-  $baseWhere=$where;$baseParams=$params;
-  $total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".implode(' AND ',$baseWhere),$baseParams)??0);
+  $portfolioJoin=" LEFT JOIN client_portfolio_assignments pa_bulk ON pa_bulk.client_id=c.id AND pa_bulk.month_ref='".$portfolioMonth."'";
+  $effectiveSellerExpr="CASE WHEN pa_bulk.id IS NOT NULL THEN pa_bulk.seller_omie_code ELSE c.seller_omie_code END";
+  $sellerJoin=" LEFT JOIN sellers search_effective ON search_effective.omie_code=(".$effectiveSellerExpr.")";
+  $baseWhere=$where;$baseParams=$params;$baseWhereSql=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$baseWhere));
+  $total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$baseWhereSql,$baseParams)??0);
   $where[]='c.id>?';$params[]=$cursor;
   $changeSeller=!empty($input['change_seller']);$sellerCode=trim((string)($input['seller_code']??''));if($sellerCode==='__none__')$sellerCode='';
   $tagOperation=(string)($input['tag_operation']??'none');$requestedTags=ClientService::normalizeTags($input['tags']??[]);
@@ -1804,7 +1810,8 @@ $router->post('/api/clients/bulk',function(){
   if(in_array($action,['apply','apply_sync'],true)&&!$changeSeller&&$tagOperation==='none')throw new RuntimeException('Escolha uma alteração de vendedor ou tags.');
 
   $limit=$action==='apply'?500:5;
-  $rows=DB::all("SELECT c.id,c.name FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".implode(' AND ',$where)." ORDER BY c.id ASC LIMIT ".$limit,$params);
+  $whereSql=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
+  $rows=DB::all("SELECT c.id,c.name FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$whereSql." ORDER BY c.id ASC LIMIT ".$limit,$params);
   $success=0;$failed=0;$errors=[];$nextCursor=$cursor;
   foreach($rows as $row){
    $id=(int)$row['id'];$nextCursor=max($nextCursor,$id);
@@ -1814,8 +1821,8 @@ $router->post('/api/clients/bulk',function(){
     $success++;
    }catch(Throwable $e){if(in_array($action,['sync','apply_sync'],true))ClientService::markSyncError($id,$e->getMessage());$failed++;if(count($errors)<20)$errors[]=['id'=>$id,'name'=>(string)$row['name'],'message'=>$e->getMessage()];}
   }
-  $done=count($rows)<$limit||$nextCursor===0||(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".implode(' AND ',$baseWhere)." AND c.id>?",array_merge($baseParams,[$nextCursor]))??0)===0;
-  unset($_SESSION['client_tag_catalog_cache']);
+  $done=count($rows)<$limit||$nextCursor===0||(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$baseWhereSql." AND c.id>?",array_merge($baseParams,[$nextCursor]))??0)===0;
+  client_cache_invalidate();
   json_response(['success'=>true,'processed'=>count($rows),'succeeded'=>$success,'failed'=>$failed,'errors'=>$errors,'next_cursor'=>$nextCursor,'done'=>$done,'total'=>$total]);
  }catch(Throwable $e){json_response(['success'=>false,'error'=>$e->getMessage()],422);}
 });
