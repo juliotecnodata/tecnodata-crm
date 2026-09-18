@@ -641,7 +641,7 @@ $router->post('/clients/{id}/activity',function($p){
 
 $router->get('/contact-monitoring',function(){
  Auth::requireRole('admin','supervisor');
- $context=contact_monitoring_context($_GET);$where=$context['where'];$params=$context['params'];
+ $context=contact_monitoring_context($_GET);$where=$context['where'];$params=$context['params'];$effectiveSellerSql=client_effective_seller_sql('c');
  $stats=DB::one(
   "SELECT COUNT(*) total,
           COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM activities stat_activity WHERE stat_activity.client_id=c.id) OR EXISTS (SELECT 1 FROM collection_actions stat_collection WHERE stat_collection.client_id=c.id) THEN 1 ELSE 0 END),0) contacted,
@@ -654,7 +654,7 @@ $router->get('/contact-monitoring',function(){
  $attentionRows=DB::all(
   "SELECT c.id,c.name,
           NULLIF(GREATEST(COALESCE((SELECT MAX(a.created_at) FROM activities a WHERE a.client_id=c.id),'1000-01-01'),COALESCE((SELECT MAX(ca.created_at) FROM collection_actions ca WHERE ca.client_id=c.id),'1000-01-01')),'1000-01-01') last_contact_at,
-          (SELECT u.name FROM users u WHERE u.role='seller' AND u.active=1 AND u.seller_omie_code=c.seller_omie_code ORDER BY u.id LIMIT 1) portfolio_user_name,
+          (SELECT u.name FROM users u WHERE u.role='seller' AND u.active=1 AND u.seller_omie_code=(".$effectiveSellerSql.") ORDER BY u.id LIMIT 1) portfolio_user_name,
           (SELECT u.name FROM collection_cases cc JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=c.id LIMIT 1) collection_user_name,
           (SELECT u.name FROM tasks t JOIN users u ON u.id=t.assigned_user_id WHERE t.client_id=c.id AND t.type IN ('sales','collection') AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1) next_user_name,
           (SELECT t.due_at FROM tasks t WHERE t.client_id=c.id AND t.type IN ('sales','collection') AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1) next_due_at
@@ -1624,12 +1624,12 @@ $router->post('/api/freight/quote',function(){
 $router->get('/api/contact-monitoring/datatable',function(){
  Auth::requireRole('admin','supervisor');
  $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??5)));
- $context=contact_monitoring_context($_GET);$baseWhere=$context['where'];$baseParams=$context['params'];
+ $context=contact_monitoring_context($_GET);$baseWhere=$context['where'];$baseParams=$context['params'];$effectiveSellerSql=client_effective_seller_sql('c');
  $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$baseWhere),$baseParams)??0);
  $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
   $needle='%'.$search.'%';
-  $where[]="(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR c.seller_omie_code LIKE ? OR EXISTS (SELECT 1 FROM sellers search_seller WHERE search_seller.omie_code=c.seller_omie_code AND search_seller.name LIKE ?) OR EXISTS (SELECT 1 FROM collection_cases search_case JOIN users search_user ON search_user.id=search_case.assigned_user_id WHERE search_case.client_id=c.id AND search_user.name LIKE ?))";
+  $where[]="(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR (".$effectiveSellerSql.") LIKE ? OR EXISTS (SELECT 1 FROM sellers search_seller WHERE search_seller.omie_code=(".$effectiveSellerSql.") AND search_seller.name LIKE ?) OR EXISTS (SELECT 1 FROM collection_cases search_case JOIN users search_user ON search_user.id=search_case.assigned_user_id WHERE search_case.client_id=c.id AND search_user.name LIKE ?))";
   array_push($params,$needle,$needle,$needle,$needle,$needle,$needle,$needle);
  }
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$where),$params)??0);
@@ -1638,7 +1638,7 @@ $router->get('/api/contact-monitoring/datatable',function(){
  $orderColumns=[0=>'c.name',1=>'COALESCE(s.name,collection_user.name)',2=>$lastContactOrder,3=>'DATEDIFF(NOW(),'.$lastContactOrder.')',4=>'nt.due_at',5=>'COALESCE(la.result,lca.result)',6=>'nt.due_at'];
  $orderSql=($orderColumns[$orderColumn]??$orderColumns[2]).' '.$direction.',c.name ASC';
  $rows=DB::all(
-  "SELECT c.id,c.name,c.document,c.city,c.uf,c.phone,c.seller_omie_code,
+  "SELECT c.id,c.name,c.document,c.city,c.uf,c.phone,c.seller_omie_code,(".$effectiveSellerSql.") effective_seller_code,
           s.name seller_name,portfolio_user.id portfolio_user_id,portfolio_user.name portfolio_user_name,
           collection_user.id collection_user_id,collection_user.name collection_user_name,
           la.id last_activity_id,la.channel last_channel,la.result last_result,la.notes last_notes,la.created_at last_contact_at,activity_user.name last_contact_user,
@@ -1646,8 +1646,8 @@ $router->get('/api/contact-monitoring/datatable',function(){
           ((SELECT COUNT(*) FROM activities ac WHERE ac.client_id=c.id)+(SELECT COUNT(*) FROM collection_actions cac WHERE cac.client_id=c.id)) contact_count,
           nt.id next_task_id,nt.title next_title,nt.due_at next_due_at,next_user.id next_user_id,next_user.name next_user_name
    FROM clients c
-   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
-   LEFT JOIN users portfolio_user ON portfolio_user.id=(SELECT pu.id FROM users pu WHERE pu.role='seller' AND pu.active=1 AND pu.seller_omie_code=c.seller_omie_code ORDER BY pu.id LIMIT 1)
+   LEFT JOIN sellers s ON s.omie_code=(".$effectiveSellerSql.")
+   LEFT JOIN users portfolio_user ON portfolio_user.id=(SELECT pu.id FROM users pu WHERE pu.role='seller' AND pu.active=1 AND pu.seller_omie_code=(".$effectiveSellerSql.") ORDER BY pu.id LIMIT 1)
    LEFT JOIN collection_cases cc ON cc.client_id=c.id
    LEFT JOIN users collection_user ON collection_user.id=cc.assigned_user_id
    LEFT JOIN activities la ON la.id=(SELECT a2.id FROM activities a2 WHERE a2.client_id=c.id ORDER BY a2.created_at DESC,a2.id DESC LIMIT 1)
@@ -1759,7 +1759,7 @@ $router->get('/api/clients/datatable',function(){
  $search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
   $like='%'.$search.'%';
-  $where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR s.name LIKE ? OR c.seller_omie_code LIKE ?)';
+   $where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR EXISTS (SELECT 1 FROM sellers search_effective WHERE search_effective.omie_code=('.$effectiveSellerSql.') AND search_effective.name LIKE ?) OR ('.$effectiveSellerSql.') LIKE ?)';
   array_push($params,$like,$like,$like,$like,$like,$like,$like);
  }
  $sqlWhere=implode(' AND ',$where);
