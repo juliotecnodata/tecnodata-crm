@@ -610,13 +610,14 @@ body[data-page="agenda"] .tda-task-client-identity p{margin:3px 0 0!important;co
 body[data-page="agenda"] .tda-task-client-insights{
  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;min-width:0!important
 }
-body[data-page="agenda"] .tda-task-client-insights>span{
- min-width:0!important;padding:7px 9px!important;border:1px solid #E0E8EC!important;border-radius:8px!important;background:#fff!important
+body[data-page="agenda"] .tda-task-client-card .tda-task-client-insights>span{
+ display:block!important;place-items:initial!important;width:auto!important;height:auto!important;min-width:0!important;min-height:52px!important;
+ padding:8px 10px!important;border:1px solid #E0E8EC!important;border-radius:8px!important;background:#fff!important;color:inherit!important;flex:initial!important
 }
-body[data-page="agenda"] .tda-task-client-insights small{display:block!important;color:#7A8D98!important;font-size:8px!important;font-weight:800!important}
-body[data-page="agenda"] .tda-task-client-insights strong{
- display:block!important;margin-top:2px!important;overflow:hidden!important;color:#2C4655!important;font-size:10px!important;line-height:1.25!important;
- font-weight:800!important;text-overflow:ellipsis!important;white-space:nowrap!important
+body[data-page="agenda"] .tda-task-client-card .tda-task-client-insights small{display:block!important;color:#7A8D98!important;font-size:8px!important;font-weight:800!important;text-align:left!important}
+body[data-page="agenda"] .tda-task-client-card .tda-task-client-insights strong{
+ display:block!important;margin-top:3px!important;overflow:hidden!important;color:#2C4655!important;font-size:10px!important;line-height:1.25!important;
+ font-weight:800!important;text-align:left!important;text-overflow:ellipsis!important;white-space:nowrap!important
 }
 body[data-page="agenda"] .tda-task-client-card>a{
  display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;min-height:38px!important;padding:0 12px!important;
