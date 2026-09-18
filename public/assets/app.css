@@ -1940,3 +1940,13 @@ body{background:var(--bg);color:var(--text)}
  .tdcrm-task-modal footer{flex-direction:column-reverse}
  .tdcrm-task-modal footer .tdcrm-task-btn{width:100%}
 }
+
+/* Confirmações contextuais */
+.app-confirm-card{border:1px solid #DCE3E6!important;border-top:1px solid #DCE3E6!important;border-radius:10px!important;box-shadow:none!important}
+.app-confirm-backdrop[data-tone="success"] .app-confirm-icon{background:#EAF7F1;color:#009657}
+.app-confirm-backdrop[data-tone="danger"] .app-confirm-icon{background:#FCEDEA;color:#C55252}
+.app-confirm-backdrop[data-tone="warning"] .app-confirm-icon{background:#FFF7D8;color:#9B7300}
+.app-confirm-actions .btn-success{background:#009657;border-color:#009657;color:#fff}
+.app-confirm-actions .btn-success:hover{background:#007F49;border-color:#007F49}
+.app-confirm-actions .btn-warning{background:#F2B705;border-color:#E0A900;color:#2F2600}
+.app-confirm-actions .btn-warning:hover{background:#DDA700;border-color:#C79500;color:#211A00}
