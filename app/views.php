@@ -1483,10 +1483,10 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
          <td><span class="tda-owner-cell"><i><?=$responsibleInitial?></i><b><?=e($r['assigned_name']??'Não identificado')?></b></span></td>
          <td><span class="tda-status <?=$isLate?'late':($isToday?'today':'upcoming')?>"><i class="fa-regular <?=$isLate?'fa-circle-xmark':($isToday?'fa-clock':'fa-calendar-check')?>"></i><?=$isLate?'Vencido':($isToday?'Hoje':'Agendado')?></span></td>
          <td><div class="tda-actions compact">
-          <a class="tda-btn tda-btn-open" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>" title="Abrir cliente"><i class="fa-solid fa-eye"></i></a>
-          <button class="tda-btn tda-btn-edit" type="button" title="Editar descrição" data-agenda-task-action="edit" data-task-id="<?=(int)$r['id']?>" data-task-client="<?=e($r['name'])?>" data-task-owner="<?=e($r['assigned_name']??'')?>" data-task-title="<?=e($r['title'])?>" data-task-due="<?=date('Y-m-d\TH:i',$due)?>"><i class="fa-solid fa-pen"></i></button>
-          <button class="tda-btn tda-btn-reschedule" type="button" title="Reagendar" data-agenda-task-action="reschedule" data-task-id="<?=(int)$r['id']?>" data-task-client="<?=e($r['name'])?>" data-task-owner="<?=e($r['assigned_name']??'')?>" data-task-title="<?=e($r['title'])?>" data-task-due="<?=date('Y-m-d\TH:i',$due)?>"><i class="fa-regular fa-calendar-plus"></i></button>
-          <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><input type="hidden" name="created_date" value="<?=e($agendaCreatedDate??'')?>"><button class="tda-btn tda-btn-primary" data-confirm="Marcar a tarefa de <?=e($r['name'])?> como concluída?" data-confirm-title="Concluir tarefa" data-confirm-label="Concluir" data-confirm-tone="success" title="Concluir"><i class="fa-solid fa-check"></i></button></form>
+          <button class="tda-btn tda-btn-open" type="button" title="Ver tarefa completa" data-agenda-task-action="view" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-eye"></i></button>
+          <button class="tda-btn tda-btn-edit" type="button" title="Editar tarefa completa" data-agenda-task-action="edit" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-pen"></i></button>
+          <button class="tda-btn tda-btn-reschedule" type="button" title="Reagendar tarefa" data-agenda-task-action="reschedule" data-task-id="<?=(int)$r['id']?>"><i class="fa-regular fa-calendar-plus"></i></button>
+          <button class="tda-btn tda-btn-primary" type="button" title="Concluir tarefa" data-agenda-task-action="complete" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-check"></i></button>
           <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><input type="hidden" name="created_date" value="<?=e($agendaCreatedDate??'')?>"><button class="tda-btn tda-btn-danger" data-confirm="Excluir definitivamente esta tarefa da agenda de <?=e($r['name'])?>?" data-confirm-title="Excluir tarefa" data-confirm-label="Excluir" data-confirm-tone="danger" title="Excluir"><i class="fa-regular fa-trash-can"></i></button></form>
          </div></td>
         </tr>
@@ -1494,19 +1494,45 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       </table>
      </div>
     </section>
-     <dialog class="tda-action-modal" data-agenda-action-modal>
-      <form method="post" data-agenda-action-form>
+     <dialog class="tda-task-modal" data-agenda-task-modal>
+      <form data-agenda-task-form>
        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-       <input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>">
-       <input type="hidden" name="type" value="<?=e($agendaType??'all')?>">
-       <input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>">
-       <input type="hidden" name="created_date" value="<?=e($agendaCreatedDate??'')?>">
-       <header><span data-agenda-action-icon><i class="fa-solid fa-pen"></i></span><div><small>AGENDA / TAREFA</small><strong data-agenda-action-title>Editar tarefa</strong><p><b data-agenda-action-client></b><em data-agenda-action-owner></em></p></div><button type="button" data-agenda-action-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
-       <div class="tda-action-body">
-        <div data-agenda-edit-field><label><span>Descrição</span><textarea class="form-control" name="title" maxlength="180" rows="4" data-agenda-action-description></textarea></label><small>Use uma descrição objetiva para que o responsável entenda rapidamente o que precisa fazer.</small></div>
-        <div data-agenda-reschedule-field hidden><label><span>Nova data e horário</span><input class="form-control" type="datetime-local" name="due_at" data-agenda-action-due></label><small>A tarefa continuará com o mesmo cliente, responsável e tipo.</small></div>
+       <input type="hidden" name="mode" value="view" data-agenda-task-mode>
+       <header>
+        <span data-agenda-task-icon><i class="fa-solid fa-eye"></i></span>
+        <div><small>AGENDA / TAREFA</small><strong data-agenda-task-heading>Tarefa completa</strong><p><b data-agenda-task-client>Carregando...</b><em data-agenda-task-status></em></p></div>
+        <button type="button" data-agenda-task-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+       </header>
+       <div class="tda-task-body">
+        <section class="tda-task-client-card">
+         <div><span><i class="fa-regular fa-building"></i></span><div><small>CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
+         <a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cliente</a>
+        </section>
+        <div class="tda-task-summary">
+         <div><small>Criada em</small><strong data-agenda-task-created>—</strong></div>
+         <div><small>Criada por</small><strong data-agenda-task-created-by>—</strong></div>
+         <div><small>Status</small><strong data-agenda-task-status-label>—</strong></div>
+         <div><small>Última alteração</small><strong data-agenda-task-updated>—</strong></div>
+        </div>
+        <div class="tda-task-grid">
+         <label><span>Área</span><select class="form-select" name="context" data-agenda-task-context><option value="sales">Comercial</option><option value="collection">Cobrança</option></select></label>
+         <label><span>Tipo de tarefa</span><select class="form-select" name="task_type_code" data-agenda-task-type></select></label>
+         <label><span>Responsável</span><select class="form-select" name="assigned_user_id" data-agenda-task-assigned></select></label>
+         <label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" data-agenda-task-due></label>
+         <label class="wide"><span>Descrição da tarefa</span><textarea class="form-control" name="title" rows="4" maxlength="180" data-agenda-task-description></textarea></label>
+        </div>
+        <section class="tda-task-completion" data-agenda-task-completion hidden>
+         <header><span><i class="fa-solid fa-check"></i></span><div><strong>Conclusão da tarefa</strong><small>Registre o resultado e complemente a informação antes de encerrar.</small></div></header>
+         <div class="tda-task-grid">
+          <label><span>Resultado do atendimento <small>opcional</small></span><select class="form-select" name="completion_result_code" data-agenda-task-result><option value="">Somente concluir tarefa</option></select></label>
+          <label class="wide"><span>Observação de conclusão <small>opcional</small></span><textarea class="form-control" name="completion_notes" rows="4" maxlength="4000" placeholder="Ex.: cliente confirmou recebimento, proposta encaminhada, retorno concluído..." data-agenda-task-notes></textarea></label>
+         </div>
+        </section>
        </div>
-       <footer><button class="tda-btn" type="button" data-agenda-action-close>Cancelar</button><button class="tda-btn tda-action-submit" type="submit" data-agenda-action-submit><i class="fa-solid fa-check"></i><span>Salvar alteração</span></button></footer>
+       <footer>
+        <button class="tda-btn" type="button" data-agenda-task-close>Fechar</button>
+        <button class="tda-btn tda-task-submit" type="submit" data-agenda-task-submit hidden><i class="fa-solid fa-check"></i><span>Salvar</span></button>
+       </footer>
       </form>
      </dialog>
    </section>
