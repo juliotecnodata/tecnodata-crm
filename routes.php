@@ -859,7 +859,7 @@ $router->post('/clients/{id}/activity',function($p){
  if(!in_array($result,$allowed,true))$result='contact';
  $nextAt=trim((string)($_POST['next_at']??''));
  DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),$result,trim((string)($_POST['notes']??'')),$nextAt!==''?$nextAt:null]);
- if($nextAt!=='')DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'sales',?,?,'pending',NOW())",[$id,(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);
+ if($nextAt!==''){ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,'sales','return',?,?,'pending',NOW())",[$id,(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);}
  redirect('/clients/'.$id);
 });
 
@@ -921,7 +921,7 @@ $router->post('/contact-monitoring/{id}/schedule',function($p){
    DB::exec("UPDATE tasks SET assigned_user_id=?,type=?,title=?,due_at=? WHERE id=?",[$assignedId,$seller['role']==='collector'?'collection':'sales',$title,$formatted,$taskId]);
    $message='Próximo contato de '.$client['name'].' reagendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.';
   }else{
-   DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$seller['role']==='collector'?'collection':'sales',$title,$formatted]);
+   ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$seller['role']==='collector'?'collection':'sales','return',$title,$formatted]);
    $message='Próximo contato de '.$client['name'].' agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.';
   }
   $_SESSION['contact_monitoring_flash']=['type'=>'success','message'=>$message];
@@ -1409,7 +1409,7 @@ $router->post('/collection/{id}/action',function($p){
  try{
   DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);
   DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,local_status,reconciled_at,recorded_at,notes,created_at) VALUES(?,?,?,?,?,?,?, ?,NULL,NOW(),?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),$result,$amount,$promiseDate,$result==='payment'?'pending':'none',trim((string)($_POST['notes']??''))]);
-  if($promiseDueAt!==null)DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,'collection',?,?,'pending',NOW())",[$id,$assigned,'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);
+  if($promiseDueAt!==null){ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,'collection','return',?,?,'pending',NOW())",[$id,$assigned,'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);}
   DB::conn()->commit();
   $_SESSION['collection_case_flash']=['type'=>'success','message'=>$promiseDueAt?'Ação salva e retorno agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.':'Ação de cobrança salva com sucesso.'];
  }catch(Throwable $e){
@@ -1512,7 +1512,6 @@ $router->get('/agenda',function(){
  }
 
  $users=$teamAgenda?DB::all("SELECT id,name,role FROM users WHERE active=1 ORDER BY FIELD(role,'seller','collector','supervisor','admin'),name"):[];
- $agendaAssignableUsers=$teamAgenda?$users:($role==='seller'?DB::all("SELECT id,name,role FROM users WHERE active=1 AND role='seller' ORDER BY name"):[]);
  $workload=[];
  if($teamAgenda){
   $teamWhere=["t.status='pending'"];$teamParams=[];
@@ -1533,7 +1532,7 @@ $router->get('/agenda',function(){
  }
 
  render('agenda',[
-  'rows'=>$rows,'agendaUsers'=>$users,'agendaAssignableUsers'=>$agendaAssignableUsers,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
+  'rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
   'agendaType'=>$agendaType,'agendaPeriod'=>$agendaPeriod,'agendaStats'=>$stats,'agendaWorkload'=>$workload,'agendaVision'=>$vision,
   'agendaCreatedDate'=>$createdDate,'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash
  ]);
