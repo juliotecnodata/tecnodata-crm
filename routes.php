@@ -21,6 +21,25 @@ function client_filter_ufs(mixed $input): array{
  foreach($values as $value){$uf=mb_strtoupper(trim((string)$value),'UTF-8');if(preg_match('/^[A-Z]{2}$/',$uf))$selected[$uf]=$uf;}
  $selected=array_values($selected);sort($selected);return $selected;
 }
+function client_filter_tags(mixed $input): array{
+ $values=is_array($input)?$input:($input===null||$input===''?[]:[$input]);$selected=[];
+ foreach($values as $value){$tag=trim((string)$value);if($tag==='')continue;$key=mb_strtolower($tag,'UTF-8');if(!isset($selected[$key]))$selected[$key]=$tag;if(count($selected)>=30)break;}
+ return array_values($selected);
+}
+function client_tags_any_filter_sql(string $alias,int $count): string{
+ if(!in_array($alias,['c','clients',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
+ if($count<1)return '1=1';$prefix=$alias!==''?$alias.'.':'';
+ return "EXISTS (SELECT 1 FROM client_tags filter_tag WHERE filter_tag.client_id=".$prefix."id AND filter_tag.tag_key IN (".implode(',',array_fill(0,$count,'?'))."))";
+}
+function db_column_exists(string $table,string $column): bool{
+ static $cache=[];$key=$table.'.'.$column;if(array_key_exists($key,$cache))return $cache[$key];
+ $db=(string)(DB::scalar('SELECT DATABASE()')??'');$physical=DB::prefix().$table;
+ return $cache[$key]=(bool)(DB::scalar("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND COLUMN_NAME=?",[$db,$physical,$column])??0);
+}
+function collection_task_condition_sql(string $alias='t'): string{
+ if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$alias))throw new InvalidArgumentException('Alias de tarefa inválido.');
+ return db_column_exists('tasks','type')?$alias.".type='collection'":"(".$alias.".title LIKE 'Cobrança:%' OR ".$alias.".title LIKE 'Retorno de cobrança%')";
+}
 function client_ddd_sql(string $alias='c'): string{
  if(!in_array($alias,['c',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
  return "LEFT(REGEXP_REPLACE(COALESCE(".($alias!==''?$alias.'.':'')."phone,''),'[^0-9]',''),2)";
@@ -394,7 +413,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
  $uf=count($clientUfs)===1?$clientUfs[0]:'';
  $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
- $tag=trim((string)($_GET['tag']??''));if(mb_strlen($tag)>190)$tag='';
+ $clientTagsSelected=client_filter_tags($_GET['tags']??($_GET['tag']??[]));$tag=count($clientTagsSelected)===1?$clientTagsSelected[0]:'';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
@@ -405,7 +424,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  }
  if($clientUfs){$w[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($p,...$clientUfs);}
  if($ddds){$w[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($p,...$ddds);}
- if($tag!==''){$w[]=client_tag_filter_sql('c');$p[]=$tag;}
+ if($clientTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$clientTagsSelected);$w[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($p,...$tagKeys);}
  if($sellerFilter==='__none__')$w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  elseif($sellerFilter!==''){$w[]='('.$effectiveSellerSql.')=?';$p[]=$sellerFilter;}
  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,client_search_fields('c'));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
@@ -444,7 +463,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $baseCounts=client_base_counts_cached();
  if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.$stateEffectiveSql.')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
  $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
- render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
+ render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
   'orders'=>(int)($summary['orders_12m']??0),
@@ -1148,11 +1167,13 @@ $router->get('/collection',function(){
  Auth::requireRole('admin','supervisor','collector');
  $u=Auth::user();$view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
  $assigned=max(0,(int)($_GET['assigned_user_id']??0));$uf=mb_strtoupper(trim((string)($_GET['uf']??'')));$delay=(string)($_GET['delay']??'all');
+ $collectionTagsSelected=client_filter_tags($_GET['tags']??[]);
  if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';
  if($u['role']==='collector')$assigned=0;
  $where=['cc.status=?'];$params=[$view];
  if($assigned>0){$where[]='cc.assigned_user_id=?';$params[]=$assigned;}
  if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
+ if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$where[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($params,...$tagKeys);}
  if($delay==='current')$where[]='cc.max_overdue_days<=0';
  elseif($delay==='1_30')$where[]='cc.max_overdue_days BETWEEN 1 AND 30';
  elseif($delay==='31_60')$where[]='cc.max_overdue_days BETWEEN 31 AND 60';
@@ -1189,15 +1210,17 @@ $router->get('/collection',function(){
  $actionWhere=["ca.result='payment'","ca.local_status<>'cancelled'","ca.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01')"];$actionParams=[];
  if($assigned>0){$actionWhere[]='ca.assigned_user_id=?';$actionParams[]=$assigned;}
  if($uf!==''){$actionWhere[]='c.uf=?';$actionParams[]=$uf;}
+ if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$actionWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($actionParams,...$tagKeys);}
  $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(ca.amount),0) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$actionWhere),$actionParams)??0);
  $promiseWhere=["ca.result='promise'","ca.promise_date>=CURDATE()"];$promiseParams=[];
  if($assigned>0){$promiseWhere[]='ca.assigned_user_id=?';$promiseParams[]=$assigned;}
  if($uf!==''){$promiseWhere[]='c.uf=?';$promiseParams[]=$uf;}
+ if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$promiseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($promiseParams,...$tagKeys);}
  $promises=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$promiseWhere),$promiseParams)??0);
  $flash=$_SESSION['collection_flash']??null;unset($_SESSION['collection_flash']);
  render('collection',[
   'rows'=>[],'view'=>$view,'flash'=>$flash,'collectionCollectors'=>$collectors,'collectionUfs'=>$ufs,
-  'collectionAssigned'=>$assigned,'collectionUf'=>$uf,'collectionDelay'=>$delay,'collectionRecovered'=>$recovered,'collectionPromises'=>$promises,
+  'collectionAssigned'=>$assigned,'collectionUf'=>$uf,'collectionDelay'=>$delay,'collectionTags'=>client_tag_catalog(),'collectionTagsSelected'=>$collectionTagsSelected,'collectionRecovered'=>$recovered,'collectionPromises'=>$promises,
   'collectionStats'=>$stats,'collectionTopAttention'=>$topAttention
  ]);
 });
@@ -1848,7 +1871,7 @@ $router->post('/api/clients/bulk',function(){
    $segment=(string)($input['segment']??'all');if($segment!=='all'&&!isset(client_segment_catalog()[$segment]))$segment='all';
   $clientUfs=client_filter_ufs($input['ufs']??($input['uf']??[]));$uf=count($clientUfs)===1?$clientUfs[0]:'';
   $ddds=$uf!==''?client_portfolio_ddds($input['ddds']??[],$uf):[];
-  $tag=trim((string)($input['tag']??''));if(mb_strlen($tag)>190)$tag='';
+  $filterTags=client_filter_tags($input['filter_tags']??($input['tag']??[]));
   $sellerFilter=trim((string)($input['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
    $portfolioMonth=ClientPortfolioService::monthRef($input['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
   $search=trim((string)($input['search']??''));if(mb_strlen($search)>190)$search=mb_substr($search,0,190);
@@ -1860,7 +1883,7 @@ $router->post('/api/clients/bulk',function(){
   [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');$where=['c.active=1',$segmentSql];$params=$segmentParams;
   if($clientUfs){$where[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($params,...$clientUfs);}
   if($ddds){$where[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($params,...$ddds);}
-  if($tag!==''){$where[]=client_tag_filter_sql('c');$params[]=$tag;}
+  if($filterTags){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$filterTags);$where[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($params,...$tagKeys);}
    if($sellerFilter==='__none__')$where[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
    elseif($sellerFilter!==''){$where[]='('.$effectiveSellerSql.')=?';$params[]=$sellerFilter;}
   if($search!==''){[$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['search_effective.name','('.$effectiveSellerSql.')']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
@@ -1915,7 +1938,7 @@ $router->get('/api/clients/datatable',function(){
  $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
  $uf=count($clientUfs)===1?$clientUfs[0]:'';
  $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
- $tag=trim((string)($_GET['tag']??''));if(mb_strlen($tag)>190)$tag='';
+ $clientTagsSelected=client_filter_tags($_GET['tags']??($_GET['tag']??[]));$tag=count($clientTagsSelected)===1?$clientTagsSelected[0]:'';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
 
@@ -1927,7 +1950,7 @@ $router->get('/api/clients/datatable',function(){
  }
  if($clientUfs){$baseWhere[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($baseParams,...$clientUfs);}
  if($ddds){$baseWhere[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($baseParams,...$ddds);}
- if($tag!==''){$baseWhere[]=client_tag_filter_sql('c');$baseParams[]=$tag;}
+ if($clientTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$clientTagsSelected);$baseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($baseParams,...$tagKeys);}
  if($sellerFilter==='__none__')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  elseif($sellerFilter!==''){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=$sellerFilter;}
  $portfolioJoin=" LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref='".$portfolioMonth."'";
@@ -2119,10 +2142,12 @@ $router->get('/api/collection/datatable',function(){
  $u=Auth::user();$draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
  $view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
  $assigned=max(0,(int)($_GET['assigned_user_id']??0));$uf=mb_strtoupper(trim((string)($_GET['uf']??'')));$delay=(string)($_GET['delay']??'all');
+ $collectionTagsSelected=client_filter_tags($_GET['tags']??[]);
  if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';if(($u['role']??'')==='collector')$assigned=0;
  $baseWhere=['cc.status=?'];$baseParams=[$view];
  if($assigned>0){$baseWhere[]='cc.assigned_user_id=?';$baseParams[]=$assigned;}
  if($uf!==''){$baseWhere[]='c.uf=?';$baseParams[]=$uf;}
+ if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$baseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($baseParams,...$tagKeys);}
  if($delay==='current')$baseWhere[]='cc.max_overdue_days<=0';
  elseif($delay==='1_30')$baseWhere[]='cc.max_overdue_days BETWEEN 1 AND 30';
  elseif($delay==='31_60')$baseWhere[]='cc.max_overdue_days BETWEEN 31 AND 60';
@@ -2151,7 +2176,7 @@ $router->get('/api/collection/datatable',function(){
    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
    LEFT JOIN users u ON u.id=cc.assigned_user_id
    LEFT JOIN collection_actions la ON la.id=(SELECT ca.id FROM collection_actions ca WHERE ca.client_id=cc.client_id AND ca.local_status<>'cancelled' ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1)
-   LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND t.type='collection' AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1)
+   LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND ".collection_task_condition_sql('t')." AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1)
    WHERE ".$whereSql."
    ORDER BY ".$orderBy." ".$orderDir.",cc.id DESC
    LIMIT ".$length." OFFSET ".$start,
