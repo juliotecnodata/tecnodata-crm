@@ -58,6 +58,8 @@ if(session_status()!==PHP_SESSION_ACTIVE){
 }
 
 require APP_ROOT.'/app/core.php';
+require APP_ROOT.'/app/google_auth.php';
 require APP_ROOT.'/app/services.php';
+require APP_ROOT.'/app/order_pdf.php';
 require APP_ROOT.'/app/opportunities.php';
 require APP_ROOT.'/app/views.php';

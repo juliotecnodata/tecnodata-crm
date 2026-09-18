@@ -2,6 +2,7 @@
 final class OmieClient {
  private array $endpoints=[
   'clients'=>'https://app.omie.com.br/api/v1/geral/clientes/',
+  'client_tags'=>'https://app.omie.com.br/api/v1/geral/clientetag/',
   'sellers'=>'https://app.omie.com.br/api/v1/geral/vendedores/',
   'products'=>'https://app.omie.com.br/api/v1/geral/produtos/',
   'categories'=>'https://app.omie.com.br/api/v1/geral/categorias/',
@@ -21,7 +22,7 @@ final class OmieClient {
   $url=$this->endpoints[$endpoint]??null;if(!$url)throw new RuntimeException('Endpoint Omie desconhecido.');
   $cfg=$GLOBALS['config']['omie'];
   if(str_starts_with($call,'Listar')){
-   $batchSize=max(10,min(50,(int)($cfg['sync_batch_size']??25)));
+   $batchSize=max(10,min(50,(int)($GLOBALS['config']['sync']['sync_batch_size']??50)));
    if(isset($param['registros_por_pagina'])&&(int)$param['registros_por_pagina']>$batchSize)$param['registros_por_pagina']=$batchSize;
    if(isset($param['nRegPorPagina'])&&(int)$param['nRegPorPagina']>$batchSize)$param['nRegPorPagina']=$batchSize;
   }
@@ -32,6 +33,102 @@ final class OmieClient {
   $data=json_decode($raw,true);if(!is_array($data))throw new RuntimeException('Resposta inválida Omie HTTP '.$http.'.');
   if($http>=400||isset($data['faultstring']))throw new RuntimeException((string)($data['faultstring']??$data['message']??('Erro Omie HTTP '.$http)));
   return $data;
+ }
+}
+
+final class ClientSegmentPolicy {
+ private static bool $schemaReady=false;
+ public static function ensureSchema(): void{
+  if(self::$schemaReady)return;
+  $columns=[];foreach(DB::all("SHOW COLUMNS FROM clients") as $column)$columns[(string)($column['Field']??'')]=true;
+  $upgrading=!isset($columns['omie_seller_code'])||!isset($columns['portfolio_locked']);
+  if(!isset($columns['omie_seller_code']))DB::exec("ALTER TABLE clients ADD COLUMN omie_seller_code VARCHAR(80) NULL AFTER seller_omie_code, ADD INDEX idx_clients_omie_seller(omie_seller_code,active)");
+  if(!isset($columns['portfolio_locked']))DB::exec("ALTER TABLE clients ADD COLUMN portfolio_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER omie_seller_code");
+  if($upgrading){
+   DB::exec("UPDATE clients SET omie_seller_code=COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.recomendacoes.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.recomendacoes.codigo_vendedor')),''))");
+   $protected=self::crmPortfolioSellerCodes();if($protected)DB::exec("UPDATE clients SET portfolio_locked=1 WHERE seller_omie_code IN (".implode(',',array_fill(0,count($protected),'?')).")",$protected);
+  }
+  self::$schemaReady=true;
+ }
+ public static function catalog(): array{$catalog=$GLOBALS['config']['client_segments']??[];return is_array($catalog)?$catalog:[];}
+ public static function virtualSellerCodes(): array{
+  $codes=[];foreach(self::catalog() as $key=>$segment){if($key==='general'||!is_array($segment))continue;foreach((array)($segment['seller_codes']??[]) as $code){$code=trim((string)$code);if($code!=='')$codes[$code]=$code;}}
+  return array_values($codes);
+ }
+ public static function isVirtualSeller(?string $sellerCode): bool{return in_array(trim((string)$sellerCode),self::virtualSellerCodes(),true);}
+ public static function segmentSeller(array $client): string{return trim((string)($client['omie_seller_code']??$client['seller_omie_code']??''));}
+ public static function crmPortfolioSellerCodes(): array{
+  $codes=[];foreach((array)($GLOBALS['config']['crm_portfolio_seller_codes']??[]) as $code){$code=trim((string)$code);if($code!=='')$codes[$code]=$code;}
+  return array_values($codes);
+ }
+ public static function isCrmPortfolioSeller(?string $sellerCode): bool{return in_array(trim((string)$sellerCode),self::crmPortfolioSellerCodes(),true);}
+}
+
+final class FreightQuoteService {
+ private const ENDPOINT='https://grupotecnodata.com.br/api_fretes/index.php';
+
+ private static function normalized(string $value): string{
+  $ascii=iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
+  return strtoupper(preg_replace('/[^A-Z0-9]+/','',(string)($ascii!==false?$ascii:$value)));
+ }
+
+ public static function matchCarrierCode(array $quote,array $carriers): string{
+  $tokens=[];
+  foreach(['label','carrier'] as $field){$token=self::normalized((string)($quote[$field]??''));if(strlen($token)>=3)$tokens[]=$token;}
+  foreach($carriers as $carrier){
+   $name=self::normalized((string)($carrier['name']??''));
+   foreach($tokens as $token)if(str_contains($name,$token)||str_contains($token,$name))return (string)($carrier['omie_code']??'');
+  }
+  return '';
+ }
+
+ public static function quote(array $input,array $user): array{
+  $clientId=(int)($input['client_id']??0);
+  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$clientId]);
+  if(!$client)throw new RuntimeException('Selecione um cliente válido antes de calcular o frete.');
+  if(($user['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client)))throw new RuntimeException('Este cliente pertence a uma operação virtual e não está disponível para a carteira comercial.');
+  $unassigned=trim((string)($client['seller_omie_code']??''))==='';
+  if(($user['role']??'')==='seller'&&!$unassigned&&(string)$client['seller_omie_code']!==(string)($user['seller_omie_code']??''))throw new RuntimeException('Este cliente não está disponível para pedidos deste vendedor.');
+
+  $form=ClientService::formFromClient($client);
+  $document=preg_replace('/\D+/','',(string)($client['document']??$form['document']??''));
+  $zip=preg_replace('/\D+/','',(string)($form['zip_code']??''));
+  $value=max(0,(float)str_replace(',','.',(string)($input['value']??0)));
+  $weight=max(0,(float)str_replace(',','.',(string)($input['weight']??0)));
+  $volumes=max(1,(int)($input['volumes']??1));
+  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('O cliente está sem CPF/CNPJ válido para a cotação.');
+  if(strlen($zip)!==8)throw new RuntimeException('O cliente está sem CEP válido. Atualize o cadastro antes de calcular o frete.');
+  if($value<=0)throw new RuntimeException('Inclua produtos com valor maior que zero antes de calcular o frete.');
+  if($weight<=0)throw new RuntimeException('Informe o peso bruto ou líquido antes de calcular o frete.');
+
+  $request=['action'=>'cotacao_multi','data'=>[
+   'cnpjDestinatario'=>$document,'cepDestino'=>$zip,'vlrMercadoria'=>round($value,2),
+   'peso'=>round($weight,3),'volumes'=>$volumes,'tipoFrete'=>'1','modal'=>'R',
+  ]];
+  $ch=curl_init(self::ENDPOINT);
+  curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_POST=>true,CURLOPT_HTTPHEADER=>['Content-Type: application/json','Accept: application/json','Accept-Encoding: identity'],CURLOPT_POSTFIELDS=>json_encode($request,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),CURLOPT_CONNECTTIMEOUT=>15,CURLOPT_TIMEOUT=>120,CURLOPT_ENCODING=>'identity']);
+  $raw=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$error=curl_error($ch);curl_close($ch);
+  if($raw===false||$error!=='')throw new RuntimeException('Falha ao consultar a API de fretes: '.$error);
+  $response=json_decode((string)$raw,true);
+  if(!is_array($response))throw new RuntimeException('A API de fretes retornou uma resposta inválida.');
+  if($http>=400||empty($response['success']))throw new RuntimeException((string)($response['error']??('API de fretes indisponível (HTTP '.$http.').')));
+  $data=is_array($response['data']??null)?$response['data']:[];$carriers=OrderService::configuredCarriers();$items=[];
+  foreach((array)($data['items']??[]) as $index=>$row){
+   if(!is_array($row))continue;
+   $items[]=[
+    'carrier'=>(string)($row['carrier']??''),'label'=>html_entity_decode((string)($row['label']??$row['carrier']??'Transportadora'),ENT_QUOTES|ENT_HTML5,'UTF-8'),
+    'success'=>!empty($row['success']),'message'=>html_entity_decode((string)($row['message']??''),ENT_QUOTES|ENT_HTML5,'UTF-8'),
+    'value'=>isset($row['valorTotal'])&&is_numeric($row['valorTotal'])?(float)$row['valorTotal']:null,
+    'base_value'=>isset($row['valorBase'])&&is_numeric($row['valorBase'])?(float)$row['valorBase']:null,
+    'fee_percent'=>isset($row['taxaPct'])&&is_numeric($row['taxaPct'])?(float)$row['taxaPct']:null,
+    'deadline'=>html_entity_decode((string)($row['prazo']??''),ENT_QUOTES|ENT_HTML5,'UTF-8'),'quote_id'=>(string)($row['id']??''),
+    'best'=>(int)($data['bestIndex']??-1)===$index,'source'=>'transportadoras','service'=>'','delivery_date'=>'','omie_carrier_code'=>self::matchCarrierCode($row,$carriers),
+   ];
+  }
+  $availableIndexes=[];
+  foreach($items as $index=>$item)if(!empty($item['success'])&&isset($item['value'])&&is_numeric($item['value']))$availableIndexes[$index]=(float)$item['value'];
+  if($availableIndexes){$bestIndex=array_search(min($availableIndexes),$availableIndexes,true);foreach($items as $index=>&$item)$item['best']=$index===$bestIndex;unset($item);}
+  return ['items'=>$items,'providers'=>['transportadoras'=>['status'=>'ok','message'=>'Transportadoras integradas consultadas.']],'m3'=>(float)($data['m3']??0),'destination_zip'=>$zip,'weight'=>$weight,'volumes'=>$volumes];
  }
 }
 
@@ -122,8 +219,8 @@ final class CRMService {
   }
   if($u['role']==='collector'){
    $debt=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
-   $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(amount),0) FROM collection_actions WHERE assigned_user_id=? AND result='payment' AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);
-   $worked=(int)(DB::scalar("SELECT COUNT(DISTINCT client_id) FROM collection_actions WHERE assigned_user_id=? AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);return compact('debt','recovered','worked');
+   $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(amount),0) FROM collection_actions WHERE assigned_user_id=? AND result='payment' AND local_status<>'cancelled' AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);
+   $worked=(int)(DB::scalar("SELECT COUNT(DISTINCT client_id) FROM collection_actions WHERE assigned_user_id=? AND local_status<>'cancelled' AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);return compact('debt','recovered','worked');
   }
   $management=GoalService::managementMonth(date('Y-m'));
   $sales=(float)$management['sales'];
@@ -143,26 +240,37 @@ final class NotificationService {
   $items=[];$total=0;$uid=(int)($u['id']??0);$role=(string)($u['role']??'');
   try{
    if(in_array($role,['seller','collector'],true)){
-    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND DATE(due_at)<CURDATE()",[$uid])??0);
+    $counts=DB::one(
+     "SELECT
+       (SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND due_at<CURDATE()) late_count,
+       (SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND due_at>=CURDATE() AND due_at<CURDATE()+INTERVAL 1 DAY) today_count".
+       ($role==='collector' ? ", (SELECT COUNT(*) FROM collection_cases WHERE status='open' AND max_overdue_days>0 AND assigned_user_id=?) overdue_count" : ''),
+     $role==='collector'?[$uid,$uid,$uid]:[$uid,$uid]
+    )?:[];
+    $late=(int)($counts['late_count']??0);
     if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'Existem compromissos atrasados na sua agenda.','href'=>'/agenda?period=late'];}
-    $today=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND DATE(due_at)=CURDATE()",[$uid])??0);
+    $today=(int)($counts['today_count']??0);
     if($today>0){$total+=$today;$items[]=['type'=>'warning','icon'=>'fa-calendar-day','title'=>$today.' retorno(s) para hoje','text'=>'Há compromissos que precisam de atenção hoje.','href'=>'/agenda?period=today'];}
    }else{
-    $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)<CURDATE()")??0);
+    $counts=DB::one(
+     "SELECT
+       (SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<CURDATE()) late_count,
+       (SELECT COUNT(*) FROM collection_cases WHERE status='open' AND max_overdue_days>0) overdue_count".
+       ($role==='admin' ? ", (SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>'') sync_error_count, (SELECT COUNT(*) FROM clients WHERE active=1 AND (seller_omie_code IS NULL OR TRIM(seller_omie_code)='')) unassigned_count" : '')
+    )?:[];
+    $late=(int)($counts['late_count']??0);
     if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'A equipe possui compromissos atrasados.','href'=>'/agenda?period=late'];}
    }
 
    if(in_array($role,['admin','supervisor','collector'],true)){
-    $params=[];$where="status='open' AND max_overdue_days>0";
-    if($role==='collector'){$where.=" AND assigned_user_id=?";$params[]=$uid;}
-    $overdueCases=(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases WHERE ".$where,$params)??0);
+    $overdueCases=(int)($counts['overdue_count']??0);
     if($overdueCases>0){$total+=$overdueCases;$items[]=['type'=>'orange','icon'=>'fa-hand-holding-dollar','title'=>$overdueCases.' cobrança(s) em atraso','text'=>'Há clientes com saldo vencido aguardando acompanhamento.','href'=>'/collection'];}
    }
 
    if($role==='admin'){
-    $syncErrors=(int)(DB::scalar("SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>''")??0);
+    $syncErrors=(int)($counts['sync_error_count']??0);
     if($syncErrors>0){$total+=$syncErrors;$items[]=['type'=>'danger','icon'=>'fa-triangle-exclamation','title'=>$syncErrors.' integração(ões) com erro','text'=>'Revise a Central de Sincronização da Omie.','href'=>'/sync'];}
-    $unassigned=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND (seller_omie_code IS NULL OR TRIM(seller_omie_code)='')")??0);
+    $unassigned=(int)($counts['unassigned_count']??0);
     if($unassigned>0){$total+=$unassigned;$items[]=['type'=>'info','icon'=>'fa-user-plus','title'=>$unassigned.' cliente(s) sem vendedor','text'=>'Existem clientes disponíveis para distribuição de carteira.','href'=>'/clients'];}
    }
   }catch(Throwable $e){
@@ -233,7 +341,7 @@ final class BrasilApiService {
 }
 
 final class ClientService {
- public static function buildOmiePreview(array $i,array $u): array{
+ public static function buildOmiePreview(array $i,array $u,?string $sellerOverride=null): array{
   $legalName=trim((string)($i['legal_name']??''));
   $tradeName=trim((string)($i['trade_name']??''));
   $document=preg_replace('/\D+/','',(string)($i['document']??''));
@@ -249,8 +357,8 @@ final class ClientService {
   $city=trim((string)($i['city']??''));
   $uf=strtoupper(trim((string)($i['uf']??'')));
   $notes=trim((string)($i['notes']??''));
-  // Classificação comercial padronizada para todos os cadastros criados/editados pelo CRM.
-  $tags=['CLIENTE','CFC'];
+  // Novos cadastros mantêm a classificação padrão; edições respeitam as tags informadas.
+  $tags=array_key_exists('tags',$i)?self::normalizeTags($i['tags']):['CLIENTE','CFC'];
 
   if($legalName==='')throw new RuntimeException('Razão social / Nome é obrigatório.');
   if($tradeName==='')throw new RuntimeException('Nome fantasia é obrigatório.');
@@ -267,7 +375,8 @@ final class ClientService {
   if(!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('UF é obrigatória e deve conter 2 letras.');
 
   $seller='';
-  if(($u['role']??'')==='seller')$seller=(string)($u['seller_omie_code']??'');
+  if($sellerOverride!==null)$seller=trim($sellerOverride);
+  elseif(($u['role']??'')==='seller')$seller=(string)($u['seller_omie_code']??'');
   else $seller=trim((string)($i['seller_omie_code']??''));
   if($seller!==''&&!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$seller]))throw new RuntimeException('Vendedor inválido.');
 
@@ -307,6 +416,64 @@ final class ClientService {
   ];
  }
 
+ public static function normalizeTags(mixed $input): array{
+  $values=is_array($input)?$input:preg_split('/[,;\r\n]+/u',(string)$input);
+  $tags=[];
+  foreach((array)$values as $value){
+   $tag=trim((string)(is_array($value)?($value['tag']??''):$value));
+   if($tag===''||mb_strlen($tag)>60)continue;
+   $tags[mb_strtolower($tag,'UTF-8')]=$tag;
+   if(count($tags)>=20)break;
+  }
+  return array_values($tags);
+ }
+
+ public static function applyBulkLocal(int $id,bool $changeSeller,string $sellerCode,string $tagOperation,array $requestedTags,bool $omieAlreadyUpdated=false): void{
+  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
+  if(!$client)throw new RuntimeException('Cliente não encontrado.');
+  if($changeSeller&&$sellerCode!==''&&!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]))throw new RuntimeException('Vendedor inválido ou inativo.');
+  if(!in_array($tagOperation,['none','add','remove','replace'],true))throw new RuntimeException('Operação de tags inválida.');
+  $raw=json_decode((string)($client['raw_json']??''),true);if(!is_array($raw))$raw=[];
+  $source=is_array($raw['request']??null)?$raw['request']:$raw;
+  if($tagOperation!=='none'){
+   $existing=self::normalizeTags((array)($source['tags']??[]));
+   $current=[];foreach($existing as $tag)$current[mb_strtolower($tag,'UTF-8')]=$tag;
+   $requested=self::normalizeTags($requestedTags);
+   if($tagOperation==='replace'){$current=[];foreach($requested as $tag)$current[mb_strtolower($tag,'UTF-8')]=$tag;}
+   elseif($tagOperation==='add')foreach($requested as $tag)$current[mb_strtolower($tag,'UTF-8')]=$tag;
+   else foreach($requested as $tag)unset($current[mb_strtolower($tag,'UTF-8')]);
+   $source['tags']=array_map(static fn($tag)=>['tag'=>$tag],array_values($current));
+  }
+  if(is_array($raw['request']??null))$raw['request']=$source;else $raw=$source;
+  $raw['omie_status']=$omieAlreadyUpdated?'local_confirmed':(str_starts_with((string)$client['omie_code'],'LOCAL-')?'pending':'pending_update');
+  $raw['source']=$omieAlreadyUpdated?'bulk_local_confirmed':'bulk_update_pending';
+  $rawJson=json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+  if($changeSeller&&$omieAlreadyUpdated)DB::exec("UPDATE clients SET seller_omie_code=?,omie_seller_code=?,portfolio_locked=1,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
+  elseif($changeSeller)DB::exec("UPDATE clients SET seller_omie_code=?,portfolio_locked=1,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
+  else DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[$rawJson,$id]);
+ }
+
+ private static function tagNames(mixed $items): array{
+  $tags=[];foreach((array)$items as $item){$tag=trim((string)(is_array($item)?($item['tag']??''):$item));if($tag!=='')$tags[mb_strtolower($tag,'UTF-8')]=$tag;}
+  return $tags;
+ }
+
+ private static function syncOmieTags(OmieClient $omie,int $clientCode,string $integrationCode,array $desiredTags): array{
+  $identity=['nCodCliente'=>$clientCode,'cCodIntCliente'=>$integrationCode];
+  $listed=$omie->call('client_tags','ListarTags',$identity);
+  $remote=self::tagNames($listed['tagsLista']??[]);$desired=self::tagNames($desiredTags);
+  $remove=[];foreach($remote as $key=>$tag)if(!isset($desired[$key]))$remove[]=['tag'=>$tag];
+  $add=[];foreach($desired as $key=>$tag)if(!isset($remote[$key]))$add[]=['tag'=>$tag];
+  $responses=['listed'=>$listed];
+  if($remove)$responses['removed']=$omie->call('client_tags','ExcluirTags',$identity+['tags'=>$remove]);
+  if($add)$responses['added']=$omie->call('client_tags','IncluirTags',$identity+['tags'=>$add]);
+  // A Omie pode levar alguns segundos para refletir exclusões na listagem e ainda
+  // bloquear uma segunda consulta imediata como consumo redundante. As respostas
+  // específicas de inclusão/exclusão são registradas e a próxima consulta confirma.
+  $responses['expected']=array_map(static fn($tag)=>['tag'=>$tag],array_values($desired));
+  $responses['removed_tags']=$remove;$responses['added_tags']=$add;return $responses;
+ }
+
  private static function extractOmieClientCode(array $response): string{
   $code=(string)($response['codigo_cliente_omie']??'');
   $code=trim($code);
@@ -314,7 +481,23 @@ final class ClientService {
   return $code;
  }
 
- private static function findExistingInOmieByDocument(string $document): ?array{
+ private static function selectOmieClientByDocument(array $rows,string $document,string $expectedOmieCode=''): ?array{
+  $matches=[];
+  foreach($rows as $row){
+   if(!is_array($row))continue;
+   $remoteDocument=preg_replace('/\D+/','',(string)($row['cnpj_cpf']??''));
+   if($remoteDocument!==$document)continue;
+   $matches[]=$row;
+  }
+  if($expectedOmieCode!=='')foreach($matches as $row){
+   $remoteCode=trim((string)($row['codigo_cliente_omie']??$row['codigo_cliente']??''));
+   if($remoteCode===$expectedOmieCode&&mb_strtoupper(trim((string)($row['inativo']??'N'))) !== 'S')return $row;
+  }
+  foreach($matches as $row)if(mb_strtoupper(trim((string)($row['inativo']??'N'))) !== 'S')return $row;
+  return null;
+ }
+
+ private static function findExistingInOmieByDocument(string $document,string $expectedOmieCode=''): ?array{
   $document=preg_replace('/\D+/','',$document);
   if(!in_array(strlen($document),[11,14],true))return null;
 
@@ -338,18 +521,14 @@ final class ClientService {
 
   if((int)($data['total_de_registros']??0)===0||empty($data['clientes_cadastro']))return null;
   $rows=(array)($data['clientes_cadastro']??[]);
-  foreach($rows as $row){
-   if(!is_array($row))continue;
-   $remoteDocument=preg_replace('/\D+/','',(string)($row['cnpj_cpf']??''));
-   if($remoteDocument===$document)return $row;
-  }
-  return null;
+  return self::selectOmieClientByDocument($rows,$document,$expectedOmieCode);
  }
 
  public static function createLocal(array $i,array $u): array{
+  ClientSegmentPolicy::ensureSchema();
   $built=self::buildOmiePreview($i,$u);
   $document=(string)$built['summary']['document'];
-  $existing=DB::one("SELECT id,omie_code,name FROM clients WHERE document=? AND active=1 LIMIT 1",[$document]);
+  $existing=DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 LIMIT 1",[$document]);
   if($existing)throw new RuntimeException('Este CPF/CNPJ já existe no CRM como cliente "'.$existing['name'].'".');
 
   $p=$built['payload'];
@@ -359,9 +538,9 @@ final class ClientService {
   $seller=(string)($p['recomendacoes']['codigo_vendedor']??'');
   $raw=['request'=>$p,'source'=>'local_pending','omie_status'=>'pending'];
 
-  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
-            VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())",
-   [$localCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
+  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())",
+   [$localCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
 
   $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$localCode]);
   return ['client'=>$client,'payload'=>$p];
@@ -370,17 +549,15 @@ final class ClientService {
  public static function syncLocalWithOmie(int $id,array $u): array{
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
-  if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
-
   $rawCurrent=json_decode((string)($client['raw_json']??''),true);
   if(!is_array($rawCurrent))$rawCurrent=[];
   $form=self::formFromClient($client);
-  $built=self::buildOmiePreview($form,$u);
+  $built=self::buildOmiePreview($form,$u,(string)($client['seller_omie_code']??''));
   $document=(string)$built['summary']['document'];
   $isLocal=str_starts_with((string)$client['omie_code'],'LOCAL-');
   $originalOmieCode=(string)($rawCurrent['previous_omie_code']??($isLocal?'':$client['omie_code']));
 
-  $remoteExisting=self::findExistingInOmieByDocument($document);
+  $remoteExisting=self::findExistingInOmieByDocument($document,$originalOmieCode);
 
   if($isLocal){
    if($remoteExisting){
@@ -426,18 +603,34 @@ final class ClientService {
   $p=$built['payload'];
   unset($p['codigo_cliente_integracao']);
   $p['codigo_cliente_omie']=(int)$originalOmieCode;
+  $desiredTags=self::normalizeTags($form['tags']??[]);
+  unset($p['tags']);
+  if(trim((string)($client['seller_omie_code']??''))==='')$p['recomendacoes']=['codigo_vendedor'=>0];
 
   $omie=new OmieClient();
   $response=$omie->call('clients','AlterarCliente',$p);
-  $raw=['request'=>$p,'response'=>$response,'source'=>'omie_updated_after_local_save','omie_status'=>'linked'];
-  DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$originalOmieCode]);
+  $integrationCode=trim((string)($confirmed['codigo_cliente_integracao']??''));
+  if($integrationCode===''){
+   $integrationCode='TDCRM-CLI-'.$originalOmieCode;
+   $tagIdentityResponse=$omie->call('clients','AssociarCodIntCliente',['codigo_cliente_omie'=>(int)$originalOmieCode,'codigo_cliente_integracao'=>$integrationCode]);
+  }else $tagIdentityResponse=null;
+  $tagResponses=self::syncOmieTags($omie,(int)$originalOmieCode,$integrationCode,$desiredTags);
+  $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$originalOmieCode]);
+  $desiredSeller=trim((string)($client['seller_omie_code']??''));$confirmedSeller=trim((string)($confirmed['recomendacoes']['codigo_vendedor']??''));
+  if($desiredSeller!==$confirmedSeller)throw new RuntimeException('A Omie respondeu, mas não confirmou a alteração do vendedor.');
+  $p['tags']=array_map(static fn($tag)=>['tag'=>$tag],$desiredTags);
+  $raw=['request'=>$p,'response'=>$response,'tag_identity_response'=>$tagIdentityResponse,'tag_responses'=>$tagResponses,'confirmed'=>$confirmed,'source'=>'omie_updated_after_local_save','omie_status'=>'linked'];
+  $syncedSeller=trim((string)($client['seller_omie_code']??''));
+  DB::exec("UPDATE clients SET omie_seller_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$syncedSeller!==''?$syncedSeller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
   return ['status'=>'updated','message'=>'Alterações locais sincronizadas com sucesso na Omie. Código Omie '.$originalOmieCode.'.'];
  }
 
  public static function createInOmie(array $i,array $u): array{
+  ClientSegmentPolicy::ensureSchema();
   $built=self::buildOmiePreview($i,$u);
   $document=(string)$built['summary']['document'];
-  $existing=$document!==''?DB::one("SELECT id,omie_code,name FROM clients WHERE document=? LIMIT 1",[$document]):null;
+  $existing=$document!==''?DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? LIMIT 1",[$document]):null;
   if($existing)throw new RuntimeException('Este CPF/CNPJ já existe no CRM como cliente "'.$existing['name'].'".');
 
   // Confirma também diretamente na Omie. A base local pode estar desatualizada entre sincronizações.
@@ -456,13 +649,13 @@ final class ClientService {
   $p=$built['payload'];
   $name=(string)($p['nome_fantasia']??$p['razao_social']??$document);
   $phone=trim((string)($p['telefone1_ddd']??'').' '.(string)($p['telefone1_numero']??''));
-  $seller=(string)($p['codigo_vendedor']??'');
+  $seller=(string)($p['recomendacoes']['codigo_vendedor']??'');
   $raw=['request'=>$p,'response'=>$response,'response_code'=>$omieCode,'source'=>'crm_create'];
 
-  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
-            VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())
-            ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),seller_omie_code=VALUES(seller_omie_code),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
-   [$omieCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
+  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())
+            ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),seller_omie_code=VALUES(seller_omie_code),omie_seller_code=VALUES(omie_seller_code),portfolio_locked=0,active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
+   [$omieCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
 
   $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$omieCode]);
   return ['client'=>$client,'response'=>$response,'payload'=>$p];
@@ -498,12 +691,12 @@ final class ClientService {
  }
 
  public static function updateInOmie(int $id,array $i,array $u): array{
+  ClientSegmentPolicy::ensureSchema();
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
-  if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
-
-  $built=self::buildOmiePreview($i,$u);
-  $duplicate=DB::one("SELECT id,name FROM clients WHERE document=? AND id<>? AND active=1 LIMIT 1",[(string)$built['summary']['document'],$id]);
+  $requestedSeller=trim((string)($i['seller_omie_code']??$client['seller_omie_code']??''));
+  $built=self::buildOmiePreview($i,$u,$requestedSeller);
+  $duplicate=DB::one("SELECT id,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND id<>? AND active=1 LIMIT 1",[(string)$built['summary']['document'],$id]);
   if($duplicate)throw new RuntimeException('Este CPF/CNPJ já pertence ao cliente "'.$duplicate['name'].'".');
 
   $p=$built['payload'];
@@ -518,8 +711,8 @@ final class ClientService {
    'previous_omie_code'=>$isLocal?null:(string)$client['omie_code'],
   ];
 
-  DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",
-   [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,omie_seller_code=?,portfolio_locked=0,raw_json=?,updated_at=NOW() WHERE id=?",
+   [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
 
   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
@@ -529,7 +722,7 @@ final class ClientService {
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
 
-  DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
+  DB::exec("DELETE FROM clients WHERE id=?",[$id]);
   return ['status'=>'local_deleted','client'=>$client];
  }
 
@@ -540,37 +733,27 @@ final class ClientService {
 
   $localOmieCode=(string)($client['omie_code']??'');
   if(str_starts_with($localOmieCode,'LOCAL-')){
-   DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
+   DB::exec("DELETE FROM clients WHERE id=?",[$id]);
    return ['status'=>'local_deleted','client'=>$client,'response'=>null];
   }
 
-  $document=preg_replace('/\D+/','',(string)($client['document']??''));
-  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('CPF/CNPJ inválido no cadastro local. A exclusão foi interrompida.');
-
-  // Antes de excluir, confirma o cliente real na Omie pelo documento.
-  $remote=self::findExistingInOmieByDocument($document);
-  if(!$remote){
-   throw new RuntimeException('O CPF/CNPJ deste cliente não foi encontrado na Omie. Nenhuma exclusão foi realizada.');
-  }
-
-  $remoteCode=(string)($remote['codigo_cliente_omie']??'');
-  if($remoteCode==='')throw new RuntimeException('A Omie localizou o cliente, mas não retornou um código válido. Nenhuma exclusão foi realizada.');
-
-  // Se o código salvo localmente estiver divergente, corrige antes da exclusão.
-  if($localOmieCode!==$remoteCode){
-   DB::exec("UPDATE clients SET omie_code=?,updated_at=NOW() WHERE id=?",[$remoteCode,$id]);
-  }
-
   $omie=new OmieClient();
-  $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$remoteCode]);
+  $remote=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$localOmieCode]);
+  $remoteCode=(string)($remote['codigo_cliente_omie']??'');
+  $localDocument=preg_replace('/\D+/','',(string)($client['document']??''));
+  $remoteDocument=preg_replace('/\D+/','',(string)($remote['cnpj_cpf']??''));
+  if($remoteCode!==$localOmieCode||$localDocument===''||$remoteDocument!==$localDocument){
+   throw new RuntimeException('O código Omie não corresponde ao CPF/CNPJ deste cliente. Nenhuma exclusão foi realizada.');
+  }
+  $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$localOmieCode]);
 
-  DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);
+  DB::exec("DELETE FROM clients WHERE id=?",[$id]);
   return [
    'status'=>'synced_deleted',
    'client'=>$client,
    'response'=>$response,
    'remote_code'=>$remoteCode,
-   'corrected_code'=>$localOmieCode!==$remoteCode,
+   'corrected_code'=>false,
   ];
  }
 
@@ -628,6 +811,7 @@ final class OrderService {
     $total+=max(0,$line-$discount);
    }
   }
+  $total+=max(0,self::normalizeMoneyValue($i['freight_value']??0));
 
   $clientId=(int)($i['client_id']??0);
   if($clientId<=0)$clientId=null;
@@ -656,6 +840,12 @@ final class OrderService {
   }
 
   return DB::one("SELECT * FROM local_order_drafts WHERE id=?",[$id])??[];
+ }
+
+ private static function normalizeMoneyValue(mixed $value): float{
+  $raw=trim((string)$value);if($raw==='')return 0.0;
+  if(str_contains($raw,','))$raw=str_replace(['.',','],['','.'],$raw);
+  return (float)$raw;
  }
 
  public static function draft(int $id,array $u): array{
@@ -763,17 +953,23 @@ final class OrderService {
  }
 
  private static function importMissingOrderClient(string $omieCode): void{
+  ClientSegmentPolicy::ensureSchema();
   if($omieCode===''||!ctype_digit($omieCode))throw new RuntimeException('O orçamento está sem um cliente válido da Omie.');
   try{
    $response=(new OmieClient())->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$omieCode]);
    $client=$response['clientes_cadastro'][0]??$response;
    $code=(string)($client['codigo_cliente_omie']??$client['codigo_cliente']??$omieCode);
+   if(mb_strtoupper(trim((string)($client['inativo']??'N')),'UTF-8')==='S'){
+    DB::exec("DELETE FROM clients WHERE omie_code=?",[$code]);
+    throw new RuntimeException('O cliente vinculado a este orçamento está inativo na Omie e não pode entrar no CRM.');
+   }
    $name=(string)($client['nome_fantasia']??$client['razao_social']??$code);
    $phone=trim((string)($client['telefone1_ddd']??'').' '.(string)($client['telefone1_numero']??''));
-   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
-             VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())
-             ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),seller_omie_code=VALUES(seller_omie_code),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
-    [$code,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$client['codigo_vendedor']??null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
+   $seller=trim((string)($client['codigo_vendedor']??($client['recomendacoes']['codigo_vendedor']??'')));
+   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())
+             ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),omie_seller_code=VALUES(omie_seller_code),seller_omie_code=IF(portfolio_locked=1,seller_omie_code,VALUES(seller_omie_code)),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
+    [$code,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
   }catch(Throwable $e){throw new RuntimeException('O cliente deste orçamento ainda não está no CRM e não pôde ser carregado da Omie agora: '.$e->getMessage(),0,$e);}
  }
 
@@ -1103,6 +1299,7 @@ final class OrderService {
  public static function build(array $i,array $u): array{
   $r=self::ready();if(!$r['ok'])throw new RuntimeException('Configuração incompleta: '.implode(', ',$r['missing']).'.');$defaults=$r['defaults'];
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[(int)($i['client_id']??0)]);if(!$client)throw new RuntimeException('Cliente inválido.');
+  if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client)))throw new RuntimeException('Este cliente pertence a uma operação virtual e não pode entrar no fluxo dos vendedores reais.');
   $clientUnassigned=trim((string)($client['seller_omie_code']??''))==='';
   if($u['role']==='seller'&&!$clientUnassigned&&(string)$client['seller_omie_code']!==(string)$u['seller_omie_code']){
    $editableOriginal=null;$editingId=(int)($i['edit_order_id']??0);
@@ -1186,11 +1383,15 @@ final class OrderService {
   }
 
   $forecast=(string)($i['forecast_date']??date('Y-m-d'));if(!strtotime($forecast)||$forecast<date('Y-m-d'))throw new RuntimeException('Previsão inválida.');
+  $freightValue=(float)str_replace(',','.',(string)($i['freight_value']??0));
+  if($freightValue<0)throw new RuntimeException('O valor do frete não pode ser negativo.');
+  $orderTotal=round($commercialTotal+$freightValue,2);
+  $financialOrderTotal=round($financialTotal+$freightValue,2);
   $customInstallments=(string)($i['custom_installments']??'N')==='S';$parcelList=[];
   if($customInstallments){
    $parcelInput=json_decode((string)($i['installments_json']??'[]'),true);if(!is_array($parcelInput)||!$parcelInput)throw new RuntimeException('Inclua ao menos uma parcela personalizada.');
    if(count($parcelInput)>999)throw new RuntimeException('A Omie aceita no máximo 999 parcelas.');
-   $targetCents=(int)round($financialTotal*100);if($targetCents<=0)throw new RuntimeException('Não há valor financeiro para parcelar.');
+   $targetCents=(int)round($financialOrderTotal*100);if($targetCents<=0)throw new RuntimeException('Não há valor financeiro para parcelar.');
    $parcelSource=[];$parcelCents=0;
    foreach(array_values($parcelInput) as $index=>$row){
     if(!is_array($row))throw new RuntimeException('Parcela personalizada inválida.');
@@ -1263,7 +1464,7 @@ final class OrderService {
   if($departments)$payload['departamentos']=$departments;
   if($customInstallments)$payload['lista_parcelas']=['parcela'=>$parcelList];
   $notes=trim((string)($i['notes']??''));if($notes!=='')$payload['observacoes']=['obs_venda'=>$notes];
-  return ['payload'=>$payload,'client'=>$client,'seller'=>$seller,'total'=>$commercialTotal,'fiscal_total'=>$fiscalTotal,'financial_total'=>$financialTotal,'integration'=>$integration];
+  return ['payload'=>$payload,'client'=>$client,'seller'=>$seller,'total'=>$orderTotal,'fiscal_total'=>round($fiscalTotal+$freightValue,2),'financial_total'=>$financialOrderTotal,'integration'=>$integration];
  }
  public static function send(array $i,array $u): array{
   $b=self::build($i,$u);
@@ -1441,8 +1642,8 @@ final class GoalService {
    [$collectionDaysSql,$collectionDaysParams]=self::selectedDaysSql('created_at',$days);
    $summary=DB::one(
     "SELECT
-      COALESCE(SUM(CASE WHEN result='payment' THEN amount ELSE 0 END),0) recovered,
-      COUNT(*) contacts
+      COALESCE(SUM(CASE WHEN result='payment' AND local_status<>'cancelled' THEN amount ELSE 0 END),0) recovered,
+      SUM(CASE WHEN local_status<>'cancelled' THEN 1 ELSE 0 END) contacts
      FROM collection_actions
      WHERE assigned_user_id=? AND created_at>=? AND created_at<?".$collectionDaysSql,
     array_merge([$userId,$start,$next],$collectionDaysParams)
@@ -1519,8 +1720,8 @@ final class GoalService {
   [$collectionDaysSql,$collectionDaysParams]=self::selectedDaysSql('created_at',$days);
   foreach(DB::all(
    "SELECT assigned_user_id,
-           COALESCE(SUM(CASE WHEN result='payment' THEN amount ELSE 0 END),0) recovered,
-           COUNT(*) contacts
+           COALESCE(SUM(CASE WHEN result='payment' AND local_status<>'cancelled' THEN amount ELSE 0 END),0) recovered,
+           SUM(CASE WHEN local_status<>'cancelled' THEN 1 ELSE 0 END) contacts
     FROM collection_actions
     WHERE created_at>=? AND created_at<?".$collectionDaysSql."
     GROUP BY assigned_user_id",array_merge([$start,$next],$collectionDaysParams)
@@ -1665,18 +1866,24 @@ final class GoalService {
 
 final class TestDataService {
  public static function importClient(string $omieCode): array{
+  ClientSegmentPolicy::ensureSchema();
   $code=trim($omieCode);if($code===''||!ctype_digit($code))throw new RuntimeException('Informe o código numérico do cliente na Omie.');
   $o=new OmieClient();
   $r=$o->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
   $client=$r['clientes_cadastro'][0]??$r;
   $omie=(string)($client['codigo_cliente_omie']??$client['codigo_cliente']??$code);
+  if(mb_strtoupper(trim((string)($client['inativo']??'N')),'UTF-8')==='S'){
+   DB::exec("DELETE FROM clients WHERE omie_code=?",[$omie]);
+   throw new RuntimeException('Este cliente está inativo na Omie e não pode ser importado para o CRM.');
+  }
   $name=(string)($client['nome_fantasia']??$client['razao_social']??$omie);
   $phone=trim((string)($client['telefone1_ddd']??'').' '.(string)($client['telefone1_numero']??''));
-  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at)
-            VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW())
+  $seller=trim((string)($client['codigo_vendedor']??($client['recomendacoes']['codigo_vendedor']??'')));
+  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())
             ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),
-            phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),seller_omie_code=VALUES(seller_omie_code),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
-   [$omie,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$client['codigo_vendedor']??null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
+            phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),omie_seller_code=VALUES(omie_seller_code),seller_omie_code=IF(portfolio_locked=1,seller_omie_code,VALUES(seller_omie_code)),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
+   [$omie,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
   return DB::one("SELECT * FROM clients WHERE omie_code=?",[$omie])??[];
  }
 
@@ -1734,6 +1941,16 @@ final class TestDataService {
 
 final class SyncService {
  public static function modules(): array{return ['sellers'=>'Vendedores','clients'=>'Clientes','products'=>'Produtos','categories'=>'Categorias','departments'=>'Departamentos','accounts'=>'Contas correntes','stages'=>'Etapas','payment_terms'=>'Condições','tax_scenarios'=>'Cenários fiscais','stock_locations'=>'Locais de estoque','payment_methods'=>'Meios de pagamento','document_types'=>'Tipos de documento','orders'=>'Pedidos','services'=>'Serviços','financial'=>'Financeiro'];}
+ public static function acquireLock(string $module): bool{
+  if(!isset(self::modules()[$module]))throw new RuntimeException('Módulo inválido.');
+  $name='tdcrm_sync_'.substr(hash('sha256',DB::prefix().'|'.$module),0,32);
+  return (int)(DB::scalar('SELECT GET_LOCK(?,0)',[$name])??0)===1;
+ }
+ public static function releaseLock(string $module): void{
+  if(!isset(self::modules()[$module]))return;
+  $name='tdcrm_sync_'.substr(hash('sha256',DB::prefix().'|'.$module),0,32);
+  try{DB::scalar('SELECT RELEASE_LOCK(?)',[$name]);}catch(Throwable $e){}
+ }
 
  public static function tableMap(): array{
   return [
@@ -1760,7 +1977,7 @@ final class SyncService {
    $items[$key]=[
     'key'=>$key,'label'=>$label,'local_count'=>$local,'state'=>$state,'context'=>$ctx,
     'has_error'=>$hasError,'resumable'=>$resumable,
-    'mode'=>(string)($ctx['mode']??($state&&!empty($state['last_success_at'])?'incremental':'initial')),
+    'mode'=>(string)($ctx['mode']??($key==='products'&&$local>0?'products_incremental':($state&&!empty($state['last_success_at'])?'incremental':'initial'))),
     'period_start'=>$ctx['start']??null,'period_end'=>$ctx['end']??null
    ];
   }
@@ -1858,6 +2075,32 @@ final class SyncService {
    [$module,json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
   return $ctx;
  }
+ public static function prepareClientReconciliation(): array{
+  ClientSegmentPolicy::ensureSchema();
+  $removedInactive=self::purgeInactiveClients();
+  $startedAt=(string)(DB::scalar('SELECT NOW()')??date('Y-m-d H:i:s'));
+  $ctx=[
+   'mode'=>'clients_reconcile','phase'=>'full','api_page'=>1,'processed'=>0,
+   'remote_total'=>0,'remote_active'=>0,'remote_inactive'=>0,
+   'started_at'=>$startedAt,'window_end_sql'=>$startedAt,'forced'=>true,'local_inactive_removed'=>$removedInactive
+  ];
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   ['clients',json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  return $ctx;
+ }
+ public static function prepareProductObservations(): array{
+  $ctx=[
+   'mode'=>'products_observations_backfill','phase'=>'observations','api_page'=>1,'processed'=>0,
+   'window_end_sql'=>date('Y-m-d H:i:s'),'forced'=>true
+  ];
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES('products',0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   [json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  return $ctx;
+ }
  public static function resumePage(string $module): int{
   if(!isset(self::modules()[$module]))throw new RuntimeException('Módulo inválido.');
   $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",[$module]);
@@ -1918,6 +2161,165 @@ final class SyncService {
   return ['code'=>$code,'number'=>$number,'client'=>$client,'seller'=>$seller,'date'=>$serviceDate,'total'=>$total,'status'=>$status];
  }
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
+ private static function purgeInactiveClients(): int{return DB::exec('DELETE FROM clients WHERE active=0');}
+ private static function upsertClients(array $items,?array &$stats=null): int{
+  ClientSegmentPolicy::ensureSchema();
+  $processed=0;$activeCount=0;$inactiveCount=0;
+  foreach($items as $r){
+   if(!is_array($r))continue;
+   $c=(string)($r['codigo_cliente_omie']??$r['codigo_cliente']??'');
+   if($c==='')continue;
+   $phone=trim((string)($r['telefone1_ddd']??'').' '.(string)($r['telefone1_numero']??''));
+   $active=mb_strtoupper((string)($r['inativo']??'N'))==='S'?0:1;
+   if(!$active){
+    DB::exec("DELETE FROM clients WHERE omie_code=?",[$c]);
+    $inactiveCount++;$processed++;continue;
+   }
+   $seller=trim((string)($r['codigo_vendedor']??($r['recomendacoes']['codigo_vendedor']??'')));
+   $raw=json_encode($r,JSON_UNESCAPED_UNICODE);
+   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,NOW())
+             ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),
+             omie_seller_code=VALUES(omie_seller_code),seller_omie_code=IF(portfolio_locked=1,seller_omie_code,VALUES(seller_omie_code)),
+             active=1,raw_json=VALUES(raw_json),
+             updated_at=NOW()",
+    [$c,(string)($r['nome_fantasia']??$r['razao_social']??$c),$r['razao_social']??null,$r['cnpj_cpf']??null,$r['email']??null,$phone,$r['cidade']??null,$r['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,$active,$raw]);
+   $activeCount++;$processed++;
+  }
+  $stats=['active'=>$activeCount,'inactive'=>$inactiveCount,'processed'=>$processed];
+  return $processed;
+ }
+ private static function importMissingOrderClients(OmieClient $omie,array $codes): int{
+  $codes=array_values(array_unique(array_filter(array_map(static fn($code)=>trim((string)$code),$codes),static fn($code)=>$code!==''&&ctype_digit($code))));
+  if(!$codes)return 0;
+  $placeholders=implode(',',array_fill(0,count($codes),'?'));
+  $existing=DB::all("SELECT omie_code FROM clients WHERE omie_code IN (".$placeholders.")",$codes);
+  $known=array_fill_keys(array_map(static fn($row)=>(string)$row['omie_code'],$existing),true);
+  $missing=array_values(array_filter($codes,static fn($code)=>!isset($known[$code])));
+  if(!$missing)return 0;
+
+  $imported=0;
+  foreach(array_chunk($missing,50) as $chunk){
+   $params=[
+    'pagina'=>1,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_caracteristicas'=>'S','exibir_obs'=>'S',
+    'clientesPorCodigo'=>array_map(static fn($code)=>['codigo_cliente_omie'=>(int)$code],$chunk)
+   ];
+   try{$data=$omie->call('clients','ListarClientes',$params);$items=self::pick($data,['clientes_cadastro']);}
+   catch(Throwable $e){$items=[];}
+   $imported+=self::upsertClients($items);
+   $returned=array_fill_keys(array_map(static fn($row)=>(string)($row['codigo_cliente_omie']??$row['codigo_cliente']??''),$items),true);
+   foreach($chunk as $code){
+    if(isset($returned[$code]))continue;
+    try{
+     $data=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
+     $record=$data['clientes_cadastro'][0]??$data;
+     if(is_array($record))$imported+=self::upsertClients([$record]);
+    }catch(Throwable $e){throw new RuntimeException('O pedido referencia o cliente Omie '.$code.', mas o cadastro não pôde ser importado: '.$e->getMessage(),0,$e);}
+   }
+  }
+  return $imported;
+ }
+ private static function startClientSync(?array $state): array{
+  $removedInactive=self::purgeInactiveClients();
+  $end=new DateTimeImmutable('now');
+  $lastSuccess=trim((string)($state['last_success_at']??''));
+  $checkpointSource='sync_state';
+  if($lastSuccess===''){
+   $localCount=(int)(DB::scalar("SELECT COUNT(*) FROM clients")??0);
+   $localUpdated=$localCount>0?trim((string)(DB::scalar("SELECT MAX(updated_at) FROM clients")??'')):'';
+   if($localUpdated!==''){$lastSuccess=$localUpdated;$checkpointSource='local_catalog';}
+  }
+  if($lastSuccess===''){
+   $ctx=['mode'=>'clients_full','phase'=>'full','api_page'=>1,'processed'=>0,'window_end_sql'=>$end->format('Y-m-d H:i:s'),'local_inactive_removed'=>$removedInactive];
+  }else{
+   try{$start=(new DateTimeImmutable($lastSuccess))->modify('-10 minutes');}
+   catch(Throwable $e){$start=$end->modify('-1 day');}
+   $ctx=[
+    'mode'=>'clients_incremental','phase'=>'inclusions','api_page'=>1,'processed'=>0,
+    'start'=>$start->format('d/m/Y'),'start_time'=>$start->format('H:i:s'),
+    'end'=>$end->format('d/m/Y'),'end_time'=>$end->format('H:i:s'),
+    'window_end_sql'=>$end->format('Y-m-d H:i:s'),'checkpoint_source'=>$checkpointSource,'local_inactive_removed'=>$removedInactive
+   ];
+  }
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   ['clients',json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+  return $ctx;
+ }
+ private static function saveClientProgress(array $ctx,int $logicalPage,int $batchCount): void{
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,?,0,?,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=0,last_count=VALUES(last_count),context_json=VALUES(context_json),last_error=NULL",
+   ['clients',$logicalPage,$batchCount,json_encode($ctx,JSON_UNESCAPED_UNICODE)]);
+ }
+ private static function finishClientSync(array $ctx,int $logicalPage,int $batchCount): array{
+  $removedInactive=(int)($ctx['local_inactive_removed']??0)+self::purgeInactiveClients();
+  $processed=(int)($ctx['processed']??0);
+  $checkpoint=(string)($ctx['window_end_sql']??date('Y-m-d H:i:s'));
+  $removedMissing=0;
+  if(($ctx['mode']??'')==='clients_reconcile'){
+   // Remove apenas vínculos que não apareceram na carga completa. Cadastros
+   // locais pendentes e alterações feitas durante a carga ficam preservados.
+   $removedMissing=DB::exec("DELETE FROM clients WHERE active=1 AND omie_code NOT LIKE 'LOCAL-%' AND updated_at<?",[$checkpoint]);
+  }
+  $result=['module'=>'clients','page'=>$logicalPage,'total_pages'=>$logicalPage,'count'=>$processed,'processed'=>$processed,'done'=>true,'mode'=>(string)($ctx['mode']??'clients_incremental'),'phase'=>'complete'];
+  if(($ctx['mode']??'')==='clients_reconcile'){
+   $remoteTotal=(int)($ctx['remote_total']??0);
+   $remoteActive=(int)($ctx['remote_active']??0);$remoteInactive=(int)($ctx['remote_inactive']??0);
+   $localLinked=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE omie_code NOT LIKE 'LOCAL-%'")??0);
+   $localPending=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE omie_code LIKE 'LOCAL-%'")??0);
+   $active=(int)(DB::scalar('SELECT COUNT(*) FROM clients WHERE active=1')??0);
+   $inactive=(int)(DB::scalar('SELECT COUNT(*) FROM clients WHERE active=0')??0);
+   $complete=$remoteTotal>0&&$processed===$remoteTotal&&($remoteActive+$remoteInactive)===$remoteTotal;
+   if(!$complete)throw new RuntimeException('A reconciliação percorreu a Omie, mas a validação final não fechou: Omie '.$remoteTotal.', processados '.$processed.', ativos '.$remoteActive.' e inativos descartados '.$remoteInactive.'. Use Retomar para concluir antes de considerar a base validada.');
+   $result['validation']=['ok'=>true,'remote_total'=>$remoteTotal,'remote_active'=>$remoteActive,'remote_inactive_removed'=>$remoteInactive,'local_inactive_removed'=>$removedInactive,'missing_remote_removed'=>$removedMissing,'processed'=>$processed,'local_linked'=>$localLinked,'local_pending'=>$localPending,'active'=>$active,'inactive'=>$inactive];
+   $result['message']='Reconciliação validada: '.$remoteActive.' clientes ativos do Omie foram sincronizados, '.$remoteInactive.' inativos e '.$removedMissing.' vínculos inexistentes foram descartados. CRM: '.$active.' ativos, '.$localPending.' pendentes locais e nenhum inativo.';
+  }
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,?,?,?,NULL,?,NULL)
+            ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=VALUES(last_success_at),last_error=NULL",
+   ['clients',$logicalPage,$logicalPage,$batchCount,$checkpoint]);
+  return $result;
+ }
+ private static function syncClients(OmieClient $omie,int $logicalPage): array{
+  $state=DB::one("SELECT * FROM sync_state WHERE module_key=?",['clients']);
+  $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+  $preparedReconciliation=$logicalPage===1&&is_array($ctx)&&($ctx['mode']??'')==='clients_reconcile'&&(int)($ctx['api_page']??0)===1;
+  if($logicalPage===1&&!$preparedReconciliation)$ctx=self::startClientSync($state);
+  elseif(!is_array($ctx)||!in_array((string)($ctx['mode']??''),['clients_full','clients_incremental','clients_reconcile'],true))throw new RuntimeException('O ponto de retomada dos clientes não está disponível. Inicie uma nova sincronização.');
+
+  $apiPage=max(1,(int)($ctx['api_page']??1));$phase=(string)($ctx['phase']??'full');
+  $params=['pagina'=>$apiPage,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','exibir_caracteristicas'=>'S','exibir_obs'=>'S'];
+  if(($ctx['mode']??'')==='clients_incremental'){
+   $params+=[
+    'filtrar_por_data_de'=>(string)$ctx['start'],'filtrar_por_hora_de'=>(string)$ctx['start_time'],
+    'filtrar_por_data_ate'=>(string)$ctx['end'],'filtrar_por_hora_ate'=>(string)$ctx['end_time'],
+    'filtrar_apenas_inclusao'=>$phase==='inclusions'?'S':'N','filtrar_apenas_alteracao'=>$phase==='alterations'?'S':'N'
+   ];
+  }
+  try{$data=$omie->call('clients','ListarClientes',$params);}
+  catch(RuntimeException $e){
+   $message=mb_strtolower($e->getMessage(),'UTF-8');$emptyPage=str_contains($message,'não existem registros')||str_contains($message,'nao existem registros');
+   if(!$emptyPage||(in_array(($ctx['mode']??''),['clients_full','clients_reconcile'],true)&&$apiPage>1))throw $e;
+   $data=['pagina'=>$apiPage,'total_de_paginas'=>$apiPage,'total_de_registros'=>0,'clientes_cadastro'=>[]];
+  }
+  $items=self::pick($data,['clientes_cadastro']);$batchStats=[];$batchCount=self::upsertClients($items,$batchStats);
+  $ctx['processed']=(int)($ctx['processed']??0)+$batchCount;
+  $ctx['remote_total']=max((int)($ctx['remote_total']??0),(int)($data['total_de_registros']??0));
+  $ctx['remote_active']=(int)($ctx['remote_active']??0)+(int)($batchStats['active']??0);
+  $ctx['remote_inactive']=(int)($ctx['remote_inactive']??0)+(int)($batchStats['inactive']??0);
+  $apiTotal=max(1,(int)($data['total_de_paginas']??1));
+  if($apiPage<$apiTotal){
+   $ctx['api_page']=$apiPage+1;self::saveClientProgress($ctx,$logicalPage,$batchCount);
+   return ['module'=>'clients','page'=>$logicalPage,'total_pages'=>(in_array(($ctx['mode']??''),['clients_full','clients_reconcile'],true)?$apiTotal:0),'count'=>$batchCount,'processed'=>(int)$ctx['processed'],'done'=>false,'mode'=>(string)$ctx['mode'],'phase'=>$phase,'api_page'=>$apiPage,'api_total_pages'=>$apiTotal];
+  }
+  if(($ctx['mode']??'')==='clients_incremental'&&$phase==='inclusions'){
+   $ctx['phase']='alterations';$ctx['api_page']=1;self::saveClientProgress($ctx,$logicalPage,$batchCount);
+   return ['module'=>'clients','page'=>$logicalPage,'total_pages'=>0,'count'=>$batchCount,'processed'=>(int)$ctx['processed'],'done'=>false,'mode'=>'clients_incremental','phase'=>'alterations','api_page'=>0,'api_total_pages'=>0];
+  }
+  return self::finishClientSync($ctx,$logicalPage,$batchCount);
+ }
  private static function purgeOldYearData(string $module): void{
   $year=(int)date('Y');
   if($module==='orders'){
@@ -1976,12 +2378,147 @@ final class SyncService {
   if($module==='orders'&&$done)self::rebuildMetrics();
   return ['module'=>$module,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$done,'period'=>$period];
  }
+ private static function upsertProducts(array $items): int{
+  $processed=0;
+  foreach($items as $r){
+   if(!is_array($r))continue;
+   $c=(string)($r['codigo_produto']??'');
+   if($c==='')continue;
+   DB::exec("INSERT INTO products(omie_code,sku,description,unit,ncm,unit_price,stock_qty,active,raw_json,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,NOW())
+             ON DUPLICATE KEY UPDATE sku=VALUES(sku),description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),
+             unit_price=VALUES(unit_price),stock_qty=VALUES(stock_qty),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",
+    [$c,$r['codigo']??null,(string)($r['descricao']??$c),$r['unidade']??null,$r['ncm']??null,(float)($r['valor_unitario']??0),
+     isset($r['quantidade_estoque'])?(float)$r['quantidade_estoque']:null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);
+   $processed++;
+  }
+  return $processed;
+ }
+ private static function startProductSync(?array $state): array{
+  $previousContext=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+  if(!is_array($previousContext))$previousContext=[];
+  $end=new DateTimeImmutable('now');
+  $lastSuccess=trim((string)($state['last_success_at']??''));
+  $checkpointSource='sync_state';
+  if($lastSuccess===''){
+   $localCount=(int)(DB::scalar("SELECT COUNT(*) FROM products")??0);
+   $localUpdated=$localCount>0?trim((string)(DB::scalar("SELECT MAX(updated_at) FROM products")??'')):'';
+   if($localUpdated!==''){$lastSuccess=$localUpdated;$checkpointSource='local_catalog';}
+  }
+  $legacyIncomplete=$lastSuccess!==''&&empty($previousContext)
+   &&$checkpointSource==='sync_state'
+   &&(int)($state['total_pages']??0)>0
+   &&(int)($state['last_page']??0)<(int)($state['total_pages']??0);
+  $mustLoadFull=$lastSuccess===''||$legacyIncomplete||(($previousContext['mode']??'')==='products_full');
+
+  if($mustLoadFull){
+   $context=[
+    'mode'=>'products_full','phase'=>'full','api_page'=>1,'processed'=>0,
+    'window_end_sql'=>$end->format('Y-m-d H:i:s')
+   ];
+  }else{
+   try{$start=(new DateTimeImmutable($lastSuccess))->modify('-10 minutes');}
+   catch(Throwable $e){$start=$end->modify('-1 day');}
+   $context=[
+    'mode'=>'products_incremental','phase'=>'inclusions','api_page'=>1,'processed'=>0,
+    'start'=>$start->format('d/m/Y'),'start_time'=>$start->format('H:i:s'),
+    'end'=>$end->format('d/m/Y'),'end_time'=>$end->format('H:i:s'),
+    'window_end_sql'=>$end->format('Y-m-d H:i:s'),'checkpoint_source'=>$checkpointSource
+   ];
+  }
+
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES('products',0,0,0,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=0,total_pages=0,last_count=0,context_json=VALUES(context_json),last_error=NULL",
+   [json_encode($context,JSON_UNESCAPED_UNICODE)]);
+  return $context;
+ }
+ private static function saveProductProgress(array $context,int $logicalPage,int $batchCount): void{
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES('products',?,0,?,?,NULL,NULL)
+            ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=0,last_count=VALUES(last_count),context_json=VALUES(context_json),last_error=NULL",
+   [$logicalPage,$batchCount,json_encode($context,JSON_UNESCAPED_UNICODE)]);
+ }
+ private static function finishProductSync(array $context,int $logicalPage,int $batchCount): array{
+  $processed=(int)($context['processed']??0);
+  $checkpoint=(string)($context['window_end_sql']??date('Y-m-d H:i:s'));
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES('products',?,?,?,NULL,?,NULL)
+            ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),
+            context_json=NULL,last_success_at=VALUES(last_success_at),last_error=NULL",
+   [$logicalPage,$logicalPage,$batchCount,$checkpoint]);
+  if(($context['mode']??'')==='products_observations_backfill'){
+   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('products_observations_backfill_v1',?,NOW())
+             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+    [json_encode(['completed_at'=>date('Y-m-d H:i:s'),'processed'=>$processed],JSON_UNESCAPED_UNICODE)]);
+  }
+  return [
+   'module'=>'products','page'=>$logicalPage,'total_pages'=>$logicalPage,'count'=>$processed,'processed'=>$processed,
+   'done'=>true,'mode'=>(string)($context['mode']??'products_incremental'),'phase'=>'complete'
+  ];
+ }
+ private static function syncProducts(OmieClient $omie,int $logicalPage): array{
+  $state=DB::one("SELECT * FROM sync_state WHERE module_key='products'");
+  $context=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+  $forcedBackfill=is_array($context)&&($context['mode']??'')==='products_observations_backfill'&&!empty($context['forced']);
+  if($logicalPage===1&&!$forcedBackfill)$context=self::startProductSync($state);
+  elseif(!is_array($context)||!in_array((string)($context['mode']??''),['products_full','products_incremental','products_observations_backfill'],true)){
+   throw new RuntimeException('O ponto de retomada dos produtos nao esta disponivel. Inicie uma nova sincronizacao para reconstrui-lo com seguranca.');
+  }
+
+  $apiPage=max(1,(int)($context['api_page']??1));
+  $params=[
+   'pagina'=>$apiPage,'registros_por_pagina'=>100,
+   'apenas_importado_api'=>'N','filtrar_apenas_omiepdv'=>'N','exibir_obs'=>'S'
+  ];
+  $phase=(string)($context['phase']??'full');
+  if(($context['mode']??'')==='products_incremental'){
+   $params+=[
+    'filtrar_por_data_de'=>(string)$context['start'],'filtrar_por_hora_de'=>(string)$context['start_time'],
+    'filtrar_por_data_ate'=>(string)$context['end'],'filtrar_por_hora_ate'=>(string)$context['end_time'],
+    'filtrar_apenas_inclusao'=>$phase==='inclusions'?'S':'N',
+    'filtrar_apenas_alteracao'=>$phase==='alterations'?'S':'N'
+   ];
+  }
+
+  try{$data=$omie->call('products','ListarProdutos',$params);}
+  catch(RuntimeException $e){
+   $message=mb_strtolower($e->getMessage(),'UTF-8');
+   $emptyPage=str_contains($message,'não existem registros')||str_contains($message,'nao existem registros');
+   if(!$emptyPage||(($context['mode']??'')==='products_full'&&$apiPage>1))throw $e;
+   $data=['pagina'=>$apiPage,'total_de_paginas'=>$apiPage,'total_de_registros'=>0,'produto_servico_cadastro'=>[]];
+  }
+  $items=self::pick($data,['produto_servico_cadastro']);
+  $batchCount=self::upsertProducts($items);
+  $context['processed']=(int)($context['processed']??0)+$batchCount;
+  $apiTotal=max(1,(int)($data['total_de_paginas']??$data['nTotPaginas']??1));
+
+  if($apiPage<$apiTotal){
+   $context['api_page']=$apiPage+1;
+   self::saveProductProgress($context,$logicalPage,$batchCount);
+   return [
+    'module'=>'products','page'=>$logicalPage,'total_pages'=>(in_array(($context['mode']??''),['products_full','products_observations_backfill'],true)?$apiTotal:0),'count'=>$batchCount,'processed'=>(int)$context['processed'],
+    'done'=>false,'mode'=>(string)$context['mode'],'phase'=>$phase,'api_page'=>$apiPage,'api_total_pages'=>$apiTotal
+   ];
+  }
+
+  if(($context['mode']??'')==='products_incremental'&&$phase==='inclusions'){
+   $context['phase']='alterations';$context['api_page']=1;
+   self::saveProductProgress($context,$logicalPage,$batchCount);
+   return [
+    'module'=>'products','page'=>$logicalPage,'total_pages'=>0,'count'=>$batchCount,'processed'=>(int)$context['processed'],
+    'done'=>false,'mode'=>'products_incremental','phase'=>'alterations','api_page'=>0,'api_total_pages'=>0
+   ];
+  }
+
+  return self::finishProductSync($context,$logicalPage,$batchCount);
+ }
  private static function finish(string $m,array $d,int $page,int $count): array{$total=(int)($d['total_de_paginas']??$d['nTotPaginas']??1);$total=max(1,$total);DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error) VALUES(?,?,?,?,NULL,NOW(),NULL) ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=NOW(),last_error=NULL",[$m,$page,$total,$count]);if($m==='orders'&&$page>=$total)self::rebuildMetrics();return ['module'=>$m,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$page>=$total];}
  public static function run(string $m,int $page=1): array{
   if(!isset(self::modules()[$m]))throw new RuntimeException('Módulo inválido.');$o=new OmieClient();$page=max(1,$page);
   if($m==='sellers'){$d=$o->call('sellers','ListarVendedores',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['cadastro','vendedores']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO sellers(omie_code,name,email,active,raw_json,updated_at) VALUES(?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['nome']??$c),$r['email']??null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
-  if($m==='clients'){$d=$o->call('clients','ListarClientes',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['clientes_cadastro']);foreach($it as $r){$c=(string)($r['codigo_cliente_omie']??'');if($c==='')continue;$phone=trim((string)($r['telefone1_ddd']??'').' '.(string)($r['telefone1_numero']??''));DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['nome_fantasia']??$r['razao_social']??$c),$r['razao_social']??null,$r['cnpj_cpf']??null,$r['email']??null,$phone,$r['cidade']??null,$r['estado']??null,$r['codigo_vendedor']??null,json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
-  if($m==='products'){$d=$o->call('products','ListarProdutos',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','filtrar_apenas_omiepdv'=>'N']);$it=self::pick($d,['produto_servico_cadastro']);foreach($it as $r){$c=(string)($r['codigo_produto']??'');if($c==='')continue;DB::exec("INSERT INTO products(omie_code,sku,description,unit,ncm,unit_price,stock_qty,active,raw_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE sku=VALUES(sku),description=VALUES(description),unit=VALUES(unit),ncm=VALUES(ncm),unit_price=VALUES(unit_price),stock_qty=VALUES(stock_qty),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,$r['codigo']??null,(string)($r['descricao']??$c),$r['unidade']??null,$r['ncm']??null,(float)($r['valor_unitario']??0),isset($r['quantidade_estoque'])?(float)$r['quantidade_estoque']:null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
+  if($m==='clients')return self::syncClients($o,$page);
+  if($m==='products')return self::syncProducts($o,$page);
   if($m==='categories'){$d=$o->call('categories','ListarCategorias',['pagina'=>$page,'registros_por_pagina'=>100]);$it=self::pick($d,['categoria_cadastro']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO categories(code,description,active,raw_json,updated_at) VALUES(?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),(($r['conta_inativa']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
   if($m==='departments'){
    DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
@@ -2066,6 +2603,7 @@ final class SyncService {
     'filtrar_por_data_de'=>$period['start'],'filtrar_por_data_ate'=>$period['end']
    ]);
    $it=self::pick($d,['pedido_venda_produto']);
+   self::importMissingOrderClients($o,array_map(static fn($record)=>(string)(($record['cabecalho']??[])['codigo_cliente']??''),$it));
    foreach($it as $r){
     $cab=$r['cabecalho']??[];$info=$r['infoCadastro']??[];$add=$r['informacoes_adicionais']??[];$tot=$r['total_pedido']??[];
     $code=(string)($cab['codigo_pedido']??'');if($code==='')continue;
@@ -2157,6 +2695,13 @@ final class SyncService {
             JOIN financial_accounts a ON a.omie_code=f.account_omie_code AND a.selected=1 AND a.active=1
             WHERE f.status IN('ATRASADO','PAGTO_PARCIAL') GROUP BY c.id
             ON DUPLICATE KEY UPDATE open_amount=VALUES(open_amount),partial_paid=VALUES(partial_paid),max_overdue_days=VALUES(max_overdue_days),status='open',updated_at=NOW()");
+  // Com um único cobrador ativo, toda nova dívida pertence automaticamente à
+  // carteira dele. Se houver mais de um, a distribuição continua manual.
+  DB::exec("UPDATE collection_cases cc
+            JOIN (SELECT MIN(id) collector_id FROM users WHERE role='collector' AND active=1 HAVING COUNT(*)=1) only_collector
+              ON 1=1
+            SET cc.assigned_user_id=only_collector.collector_id,cc.assigned_at=COALESCE(cc.assigned_at,NOW()),cc.updated_at=NOW()
+            WHERE cc.assigned_user_id IS NULL");
   DB::exec("UPDATE collection_cases cc LEFT JOIN (
              SELECT DISTINCT c.id client_id FROM clients c JOIN financial_movements f ON f.client_omie_code=c.omie_code
              JOIN financial_accounts a ON a.omie_code=f.account_omie_code AND a.selected=1 AND a.active=1

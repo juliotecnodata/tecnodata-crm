@@ -14,11 +14,24 @@ final class DB {
    if($value!==false&&$value!=='')$d[$configKey]=$configKey==='port'?(int)$value:$value;
   }
   try{
+   $pdoOptions=[\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_DEFAULT_FETCH_MODE=>\PDO::FETCH_ASSOC,\PDO::ATTR_EMULATE_PREPARES=>false];
+   if(!empty($d['persistent']))$pdoOptions[\PDO::ATTR_PERSISTENT]=true;
    self::$pdo=new \PDO(
     sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s',$d['host'],$d['port'],$d['database'],$d['charset']??'utf8mb4'),
     $d['username'],$d['password'],
-    [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_DEFAULT_FETCH_MODE=>\PDO::FETCH_ASSOC,\PDO::ATTR_EMULATE_PREPARES=>false]
+    $pdoOptions
    );
+   // O servidor da hospedagem opera em UTC. Cada conexão do CRM precisa usar o
+   // mesmo fuso configurado no PHP para que NOW(), CURDATE() e as agendas
+   // comparem corretamente os DATETIME locais informados pelos usuários.
+   $timezoneName=(string)($GLOBALS['config']['app']['timezone']??'America/Sao_Paulo');
+   try{
+    $timezone=new \DateTimeZone($timezoneName);
+    $offset=(new \DateTimeImmutable('now',$timezone))->format('P');
+    self::$pdo->exec("SET SESSION time_zone=".self::$pdo->quote($offset));
+   }catch(Throwable $timezoneError){
+    throw new \RuntimeException('Falha ao configurar o fuso horÃ¡rio da conexÃ£o com o banco.',0,$timezoneError);
+   }
    return self::$pdo;
   }catch(Throwable $e){throw new \RuntimeException('Falha ao conectar ao banco: '.$e->getMessage(),0,$e);}
  }
@@ -51,7 +64,7 @@ final class SchemaGuard {
     'financial_movements'=>['id','omie_code','client_omie_code','account_omie_code','seller_omie_code','due_date','open_amount','paid_amount','status'],
     'activities'=>['id','client_id','user_id','channel','result','next_at','created_at'],
     'tasks'=>['id','client_id','assigned_user_id','type','title','due_at','status'],
-    'collection_actions'=>['id','client_id','author_user_id','assigned_user_id','channel','result','amount','promise_date','created_at'],
+    'collection_actions'=>['id','client_id','author_user_id','assigned_user_id','channel','result','amount','promise_date','local_status','reconciled_at','recorded_at','created_at'],
     'sync_state'=>['module_key','last_page','total_pages','last_count','context_json','last_success_at','last_error'],
     'goals'=>['id','user_id','month_ref','sales_goal','collection_goal','contact_goal'],
    ];
@@ -83,8 +96,16 @@ final class Auth {
  public static function attempt(string $email,string $password): bool{
   $u=DB::one("SELECT id,name,email,password_hash,role,seller_omie_code,active FROM users WHERE email=? LIMIT 1",[mb_strtolower(trim($email))]);
   if(!$u||!(int)$u['active']||!password_verify($password,(string)$u['password_hash']))return false;
-  unset($u['password_hash']);$_SESSION['user']=$u;session_regenerate_id(true);
-  DB::exec("UPDATE users SET last_login_at=NOW() WHERE id=?",[(int)$u['id']]);return true;
+  self::establishSession($u);return true;
+ }
+ public static function loginVerifiedEmail(string $email): bool{
+  $u=DB::one("SELECT id,name,email,role,seller_omie_code,active FROM users WHERE email=? LIMIT 1",[mb_strtolower(trim($email))]);
+  if(!$u||!(int)$u['active'])return false;
+  self::establishSession($u);return true;
+ }
+ private static function establishSession(array $u): void{
+  unset($u['password_hash'],$u['active']);$_SESSION['user']=$u;session_regenerate_id(true);
+  DB::exec("UPDATE users SET last_login_at=NOW() WHERE id=?",[(int)$u['id']]);
  }
  public static function requireLogin(): void{if(!self::check())redirect('/login');}
  public static function requireRole(string ...$roles): void{self::requireLogin();if(!self::can(...$roles)){http_response_code(403);exit('Sem permissão.');}}

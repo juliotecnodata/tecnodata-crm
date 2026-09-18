@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const section=relativeParts[0]||'dashboard';
   let page=section;
   if(section==='my-portfolio')page='clients';
+  if(section==='clients-ead-reciclagem'||section==='clients-suporte-pet')page='clients';
+  if(section==='clients-audit')page='client-audit';
   if(section==='clients')page=relativeParts[1]==='new'||relativeParts[2]==='edit'?'client-editor':(relativeParts[1]?'client-detail':'clients');
   if(section==='orders')page=relativeParts[1]==='new'?'order-new':(relativeParts[1]?'order-detail':'orders');
   if(section==='collection'&&relativeParts[1])page='collection-case';
@@ -24,7 +26,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     const dueInput=contactScheduleForm.querySelector('[name="due_at"]');
     const dialogTitle=contactDialog.querySelector('[data-contact-dialog-title]');
     const dialogClient=contactDialog.querySelector('[data-contact-dialog-client]');
-    document.querySelectorAll('[data-contact-schedule]').forEach(button=>button.addEventListener('click',()=>{
+    document.addEventListener('click',event=>{
+      const button=event.target.closest?.('[data-contact-schedule]');
+      if(!button)return;
       try{
         const data=JSON.parse(button.dataset.contactSchedule||'{}');
         contactScheduleForm.action=(window.APP_URL||'')+'/contact-monitoring/'+Number(data.client_id)+'/schedule';
@@ -36,7 +40,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         dialogClient.textContent=data.client_name||'';
         contactDialog.showModal();
       }catch(error){showNotice('danger','Não foi possível abrir o agendamento','Atualize a página e tente novamente.');}
-    }));
+    });
     contactDialog.querySelectorAll('[data-contact-dialog-close]').forEach(button=>button.addEventListener('click',()=>contactDialog.close()));
     contactDialog.addEventListener('click',event=>{if(event.target===contactDialog)contactDialog.close();});
   }
@@ -91,6 +95,26 @@ document.addEventListener('DOMContentLoaded',()=>{
     updateCount();
   });
 
+  document.querySelectorAll('[data-collection-bulk-delete]').forEach(form=>{
+    const checks=Array.from(form.querySelectorAll('[data-collection-action-check]'));
+    const selectAll=form.querySelector('[data-collection-select-all]');
+    const counter=form.querySelector('[data-collection-selected-count]');
+    const bulkButton=form.querySelector('[data-collection-bulk-submit]');
+    const updateSelection=()=>{
+      const selected=checks.filter(input=>input.checked).length;
+      if(counter)counter.textContent=selected+' selecionado'+(selected===1?'':'s');
+      if(bulkButton)bulkButton.disabled=selected===0;
+      if(selectAll){selectAll.checked=checks.length>0&&selected===checks.length;selectAll.indeterminate=selected>0&&selected<checks.length;}
+    };
+    selectAll?.addEventListener('change',()=>{checks.forEach(input=>{input.checked=selectAll.checked;});updateSelection();});
+    checks.forEach(input=>input.addEventListener('change',updateSelection));
+    form.addEventListener('submit',event=>{
+      const single=event.submitter?.name==='single_id';
+      if(!single&&!checks.some(input=>input.checked)){event.preventDefault();showNotice('warning','Nenhum valor selecionado','Marque um ou mais lançamentos para excluir.');}
+    });
+    updateSelection();
+  });
+
   const noticeMeta={
     success:{title:'Operação concluída',icon:'fa-circle-check'},
     danger:{title:'Não foi possível concluir',icon:'fa-circle-exclamation'},
@@ -125,6 +149,75 @@ document.addEventListener('DOMContentLoaded',()=>{
     return notice;
   };
   window.appNotify=showNotice;
+
+  const productDetailModal=document.querySelector('[data-product-detail-modal]');
+  if(productDetailModal){
+    const detailBody=productDetailModal.querySelector('[data-product-detail-body]');
+    const detailTitle=productDetailModal.querySelector('[data-product-detail-title]');
+    const detailSubtitle=productDetailModal.querySelector('[data-product-detail-subtitle]');
+    const detailEsc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    const renderProductDetails=product=>{
+      detailTitle.textContent=product.name||'Detalhes do produto';
+      detailSubtitle.textContent=(product.sku?'SKU '+product.sku+' • ':'')+(product.active?'Produto ativo':'Produto inativo');
+      const notes=[
+        '<section class="product-detail-text"><strong>Descrição detalhada do produto</strong><p>'+detailEsc(product.detailed_description||'Não informada na Omie.')+'</p></section>',
+        '<section class="product-detail-text observations"><strong><i class="fa-regular fa-note-sticky"></i> Observações internas</strong><p>'+detailEsc(product.observations||'Não informadas na Omie.')+'</p></section>'
+      ].join('');
+      const groups=(product.groups||[]).map(group=>'<section class="product-detail-group"><header><span><i class="fa-solid '+detailEsc(group.icon||'fa-circle-info')+'"></i></span><strong>'+detailEsc(group.title||'Informações')+'</strong></header><div>'+((group.fields||[]).map(field=>'<article><small>'+detailEsc(field.label)+'</small><strong>'+detailEsc(field.value)+'</strong></article>').join(''))+'</div></section>').join('');
+      detailBody.innerHTML=groups+notes||'<div class="product-detail-empty"><i class="fa-solid fa-box-open"></i><span>Nenhuma informação adicional disponível.</span></div>';
+    };
+    const openProductDetails=async id=>{
+      if(!id)return;
+      detailTitle.textContent='Detalhes do produto';detailSubtitle.textContent='Consultando o catálogo local';
+      detailBody.innerHTML='<div class="product-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i><span>Carregando detalhes...</span></div>';
+      if(!productDetailModal.open)productDetailModal.showModal();
+      try{
+        const response=await fetch((window.APP_URL||'')+'/api/products/'+encodeURIComponent(id),{credentials:'same-origin',headers:{Accept:'application/json'}});
+        const data=await response.json().catch(()=>({error:'O servidor retornou uma resposta inválida.'}));
+        if(!response.ok||!data.product)throw new Error(data.error||'Não foi possível carregar o produto.');
+        renderProductDetails(data.product);
+      }catch(error){detailBody.innerHTML='<div class="product-detail-error"><i class="fa-solid fa-triangle-exclamation"></i><span>'+detailEsc(error.message||'Não foi possível carregar os detalhes.')+'</span></div>';showNotice('danger','Erro ao abrir o produto',error.message||'Tente novamente.');}
+    };
+    document.addEventListener('click',event=>{const trigger=event.target.closest?.('[data-product-details]');if(trigger){event.preventDefault();openProductDetails(trigger.dataset.productDetails);}});
+    productDetailModal.querySelectorAll('[data-product-detail-close]').forEach(button=>button.addEventListener('click',()=>productDetailModal.close()));
+    productDetailModal.addEventListener('click',event=>{if(event.target===productDetailModal)productDetailModal.close();});
+  }
+
+  const agendaCreateModal=document.querySelector('[data-agenda-create-modal]');
+  if(agendaCreateModal){
+    const agendaForm=agendaCreateModal.querySelector('[data-agenda-create-form]');
+    const clientSearch=agendaCreateModal.querySelector('[data-agenda-client-search]');
+    const clientId=agendaCreateModal.querySelector('[data-agenda-client-id]');
+    const clientResults=agendaCreateModal.querySelector('[data-agenda-client-results]');
+    const clientSelected=agendaCreateModal.querySelector('[data-agenda-client-selected]');
+    const dueInput=agendaCreateModal.querySelector('[name="due_at"]');
+    const escAgenda=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    let agendaClientTimer;
+    const defaultAgendaDate=()=>{const date=new Date(Date.now()+60*60*1000);date.setMinutes(0,0,0);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);};
+    const clearAgendaClient=()=>{clientId.value='';clientSelected.innerHTML='';clientSearch.value='';clientSearch.hidden=false;clientSearch.focus();};
+    const selectAgendaClient=client=>{
+      clientId.value=String(client.id||'');clientSearch.hidden=true;clientResults.innerHTML='';
+      clientSelected.innerHTML='<span><strong>'+escAgenda(client.name||'Cliente')+'</strong><small>'+escAgenda([client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small></span><button type="button" title="Trocar cliente"><i class="fa-solid fa-xmark"></i></button>';
+      clientSelected.querySelector('button')?.addEventListener('click',clearAgendaClient);
+    };
+    const findAgendaClients=async()=>{
+      const query=clientSearch.value.trim();if(query.length<2){clientResults.innerHTML='';return;}
+      clientResults.innerHTML='<div class="search-result"><span>Buscando clientes...</span></div>';
+      try{
+        const response=await fetch((window.APP_URL||'')+'/api/clients?q='+encodeURIComponent(query),{credentials:'same-origin',headers:{Accept:'application/json'}});
+        const data=await response.json();if(!response.ok)throw new Error(data.error||'Falha na busca.');
+        const items=Array.isArray(data.items)?data.items:[];
+        clientResults.innerHTML=items.map((client,index)=>'<button class="search-result" type="button" data-agenda-client="'+index+'"><span><strong>'+escAgenda(client.name)+'</strong><small>'+escAgenda([client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>').join('')||'<div class="search-result"><span>Nenhum cliente encontrado.</span></div>';
+        clientResults.querySelectorAll('[data-agenda-client]').forEach(button=>button.addEventListener('click',()=>selectAgendaClient(items[Number(button.dataset.agendaClient)]||{})));
+      }catch(error){clientResults.innerHTML='';showNotice('danger','Não foi possível buscar clientes',error.message||'Tente novamente.');}
+    };
+    clientSearch?.addEventListener('input',()=>{clearTimeout(agendaClientTimer);agendaClientTimer=setTimeout(findAgendaClients,240);});
+    document.querySelectorAll('[data-agenda-create]').forEach(button=>button.addEventListener('click',()=>{agendaForm?.reset();clearAgendaClient();if(dueInput){dueInput.min=defaultAgendaDate();dueInput.value=defaultAgendaDate();}agendaCreateModal.showModal();}));
+    agendaCreateModal.querySelectorAll('[data-agenda-create-close]').forEach(button=>button.addEventListener('click',()=>agendaCreateModal.close()));
+    agendaCreateModal.addEventListener('click',event=>{if(event.target===agendaCreateModal)agendaCreateModal.close();});
+    agendaForm?.addEventListener('submit',event=>{if(!clientId.value){event.preventDefault();showNotice('warning','Selecione um cliente','Use a busca e escolha o cliente antes de salvar.');clientSearch.hidden=false;clientSearch.focus();}});
+  }
+
   let lastValidationNotice=0;
   document.addEventListener('invalid',event=>{
     event.preventDefault();
@@ -243,6 +336,97 @@ document.addEventListener('DOMContentLoaded',()=>{
       return table._dataTable;
   };
   document.querySelectorAll('.table-card table').forEach(initDataTable);
+
+  const clientBulk=document.querySelector('[data-client-bulk]');
+  const clientBulkTable=document.querySelector('.clients-datatable');
+  if(clientBulk&&clientBulkTable?._dataTable){
+    const dt=clientBulkTable._dataTable;
+    const selected=new Set();
+    const excluded=new Set();
+    let allFiltered=false;
+    let running=false;
+    let lastSearch=String(dt.search?.()||'');
+    const countLabel=clientBulk.querySelector('[data-client-selected-count]');
+    const selectFilteredButton=clientBulk.querySelector('[data-client-select-filtered]');
+    const clearButton=clientBulk.querySelector('[data-client-clear-selection]');
+    const progress=clientBulk.querySelector('[data-client-bulk-progress]');
+    const progressText=clientBulk.querySelector('[data-client-bulk-progress-text]');
+    const sellerSelect=clientBulk.querySelector('[data-client-bulk-seller]');
+    const tagOperation=clientBulk.querySelector('[data-client-tag-operation]');
+    const tagsInput=clientBulk.querySelector('[data-client-bulk-tags]');
+    const pageCheckbox=clientBulkTable.querySelector('[data-client-select-page]');
+    const rowChecks=()=>Array.from(clientBulkTable.querySelectorAll('tbody [data-client-select]'));
+    const recordsFiltered=()=>Number(dt.page?.info?.().recordsDisplay||0);
+    const selectionCount=()=>allFiltered?Math.max(0,recordsFiltered()-excluded.size):selected.size;
+    const syncSelection=()=>{
+      rowChecks().forEach(check=>{const id=Number(check.value);check.checked=allFiltered?!excluded.has(id):selected.has(id);});
+      const checks=rowChecks(),checked=checks.filter(check=>check.checked).length;
+      if(pageCheckbox){pageCheckbox.checked=checks.length>0&&checked===checks.length;pageCheckbox.indeterminate=checked>0&&checked<checks.length;}
+      const count=selectionCount();
+      if(countLabel)countLabel.textContent=count+' selecionado'+(count===1?'':'s');
+      if(selectFilteredButton){selectFilteredButton.hidden=allFiltered||recordsFiltered()===0;selectFilteredButton.textContent='Selecionar todos os '+recordsFiltered().toLocaleString('pt-BR')+' resultados filtrados';}
+      if(clearButton)clearButton.hidden=count===0;
+      clientBulk.querySelectorAll('[data-client-bulk-run]').forEach(button=>button.disabled=running||count===0);
+    };
+    const clearSelection=()=>{selected.clear();excluded.clear();allFiltered=false;syncSelection();};
+    const currentFilters=()=>{
+      const url=new URL(clientBulkTable.dataset.serverUrl,location.origin);
+      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',uf:url.searchParams.get('uf')||'',tag:url.searchParams.get('tag')||'',seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
+    };
+    const payloadFor=(action,onlyId=null,cursor=0)=>({
+      _token:clientBulk.dataset.csrf,
+      action,
+      selection_mode:onlyId!==null?'selected':(allFiltered?'filtered':'selected'),
+      client_ids:onlyId!==null?[onlyId]:Array.from(selected),
+      excluded_ids:onlyId!==null?[]:Array.from(excluded),
+      cursor,
+      ...currentFilters(),
+      change_seller:onlyId===null&&action!=='sync'&&Boolean(sellerSelect&&sellerSelect.value!==''),
+      seller_code:onlyId===null&&action!=='sync'?(sellerSelect?.value||''):'',
+      tag_operation:onlyId===null&&action!=='sync'?(tagOperation?.value||'none'):'none',
+      tags:onlyId===null&&action!=='sync'?(tagsInput?.value||''):'',
+    });
+    const runBulk=async(action,onlyId=null)=>{
+      if(running)return;
+      if(onlyId===null&&selectionCount()===0){showNotice('warning','Nenhum cliente selecionado','Marque os clientes que deseja alterar.');return;}
+      const changesSeller=Boolean(sellerSelect&&sellerSelect.value!=='');
+      const changesTags=(tagOperation?.value||'none')!=='none';
+      if(onlyId===null&&action!=='sync'&&!changesSeller&&!changesTags){showNotice('warning','Escolha o que alterar','Defina o vendedor ou uma ação para as tags.');return;}
+      if(onlyId===null&&action!=='sync'&&['add','remove'].includes(tagOperation?.value||'')&&!String(tagsInput?.value||'').trim()){showNotice('warning','Informe as tags','Digite pelo menos uma tag para continuar.');return;}
+      const targetCount=onlyId!==null?1:selectionCount();
+      const confirmation=onlyId!==null?'Atualizar este cliente na Omie agora?':(action==='apply_sync'?'Salvar as alterações e atualizar '+targetCount.toLocaleString('pt-BR')+' cliente(s) na Omie?':(action==='sync'?'Enviar '+targetCount.toLocaleString('pt-BR')+' cliente(s) selecionado(s) para a Omie agora?':'Confirmar que estes '+targetCount.toLocaleString('pt-BR')+' cliente(s) já foram corrigidos na Omie e atualizar somente o CRM?'));
+      if(!window.confirm(confirmation))return;
+      running=true;syncSelection();if(progress)progress.hidden=false;
+      let cursor=0,processed=0,succeeded=0,failed=0,errors=[],loops=0;
+      try{
+        do{
+          if(progressText)progressText.textContent=(onlyId!==null?'Atualizando cliente na Omie...':'Processando '+processed.toLocaleString('pt-BR')+' de '+targetCount.toLocaleString('pt-BR')+'...');
+          const response=await fetch(clientBulk.dataset.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payloadFor(action,onlyId,cursor))});
+          const data=await response.json().catch(()=>({success:false,error:'Resposta inválida do servidor.'}));
+          if(!response.ok||!data.success)throw new Error(data.error||'Não foi possível concluir a operação.');
+          processed+=Number(data.processed||0);succeeded+=Number(data.succeeded||0);failed+=Number(data.failed||0);errors=errors.concat(Array.isArray(data.errors)?data.errors:[]).slice(0,20);cursor=Number(data.next_cursor||0);loops++;
+          if(data.done)break;
+          if(loops>10000)throw new Error('A operação excedeu o limite seguro de lotes.');
+        }while(true);
+        clearSelection();dt.ajax?.reload?.(null,false);
+        const detail=failed?failed+' cadastro(s) não concluído(s). '+errors.slice(0,3).map(item=>item.name+': '+item.message).join(' | '):'Todos os cadastros selecionados foram concluídos.';
+        showNotice(failed?'warning':'success',succeeded.toLocaleString('pt-BR')+' cliente(s) processado(s)',detail);
+      }catch(error){showNotice('danger','Operação interrompida',error.message||'Tente novamente.');}
+      finally{running=false;if(progress)progress.hidden=true;syncSelection();}
+    };
+    clientBulkTable.addEventListener('change',event=>{
+      const check=event.target.closest?.('[data-client-select]');
+      if(check){const id=Number(check.value);if(allFiltered){if(check.checked)excluded.delete(id);else excluded.add(id);}else{if(check.checked)selected.add(id);else selected.delete(id);}syncSelection();return;}
+      if(event.target.closest?.('[data-client-select-page]')){rowChecks().forEach(row=>{row.checked=event.target.checked;row.dispatchEvent(new Event('change',{bubbles:true}));});syncSelection();}
+    });
+    selectFilteredButton?.addEventListener('click',()=>{selected.clear();excluded.clear();allFiltered=true;syncSelection();});
+    clearButton?.addEventListener('click',clearSelection);
+    clientBulk.querySelectorAll('[data-client-bulk-run]').forEach(button=>button.addEventListener('click',()=>runBulk(button.dataset.clientBulkRun)));
+    clientBulkTable.addEventListener('click',event=>{const button=event.target.closest?.('[data-client-omie-one]');if(button)runBulk('sync',Number(button.dataset.clientOmieOne));});
+    dt.on?.('draw',syncSelection);
+    dt.on?.('search',()=>{const next=String(dt.search?.()||'');if(next!==lastSearch){lastSearch=next;clearSelection();}});
+    syncSelection();
+  }
   document.querySelectorAll('[data-datatable-container]').forEach(container=>container.addEventListener('toggle',()=>{
     if(!container.open)return;
     container.querySelectorAll('.table-card table').forEach(table=>{
@@ -572,15 +756,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(!module)return;
       if(btn.dataset.syncConfirm&&!(await askConfirm(btn.dataset.syncConfirm)))return;
       const card=btn.closest('[data-sync-card]');
-      const labels={sync:'Sincronizando',period:'Sincronizando período',catchup:'Atualizando lacuna',last5:'Buscando últimos 5 dias',resume:'Retomando',reset:'Zerando estado',full:'Executando carga completa'};
+      const labels={sync:'Sincronizando',period:'Sincronizando período',catchup:'Atualizando lacuna',last5:'Buscando últimos 5 dias',resume:'Retomando',reset:'Zerando estado',full:'Executando carga completa',reconcile_clients:'Reconciliando todos os clientes',product_obs:'Carregando descrições e observações'};
       let page=action==='resume'?0:1;
       let iterations=0;
+      const maxIterations=2000;
       setCardBusy(card,true);
       setSyncAlert(card,'info',labels[action]||'Processando','A operação foi iniciada. Aguarde o processamento deste módulo.');
       try{
         while(true){
           iterations++;
-          if(iterations>500)throw new Error('A sincronização ultrapassou o limite seguro de 500 páginas e foi interrompida.');
+          if(iterations>maxIterations)throw new Error('A sincronização ultrapassou o limite seguro de '+maxIterations+' páginas e foi interrompida.');
           const body=new URLSearchParams({_token:window.CSRF,module,action,page:String(page)});
           if(action==='period'){
             const dateFrom=card?.querySelector('[data-sync-date-from]')?.value||'';
@@ -612,8 +797,9 @@ document.addEventListener('DOMContentLoaded',()=>{
           const responseTotal=Math.max(0,Number(data.total_pages||0));
           const completed=data.done===true||data.done===1||data.done==='1'||(responseTotal>0&&responsePage>=responseTotal);
           if(completed){
-            const count=Number(data.count||0);
-            setSyncAlert(card,'success','Sincronização concluída',count+' registro(s) processado(s) no último lote. O estado do módulo foi atualizado.');
+            const count=Number(data.processed??data.count??0);
+            const countLabel=data.processed!==undefined?' durante esta atualização.':' no último lote.';
+            setSyncAlert(card,'success',data.validation?.ok?'Reconciliação validada':'Sincronização concluída',data.message||(count+' registro(s) processado(s)'+countLabel+' O estado do módulo foi atualizado.'));
             setCardBusy(card,false);
             setTimeout(()=>location.reload(),850);
             return;
@@ -621,6 +807,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           const nextPage=responsePage+1;
           if(nextPage<=page)throw new Error('A Omie repetiu a mesma página. A sincronização foi interrompida com segurança.');
           page=nextPage;
+          await new Promise(resolve=>setTimeout(resolve,900));
         }
       }catch(error){
         setSyncAlert(card,'error','Falha na sincronização',error.message||'O fluxo foi interrompido. Use Retomar após corrigir a causa.');
@@ -699,6 +886,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const paymentTerm=document.getElementById('orderPaymentTerm'),forecastDate=document.getElementById('orderForecastDate'),installmentRows=document.getElementById('installmentRows'),rebuildInstallments=document.getElementById('rebuildInstallments'),installmentPaymentMethod=document.getElementById('installmentPaymentMethod');
   const installmentsJson=document.getElementById('installmentsJson'),customInstallments=document.getElementById('customInstallments'),installmentTotal=document.getElementById('installmentTotal'),installmentPercent=document.getElementById('installmentPercent'),installmentBalance=document.getElementById('installmentBalance'),installmentMode=document.getElementById('installmentMode');
   const netWeightInput=document.getElementById('orderNetWeight'),grossWeightInput=document.getElementById('orderGrossWeight');
+  const freightValueInput=document.getElementById('orderFreightValue'),freightVolumes=document.getElementById('orderVolumes'),freightMode=document.getElementById('orderFreightMode'),carrierSelect=document.getElementById('orderCarrier'),orderNotes=document.getElementById('orderNotes');
+  const freightQuoteButton=document.getElementById('openFreightQuote'),freightQuoteModal=document.getElementById('freightQuoteModal'),freightQuoteClose=document.getElementById('closeFreightQuote'),freightQuoteResults=document.getElementById('freightQuoteResults'),freightQuoteContext=document.getElementById('freightQuoteContext'),freightQuoteProviders=document.getElementById('freightQuoteProviders'),freightSelectedSummary=document.getElementById('freightSelectedSummary');
 
   let items=Array.isArray(window.ORDER_OLD_ITEMS)?window.ORDER_OLD_ITEMS:[];
   let newItemRowOpen=items.length===0;
@@ -706,7 +895,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   let installmentData=[];let customInstallmentMode=customInstallments?.value==='S';let installmentTargetCents=0;
   try{const parsed=JSON.parse(installmentsJson?.value||'[]');if(Array.isArray(parsed))installmentData=parsed;}catch(e){}
   if(!installmentData.length)customInstallmentMode=false;
-  let clientTimer,productTimer;
+  let clientTimer,productTimer,currentCommercialTotal=0;
 
   let departmentRows=[];
   try{
@@ -835,6 +1024,92 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(clientEmailPreview)clientEmailPreview.value=client.email||'';
     clientResults.innerHTML='';clientSearch.value='';
   }
+
+  const decimalValue=value=>{
+    const raw=String(value??'').trim();
+    if(!raw)return 0;
+    return Number(raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw)||0;
+  };
+  const formatDecimal=value=>Number(value||0).toFixed(2).replace('.',',');
+  const deadlineLabel=value=>{const text=String(value??'').trim();return /^\d+$/.test(text)?text+' dia(s)':text;};
+  const deliveryDateLabel=value=>{const text=String(value??'').trim();if(!text)return '';const date=new Date(text);return Number.isNaN(date.getTime())?'':date.toLocaleDateString('pt-BR');};
+  const normalizeCarrier=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+  function quoteCarrierCode(quote){
+    if(quote.omie_carrier_code&&Array.from(carrierSelect?.options||[]).some(option=>option.value===String(quote.omie_carrier_code)))return String(quote.omie_carrier_code);
+    const tokens=[quote.label,quote.carrier].map(normalizeCarrier).filter(token=>token.length>=3);
+    const option=Array.from(carrierSelect?.options||[]).find(candidate=>{
+      const name=normalizeCarrier(candidate.textContent);return candidate.value&&tokens.some(token=>name.includes(token)||token.includes(name));
+    });
+    return option?.value||'';
+  }
+  function freightObservation(quote){
+    const details=[
+      'Transportadora: '+String(quote.label||quote.carrier||'Não informada'),
+      'Valor: '+money(quote.value),
+      quote.deadline?'Prazo: '+deadlineLabel(quote.deadline):'',
+      quote.service?'Serviço: '+String(quote.service):'',
+      quote.delivery_date?'Previsão: '+deliveryDateLabel(quote.delivery_date):'',
+      quote.quote_id?'Cotação: '+String(quote.quote_id):'',
+      'CEP: '+String(quote.destination_zip||''),
+      'Peso: '+Number(quote.weight||0).toLocaleString('pt-BR',{maximumFractionDigits:3})+' kg',
+      'Volumes: '+String(quote.volumes||1)
+    ].filter(Boolean);
+    return '[COTAÇÃO DE FRETE] '+details.join(' | ');
+  }
+  function applyFreightQuote(quote){
+    const carrierCode=quoteCarrierCode(quote);
+    if(!carrierCode){showNotice('warning','Transportadora não configurada','A cotação foi retornada por '+String(quote.label||quote.carrier)+', mas ela não está habilitada nas configurações do pedido.');return;}
+    carrierSelect.value=carrierCode;
+    freightValueInput.value=formatDecimal(quote.value);
+    if(freightMode.value==='9')freightMode.value='0';
+    if(orderNotes){
+      const line=freightObservation(quote),current=orderNotes.value.replace(/^\[COTAÇÃO DE FRETE\].*(?:\r?\n)?/m,'').trim();
+      orderNotes.value=(current?current+'\n\n':'')+line;
+    }
+    if(freightSelectedSummary)freightSelectedSummary.textContent=String(quote.label||quote.carrier)+' • '+money(quote.value)+(quote.deadline?' • '+deadlineLabel(quote.deadline):'');
+    customInstallmentMode=false;installmentData=[];render();freightQuoteModal?.close();
+    showNotice('success','Frete selecionado','Transportadora, valor, prazo e observação foram atualizados no pedido.');
+  }
+  function renderFreightQuotes(data){
+    const quotes=(data.items||[]).map(quote=>({...quote,destination_zip:data.destination_zip,weight:data.weight,volumes:data.volumes}));
+    const available=quotes.filter(quote=>quote.success&&Number.isFinite(Number(quote.value))).sort((a,b)=>Number(a.value)-Number(b.value));
+    available.forEach((quote,index)=>quote.best=index===0);
+    if(freightQuoteProviders){
+      const providers=data.providers||{};
+      freightQuoteProviders.innerHTML=Object.values(providers).map(provider=>'<span class="'+esc(provider.status||'disabled')+'"><i class="fa-solid fa-truck"></i><b>Transportadoras</b><em>'+esc(provider.status==='ok'?'Consultado':provider.message||'Indisponível')+'</em></span>').join('');
+    }
+    if(!available.length){
+      const errors=quotes.map(quote=>quote.message).filter(Boolean).slice(0,3).join(' • ');
+      freightQuoteResults.innerHTML='<div class="freight-quote-error"><i class="fa-solid fa-triangle-exclamation"></i><span>'+esc(errors||'Nenhuma transportadora retornou uma cotação válida.')+'</span></div>';return;
+    }
+    freightQuoteResults.innerHTML=available.map((quote,index)=>{
+      const carrierCode=quoteCarrierCode(quote),carrierHint=carrierCode?'Disponível no pedido':'Cadastre esta transportadora nas configurações',delivery=deliveryDateLabel(quote.delivery_date);
+      return '<article class="freight-quote-row '+(quote.best?'best ':'')+'" data-quote="'+index+'"><div class="quote-carrier"><span><i class="fa-solid fa-truck-fast"></i></span><div>'+(quote.best?'<small class="freight-quote-badge">MELHOR VALOR</small>':'')+'<strong>'+esc(quote.label||quote.carrier)+'</strong><small>'+esc((quote.service?quote.service+' • ':'')+carrierHint)+'</small></div></div><div class="quote-value"><small>Valor final</small><strong>'+money(quote.value)+'</strong></div><div class="quote-deadline"><small>Prazo estimado</small><strong>'+esc(quote.deadline?deadlineLabel(quote.deadline):'—')+'</strong>'+(delivery?'<em>até '+esc(delivery)+'</em>':'')+'</div><button type="button" '+(carrierCode?'':'disabled')+'><i class="fa-solid fa-check"></i> Escolher</button></article>';
+    }).join('');
+    freightQuoteResults.querySelectorAll('[data-quote]').forEach(row=>row.querySelector('button')?.addEventListener('click',()=>applyFreightQuote(available[Number(row.dataset.quote)])));
+  }
+  async function calculateFreight(){
+    if(!clientId.value){showNotice('warning','Selecione o cliente','O destino do frete será obtido no cadastro do cliente.');clientSearch?.focus();return;}
+    const weight=decimalValue(grossWeightInput?.value)||decimalValue(netWeightInput?.value),volumes=Math.max(1,Number(freightVolumes?.value||1));
+    if(currentCommercialTotal<=0){showNotice('warning','Pedido sem valor','Inclua ao menos um produto antes de calcular o frete.');return;}
+    if(weight<=0){showNotice('warning','Peso não informado','Informe o peso bruto ou líquido antes de calcular o frete.');grossWeightInput?.focus();return;}
+    freightQuoteModal?.showModal();freightQuoteButton.disabled=true;
+    freightQuoteContext.innerHTML='<span><i class="fa-solid fa-box"></i> '+money(currentCommercialTotal)+'</span><span><i class="fa-solid fa-weight-hanging"></i> '+weight.toLocaleString('pt-BR',{maximumFractionDigits:3})+' kg</span><span><i class="fa-solid fa-cubes"></i> '+volumes+' volume(s)</span>';
+    freightQuoteResults.innerHTML='<div class="freight-quote-empty"><i class="fa-solid fa-spinner fa-spin"></i><span>Consultando transportadoras…</span></div>';
+    if(freightQuoteProviders)freightQuoteProviders.innerHTML='<span class="loading"><i class="fa-solid fa-spinner fa-spin"></i><b>Consultando opções disponíveis</b></span>';
+    try{
+      const body=new URLSearchParams({_token:window.CSRF,client_id:String(clientId.value),value:String(currentCommercialTotal),weight:String(weight),volumes:String(volumes),freight_mode:String(freightMode?.value||'0')});
+      const response=await fetch(window.APP_URL+'/api/freight/quote',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},credentials:'same-origin',body});
+      const data=await response.json().catch(()=>({ok:false,error:'A API de fretes retornou uma resposta inválida.'}));
+      if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível calcular o frete.');
+      renderFreightQuotes(data);
+      freightQuoteContext.innerHTML+='<span><i class="fa-solid fa-location-dot"></i> CEP '+esc(data.destination_zip||'')+'</span>';
+    }catch(error){freightQuoteResults.innerHTML='<div class="freight-quote-error"><i class="fa-solid fa-triangle-exclamation"></i><span>'+esc(error.message||'Falha ao calcular o frete.')+'</span></div>';}
+    finally{freightQuoteButton.disabled=false;}
+  }
+  freightQuoteButton?.addEventListener('click',calculateFreight);
+  freightQuoteClose?.addEventListener('click',()=>freightQuoteModal?.close());
+  freightQuoteModal?.addEventListener('click',event=>{if(event.target===freightQuoteModal)freightQuoteModal.close();});
   async function findClients(){
     const q=clientSearch.value.trim();if(q.length<2){clientResults.innerHTML='';return;}
     try{
@@ -975,7 +1250,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           '<button type="button" class="item-rule-toggle stock '+(item.no_stock?'off':'on')+'" title="Alterar movimentação de estoque"><i class="fa-solid '+(item.no_stock?'fa-box-open':'fa-box')+'"></i><span>'+(item.no_stock?'Não movimenta':'Movimenta')+'</span></button>'+
           '<button type="button" class="item-rule-toggle finance '+(item.no_finance?'off':'on')+'" title="Alterar geração financeira"><i class="fa-solid '+(item.no_finance?'fa-ban':'fa-sack-dollar')+'"></i><span>'+(item.no_finance?'Não gera':'Gera')+'</span></button>'+
           '<div class="order-item-row-total"><small>Total</small><strong>'+money(net)+'</strong></div>'+
-          '<div class="item-buttons"><button type="button" class="btn btn-light add-order-item" title="Incluir novo item" aria-label="Incluir novo item"><i class="fa-solid fa-plus"></i></button><button type="button" class="btn btn-light duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></button><button type="button" class="btn btn-light remove" title="Remover"><i class="fa-solid fa-trash"></i></button></div>'+
+          '<div class="item-buttons"><button type="button" class="btn btn-light product-detail-trigger" data-product-details="'+item.product_id+'" title="Ver detalhes do produto" aria-label="Ver detalhes do produto"><i class="fa-solid fa-magnifying-glass"></i></button><button type="button" class="btn btn-light add-order-item" title="Incluir novo item" aria-label="Incluir novo item"><i class="fa-solid fa-plus"></i></button><button type="button" class="btn btn-light duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></button><button type="button" class="btn btn-light remove" title="Remover"><i class="fa-solid fa-trash"></i></button></div>'+
           '<details class="item-rules"><summary><span><i class="fa-solid fa-sliders"></i>Configurações avançadas</span><small>Fiscal, estoque e identificação do item</small></summary>'+
            '<div class="item-rule-switches">'+
             '<label><input type="checkbox" class="no-total" '+(item.no_total?'checked':'')+'><span><strong>Não somar na NF-e</strong><small>Omie: nao_somar_total</small></span></label>'+
@@ -1042,18 +1317,21 @@ document.addEventListener('DOMContentLoaded',()=>{
     const fiscal=items.reduce((sum,item)=>sum+(item.no_total?0:lineNet(item)),0);
     const netWeight=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unit_net_weight||0),0);
     const grossWeight=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unit_gross_weight||0),0);
+    const freightValue=Math.max(0,decimalValue(freightValueInput?.value));
+    currentCommercialTotal=commercial;
     grandTotal.textContent=money(gross);
     if(discountTotal)discountTotal.textContent=money(discount);
-    if(orderGrandTotal)orderGrandTotal.textContent=money(commercial);
-    financialTotal.textContent=money(financial);
-    fiscalTotal.textContent=money(fiscal);
+    if(orderGrandTotal)orderGrandTotal.textContent=money(commercial+freightValue);
+    financialTotal.textContent=money(financial+freightValue);
+    fiscalTotal.textContent=money(fiscal+freightValue);
     if(netWeightInput&&netWeightInput.dataset.manual!=='1')netWeightInput.value=netWeight>0?netWeight.toFixed(3).replace('.',','):'';
     if(grossWeightInput&&grossWeightInput.dataset.manual!=='1')grossWeightInput.value=grossWeight>0?grossWeight.toFixed(3).replace('.',','):'';
     itemsJson.value=JSON.stringify(items);
-    renderInstallments(financial);
+    renderInstallments(financial+freightValue);
   }
 
   [netWeightInput,grossWeightInput].forEach(input=>input?.addEventListener('change',()=>{input.dataset.manual=input.value.trim()===''?'0':'1';render();}));
+  freightValueInput?.addEventListener('change',()=>{customInstallmentMode=false;installmentData=[];render();});
   paymentTerm?.addEventListener('change',()=>{customInstallmentMode=false;installmentData=[];render();});
   forecastDate?.addEventListener('change',render);
   rebuildInstallments?.addEventListener('click',()=>{customInstallmentMode=false;installmentData=[];render();});

@@ -5,90 +5,47 @@ function render(string $name,array $vars=[]): void{
   case 'login':?>
    <main class="tdlogin-page">
     <section class="tdlogin-hero">
+     <div class="tdlogin-hero-orb one"></div><div class="tdlogin-hero-orb two"></div>
      <div class="tdlogin-hero-inner">
-      <div class="tdlogin-brand">
-       <span class="tdlogin-brand-icon"><i class="fa-solid fa-graduation-cap"></i></span>
-       <div><strong>Tecnodata <b>CRM</b></strong><small>Organize, conecte e faça mais negócios.</small></div>
-      </div>
-
+      <header class="tdlogin-brand"><span class="tdlogin-brand-icon">TD</span><div><strong>Tecnodata <b>CRM</b></strong><small>Inteligência comercial em movimento</small></div></header>
       <div class="tdlogin-copy">
-       <h1>Gestão comercial<br><span>inteligente.</span></h1>
-       <h2>Comercial <b>•</b> Cobrança <b>•</b> Supervisão</h2>
-       <p>Tudo o que sua equipe precisa para vender mais, atender melhor e crescer com controle.</p>
+       <span class="tdlogin-eyebrow"><i></i> OPERAÇÃO CONECTADA</span>
+       <h1>Relacionamentos melhores começam com <span>informação clara.</span></h1>
+       <p>Clientes, pedidos, cobrança e agenda trabalhando juntos para sua equipe decidir melhor e agir mais rápido.</p>
+       <div class="tdlogin-capabilities"><span><i class="fa-solid fa-users"></i>Clientes</span><span><i class="fa-solid fa-cart-shopping"></i>Pedidos</span><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span><span><i class="fa-regular fa-calendar-check"></i>Agenda</span></div>
       </div>
-
-      <div class="tdlogin-demo" aria-hidden="true">
-       <div class="tdlogin-window">
-        <div class="tdlogin-window-dots"><i></i><i></i><i></i></div>
-        <div class="tdlogin-window-body">
-         <aside>
-          <span class="active"><i class="fa-solid fa-users"></i>Clientes</span>
-          <span><i class="fa-regular fa-rectangle-list"></i>Pedidos</span>
-          <span><i class="fa-solid fa-screwdriver-wrench"></i>Serviços</span>
-          <span><i class="fa-solid fa-circle-dollar-to-slot"></i>Cobrança</span>
-          <span><i class="fa-regular fa-calendar"></i>Agenda</span>
-         </aside>
-         <div class="tdlogin-demo-main">
-          <article class="tdlogin-stat tdlogin-stat-a">
-           <span><i class="fa-solid fa-users"></i></span>
-           <div><small>Clientes na carteira</small><strong>33.444</strong><em>↑ 12% este mês</em></div>
-           <i class="fa-solid fa-chart-line"></i>
-          </article>
-          <article class="tdlogin-stat tdlogin-stat-b">
-           <span><i class="fa-solid fa-chart-column"></i></span>
-           <div><small>Receita em 12 meses</small><strong>R$ 1.290.505,17</strong><em>↑ 8% este mês</em></div>
-          </article>
-          <article class="tdlogin-stat tdlogin-stat-c">
-           <span><i class="fa-solid fa-cart-shopping"></i></span>
-           <div><small>Pedidos em 12 meses</small><strong>939</strong><em>↑ 15% este mês</em></div>
-          </article>
-         </div>
-        </div>
+      <div class="tdlogin-overview" aria-hidden="true">
+       <div class="tdlogin-overview-head"><div><span></span><span></span><span></span></div><small>VISÃO COMERCIAL</small><b><i class="fa-solid fa-circle"></i> Sincronizado</b></div>
+       <div class="tdlogin-overview-body">
+        <div class="tdlogin-overview-chart"><small>EVOLUÇÃO DA OPERAÇÃO</small><div><i style="height:38%"></i><i style="height:54%"></i><i style="height:47%"></i><i style="height:69%"></i><i style="height:64%"></i><i style="height:86%"></i><i style="height:100%"></i></div></div>
+        <div class="tdlogin-overview-feed"><article><span class="blue"><i class="fa-solid fa-user-check"></i></span><div><strong>Carteira organizada</strong><small>Clientes prontos para atendimento</small></div><b>Agora</b></article><article><span class="green"><i class="fa-solid fa-file-circle-check"></i></span><div><strong>Pedido acompanhado</strong><small>Do rascunho à integração</small></div><b>CRM</b></article><article><span class="amber"><i class="fa-solid fa-bell"></i></span><div><strong>Próximas ações</strong><small>Agenda e retornos centralizados</small></div><b>Hoje</b></article></div>
        </div>
       </div>
-
-      <div class="tdlogin-hero-foot"><i></i><span>Mais dados. Mais resultados. Mais negócios.</span></div>
+      <footer class="tdlogin-hero-foot"><span><i class="fa-solid fa-shield-halved"></i>Ambiente corporativo protegido</span><small>© <?=date('Y')?> Tecnodata Educacional</small></footer>
      </div>
     </section>
-
     <section class="tdlogin-access">
      <div class="tdlogin-card">
-      <div class="tdlogin-card-brand">
-       <span><i class="fa-solid fa-graduation-cap"></i></span>
-       <strong>Tecnodata <b>CRM</b></strong>
-      </div>
-      <p class="tdlogin-subtitle">Acesse sua conta para continuar.</p>
-
+      <div class="tdlogin-card-status"><i class="fa-solid fa-shield-halved"></i> Acesso corporativo</div>
+      <div class="tdlogin-card-mark"><span>TD</span></div><span class="tdlogin-card-kicker">TECNODATA CRM</span><h2>Bem-vindo de volta</h2>
+      <p class="tdlogin-subtitle"><?=!empty($googleAvailable)?'Um clique para entrar. Sem digitar e-mail ou senha.':'Use suas credenciais para continuar.'?></p>
       <?php if(!empty($error)):?><div class="alert alert-danger tdlogin-alert"><i class="fa-solid fa-circle-exclamation"></i><span><?=e($error)?></span></div><?php endif;?>
-
+      <?php if(!empty($googleAvailable)):?>
+       <a class="tdlogin-google" href="<?=APP_URL?>/auth/google" aria-label="Entrar agora com a conta Google corporativa"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.91h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.4Z"/><path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.62-2.43l-3.24-2.53c-.9.6-2.05.96-3.38.96-2.6 0-4.81-1.76-5.6-4.13H3.06v2.61A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.4 13.87A6.01 6.01 0 0 1 6.09 12c0-.65.11-1.28.31-1.87V7.52H3.06A10 10 0 0 0 2 12c0 1.61.38 3.14 1.06 4.48l3.34-2.61Z"/><path fill="#EA4335" d="M12 6c1.47 0 2.79.51 3.82 1.5l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.94 5.52l3.34 2.61C7.19 7.76 9.4 6 12 6Z"/></svg><span>Entrar agora com Google</span><i class="fa-solid fa-arrow-right"></i></a>
+       <p class="tdlogin-google-note"><i class="fa-solid fa-circle-check"></i>Use a conta já aberta no navegador — nenhuma senha será pedida pelo CRM.</p>
+       <div class="tdlogin-sso-benefits"><span><i class="fa-solid fa-bolt"></i>Entrada rápida</span><span><i class="fa-solid fa-building"></i>Conta da empresa</span><span><i class="fa-solid fa-lock"></i>Acesso protegido</span></div>
+      <?php endif;?>
+      <?php if(!empty($googleAvailable)):?><details class="tdlogin-password-access"><summary><span class="tdlogin-password-icon"><i class="fa-solid fa-key"></i></span><span><strong>Entrar com e-mail e senha</strong><small>Use seu acesso tradicional do CRM</small></span></summary><div class="tdlogin-password-panel"><?php endif;?>
       <form method="post" action="<?=APP_URL?>/login" class="tdlogin-form" autocomplete="on">
-       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-
-       <label for="tdlogin-email">E-mail</label>
-       <div class="tdlogin-input">
-        <i class="fa-regular fa-envelope"></i>
-        <input id="tdlogin-email" class="form-control" type="email" name="email" placeholder="seu@email.com" required autofocus autocomplete="username">
-       </div>
-
-       <label for="tdlogin-password">Senha</label>
-       <div class="tdlogin-input">
-        <i class="fa-solid fa-lock"></i>
-        <input id="tdlogin-password" class="form-control" type="password" name="password" placeholder="Sua senha" required autocomplete="current-password">
-        <button type="button" class="tdlogin-password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha"><i class="fa-regular fa-eye"></i></button>
-       </div>
-
-       <div class="tdlogin-options">
-        <label class="tdlogin-remember"><input type="checkbox" name="remember_access" value="1"><span><i class="fa-solid fa-check"></i></span>Lembrar acesso</label>
-        <span class="tdlogin-help" title="A redefinição de senha ainda é administrada internamente.">Esqueci minha senha</span>
-       </div>
-
-       <button class="tdlogin-submit" type="submit"><i class="fa-solid fa-arrow-right"></i><span>Entrar no sistema</span></button>
+       <input type="hidden" name="_token" value="<?=CSRF::token()?>"><label for="tdlogin-email">E-mail</label><div class="tdlogin-input"><i class="fa-regular fa-envelope"></i><input id="tdlogin-email" class="form-control" type="email" name="email" placeholder="nome@empresa.com.br" required <?=empty($googleAvailable)?'autofocus':''?> autocomplete="username"></div>
+       <label for="tdlogin-password">Senha</label><div class="tdlogin-input"><i class="fa-solid fa-lock"></i><input id="tdlogin-password" class="form-control" type="password" name="password" placeholder="Digite sua senha" required autocomplete="current-password"><button type="button" class="tdlogin-password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha"><i class="fa-regular fa-eye"></i></button></div>
+       <div class="tdlogin-options"><label class="tdlogin-remember"><input type="checkbox" name="remember_access" value="1"><span><i class="fa-solid fa-check"></i></span>Manter conectado</label><span class="tdlogin-help" title="A redefinição de senha é administrada internamente.">Precisa de ajuda?</span></div>
+       <button class="tdlogin-submit" type="submit"><span>Entrar com senha</span><i class="fa-solid fa-arrow-right"></i></button>
       </form>
-
-      <div class="tdlogin-secure"><i class="fa-solid fa-shield-halved"></i><span>Ambiente seguro para equipe comercial, cobrança e supervisão.</span></div>
+      <?php if(!empty($googleAvailable)):?></div></details><?php endif;?>
+      <div class="tdlogin-secure"><i class="fa-solid fa-lock"></i><span>Conexão segura e acesso controlado pela empresa.</span></div>
      </div>
-
-     <footer class="tdlogin-footer"><strong>Tecnodata CRM</strong><span>Operação comercial inteligente.</span></footer>
+     <footer class="tdlogin-footer"><strong>Tecnodata CRM</strong><span>Dados que aproximam. Tecnologia que transforma.</span></footer>
     </section>
    </main>
   <?php break;
@@ -398,15 +355,85 @@ function render(string $name,array $vars=[]): void{
     </div>
    </section>
   <?php break;
+  case 'client_audit':
+   $auditStats=$auditStats??[];$auditGroups=$auditGroups??[];$auditRowsByDocument=$auditRowsByDocument??[];$auditInactiveRows=$auditInactiveRows??[];$auditPagination=$auditPagination??['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
+   $auditTab=$auditTab??'duplicates';$auditQuery=$auditQuery??'';$auditConflict=$auditConflict??'all';
+   $auditUrl=static function(array $changes=[])use($auditTab,$auditQuery,$auditConflict){$params=['tab'=>$auditTab,'q'=>$auditQuery,'conflict'=>$auditConflict];foreach($changes as $key=>$value){if($value===null||$value==='')unset($params[$key]);else $params[$key]=$value;}return APP_URL.'/clients-audit?'.http_build_query($params);};
+   ?>
+   <section class="tdaudit-page">
+    <header class="tdaudit-head">
+     <div class="tdaudit-head-main"><span class="tdaudit-head-icon"><i class="fa-solid fa-user-shield"></i></span><div><span class="tdaudit-kicker">QUALIDADE DA BASE / CLIENTES</span><h1>Auditoria de cadastros</h1><p>Compare CPF/CNPJ repetidos e valide os clientes inativos antes de qualquer correção.</p></div></div>
+     <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
+    </header>
+
+    <div class="tdaudit-note"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Tela segura para conferência</strong><p>Nenhum cadastro é alterado ou excluído aqui. Primeiro identificamos o código correto; a correção será feita em uma etapa separada e controlada.</p></div></div>
+
+    <div class="tdaudit-kpis">
+     <article><span class="blue"><i class="fa-solid fa-address-book"></i></span><div><small>Total no CRM</small><strong><?=number_format((int)($auditStats['total_clients']??0),0,',','.')?></strong><p><?=number_format((int)($auditStats['active_clients']??0),0,',','.')?> ativos</p></div></article>
+     <article><span class="orange"><i class="fa-solid fa-clone"></i></span><div><small>Grupos duplicados</small><strong><?=number_format((int)($auditStats['duplicate_groups']??0),0,',','.')?></strong><p><?=number_format((int)($auditStats['duplicate_rows']??0),0,',','.')?> cadastros envolvidos</p></div></article>
+     <article><span class="red"><i class="fa-solid fa-triangle-exclamation"></i></span><div><small>Múltiplos ativos</small><strong><?=number_format((int)($auditStats['active_groups']??0),0,',','.')?></strong><p>podem bloquear a edição</p></div></article>
+     <article><span class="gray"><i class="fa-solid fa-user-slash"></i></span><div><small>Inativos indevidos</small><strong><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?></strong><p>este número deve ser zero</p></div></article>
+    </div>
+
+    <nav class="tdaudit-tabs" aria-label="Tipos de auditoria">
+     <a class="<?=$auditTab==='duplicates'?'active':''?>" href="<?=e($auditUrl(['tab'=>'duplicates','page'=>1]))?>"><span><i class="fa-solid fa-clone"></i><b>Cadastros duplicados</b></span><em><?=number_format((int)($auditStats['duplicate_groups']??0),0,',','.')?> grupos</em></a>
+     <a class="<?=$auditTab==='inactive'?'active':''?>" href="<?=e($auditUrl(['tab'=>'inactive','page'=>1]))?>"><span><i class="fa-solid fa-user-slash"></i><b>Controle de inativos</b></span><em><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?> indevidos</em></a>
+    </nav>
+
+    <form class="tdaudit-filter" method="get" action="<?=APP_URL?>/clients-audit">
+     <input type="hidden" name="tab" value="<?=e($auditTab)?>">
+     <label class="tdaudit-search"><span>Buscar cadastro</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="<?=e($auditQuery)?>" placeholder="Nome, CPF/CNPJ ou código Omie"></div></label>
+     <?php if($auditTab==='duplicates'):?><label><span>Tipo de conflito</span><select name="conflict" class="form-select"><option value="all">Todos os conflitos</option><option value="active" <?=$auditConflict==='active'?'selected':''?>>Múltiplos ativos</option><option value="mixed" <?=$auditConflict==='mixed'?'selected':''?>>Ativo + inativo</option><option value="invalid" <?=$auditConflict==='invalid'?'selected':''?>>Documento inválido</option></select></label><?php endif;?>
+     <button class="tdaudit-btn primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar filtros</button>
+     <?php if($auditQuery!==''||$auditConflict!=='all'):?><a class="tdaudit-btn" href="<?=APP_URL?>/clients-audit?tab=<?=e($auditTab)?>"><i class="fa-solid fa-xmark"></i>Limpar</a><?php endif;?>
+    </form>
+
+    <?php if($auditTab==='duplicates'):?>
+     <div class="tdaudit-section-head"><div><span>DUPLICIDADES ENCONTRADAS</span><h2>Compare os registros do mesmo documento</h2><p>Exibindo <?=$auditPagination['from']?>–<?=$auditPagination['to']?> de <?=number_format((int)$auditPagination['total'],0,',','.')?> grupos filtrados.</p></div><div class="tdaudit-legend"><span><i class="active"></i>Ativo</span><span><i class="inactive"></i>Inativo</span><span><i class="local"></i>Cadastro local</span></div></div>
+     <div class="tdaudit-groups">
+      <?php foreach($auditGroups as $group):$groupRows=$auditRowsByDocument[(string)$group['document_digits']]??[];$conflictLabel=$group['conflict_type']==='active'?'Múltiplos ativos':($group['conflict_type']==='mixed'?'Ativo + inativo':'Múltiplos inativos');?>
+       <article class="tdaudit-group">
+        <header>
+         <div class="tdaudit-document"><span class="<?=!empty($group['document_valid'])?'valid':'invalid'?>"><i class="fa-solid <?=!empty($group['document_valid'])?'fa-id-card':'fa-circle-exclamation'?>"></i></span><div><small><?=e($group['document_type'])?> · GRUPO DUPLICADO</small><strong><?=e($group['document_formatted'])?></strong></div></div>
+         <div class="tdaudit-group-badges"><span class="conflict <?=$group['conflict_type']?>"><?=e($conflictLabel)?></span><?php if(empty($group['document_valid'])):?><span class="invalid">Documento inválido</span><?php endif;?><span><?=count($groupRows)?> registros</span></div>
+        </header>
+        <div class="tdaudit-table-wrap"><table class="tdaudit-table"><thead><tr><th>Status</th><th>Cliente</th><th>Código Omie</th><th>Vendedor</th><th>Localização</th><th>Histórico</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
+         <?php foreach($groupRows as $row):$history=[];if(!empty($row['orders_history']))$history[]='Pedidos';if(!empty($row['services_history']))$history[]='Serviços';if(!empty($row['financial_history']))$history[]='Financeiro';if(!empty($row['crm_history']))$history[]='CRM';$isLocal=str_starts_with((string)$row['omie_code'],'LOCAL-');?>
+          <tr class="<?=$row['active']?'is-active':'is-inactive'?>">
+           <td><span class="tdaudit-status <?=$row['active']?'active':'inactive'?>"><i></i><?=$row['active']?'Ativo':'Inativo'?></span><?php if($isLocal):?><small class="tdaudit-origin local">Somente CRM</small><?php else:?><small class="tdaudit-origin">Omie</small><?php endif;?></td>
+           <td><div class="tdaudit-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['legal_name']?:'Razão social não informada')?></small></div></div></td>
+           <td><strong class="tdaudit-code"><?=e($row['omie_code'])?></strong><?php if(!empty($row['duplicate_of'])):?><small>Marcado como duplicado de <?=e($row['duplicate_of'])?></small><?php endif;?></td>
+           <td><strong><?=e($row['seller_name']?:'Sem vendedor')?></strong><small><?=e($row['seller_omie_code']?:'Não vinculado')?></small></td>
+           <td><strong><?=e($row['city']?:'—')?></strong><small><?=e($row['uf']?:'UF não informada')?></small></td>
+           <td><?php if($history):?><div class="tdaudit-history"><?php foreach($history as $item):?><span><?=e($item)?></span><?php endforeach;?></div><?php else:?><span class="tdaudit-no-history">Sem histórico</span><?php endif;?></td>
+           <td><strong><?=!empty($row['updated_at'])?date('d/m/Y',strtotime((string)$row['updated_at'])):'—'?></strong><small><?=!empty($row['updated_at'])?date('H:i',strtotime((string)$row['updated_at'])):''?></small></td>
+           <td><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>" title="Abrir cadastro"><i class="fa-regular fa-folder-open"></i><span>Abrir</span></a></td>
+          </tr>
+         <?php endforeach;?></tbody></table></div>
+       </article>
+      <?php endforeach;?>
+      <?php if(!$auditGroups):?><div class="tdaudit-empty"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Nenhum grupo encontrado</strong><p>Ajuste os filtros ou faça uma nova busca.</p></div></div><?php endif;?>
+     </div>
+     <?php if((int)$auditPagination['pages']>1):?><nav class="tdaudit-pager"><a class="tdaudit-btn <?=(int)$auditPagination['page']<=1?'disabled':''?>" href="<?=e($auditUrl(['page'=>max(1,(int)$auditPagination['page']-1)]))?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><span>Página <strong><?=(int)$auditPagination['page']?></strong> de <strong><?=(int)$auditPagination['pages']?></strong></span><a class="tdaudit-btn <?=(int)$auditPagination['page']>=(int)$auditPagination['pages']?'disabled':''?>" href="<?=e($auditUrl(['page'=>min((int)$auditPagination['pages'],(int)$auditPagination['page']+1)]))?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
+    <?php else:?>
+     <div class="tdaudit-section-head"><div><span>CONTROLE DE INTEGRIDADE</span><h2>Cadastros inativos indevidos</h2><p>A sincronização agora descarta clientes inativos da Omie. Esta lista deve permanecer vazia.</p></div></div>
+     <div class="tdaudit-inactive-card"><div class="tdaudit-table-wrap"><table class="tdaudit-table inactive-list"><thead><tr><th>Cliente</th><th>CPF/CNPJ</th><th>Código Omie</th><th>Vendedor</th><th>Histórico encontrado</th><th>Cadastro ativo correspondente</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
+      <?php foreach($auditInactiveRows as $row):$history=[];if(!empty($row['orders_history']))$history[]='Pedidos';if(!empty($row['services_history']))$history[]='Serviços';if(!empty($row['financial_history']))$history[]='Financeiro';if(!empty($row['crm_history']))$history[]='CRM';if(!$history&&!empty($row['history_preserved']))$history[]='Registro legado';$digits=preg_replace('/\D+/','',(string)$row['document']);?>
+       <tr><td><div class="tdaudit-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e(trim((string)($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:''))?:'Localização não informada')?></small></div></div></td><td><strong><?=e(client_audit_document_format($digits))?></strong><small><?=client_audit_document_valid($digits)?'Documento válido':'Documento inválido'?></small></td><td><strong class="tdaudit-code"><?=e($row['omie_code'])?></strong><small><span class="tdaudit-status inactive"><i></i>Inativo</span></small></td><td><strong><?=e($row['seller_name']?:'Sem vendedor')?></strong><small><?=e($row['seller_omie_code']?:'Não vinculado')?></small></td><td><?php if($history):?><div class="tdaudit-history"><?php foreach($history as $item):?><span><?=e($item)?></span><?php endforeach;?></div><?php else:?><span class="tdaudit-no-history">Sem histórico</span><?php endif;?></td><td><?php if(!empty($row['active_matches'])):?><span class="tdaudit-match"><?=e($row['active_matches'])?></span><?php else:?><span class="tdaudit-no-match">Nenhum ativo com o mesmo documento</span><?php endif;?></td><td><strong><?=!empty($row['updated_at'])?date('d/m/Y',strtotime((string)$row['updated_at'])):'—'?></strong><small><?=!empty($row['updated_at'])?date('H:i',strtotime((string)$row['updated_at'])):''?></small></td><td><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>"><i class="fa-regular fa-folder-open"></i><span>Abrir</span></a></td></tr>
+      <?php endforeach;?>
+     </tbody></table><?php if(!$auditInactiveRows):?><div class="tdaudit-empty inline"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Base limpa: nenhum cliente inativo</strong><p>A regra de sincronização está sendo respeitada.</p></div></div><?php endif;?></div></div>
+    <?php endif;?>
+   </section>
+  <?php break;
   case 'clients':?>
-   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0];$portfolioMode=!empty($portfolioMode);?>
+   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??'general';$clientSegmentLabel=$clientSegmentLabel??'Clientes Geral';$clientSegmentDescription=$clientSegmentDescription??'Base comercial ativa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
     <header class="tdc-head">
      <div class="tdc-head-main">
       <span class="tdc-head-icon"><i class="fa-solid <?=$portfolioMode?'fa-briefcase':'fa-users'?>"></i></span>
-      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':'Clientes'?></h1><p><?=$portfolioMode?'Seus clientes vinculados, organizados para facilitar contatos, pedidos e acompanhamento comercial.':'Consulte toda a base comercial e identifique rapidamente o responsável por cada cliente.'?></p></div>
+      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':e($clientSegmentLabel)?></h1><p><?=$portfolioMode?'Seus clientes vinculados, organizados para facilitar contatos, pedidos e acompanhamento comercial.':e($clientSegmentDescription)?></p></div>
      </div>
-     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a></div>
+     <div class="tdc-head-actions"><?php if(!$portfolioMode&&Auth::can('admin','supervisor')):?><a class="tdc-btn" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i>Auditar cadastros</a><?php endif;?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||$clientSegment==='general'):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
@@ -418,7 +445,7 @@ function render(string $name,array $vars=[]): void{
      <?php if($portfolioMode):?><article class="tdc-kpi orange owner"><span class="tdc-kpi-icon"><i class="fa-solid fa-user-tie"></i></span><div><small>Responsável pela carteira</small><strong><?=e(Auth::user()['name']??'Vendedor')?></strong><p>Vínculo exclusivo do seu usuário</p></div></article><?php else:?><article class="tdc-kpi orange"><span class="tdc-kpi-icon"><i class="fa-solid fa-user-tag"></i></span><div><small>Sem vendedor</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>Clientes para distribuição</p></div></article><?php endif;?>
     </div>
 
-    <?php if(Auth::can('admin','supervisor')):?>
+    <?php if(Auth::can('admin','supervisor')&&$clientSegment==='general'):?>
     <section class="tdc-card">
      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-users-gear"></i></span><div><strong>Gestão de carteira</strong><small>Distribua clientes por estado, DDD e vendedor.</small></div></div><span class="tdc-badge"><i class="fa-solid fa-shield-halved"></i> Somente CRM</span></div>
      <form method="post" action="<?=APP_URL?>/clients/portfolio/assign" class="tdc-portfolio-form">
@@ -441,24 +468,48 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
 
     <section class="tdc-table-card">
-     <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'BASE COMERCIAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':'Todos os clientes'?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':'Busque por nome, documento, cidade ou vendedor.'?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
+     <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'BASE COMERCIAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':e($clientSegmentLabel)?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':'Busque por nome, documento, cidade ou vendedor.'?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
      <div class="tdc-list-filterbar">
-      <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>">
+      <div class="tdc-filter-title"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine estado, tag e vendedor para encontrar exatamente os clientes que deseja revisar.</small></div></div>
+      <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?>">
        <?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
        <label><span><i class="fa-solid fa-map-location-dot"></i> Estado</span><select class="form-select" name="uf" onchange="this.form.submit()"><option value="">Todos os estados</option><?php foreach($clientStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
        <?php if(!$portfolioMode):?>
         <label><span><i class="fa-solid fa-tags"></i> Filtrar por tag</span><select class="form-select" name="tag" data-client-tag-filter><option value="">Todas as tags</option><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>" <?=$tag===$clientTag['tag']?'selected':''?>><?=e($clientTag['tag'])?> (<?=number_format((int)$clientTag['client_count'],0,',','.')?>)</option><?php endforeach;?></select></label>
+        <label><span><i class="fa-solid fa-user-tie"></i> Filtrar por vendedor</span><select class="form-select" name="seller_filter" onchange="this.form.submit()"><option value="">Todos os vendedores</option><option value="__none__" <?=$sellerFilter==='__none__'?'selected':''?>>⚠ Sem vendedor</option><?php foreach($clientSellerFilters??[] as $filterSeller):?><option value="<?=e($filterSeller['omie_code'])?>" <?=$sellerFilter===(string)$filterSeller['omie_code']?'selected':''?>><?=e($filterSeller['name'])?><?=empty($filterSeller['active'])?' (inativo)':''?></option><?php endforeach;?></select></label>
        <?php endif;?>
-       <?php if($uf!==''||(!$portfolioMode&&$tag!=='')):?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')?'?scope=unassigned':''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
+       <?php if($uf!==''||(!$portfolioMode&&($tag!==''||$sellerFilter!==''))):?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?><?=(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')?'?scope=unassigned':''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
       </form>
-      <small><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; o Estado apenas refina a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
+      <small class="tdc-filter-meta"><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; o Estado apenas refina a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
      </div>
+     <?php if(Auth::can('admin','supervisor')):?>
+     <section class="tdc-bulk" data-client-bulk data-endpoint="<?=APP_URL?>/api/clients/bulk" data-csrf="<?=CSRF::token()?>" data-segment="<?=e($clientSegment)?>">
+      <div class="tdc-bulk-head">
+       <div class="tdc-bulk-title"><span><i class="fa-solid fa-wand-magic-sparkles"></i></span><div><strong>Edição em massa</strong><small>1. Selecione os clientes · 2. Configure a alteração · 3. Escolha onde salvar</small></div></div>
+       <div class="tdc-bulk-selection"><span class="tdc-bulk-count" data-client-selected-count>0 selecionados</span><button type="button" data-client-select-filtered hidden>Selecionar todos os resultados filtrados</button><button type="button" data-client-clear-selection hidden>Limpar seleção</button></div>
+      </div>
+      <div class="tdc-bulk-controls">
+       <label><span><b>1</b> Alterar vendedor</span><select class="form-select" data-client-bulk-seller><option value="">Não alterar vendedor</option><option value="__none__">Deixar sem vendedor</option><?php foreach($bulkSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select><small>Mantenha “Não alterar” para mexer somente nas tags.</small></label>
+       <label><span><b>2</b> Operação nas tags</span><select class="form-select" data-client-tag-operation><option value="none">Não alterar tags</option><option value="add">Adicionar tags</option><option value="remove">Remover tags</option><option value="replace">Substituir todas</option></select><small>Adicionar e remover preservam as outras tags.</small></label>
+       <label class="tdc-bulk-tags"><span><b>3</b> Tags da operação</span><input class="form-control" data-client-bulk-tags list="client-bulk-tag-list" placeholder="Ex.: PRIORIDADE, REVENDA"><datalist id="client-bulk-tag-list"><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>"><?php endforeach;?></datalist><small>Separe várias tags usando vírgula.</small></label>
+      </div>
+      <div class="tdc-bulk-action-panel">
+       <div><strong>Onde deseja salvar?</strong><small><?php if($clientSegment!=='general'):?>Ao alterar o vendedor na Omie, o cliente poderá mudar de lista.<?php else:?>Escolha uma das opções abaixo conforme a situação dos cadastros.<?php endif;?></small></div>
+       <div class="tdc-bulk-actions">
+        <button class="tdc-bulk-action primary" type="button" data-client-bulk-run="apply_sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>CRM + Omie</strong><small>Salva no CRM e envia as alterações agora</small></span></button>
+        <button class="tdc-bulk-action pending" type="button" data-client-bulk-run="sync"><i class="fa-solid fa-arrows-rotate"></i><span><strong>Enviar pendentes</strong><small>Envia o que já foi preparado no CRM</small></span></button>
+        <button class="tdc-bulk-action local" type="button" data-client-bulk-run="apply" title="Use quando o cadastro já foi corrigido diretamente na Omie"><i class="fa-solid fa-database"></i><span><strong>Somente CRM</strong><small>A Omie já foi corrigida manualmente</small></span></button>
+       </div>
+      </div>
+      <div class="tdc-bulk-progress" data-client-bulk-progress hidden><span><i></i></span><strong data-client-bulk-progress-text>Preparando...</strong></div>
+     </section>
+     <?php endif;?>
      <div class="table-card tdc-table-wrap">
-      <?php $clientDataParams=['uf'=>$uf];if($ddds)$clientDataParams['ddds']=$ddds;if($tag!=='')$clientDataParams['tag']=$tag;if($portfolioMode)$clientDataParams['portfolio']='mine';elseif(Auth::can('seller')&&($clientScope??'all')==='unassigned')$clientDataParams['scope']='unassigned';?>
-      <table class="table tdc-table clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="5" data-length-change="1" data-order-column="0" data-order-direction="asc">
-       <thead><tr><th>Cliente</th><th>Localização</th><th>Vendedor</th><th data-dt-order="disable">Tags</th><th>Ciclo</th><th>Dias sem contato</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
+      <?php $clientDataParams=['uf'=>$uf,'segment'=>$clientSegment];if($ddds)$clientDataParams['ddds']=$ddds;if($tag!=='')$clientDataParams['tag']=$tag;if($sellerFilter!=='')$clientDataParams['seller_filter']=$sellerFilter;if($portfolioMode)$clientDataParams['portfolio']='mine';elseif(Auth::can('seller')&&($clientScope??'all')==='unassigned')$clientDataParams['scope']='unassigned';?>
+      <table class="table tdc-table clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="5" data-length-change="1" data-order-column="<?=Auth::can('admin','supervisor')?1:0?>" data-order-direction="asc">
+       <thead><tr><?php if(Auth::can('admin','supervisor')):?><th class="tdc-select-column" data-dt-order="disable"><label class="tdc-row-check" title="Selecionar página"><input type="checkbox" data-client-select-page><span></span></label></th><?php endif;?><th>Cliente</th><th>Localização</th><th>Vendedor</th><th data-dt-order="disable">Tags</th><th>Ciclo</th><th>Dias sem contato</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
        <tbody><?php foreach($rows as $r):?><tr>
-        <td><?php $loggedSellerCode=trim((string)(Auth::user()['seller_omie_code']??''));$rowSellerOwned=Auth::can('admin','supervisor')||(Auth::can('seller')&&$loggedSellerCode!==''&&(string)($r['seller_omie_code']??'')===$loggedSellerCode);$rowSellerUnassigned=trim((string)($r['seller_omie_code']??''))==='';?><div class="tdc-client-cell"><span class="tdc-avatar"><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><?php if($rowSellerOwned||$rowSellerUnassigned):?><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><?php else:?><strong><?=e($r['name'])?></strong><?php endif;?><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
+        <?php if(Auth::can('admin','supervisor')):?><td><label class="tdc-row-check"><input type="checkbox" data-client-select value="<?=(int)$r['id']?>"><span></span></label></td><?php endif;?><td><?php $loggedSellerCode=trim((string)(Auth::user()['seller_omie_code']??''));$rowSellerOwned=Auth::can('admin','supervisor')||(Auth::can('seller')&&$loggedSellerCode!==''&&(string)($r['seller_omie_code']??'')===$loggedSellerCode);$rowSellerUnassigned=trim((string)($r['seller_omie_code']??''))==='';?><div class="tdc-client-cell"><span class="tdc-avatar"><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><?php if($rowSellerOwned||$rowSellerUnassigned):?><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><?php else:?><strong><?=e($r['name'])?></strong><?php endif;?><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
         <td><span><i class="fa-solid fa-location-dot"></i> <?=e(trim(($r['city']??'').' / '.($r['uf']??''),' /')?:'Não informado')?></span></td>
         <td><?php if(!empty($r['seller_name'])):?><div class="tdc-seller-cell"><i class="fa-solid fa-user-tie"></i><div><strong><?=e($r['seller_name'])?></strong><small><?=e($r['seller_omie_code'])?></small></div></div><?php else:?><div class="tdc-seller-cell empty"><i class="fa-solid fa-user-slash"></i><div><strong>Sem vendedor</strong><small><?=Auth::can('seller')?'Atendimento compartilhado':'Disponível para vincular'?></small></div></div><?php endif;?></td>
         <td><?php $rowTags=client_tags_from_raw($r['raw_json']??null);?><div class="client-tag-list" title="<?=e(implode(', ',$rowTags))?>"><?php foreach(array_slice($rowTags,0,3) as $rowTag):?><span><?=e($rowTag)?></span><?php endforeach;?><?php if(count($rowTags)>3):?><b>+<?=count($rowTags)-3?></b><?php endif;?><?php if(!$rowTags):?><small>Sem tag</small><?php endif;?></div></td>
@@ -466,7 +517,7 @@ function render(string $name,array $vars=[]): void{
         <td><?php $lastContactAt=trim((string)($r['last_contact_at']??''));if($lastContactAt===''):?><span class="tdc-contact-days never"><strong>Nunca</strong></span><?php else:$contactDays=max(0,(int)floor((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',strtotime($lastContactAt))))/86400));$contactClass=$contactDays<=30?'ok':($contactDays<=60?'warning':'late');?><span class="tdc-contact-days <?=$contactClass?>"><strong><?=$contactDays?></strong></span><?php endif;?></td>
         <td><strong><?=brdate($r['last_purchase_at']??null)?></strong><small><?=($r['orders_12m']??0)>0?(int)$r['orders_12m'].' pedido(s) em 12 meses':'Sem pedidos recentes'?></small></td>
         <td class="text-end"><strong><?=money($r['revenue_12m']??0)?></strong></td>
-        <td><?php $rowOwned=Auth::can('admin','supervisor')||(Auth::can('seller')&&(string)($r['seller_omie_code']??'')===(string)(Auth::user()['seller_omie_code']??''));$rowUnassigned=trim((string)($r['seller_omie_code']??''))==='';?><div class="tdc-actions"><?php if($rowOwned||$rowUnassigned):?><a class="tdc-icon-btn view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><?php else:?><span class="tdc-icon-btn locked" title="Cliente vinculado a outro vendedor"><i class="fa-solid fa-lock"></i></span><?php endif;?><?php if($rowOwned):?><a class="tdc-icon-btn edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn local" type="submit" title="Remover somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database"></i></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn delete" type="submit" title="Excluir da Omie e do CRM" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
+        <td><div class="tdc-actions"><a class="tdc-icon-btn view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><a class="tdc-icon-btn edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php if(Auth::can('admin','supervisor')):?><button class="tdc-icon-btn sync" type="button" data-client-omie-one="<?=(int)$r['id']?>" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i></button><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn local" type="submit" title="Remover somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database"></i></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn delete" type="submit" title="Excluir da Omie e do CRM" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
        </tr><?php endforeach;?></tbody>
       </table>
      </div>
@@ -520,7 +571,7 @@ function render(string $name,array $vars=[]): void{
        <section class="tdc-section" id="tdc-comercial">
         <div class="tdc-section-head"><span class="tdc-section-icon orange"><i class="fa-solid fa-user-tie"></i></span><div><strong>Organização comercial</strong><small>Vendedor, classificação e informações úteis.</small></div></div>
         <div class="tdc-fields">
-         <div class="field span-4"><label>Vendedor responsável</label><?php if(Auth::can('admin','supervisor')):?><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select><?php else:?><div class="tdc-fixed"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?></div>
+         <div class="field span-4"><label>Vendedor responsável</label><?php if(Auth::can('admin','supervisor')||$editClient):?><select class="form-select" name="seller_omie_code"><option value="">Sem vendedor</option><?php foreach($sellers as $seller):?><option value="<?=e($seller['omie_code'])?>" <?=($old['seller_omie_code']??'')===$seller['omie_code']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select><?php if($editClient&&Auth::can('seller')):?><small class="tdc-hint">Você pode corrigir ou transferir a carteira deste cliente.</small><?php endif;?><?php else:?><div class="tdc-fixed"><?=e(Auth::user()['name']??'Vendedor')?></div><?php endif;?></div>
          <div class="field span-8"><label>Tags<span class="tdc-required">*</span></label><div class="tdc-tags"><span><i class="fa-solid fa-user-check"></i>CLIENTE</span><span><i class="fa-solid fa-car-side"></i>CFC</span></div><input type="hidden" name="tags" value="CLIENTE, CFC"><small class="tdc-hint">As tags CLIENTE e CFC serão enviadas automaticamente para a Omie.</small></div>
          <div class="field span-12"><label>Observações</label><textarea class="form-control" name="notes" rows="4" placeholder="Informações úteis para o atendimento."><?=e((string)($old['notes']??''))?></textarea></div>
         </div>
@@ -595,11 +646,47 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
 
+  case 'products':
+   $productStats=$productStats??['total'=>0,'active'=>0,'inactive'=>0,'priced'=>0];
+   $lastProductSync=$productSyncState['last_success_at']??null;$productSyncError=trim((string)($productSyncState['last_error']??''));
+   $productDataParams=['status'=>$productStatus??'active'];if(!empty($productUnit))$productDataParams['unit']=$productUnit;
+   ?>
+   <section class="tdp-page">
+    <header class="tdp-head">
+     <div class="tdp-head-main"><span class="tdp-head-icon"><i class="fa-solid fa-boxes-stacked"></i></span><div><span class="tdp-kicker">COMERCIAL / CATÁLOGO</span><h1>Produtos</h1><p>Consulte preços, estoque e dados comerciais usando a cópia local sincronizada da Omie.</p></div></div>
+     <div class="tdp-head-actions"><a class="tdp-btn" href="<?=APP_URL?>/products"><i class="fa-solid fa-rotate-right"></i>Atualizar tela</a><?php if(Auth::can('admin')):?><a class="tdp-btn sync" href="<?=APP_URL?>/sync"><i class="fa-solid fa-cloud-arrow-down"></i>Sincronizar Omie</a><?php endif;?><a class="tdp-btn primary" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-cart-plus"></i>Novo pedido</a></div>
+    </header>
+
+    <?php if($productSyncError!==''):?><div class="tdp-alert error"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>Última sincronização com atenção</strong><span><?=e($productSyncError)?></span></div><?php if(Auth::can('admin')):?><a href="<?=APP_URL?>/sync">Revisar</a><?php endif;?></div><?php endif;?>
+
+    <div class="tdp-kpis">
+     <article><span class="blue"><i class="fa-solid fa-boxes-stacked"></i></span><div><small>Total no catálogo</small><strong><?=number_format((int)$productStats['total'],0,',','.')?></strong><em>Produtos locais</em></div></article>
+     <article><span class="green"><i class="fa-solid fa-circle-check"></i></span><div><small>Ativos</small><strong><?=number_format((int)$productStats['active'],0,',','.')?></strong><em>Disponíveis para pedidos</em></div></article>
+     <article><span class="yellow"><i class="fa-solid fa-tag"></i></span><div><small>Com preço</small><strong><?=number_format((int)$productStats['priced'],0,',','.')?></strong><em>Ativos com valor de venda</em></div></article>
+     <article><span class="slate"><i class="fa-solid fa-clock-rotate-left"></i></span><div><small>Última sincronização</small><strong><?=$lastProductSync?date('d/m/Y H:i',strtotime((string)$lastProductSync)):'Nunca'?></strong><em><?=$productSyncError!==''?'Requer atenção':'Catálogo local'?></em></div></article>
+    </div>
+
+    <section class="tdp-panel">
+     <header><div><span><i class="fa-solid fa-table-list"></i></span><div><strong>Catálogo de produtos</strong><small>A busca acontece no CRM e não gera consultas extras na Omie.</small></div></div><b><?=number_format((int)$productStats['inactive'],0,',','.')?> inativo(s)</b></header>
+     <form class="tdp-filters" method="get" action="<?=APP_URL?>/products">
+      <label><span>Situação</span><select class="form-select" name="status" onchange="this.form.submit()"><?php foreach(['active'=>'Somente ativos','inactive'=>'Somente inativos','all'=>'Todos os produtos'] as $value=>$label):?><option value="<?=$value?>" <?=($productStatus??'active')===$value?'selected':''?>><?=$label?></option><?php endforeach;?></select></label>
+      <label><span>Unidade</span><select class="form-select" name="unit" onchange="this.form.submit()"><option value="">Todas as unidades</option><?php foreach($productUnits??[] as $row):?><option value="<?=e(mb_strtoupper((string)$row['unit']))?>" <?=($productUnit??'')===mb_strtoupper((string)$row['unit'])?'selected':''?>><?=e((string)$row['unit'])?> (<?=number_format((int)$row['total'],0,',','.')?>)</option><?php endforeach;?></select></label>
+      <?php if(($productStatus??'active')!=='active'||!empty($productUnit)):?><a href="<?=APP_URL?>/products"><i class="fa-solid fa-rotate-left"></i>Limpar filtros</a><?php endif;?>
+     </form>
+     <div class="table-card tdp-table-wrap">
+      <table class="table tdp-table" data-server-url="<?=e(APP_URL.'/api/products/datatable?'.http_build_query($productDataParams))?>" data-page-length="5" data-length-change="1" data-order-column="0" data-order-direction="asc">
+       <thead><tr><th>Produto</th><th>SKU</th><th>Unidade</th><th class="text-end">Preço</th><th class="text-end">Estoque</th><th data-dt-order="disable">Pesos</th><th>NCM</th><th>Situação</th><th>Atualizado em</th><th data-dt-order="disable">Ações</th></tr></thead><tbody></tbody>
+      </table>
+     </div>
+    </section>
+   </section>
+  <?php break;
+
   case 'contact_monitoring':
    $monitorStats=$monitorStats??['total'=>0,'contacted'=>0,'scheduled'=>0,'overdue'=>0,'without_next'=>0];
    $resultLabels=[];foreach(task_result_catalog() as $resultItem)$resultLabels[(string)$resultItem['code']]=(string)$resultItem['label'];
    $contactRate=(int)$monitorStats['total']>0?round(((int)$monitorStats['contacted']/(int)$monitorStats['total'])*100,1):0;
-   $attentionRows=[];$agendaRows=[];
+   $attentionRows=$monitorAttentionRows??[];$agendaRows=$monitorAgendaRows??[];
    foreach($rows as $monRow){
     if(empty($monRow['last_contact_at'])||empty($monRow['next_due_at'])||strtotime((string)$monRow['next_due_at'])<time())$attentionRows[]=$monRow;
     if(!empty($monRow['next_due_at']))$agendaRows[]=$monRow;
@@ -619,7 +706,7 @@ function render(string $name,array $vars=[]): void{
      <article><span class="red"><i class="fa-solid fa-bullseye"></i></span><div><small>Taxa de contato</small><strong><?=number_format((float)$contactRate,1,',','.')?>%</strong><em>Clientes já trabalhados</em></div></article>
     </div>
 
-    <section class="tdcontact4-panel"><header><div><span><i class="fa-solid fa-chart-simple"></i></span><div><strong>Acompanhamento da equipe</strong><small>Contato, próxima ação e status por cliente.</small></div></div><b><?=number_format(count($rows),0,',','.')?> clientes</b></header><div class="table-card tdcontact4-table-wrap"><table class="table tdcontact4-table" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc"><thead><tr><th>Cliente</th><th>Responsável</th><th>Último contato</th><th>Dias sem contato</th><th>Próxima ação</th><th>Resultado</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead><tbody><?php foreach($rows as $row):$lastTs=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):null;$daysWithout=$lastTs?(int)floor((time()-$lastTs)/86400):null;$nextDue=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):null;$statusClass=$nextDue&&$nextDue<time()?'danger':(!$nextDue?'warning':'ok');$statusLabel=$statusClass==='danger'?'Atrasado':($statusClass==='warning'?'Sem próxima ação':'Em dia');$defaultResponsible=(int)($row['next_user_id']??0);if($defaultResponsible<=0)$defaultResponsible=(int)($row['collection_user_id']??$row['portfolio_user_id']??0);$schedulePayload=['client_id'=>(int)$row['id'],'client_name'=>(string)$row['name'],'task_id'=>(int)($row['next_task_id']??0),'assigned_user_id'=>$defaultResponsible,'title'=>(string)($row['next_title']??'Próximo contato'),'due_at'=>$nextDue?date('Y-m-d\TH:i',$nextDue):''];?><tr><td><div class="tdcontact4-person"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e(trim((string)($row['city']??'').' / '.(string)($row['uf']??''),' /')?:'Localização não informada')?></small></div></div></td><td><strong><?=e($row['next_user_name']??$row['portfolio_user_name']??$row['collection_user_name']??'Sem responsável')?></strong><small><?=e($row['seller_name']??'Carteira')?></small></td><td data-order="<?=e((string)($row['last_contact_at']??''))?>"><?php if($lastTs):?><strong><?=date('d/m/Y H:i',$lastTs)?></strong><small><?=e($row['last_contact_user']??'Usuário')?></small><?php else:?><span class="tdcontact4-muted">Nunca</span><?php endif;?></td><td data-order="<?=$daysWithout??99999?>"><strong class="<?=$daysWithout!==null&&$daysWithout>=10?'danger':''?>"><?=$daysWithout===null?'Nunca':$daysWithout?></strong></td><td data-order="<?=e((string)($row['next_due_at']??''))?>"><?php if($nextDue):?><strong><?=date('d/m H:i',$nextDue)?></strong><small><?=e($row['next_title']??'Próximo contato')?></small><?php else:?><span class="tdcontact4-muted">Não agendado</span><?php endif;?></td><td><span class="tdcontact4-result"><?=e($resultLabels[$row['last_result']]??($row['last_result']?:'Sem resultado'))?></span></td><td><span class="tdcontact4-status <?=$statusClass?>"><i></i><?=$statusLabel?></span></td><td><div class="tdcontact4-actions"><a href="<?=APP_URL?>/clients/<?=(int)$row['id']?>" title="Abrir cliente"><i class="fa-regular fa-folder-open"></i></a><button type="button" data-contact-schedule='<?=e(json_encode($schedulePayload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>' title="<?=$nextDue?'Reagendar':'Agendar'?>"><i class="fa-regular fa-calendar-plus"></i></button></div></td></tr><?php endforeach;?></tbody></table></div></section>
+    <section class="tdcontact4-panel"><header><div><span><i class="fa-solid fa-chart-simple"></i></span><div><strong>Acompanhamento da equipe</strong><small>Contato, próxima ação e status por cliente.</small></div></div><b><?=number_format((int)$monitorStats['total'],0,',','.')?> clientes</b></header><div class="table-card tdcontact4-table-wrap"><table class="table tdcontact4-table" data-page-length="5" data-length-change="1" data-order-column="3" data-order-direction="desc" data-server-url="<?=e(APP_URL.'/api/contact-monitoring/datatable?'.http_build_query(['seller_id'=>(int)$monitorSellerId,'status'=>(string)$monitorStatus]))?>"><thead><tr><th>Cliente</th><th>Responsável</th><th>Último contato</th><th>Dias sem contato</th><th>Próxima ação</th><th>Resultado</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead><tbody></tbody></table></div></section>
 
     <div class="tdcontact4-bottom">
      <section class="tdcontact4-panel compact"><header><div><span class="attention"><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Pontos de atenção</strong><small>Clientes que exigem acompanhamento.</small></div></div><a href="<?=APP_URL?>/contact-monitoring?status=overdue">Ver atrasados</a></header><div class="tdcontact4-list"><?php foreach(array_slice($attentionRows,0,5) as $row):$lt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):null;$d=$lt?(int)floor((time()-$lt)/86400):null;?><a href="<?=APP_URL?>/clients/<?=(int)$row['id']?>"><strong><?=e($row['name'])?></strong><span><?=e($row['next_user_name']??$row['portfolio_user_name']??$row['collection_user_name']??'Sem responsável')?></span><b><?=$d===null?'Nunca':$d.' dias'?></b></a><?php endforeach;?><?php if(!$attentionRows):?><div class="tdcontact4-empty">Nenhum ponto crítico nos filtros atuais.</div><?php endif;?></div></section>
@@ -650,7 +737,7 @@ function render(string $name,array $vars=[]): void{
     <?php if(!empty($drafts)):?>
     <section class="tdo-drafts">
      <div class="tdo-drafts-head"><div class="tdo-drafts-title"><span><i class="fa-regular fa-floppy-disk"></i></span><div><strong>Rascunhos locais</strong><small>Pedidos ainda não enviados para a Omie.</small></div></div><b><?=count($drafts)?></b></div>
-     <?php foreach($drafts as $d):?><div class="tdo-draft-row"><div class="tdo-draft-main"><strong><?=e($d['client_name']??'Pedido sem cliente definido')?></strong><small>Salvo por <?=e($d['author_name']??'—')?> · atualizado <?=date('d/m/Y H:i',strtotime($d['updated_at']))?></small></div><div><span>Vendedor</span><strong><?=e($d['seller_name']??($d['seller_omie_code']??'Não definido'))?></strong></div><div><span>Total estimado</span><strong><?=money($d['total'])?></strong></div><div class="tdo-draft-actions"><a class="tdo-btn" href="<?=APP_URL?>/orders/new?draft_id=<?=(int)$d['id']?>"><i class="fa-regular fa-pen-to-square"></i>Continuar</a><form method="post" action="<?=APP_URL?>/orders/drafts/<?=(int)$d['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" data-confirm="Excluir este rascunho local?"><i class="fa-regular fa-trash-can"></i></button></form></div></div><?php endforeach;?>
+     <?php foreach($drafts as $d):?><div class="tdo-draft-row"><div class="tdo-draft-main"><strong><?=e($d['client_name']??'Pedido sem cliente definido')?></strong><small>Salvo por <?=e($d['author_name']??'—')?> · atualizado <?=date('d/m/Y H:i',strtotime($d['updated_at']))?></small></div><div><span>Vendedor</span><strong><?=e($d['seller_name']??($d['seller_omie_code']??'Não definido'))?></strong></div><div><span>Total estimado</span><strong><?=money($d['total'])?></strong></div><div class="tdo-draft-actions"><a class="tdo-btn" href="<?=APP_URL?>/orders/new?draft_id=<?=(int)$d['id']?>"><i class="fa-regular fa-pen-to-square"></i>Continuar</a><a class="tdo-btn" href="<?=APP_URL?>/orders/drafts/<?=(int)$d['id']?>/pdf" target="_blank" rel="noopener"><i class="fa-regular fa-file-pdf"></i>PDF</a><form method="post" action="<?=APP_URL?>/orders/drafts/<?=(int)$d['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" data-confirm="Excluir este rascunho local?"><i class="fa-regular fa-trash-can"></i></button></form></div></div><?php endforeach;?>
     </section>
     <?php endif;?>
 
@@ -686,7 +773,7 @@ function render(string $name,array $vars=[]): void{
          <td><span class="tdo-stage"><strong><?=e($o['stage_name']??($o['stage_code']??'—'))?></strong><?php if(!empty($o['stage_name'])&&!empty($o['stage_code'])):?><small><?=e($o['stage_code'])?></small><?php endif;?></span></td>
          <td><span class="tdo-status <?=$statusClass?>"><?=e($status)?></span></td>
          <td class="text-end"><strong><?=money($o['total'])?></strong></td>
-         <td><div class="tdo-actions"><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><?php if($statusClass==='budget'):?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/edit" title="Editar proposta"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$o['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" title="Excluir" data-confirm="Excluir definitivamente o pedido <?=e($o['number']??$o['omie_code'])?> da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
+         <td><div class="tdo-actions"><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><?php if($statusClass==='budget'):?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/edit" title="Editar proposta"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/pdf" target="_blank" rel="noopener" title="Gerar PDF"><i class="fa-regular fa-file-pdf"></i></a><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$o['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" title="Excluir" data-confirm="Excluir definitivamente o pedido <?=e($o['number']??$o['omie_code'])?> da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
         </tr><?php endforeach;?></tbody>
        </table>
       </div>
@@ -701,7 +788,7 @@ function render(string $name,array $vars=[]): void{
    <section class="tdo-page tdo-detail">
     <header class="tdo-head">
      <div class="tdo-head-main"><span class="tdo-head-icon"><i class="fa-solid fa-receipt"></i></span><div><a class="tdo-kicker" href="<?=APP_URL?>/orders"><i class="fa-solid fa-arrow-left"></i> PEDIDOS / DETALHE</a><h1>Pedido <?=e($order['number']??$order['omie_code'])?></h1><p><?=e($order['client_name']??'Cliente não identificado')?> · <?=e($order['seller_name']??$order['seller_omie_code']??'Sem vendedor')?> · <?=brdate($order['order_date'])?></p></div></div>
-     <div class="tdo-head-actions"><?php if($statusClass==='budget'):?><a class="tdo-btn tdo-btn-primary" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar proposta</a><?php endif;?><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/duplicate"><i class="fa-regular fa-copy"></i>Duplicar</a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$order['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-btn tdo-btn-danger" type="submit" data-confirm="Excluir definitivamente este pedido da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i>Excluir</button></form><?php endif;?></div>
+     <div class="tdo-head-actions"><?php if($statusClass==='budget'):?><a class="tdo-btn tdo-btn-primary" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar proposta</a><?php endif;?><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/pdf" target="_blank" rel="noopener"><i class="fa-regular fa-file-pdf"></i>Gerar PDF</a><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/duplicate"><i class="fa-regular fa-copy"></i>Duplicar</a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$order['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-btn tdo-btn-danger" type="submit" data-confirm="Excluir definitivamente este pedido da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i>Excluir</button></form><?php endif;?></div>
     </header>
 
     <?php if($actionSuccess):?><div class="alert alert-success"><?=e($actionSuccess)?></div><?php endif;?>
@@ -795,6 +882,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($editOrderId>0):?><span class="order-new-draft-badge order-new-omie-edit-badge"><i class="fa-solid fa-cloud"></i>Editando orçamento Omie <?=e((string)($old['editing_order_label']??''))?></span><?php elseif($draftId>0):?><span class="order-new-draft-badge"><i class="fa-regular fa-pen-to-square"></i>Editando rascunho</span><?php endif;?>
     <div class="order-new-topbar-actions">
      <?php if($editOrderId<=0):?><button class="btn btn-light order-save-draft" type="submit" form="orderForm" name="submit_mode" value="draft" title="<?=$draftId>0?'Salvar alterações':'Salvar rascunho'?>"><i class="fa-regular fa-floppy-disk"></i><span><?=$draftId>0?'Salvar alterações':'Salvar rascunho'?></span></button><?php endif;?>
+     <button class="btn btn-light order-pdf-button" type="submit" form="orderForm" name="submit_mode" value="pdf" formtarget="_blank" title="Gerar proposta em PDF sem finalizar o pedido"><i class="fa-regular fa-file-pdf"></i><span>Gerar PDF</span></button>
      <button class="btn btn-primary" type="submit" form="orderForm" name="submit_mode" value="send" title="<?=$editOrderId>0?'Atualizar na Omie':'Enviar para Omie'?>" data-confirm="<?=$editOrderId>0?'Atualizar este orçamento existente na Omie com os dados revisados?':'Enviar e integrar este pedido na Omie? Depois da confirmação ele deixará de ser rascunho.'?>" data-submit-loading="<?=$editOrderId>0?'Atualizando na Omie...':'Integrando na Omie...'?>" <?=$ready['ok']?'':'disabled'?>> <i class="fa-solid fa-cloud-arrow-up"></i><span><?=$editOrderId>0?'Atualizar na Omie':'Enviar para Omie'?></span></button>
     </div>
    </div>
@@ -903,13 +991,14 @@ function render(string $name,array $vars=[]): void{
 
       <section class="order-tab-panel" data-order-panel="freight">
        <div class="omie-tab-grid freight-grid">
-        <div class="freight-field-carrier"><label>Transportadora</label><select class="form-select" name="carrier_code"><option value="">Sem transportadora</option><?php foreach($carriers??[] as $carrier):?><option value="<?=e((string)$carrier['omie_code'])?>" <?=((string)($old['carrier_code']??''))===(string)$carrier['omie_code']?'selected':''?>><?=e((string)$carrier['name'])?><?=!empty($carrier['city'])?' • '.e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):''?></option><?php endforeach;?></select><?php if(empty($carriers)):?><small class="field-hint">Nenhuma transportadora habilitada. Configure em Configurações.</small><?php endif;?></div>
-        <div class="freight-field-mode"><label>Tipo do frete</label><select class="form-select" name="freight_mode"><?php foreach(['9'=>'Sem frete','0'=>'CIF • remetente','1'=>'FOB • destinatário','2'=>'Terceiros','3'=>'Próprio • remetente','4'=>'Próprio • destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=$selectedFreightMode===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select></div>
-        <div class="freight-field-volumes"><label>Quantidade de volumes</label><input class="form-control" type="number" min="0" step="1" name="volumes" value="<?=e((string)($old['volumes']??''))?>"></div>
+        <div class="freight-field-carrier"><label>Transportadora</label><select class="form-select" name="carrier_code" id="orderCarrier"><option value="">Sem transportadora</option><?php foreach($carriers??[] as $carrier):?><option value="<?=e((string)$carrier['omie_code'])?>" <?=((string)($old['carrier_code']??''))===(string)$carrier['omie_code']?'selected':''?>><?=e((string)$carrier['name'])?><?=!empty($carrier['city'])?' • '.e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):''?></option><?php endforeach;?></select><?php if(empty($carriers)):?><small class="field-hint">Nenhuma transportadora habilitada. Configure em Configurações.</small><?php endif;?></div>
+        <div class="freight-field-mode"><label>Tipo do frete</label><select class="form-select" name="freight_mode" id="orderFreightMode"><?php foreach(['9'=>'Sem frete','0'=>'CIF • remetente','1'=>'FOB • destinatário','2'=>'Terceiros','3'=>'Próprio • remetente','4'=>'Próprio • destinatário'] as $k=>$v):?><option value="<?=$k?>" <?=$selectedFreightMode===$k?'selected':''?>><?=$v?></option><?php endforeach;?></select></div>
+        <div class="freight-field-volumes"><label>Quantidade de volumes</label><input class="form-control" type="number" min="1" step="1" name="volumes" id="orderVolumes" value="<?=e((string)($old['volumes']??'1'))?>"></div>
         <div class="freight-field-weight"><label>Peso líquido (kg) <small>somado dos itens</small></label><input class="form-control" id="orderNetWeight" name="net_weight" inputmode="decimal" placeholder="0,000" data-manual="<?=isset($old['net_weight'])&&$old['net_weight']!==''?'1':'0'?>" value="<?=e((string)($old['net_weight']??''))?>"></div>
         <div class="freight-field-weight"><label>Peso bruto (kg) <small>somado dos itens</small></label><input class="form-control" id="orderGrossWeight" name="gross_weight" inputmode="decimal" placeholder="0,000" data-manual="<?=isset($old['gross_weight'])&&$old['gross_weight']!==''?'1':'0'?>" value="<?=e((string)($old['gross_weight']??''))?>"></div>
+        <div class="freight-field-value"><label>Valor do frete</label><div class="freight-value-control"><input class="form-control" id="orderFreightValue" name="freight_value" inputmode="decimal" placeholder="0,00" value="<?=e((string)($old['freight_value']??''))?>"><button type="button" id="openFreightQuote" title="Calcular frete" aria-label="Calcular frete"><i class="fa-solid fa-cart-shopping"></i></button></div><small class="field-hint" id="freightSelectedSummary">Use o carrinho para comparar as transportadoras.</small></div>
        </div>
-       <div class="freight-api-placeholder"><i class="fa-solid fa-truck-fast"></i><div><strong>Cotação de frete</strong><span>O endpoint será integrado aqui usando o destino do cliente, a transportadora, os volumes e os pesos informados.</span></div><button type="button" class="btn btn-outline-secondary" disabled>Em breve</button></div>
+       <dialog class="freight-quote-modal" id="freightQuoteModal"><div class="freight-quote-shell"><header><span><i class="fa-solid fa-truck-fast"></i></span><div><small>COTAÇÃO MULTITRANSPORTADORAS</small><strong>Compare preço e prazo</strong><p>Escolha uma opção para preencher transportadora, frete e observações do pedido.</p></div><em><i class="fa-solid fa-shield-halved"></i> Consulta segura</em><button type="button" id="closeFreightQuote" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header><div class="freight-quote-context" id="freightQuoteContext"></div><div class="freight-quote-providers" id="freightQuoteProviders"></div><div class="freight-quote-results" id="freightQuoteResults"><div class="freight-quote-empty"><i class="fa-solid fa-cart-flatbed"></i><span>As cotações aparecerão aqui.</span></div></div><footer><i class="fa-solid fa-circle-info"></i><span>Os valores dependem da disponibilidade do serviço para o CEP, peso e dimensões informados.</span></footer></div></dialog>
       </section>
 
       <section class="order-tab-panel" data-order-panel="additional">
@@ -939,7 +1028,7 @@ function render(string $name,array $vars=[]): void{
       </section>
 
       <section class="order-tab-panel" data-order-panel="notes">
-       <label>Observação interna da venda</label><textarea class="form-control" name="notes" rows="7"><?=e((string)($old['notes']??''))?></textarea>
+       <label>Observação interna da venda</label><textarea class="form-control" name="notes" id="orderNotes" rows="7"><?=e((string)($old['notes']??''))?></textarea>
       </section>
 
       <section class="order-tab-panel" data-order-panel="email">
@@ -966,28 +1055,60 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 
   case 'collection':
    $collectionTotal=count($rows);$collectionAmount=0.0;$collectionOverdue=0;$collectionCritical=0;$collectionCurrent=0;
-   foreach($rows as $rr){$collectionAmount+=(float)($rr['open_amount']??0);$days=(int)($rr['max_overdue_days']??0);if($days>0)$collectionOverdue++;if($days>60)$collectionCritical++;if($days<=0)$collectionCurrent++;}
+   foreach($rows as $rr){$collectionAmount+=max(0,(float)($rr['open_amount']??0)-(float)($rr['pending_local']??0));$days=(int)($rr['max_overdue_days']??0);if($days>0)$collectionOverdue++;if($days>60)$collectionCritical++;if($days<=0)$collectionCurrent++;}
    $topAttention=$rows;usort($topAttention,static fn($a,$b)=>((int)$b['max_overdue_days']<=> (int)$a['max_overdue_days']) ?: ((float)$b['open_amount']<=> (float)$a['open_amount']));
    ?>
    <section class="tdcob4-page">
-    <header class="tdcob4-head"><div><span class="tdcob4-kicker">FINANCEIRO / COBRANÇA</span><h1>Carteira de cobrança</h1><p>Acompanhe títulos em aberto, organize ações e aumente a recuperação da sua carteira.</p></div><?php if(Auth::can('admin','supervisor')):?><a class="tdcob4-primary" href="<?=APP_URL?>/collection/recoveries"><i class="fa-solid fa-money-bill-transfer"></i>Lançar recuperação</a><?php endif;?></header>
+    <header class="tdcob4-head"><div><span class="tdcob4-kicker">FINANCEIRO / COBRANÇA</span><h1>Carteira de cobrança</h1><p>Acompanhe todos os clientes devedores, organize ações e aumente a recuperação.</p></div><div class="tdcob4-head-actions"><a class="tdcob4-secondary" href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-column"></i>Relatório de cobranças</a><?php if(Auth::can('admin','supervisor')):?><a class="tdcob4-primary" href="<?=APP_URL?>/collection/recoveries"><i class="fa-solid fa-money-bill-transfer"></i>Lançar recuperação</a><?php endif;?></div></header>
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <section class="tdcob4-filters"><form method="get"><input type="hidden" name="view" value="<?=e($view)?>"><?php if($u['role']!=='collector'):?><label><span>Responsável pela cobrança</span><select class="form-select" name="assigned_user_id"><option value="0">Todos os responsáveis</option><?php foreach($collectionCollectors??[] as $collector):?><option value="<?=(int)$collector['id']?>" <?=((int)($collectionAssigned??0)===(int)$collector['id'])?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label><?php endif;?><label><span>Faixa de atraso</span><select class="form-select" name="delay"><?php foreach(['all'=>'Todos','current'=>'Em dia','1_30'=>'1 a 30 dias','31_60'=>'31 a 60 dias','60_plus'=>'Acima de 60 dias'] as $key=>$label):?><option value="<?=$key?>" <?=($collectionDelay??'all')===$key?'selected':''?>><?=$label?></option><?php endforeach;?></select></label><label><span>UF</span><select class="form-select" name="uf"><option value="">Todas</option><?php foreach($collectionUfs??[] as $ufRow):?><option value="<?=e($ufRow['uf'])?>" <?=($collectionUf??'')===$ufRow['uf']?'selected':''?>><?=e($ufRow['uf'])?></option><?php endforeach;?></select></label><a class="tdcob4-clear" href="<?=APP_URL?>/collection?view=<?=e($view)?>">Limpar filtros</a><button class="tdcob4-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar filtros</button></form></section>
 
     <div class="tdcob4-kpis">
-     <article><span class="green"><i class="fa-solid fa-dollar-sign"></i></span><div><small>Saldo em aberto</small><strong><?=money($collectionAmount)?></strong><em><?=number_format($collectionTotal,0,',','.')?> cliente(s)</em></div></article>
+     <article><span class="green"><i class="fa-solid fa-dollar-sign"></i></span><div><small>Saldo disponível</small><strong><?=money($collectionAmount)?></strong><em>Omie menos baixas locais pendentes</em></div></article>
      <article><span class="red"><i class="fa-regular fa-clock"></i></span><div><small>Títulos em atraso</small><strong><?=number_format($collectionOverdue,0,',','.')?></strong><em><?=number_format($collectionCritical,0,',','.')?> acima de 60 dias</em></div></article>
      <article><span class="blue"><i class="fa-solid fa-chart-column"></i></span><div><small>Recuperado no mês</small><strong><?=money($collectionRecovered??0)?></strong><em>Pagamentos registrados</em></div></article>
      <article><span class="yellow"><i class="fa-regular fa-calendar"></i></span><div><small>Promessas de pagamento</small><strong><?=number_format((int)($collectionPromises??0),0,',','.')?></strong><em>Promessas futuras</em></div></article>
     </div>
 
-    <section class="tdcob4-panel"><header><div><span><i class="fa-solid fa-table-list"></i></span><div><strong><?=$view==='settled'?'Clientes quitados':'Títulos em cobrança'?></strong><small>Lista de clientes com saldo, atraso e próxima ação.</small></div></div><nav><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></nav></header><div class="table-card tdcob4-table-wrap"><table class="table tdcob4-table" data-page-length="10" data-length-change="1"><thead><tr><th>Cliente / CFC</th><th>Vendedor</th><th>Resp. cobrança</th><th>Dias em atraso</th><th>Valor em aberto</th><th>Último contato</th><th>Próxima ação</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead><tbody><?php foreach($rows as $row):$days=(int)($row['max_overdue_days']??0);$statusClass=$days>60?'danger':($days>30?'warning':($days>0?'today':'ok'));?><tr><td><div class="tdcob4-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:''))?></small></div></div></td><td><?=e($row['seller_name']??'—')?></td><td><strong><?=e($row['assigned_name']??'Não atribuído')?></strong></td><td data-order="<?=$days?>"><strong class="<?=$days>30?'danger':''?>"><?=$days>0?$days.' dias':'Em dia'?></strong></td><td data-order="<?=e((string)$row['open_amount'])?>"><strong><?=money($row['open_amount'])?></strong><?php if((float)$row['partial_paid']>0):?><small><?=money($row['partial_paid'])?> pago</small><?php endif;?></td><td><?php if(!empty($row['last_contact_at'])):?><strong><?=date('d/m/Y',strtotime((string)$row['last_contact_at']))?></strong><small><?=e($row['last_channel']??'contato')?></small><?php else:?>—<?php endif;?></td><td><?php if(!empty($row['next_due_at'])):?><strong><?=e($row['next_title']??'Retorno')?></strong><small><?=date('d/m H:i',strtotime((string)$row['next_due_at']))?></small><?php else:?>—<?php endif;?></td><td><span class="tdcob4-status <?=$statusClass?>"><i></i><?=$days>60?'Crítico':($days>30?'Atenção':($days>0?'Em atraso':'Em dia'))?></span></td><td><a class="tdcob4-open" href="<?=APP_URL?>/collection/<?=$row['client_id']?>"><i class="fa-regular fa-folder-open"></i></a></td></tr><?php endforeach;?></tbody></table></div></section>
+    <section class="tdcob4-panel"><header><div><span><i class="fa-solid fa-table-list"></i></span><div><strong><?=$view==='settled'?'Clientes quitados':'Títulos em cobrança'?></strong><small>Saldo disponível considera as baixas lançadas localmente até a conciliação com a Omie.</small></div></div><nav><a class="<?=$view==='open'?'active':''?>" href="<?=APP_URL?>/collection?view=open">Pendentes</a><a class="<?=$view==='settled'?'active':''?>" href="<?=APP_URL?>/collection?view=settled">Quitados</a></nav></header><div class="table-card tdcob4-table-wrap"><table class="table tdcob4-table" data-page-length="10" data-length-change="1"><thead><tr><th>Cliente / CFC</th><th>Vendedor</th><th>Resp. cobrança</th><th>Dias em atraso</th><th>Saldo disponível</th><th>Último contato</th><th>Próxima ação</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead><tbody><?php foreach($rows as $row):$days=(int)($row['max_overdue_days']??0);$pendingLocal=(float)($row['pending_local']??0);$available=max(0,(float)$row['open_amount']-$pendingLocal);$hasAgreement=($row['last_result']??'')==='agreement'&&(float)($row['last_amount']??0)>0;$statusClass=$pendingLocal>0?'local-paid':($hasAgreement?'agreement':($days>60?'danger':($days>30?'warning':($days>0?'today':'ok'))));$statusText=$pendingLocal>0?'Baixa local pendente':($hasAgreement?'Acordo '.money($row['last_amount']):($days>60?'Crítico':($days>30?'Atenção':($days>0?'Em atraso':'Em dia'))));?><tr class="<?=$pendingLocal>0?'tdcob4-row-local-paid':($hasAgreement?'tdcob4-row-agreement':'')?>"><td><div class="tdcob4-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:''))?></small></div></div></td><td><?=e($row['seller_name']??'—')?></td><td><strong><?=e($row['assigned_name']??'Não atribuído')?></strong></td><td data-order="<?=$days?>"><strong class="<?=$days>30?'danger':''?>"><?=$days>0?$days.' dias':'Em dia'?></strong></td><td data-order="<?=$available?>"><strong><?=money($available)?></strong><small>Omie <?=money($row['open_amount'])?><?php if($pendingLocal>0):?> · baixa <?=money($pendingLocal)?><?php endif;?></small></td><td><?php if(!empty($row['last_contact_at'])):?><strong><?=date('d/m/Y',strtotime((string)$row['last_contact_at']))?></strong><small><?=e($row['last_channel']??'contato')?></small><?php else:?>—<?php endif;?></td><td><?php if(!empty($row['next_due_at'])):?><strong><?=e($row['next_title']??'Retorno')?></strong><small><?=date('d/m H:i',strtotime((string)$row['next_due_at']))?></small><?php else:?>—<?php endif;?></td><td><span class="tdcob4-status <?=$statusClass?>"><i></i><?=$statusText?></span></td><td><a class="tdcob4-open" href="<?=APP_URL?>/collection/<?=$row['client_id']?>"><i class="fa-regular fa-folder-open"></i></a></td></tr><?php endforeach;?></tbody></table></div></section>
 
     <div class="tdcob4-bottom">
      <section class="tdcob4-radar"><header><span><i class="fa-solid fa-bullseye"></i></span><div><strong>Radar da cobrança</strong><small>Distribuição da carteira por nível de atenção.</small></div></header><div class="tdcob4-radar-body"><div class="tdcob4-ring" style="--p:<?=$collectionTotal?round($collectionOverdue/$collectionTotal*100):0?>"><strong><?=$collectionTotal?round($collectionOverdue/$collectionTotal*100):0?>%</strong><small>em atraso</small></div><div class="tdcob4-legend"><span><i class="danger"></i>Crítico (>60 dias)<b><?=$collectionCritical?></b></span><span><i class="warning"></i>Atenção (1–60 dias)<b><?=max(0,$collectionOverdue-$collectionCritical)?></b></span><span><i class="ok"></i>Em dia<b><?=$collectionCurrent?></b></span></div></div></section>
      <section class="tdcob4-attention"><header><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Clientes que exigem atenção</strong><small>Maiores atrasos da carteira atual.</small></div></header><div><?php foreach(array_slice($topAttention,0,5) as $idx=>$row):?><a href="<?=APP_URL?>/collection/<?=$row['client_id']?>"><span><?=($idx+1)?></span><strong><?=e($row['name'])?></strong><b><?=money($row['open_amount'])?></b><em><?=(int)$row['max_overdue_days']?> dias</em></a><?php endforeach;?></div></section>
     </div>
+   </section>
+  <?php break;
+
+  case 'collection_report':
+   $reportSummary=$collectionReportSummary??[];$reportMonth=(string)($collectionReportMonth??date('Y-m'));$reportStatus=(string)($collectionReportStatus??'all');$reportChannels=['phone'=>'Ligação','whatsapp'=>'WhatsApp','email'=>'E-mail','manual'=>'Lançamento manual'];?>
+   <section class="tdcob4-page tdcob4-report-page">
+    <header class="tdcob4-head"><div><a class="tdcob4-kicker" href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i> COBRANÇA / RELATÓRIO</a><h1>Relatório da carteira de cobrança</h1><p>Todos os devedores ficam disponíveis para a equipe, com o responsável indicado apenas para organização.</p></div></header>
+    <section class="tdcob4-filters tdcob4-report-filters <?=Auth::can('admin','supervisor')?'':'single-owner'?>"><form method="get"><label><span>Mês analisado</span><input class="form-control" type="month" name="month" value="<?=e($reportMonth)?>"></label><?php if(Auth::can('admin','supervisor')):?><label><span>Responsável</span><select class="form-select" name="assigned_user_id"><option value="0">Toda a equipe</option><?php foreach($collectionCollectors??[] as $collector):?><option value="<?=(int)$collector['id']?>" <?=((int)($collectionReportAssigned??0)===(int)$collector['id'])?'selected':''?>><?=e($collector['name'])?></option><?php endforeach;?></select></label><?php endif;?><fieldset class="tdcob4-status-filter"><legend>Situação no mês</legend><div><?php foreach(['all'=>'Todos','paid'=>'Pagos','waiting'=>'Aguardando','uncontacted'=>'Não cobrados'] as $statusValue=>$statusLabel):$statusId='report-status-'.$statusValue;?><input id="<?=$statusId?>" type="radio" name="payment_status" value="<?=$statusValue?>" <?=$reportStatus===$statusValue?'checked':''?>><label for="<?=$statusId?>"><?=$statusLabel?></label><?php endforeach;?></div></fieldset><a class="tdcob4-clear" href="<?=APP_URL?>/collection/report">Limpar</a><button class="tdcob4-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar</button></form></section>
+    <div class="tdcob4-kpis tdcob4-report-kpis">
+     <article><span class="blue"><i class="fa-solid fa-users"></i></span><div><small>Clientes na cobrança</small><strong><?=number_format((int)($reportSummary['portfolio']??0),0,',','.')?></strong><em><?=number_format((int)($reportSummary['clients']??0),0,',','.')?> cobrados no mês</em></div></article>
+     <article><span class="yellow"><i class="fa-regular fa-clock"></i></span><div><small>Aguardando pagamento</small><strong><?=number_format((int)($reportSummary['waiting']??0),0,',','.')?></strong><em>Cobrados sem pagamento no mês</em></div></article>
+     <article><span class="green"><i class="fa-solid fa-circle-check"></i></span><div><small>Clientes que pagaram</small><strong><?=number_format((int)($reportSummary['paid']??0),0,',','.')?></strong><em>Com pagamento registrado no mês</em></div></article>
+     <article><span class="green"><i class="fa-solid fa-money-bill-trend-up"></i></span><div><small>Valor recuperado</small><strong><?=money((float)($reportSummary['recovered']??0))?></strong><em>Total pago no filtro selecionado</em></div></article>
+     <article><span class="red"><i class="fa-solid fa-file-invoice-dollar"></i></span><div><small>Saldo disponível</small><strong><?=money((float)($reportSummary['open']??0))?></strong><em>Saldo Omie menos baixas locais pendentes</em></div></article>
+    </div>
+    <section class="tdcob4-panel tdcob4-report-panel">
+     <header><div><span><i class="fa-solid fa-table-list"></i></span><div><strong>Detalhamento da carteira</strong><small>Data do pagamento é quando o valor foi recebido; lançamento no CRM é quando o registro foi criado.</small></div></div></header>
+     <div class="table-card tdcob4-table-wrap"><table class="table tdcob4-table" data-page-length="5" data-length-change="1" data-order-column="2" data-order-direction="desc">
+      <thead><tr><th>Cliente</th><th>Responsável</th><th>Última ação registrada</th><th>Pagamento no mês</th><th class="text-end">Saldo disponível</th><th>Situação</th><th data-dt-order="disable">Abrir</th></tr></thead>
+      <tbody><?php foreach($collectionReportRows??[] as $row):$paid=(float)$row['recovered']>0;$contacted=(int)$row['action_count']>0;$hasRecord=!empty($row['last_action_at']);?>
+       <tr>
+        <td><div class="tdcob4-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['document']??'')?></small></div></div></td>
+        <td><strong><?=e($row['assigned_name']??'Sem responsável')?></strong></td>
+        <td class="tdcob4-report-event" data-order="<?=$hasRecord?strtotime((string)$row['last_action_at']):0?>"><?php if($hasRecord):?><strong><?=date('d/m/Y H:i',strtotime((string)$row['last_action_at']))?></strong><small><?=e($reportChannels[$row['last_channel']]??$row['last_channel'])?> · <?=e(task_result_label((string)$row['last_result']))?><?php if((int)$row['action_count']>0):?> · <?=number_format((int)$row['action_count'],0,',','.')?> contato(s) no mês<?php endif;?></small><?php else:?><span class="tdcob4-report-empty">Sem ação registrada no mês</span><?php endif;?></td>
+        <td class="tdcob4-report-payment" data-order="<?=!empty($row['last_payment_at'])?strtotime((string)$row['last_payment_at']):0?>"><?php if($paid):?><strong><?=money((float)$row['recovered'])?></strong><small><b>Último pagamento:</b> <?=date('d/m/Y H:i',strtotime((string)$row['last_payment_at']))?></small><small><b>Lançado no CRM:</b> <?=date('d/m/Y H:i',strtotime((string)($row['last_payment_recorded_at']??$row['last_payment_at'])))?></small><?php else:?><span class="tdcob4-report-empty">Nenhum pagamento no mês</span><?php endif;?></td>
+        <td class="text-end" data-order="<?=e((string)($row['available_amount']??0))?>"><strong><?=money((float)($row['available_amount']??0))?></strong><?php if((float)($row['pending_local']??0)>0):?><small>Omie <?=money((float)$row['open_amount'])?> · baixa local <?=money((float)$row['pending_local'])?></small><?php endif;?></td>
+        <td><span class="tdcob4-status <?=$paid?'ok':($contacted?'warning':'neutral')?>"><i></i><?=$paid?'Pagamento registrado':($contacted?'Aguardando pagamento':'Ainda não cobrado')?></span></td>
+        <td><a class="tdcob4-open" href="<?=APP_URL?>/collection/<?=(int)$row['client_id']?>" title="Abrir cobrança"><i class="fa-regular fa-folder-open"></i></a></td>
+       </tr>
+      <?php endforeach;?></tbody>
+     </table></div>
+    </section>
    </section>
   <?php break;
 
@@ -1016,7 +1137,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 
      <section class="tdcob-shell">
       <div class="tdcob-shell-head"><div class="tdcob-title"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico de recuperações</strong><small>A data abaixo é a data considerada nos resultados.</small></div></div></div>
-      <div class="table-card tdcob-table-wrap"><table class="table tdcob-table collection-recoveries-datatable" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc"><thead><tr><th>Código</th><th>Cliente</th><th class="text-end">Valor</th><th>Data</th><th>Meta de</th><th>Incluído por</th></tr></thead><tbody><?php foreach($recoveries as $recovery):?><tr><td><strong><?=e($recovery['client_integration_code']?:$recovery['omie_code'])?></strong><small><?php if(!empty($recovery['client_integration_code'])):?>Omie <?=e($recovery['omie_code'])?><?php endif;?></small></td><td><strong><?=e($recovery['name'])?></strong><small><?=e($recovery['document']??'')?></small></td><td class="text-end"><strong><?=money($recovery['amount'])?></strong></td><td><?=date('d/m/Y',strtotime($recovery['created_at']))?></td><td><?=e($recovery['assigned_name']??'—')?></td><td><strong><?=e($recovery['author_name']??'—')?></strong><?php if(!empty($recovery['notes'])):?><small><?=e($recovery['notes'])?></small><?php endif;?></td></tr><?php endforeach;?></tbody></table></div>
+      <div class="table-card tdcob-table-wrap"><table class="table tdcob-table collection-recoveries-datatable" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc"><thead><tr><th>Código</th><th>Cliente</th><th class="text-end">Valor</th><th>Data do pagamento</th><th>Data lançada</th><th>Meta de</th><th>Incluído por</th><th data-dt-order="disable">Ações</th></tr></thead><tbody><?php foreach($recoveries as $recovery):?><tr><td><strong><?=e($recovery['client_integration_code']?:$recovery['omie_code'])?></strong><small><?php if(!empty($recovery['client_integration_code'])):?>Omie <?=e($recovery['omie_code'])?><?php endif;?></small></td><td><strong><?=e($recovery['name'])?></strong><small><?=e($recovery['document']??'')?></small></td><td class="text-end"><strong><?=money($recovery['amount'])?></strong></td><td><?=date('d/m/Y H:i',strtotime($recovery['created_at']))?></td><td><?=date('d/m/Y H:i',strtotime((string)($recovery['recorded_at']??$recovery['created_at'])))?></td><td><?=e($recovery['assigned_name']??'—')?></td><td><strong><?=e($recovery['author_name']??'—')?></strong><?php if(!empty($recovery['notes'])):?><small><?=e($recovery['notes'])?></small><?php endif;?></td><td><form method="post" action="<?=APP_URL?>/collection/actions/<?=(int)$recovery['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="recoveries"><button class="tdcob-delete-value icon-only" type="submit" data-confirm="Excluir definitivamente este lançamento? Esta ação não poderá ser desfeita." title="Excluir lançamento definitivamente"><i class="fa-regular fa-trash-can"></i></button></form></td></tr><?php endforeach;?></tbody></table></div>
      </section>
     </div>
    </section>
@@ -1026,25 +1147,56 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
   case 'collection_case':?>
    <section class="tdcob-page tdcob4-case-page">
     <header class="tdcob-head">
-     <div class="tdcob-head-main"><span class="tdcob-head-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span><div><a class="tdcob-kicker" href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i> COBRANÇA / CLIENTE</a><h1><?=e($case['name'])?></h1><p><?=money($case['open_amount'])?> em aberto · <?=$case['max_overdue_days']?> dias de atraso</p></div></div>
+     <div class="tdcob-head-main"><span class="tdcob-head-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span><div><a class="tdcob-kicker" href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i> COBRANÇA / CLIENTE</a><h1><?=e($case['name'])?></h1><p><?=money($case['available_amount'])?> disponíveis · <?=$case['max_overdue_days']?> dias de atraso</p></div></div>
     </header>
 
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <div class="tdcob-case-summary">
-     <div><span>Saldo em aberto</span><strong><?=money($case['open_amount'])?></strong></div>
-     <div><span>Maior atraso</span><strong><?=$case['max_overdue_days']?> dias</strong></div>
-     <div><span>Responsável</span><strong><?=e($case['assigned_name']??'Não atribuído')?></strong></div>
-     <div><span>Cliente</span><strong><?=e($case['name'])?></strong></div>
+     <div class="available"><span>Saldo disponível</span><strong><?=money($case['available_amount'])?></strong></div>
+     <div><span>Saldo informado pela Omie</span><strong><?=money($case['open_amount'])?></strong></div>
+     <div class="local"><span>Baixa local pendente</span><strong><?=money($case['pending_local'])?></strong></div>
+     <div class="agreement"><span>Último acordo</span><strong><?=($case['agreement_amount']??0)>0?money($case['agreement_amount']):'Nenhum'?></strong><?php if(!empty($case['agreement_date'])):?><small><?=date('d/m/Y H:i',strtotime($case['agreement_date']))?></small><?php endif;?></div>
     </div>
 
     <?php if($collectors):?><div class="tdcob-assign"><div><span class="tdcob-kicker">RESPONSABILIDADE</span><strong><?=e($case['assigned_name']??'Não atribuído')?></strong><small>Transferir move histórico, meta e retornos pendentes.</small></div><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/assign"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><select class="form-select" name="assigned_user_id" required><option value="">Novo responsável...</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>"><?=e($c['name'])?></option><?php endforeach;?></select><button class="tdcob-btn">Transferir tudo</button></form></div><?php endif;?>
 
-    <div class="tdcob-grid">
-     <section class="tdcob-card"><div class="tdcob-card-head"><span><i class="fa-solid fa-headset"></i></span><div><strong>Registrar ação</strong><small>Registre o resultado e, se necessário, programe o próximo passo.</small></div></div><form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/action" class="tdcob-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><?php if($collectors):?><label>Responsável</label><select class="form-select" name="assigned_user_id"><option value="">Manter atual</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=(int)$case['assigned_user_id']===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select><?php endif;?><label>Canal</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado</label><select class="form-select" name="result"><?php foreach($taskResults??[] as $resultOption):?><option value="<?=e($resultOption['code'])?>"><?=e($resultOption['label'])?></option><?php endforeach;?></select><label>Valor</label><input class="form-control" name="amount"><label>Data e hora do retorno</label><input class="form-control" type="datetime-local" name="promise_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="tdcob-btn tdcob-btn-primary w-100"><i class="fa-solid fa-check"></i>Salvar ação</button></form></section>
+    <section class="tdcob-card tdcob-action-card">
+     <div class="tdcob-card-head"><span><i class="fa-solid fa-headset"></i></span><div><strong>Nova movimentação</strong><small>Registre o contato, acordo, pagamento ou próximo retorno sem sair da tela.</small></div></div>
+     <form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/action" class="tdcob-form tdcob-action-form">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <?php if($collectors):?><label class="owner">Responsável<select class="form-select" name="assigned_user_id"><option value="">Manter atual</option><?php foreach($collectors as $c):?><option value="<?=$c['id']?>" <?=(int)$case['assigned_user_id']===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+      <label>Canal<select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select></label>
+      <label>Resultado<select class="form-select" name="result"><?php foreach($taskResults??[] as $resultOption):?><option value="<?=e($resultOption['code'])?>"><?=e($resultOption['label'])?></option><?php endforeach;?></select></label>
+      <label>Valor do acordo ou pagamento<input class="form-control" name="amount" inputmode="decimal" placeholder="0,00"></label>
+      <label>Próximo retorno<input class="form-control" type="datetime-local" name="promise_at"></label>
+      <label class="notes">Anotação<textarea class="form-control" name="notes" rows="2" placeholder="Resumo do contato ou condição negociada"></textarea></label>
+      <div class="tdcob-action-help"><i class="fa-solid fa-circle-info"></i><span><b>Acordo</b> apenas sinaliza. <b>Pagamento</b> reduz o saldo disponível.</span></div>
+      <button class="tdcob-btn tdcob-btn-primary tdcob-action-save"><i class="fa-solid fa-check"></i>Salvar movimentação</button>
+     </form>
+    </section>
 
-     <section class="tdcob-card"><div class="tdcob-card-head"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico</strong><small>Interações realizadas neste cliente.</small></div></div><div class="tdcob-timeline"><?php $resultLabels=$taskResultLabels??[];foreach($actions as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?><?php if((float)$a['amount']>0):?> · <?=money($a['amount'])?><?php endif;?></strong><small>Feito por <?=e($a['author_name'])?> · responsável <?=e($a['assigned_name'])?> · <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$actions):?><div>Nenhuma ação registrada.</div><?php endif;?></div></section>
-    </div>
+    <?php $resultLabels=$taskResultLabels??[];$eligibleCount=0;foreach($actions as $historyAction){if((float)$historyAction['amount']>0)$eligibleCount++;}?>
+    <section class="tdcob-card tdcob-history-card">
+     <form method="post" action="<?=APP_URL?>/collection/<?=$case['client_id']?>/actions/delete" data-collection-bulk-delete>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <div class="tdcob-history-toolbar">
+       <div class="tdcob-card-head"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico do cliente</strong><small><?=count($actions)?> movimentação(ões) registrada(s)</small></div></div>
+       <?php if($eligibleCount>0):?><div class="tdcob-bulk-actions"><label><input type="checkbox" data-collection-select-all><span>Selecionar todos os valores</span></label><b data-collection-selected-count>0 selecionados</b><button class="tdcob-bulk-delete" type="submit" data-collection-bulk-submit data-confirm="Excluir definitivamente todos os valores selecionados? Esta ação não poderá ser desfeita." disabled><i class="fa-regular fa-trash-can"></i>Excluir selecionados</button></div><?php endif;?>
+      </div>
+      <div class="tdcob-history-list">
+       <?php foreach($actions as $a):$canDelete=(float)$a['amount']>0;$isPayment=(string)$a['result']==='payment';$isAgreement=(string)$a['result']==='agreement';?>
+        <article class="tdcob-history-item <?=$isPayment?'payment':($isAgreement?'agreement':'contact')?>">
+         <div class="tdcob-history-select"><?php if($canDelete):?><input type="checkbox" name="action_ids[]" value="<?=(int)$a['id']?>" data-collection-action-check aria-label="Selecionar <?=e($resultLabels[$a['result']]??$a['result'])?> de <?=money($a['amount'])?>"><?php else:?><span></span><?php endif;?></div>
+         <div class="tdcob-history-icon"><i class="fa-solid <?=$isPayment?'fa-money-bill-wave':($isAgreement?'fa-handshake':'fa-headset')?>"></i></div>
+         <div class="tdcob-history-content"><div class="tdcob-history-title"><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><?php if((float)$a['amount']>0):?><b><?=money($a['amount'])?></b><?php endif;?><?php if(($a['local_status']??'')==='pending'):?><span>Baixa local pendente</span><?php endif;?></div><small><i class="fa-regular fa-calendar"></i> Pagamento/ação: <?=date('d/m/Y H:i',strtotime($a['created_at']))?> <i class="fa-regular fa-clock"></i> Lançado: <?=date('d/m/Y H:i',strtotime((string)($a['recorded_at']??$a['created_at'])))?> por <?=e($a['author_name'])?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div>
+         <?php if($canDelete):?><button class="tdcob-history-delete" type="submit" name="single_id" value="<?=(int)$a['id']?>" data-confirm="Excluir definitivamente este valor? O saldo e os relatórios serão recalculados." title="Excluir este lançamento"><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button><?php endif;?>
+        </article>
+       <?php endforeach;?>
+       <?php if(!$actions):?><div class="tdcob-history-empty"><i class="fa-regular fa-folder-open"></i><strong>Nenhuma movimentação registrada</strong><span>Os contatos e pagamentos aparecerão aqui.</span></div><?php endif;?>
+      </div>
+     </form>
+    </section>
    </section>
   <?php break;
 
@@ -1066,7 +1218,15 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    $agendaQueryBase=[];
    if(!empty($teamAgenda)&&!empty($agendaFilterUser))$agendaQueryBase['user_id']=(int)$agendaFilterUser;
    if(($agendaType??'all')!=='all')$agendaQueryBase['type']=$agendaType;
-   $collectionAgenda=(($agendaType??'all')==='collection'||$u['role']==='collector');
+   if(!empty($agendaCreatedDate))$agendaQueryBase['created_date']=$agendaCreatedDate;
+   $vision=is_array($agendaVision??null)?$agendaVision:[];
+   $visionTotal=max(1,(int)($vision['total']??0));
+   $visionValues=['upcoming'=>(int)($vision['upcoming_count']??0),'today'=>(int)($vision['today_count']??0),'late'=>(int)($vision['late_count']??0),'done'=>(int)($vision['done_count']??0),'other'=>(int)($vision['other_count']??0)];
+   $visionDegrees=[];$visionCursor=0;foreach($visionValues as $visionKey=>$visionValue){$visionDegrees[$visionKey]=[$visionCursor,$visionCursor+($visionValue/$visionTotal*360)];$visionCursor=$visionDegrees[$visionKey][1];}
+   $weekDays=['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
+   $collectionKpiQuery=$agendaQueryBase;$collectionKpiQuery['type']='collection';unset($collectionKpiQuery['period']);
+   // Comercial e cobrança compartilham a mesma experiência visual e responsiva.
+   $collectionAgenda=false;
    ?>
    <?php if($collectionAgenda):?>
    <section class="tdca4-page">
@@ -1087,29 +1247,29 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      <div class="tda-head-main">
       <span class="tda-head-icon"><i class="fa-regular fa-calendar-check"></i></span>
       <div>
-       <span class="tda-kicker"><?=!empty($teamAgenda)?'GESTÃO / AGENDA':($u['role']==='collector'?'COBRANÇA / AGENDA':'AGENDA')?></span>
-       <h1><?=!empty($teamAgenda)?'Agenda da equipe':($u['role']==='collector'?'Agenda de cobrança':'Minha agenda')?></h1>
-       <p><?=!empty($teamAgenda)?'Controle os compromissos da equipe, identifique atrasos e acompanhe a carga por responsável.':'Organize retornos, cobranças e próximos contatos sem perder prioridades.'?></p>
+       <span class="tda-kicker"><?=!empty($teamAgenda)?'GESTÃO / AGENDA':'AGENDA'?></span>
+       <h1><?=$u['role']==='collector'?'Agenda de cobrança':'Agenda e retornos'?></h1>
+       <p><?=!empty($teamAgenda)?'Organize, acompanhe e execute os compromissos da equipe de forma simples e eficiente.':($u['role']==='collector'?'Organize cobranças, acordos e retornos sem perder prazos e prioridades.':'Organize retornos, cobranças e próximos contatos sem perder prioridades.')?></p>
       </div>
      </div>
-     <div class="tda-date"><i class="fa-regular fa-calendar"></i><div><strong><?=date('d/m/Y')?></strong><small><?=$agendaTotal?> pendente(s)</small></div></div>
+     <div class="tda-date"><i class="fa-regular fa-calendar"></i><div><strong><?=date('d/m/Y')?></strong><small><?=e($weekDays[date('l')]??'Hoje')?>, hoje</small></div></div>
     </header>
 
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <section class="tda-controlbar">
      <form method="get" class="tda-filters">
+      <label class="tda-created"><span>Data de criação</span><input class="form-control" type="date" name="created_date" value="<?=e($agendaCreatedDate??'')?>"></label>
       <?php if(!empty($teamAgenda)):?>
-       <label><span>Responsável</span><select class="form-select" name="user_id">
-        <option value="0">Toda a equipe</option>
+       <label><span>Vendedor / Responsável</span><select class="form-select" name="user_id">
+        <option value="0">Todos os responsáveis</option>
         <?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e($agendaRoleLabels[$agendaUser['role']]??$agendaUser['role'])?></option><?php endforeach;?>
        </select></label>
       <?php endif;?>
-      <label><span>Tipo</span><select class="form-select" name="type">
-       <option value="all" <?=($agendaType??'all')==='all'?'selected':''?>>Todos</option>
-       <option value="sales" <?=($agendaType??'all')==='sales'?'selected':''?>>Comercial</option>
+      <label><span>Tipo</span><select class="form-select" name="type" <?=$u['role']==='collector'?'disabled':''?>>
+       <?php if($u['role']!=='collector'):?><option value="all" <?=($agendaType??'all')==='all'?'selected':''?>>Todos</option><option value="sales" <?=($agendaType??'all')==='sales'?'selected':''?>>Comercial</option><?php endif;?>
        <option value="collection" <?=($agendaType??'all')==='collection'?'selected':''?>>Cobrança</option>
-      </select></label>
+      </select><?php if($u['role']==='collector'):?><input type="hidden" name="type" value="collection"><?php endif;?></label>
       <label><span>Período</span><select class="form-select" name="period">
        <option value="all" <?=($agendaPeriod??'all')==='all'?'selected':''?>>Todos os pendentes</option>
        <option value="late" <?=($agendaPeriod??'all')==='late'?'selected':''?>>Somente vencidos</option>
@@ -1117,21 +1277,22 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        <option value="next7" <?=($agendaPeriod??'all')==='next7'?'selected':''?>>Próximos 7 dias</option>
        <option value="upcoming" <?=($agendaPeriod??'all')==='upcoming'?'selected':''?>>Todos os próximos</option>
       </select></label>
-      <button class="tda-btn tda-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar</button>
+      <button class="tda-btn tda-btn-filter" type="submit"><i class="fa-solid fa-magnifying-glass"></i>Aplicar filtros</button>
       <a class="tda-btn" href="<?=APP_URL?>/agenda"><i class="fa-solid fa-rotate-left"></i>Limpar</a>
      </form>
     </section>
 
     <div class="tda-kpis">
-     <a class="tda-kpi red <?=($agendaPeriod??'all')==='late'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'late']))?>"><span><i class="fa-solid fa-triangle-exclamation"></i></span><small>Vencidos</small><strong><?=number_format($agendaLate,0,',','.')?></strong><em>Prioridade imediata</em></a>
-     <a class="tda-kpi yellow <?=($agendaPeriod??'all')==='today'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'today']))?>"><span><i class="fa-regular fa-clock"></i></span><small>Hoje</small><strong><?=number_format($agendaTodayCount,0,',','.')?></strong><em>Agenda do dia</em></a>
-     <a class="tda-kpi blue <?=($agendaPeriod??'all')==='upcoming'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'upcoming']))?>"><span><i class="fa-regular fa-calendar-plus"></i></span><small>Próximos</small><strong><?=number_format($agendaUpcoming,0,',','.')?></strong><em>Planejamento</em></a>
-     <a class="tda-kpi green <?=($agendaType??'all')==='collection'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query(array_filter(['user_id'=>!empty($teamAgenda)?(int)($agendaFilterUser??0):null,'type'=>'collection'],static fn($value)=>$value!==null&&$value!==0)))?>"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><small>Cobrança</small><strong><?=number_format($agendaCollection,0,',','.')?></strong><em>Compromissos financeiros</em></a>
+     <a class="tda-kpi red <?=($agendaPeriod??'all')==='late'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'late']))?>"><b><?=round($agendaTotal?$agendaLate/$agendaTotal*100:0)?>%</b><span><i class="fa-solid fa-triangle-exclamation"></i></span><small>Vencidos</small><strong><?=number_format($agendaLate,0,',','.')?></strong><em>Compromissos em atraso</em></a>
+     <a class="tda-kpi yellow <?=($agendaPeriod??'all')==='today'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'today']))?>"><b><?=round($agendaTotal?$agendaTodayCount/$agendaTotal*100:0)?>%</b><span><i class="fa-regular fa-clock"></i></span><small>Hoje</small><strong><?=number_format($agendaTodayCount,0,',','.')?></strong><em>Compromissos para hoje</em></a>
+     <a class="tda-kpi blue <?=($agendaPeriod??'all')==='upcoming'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'upcoming']))?>"><b><?=round($agendaTotal?$agendaUpcoming/$agendaTotal*100:0)?>%</b><span><i class="fa-regular fa-calendar-plus"></i></span><small>Próximos</small><strong><?=number_format($agendaUpcoming,0,',','.')?></strong><em>Compromissos nos próximos dias</em></a>
+     <a class="tda-kpi green <?=($agendaType??'all')==='collection'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($collectionKpiQuery))?>"><b><?=round($agendaTotal?$agendaCollection/$agendaTotal*100:0)?>%</b><span><i class="fa-solid fa-coins"></i></span><small>Cobrança</small><strong><?=number_format($agendaCollection,0,',','.')?></strong><em>Compromissos financeiros</em></a>
     </div>
 
+     <div class="tda-insights <?=empty($teamAgenda)?'single':''?>">
     <?php if(!empty($teamAgenda)):?>
      <section class="tda-team">
-      <div class="tda-section-head"><div><span><i class="fa-solid fa-people-group"></i></span><div><strong>Carga da equipe</strong><small>Distribuição dos compromissos pendentes por responsável.</small></div></div></div>
+      <div class="tda-section-head"><div><span><i class="fa-solid fa-people-group"></i></span><div><strong>Carga da equipe</strong><small>Acompanhe a quantidade de compromissos por responsável.</small></div></div><a href="<?=APP_URL?>/agenda"><i class="fa-solid fa-users"></i> Ver detalhes</a></div>
       <?php if(empty($agendaWorkload)):?>
        <div class="tda-empty compact"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Equipe sem pendências</strong><p>Não há compromissos pendentes para os filtros atuais.</p></div></div>
       <?php else:?>
@@ -1149,41 +1310,47 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <?php endif;?>
      </section>
     <?php endif;?>
+     <section class="tda-vision">
+      <div class="tda-section-head"><div><span><i class="fa-solid <?=!empty($teamAgenda)?'fa-chart-pie':'fa-user-clock'?>"></i></span><div><strong><?=!empty($teamAgenda)?'Visão da equipe':'Resumo da minha agenda'?></strong><small><?=!empty($teamAgenda)?'Distribuição dos compromissos por situação.':'Leitura rápida dos seus compromissos e retornos.'?></small></div></div><small><?=number_format((int)($vision['total']??0),0,',','.')?> no total</small></div>
+      <?php if(!empty($teamAgenda)):?>
+      <div class="tda-vision-body">
+       <div class="tda-donut" style="--chart:conic-gradient(#2794f2 <?=$visionDegrees['upcoming'][0]?>deg <?=$visionDegrees['upcoming'][1]?>deg,#f2b705 <?=$visionDegrees['today'][0]?>deg <?=$visionDegrees['today'][1]?>deg,#e34a43 <?=$visionDegrees['late'][0]?>deg <?=$visionDegrees['late'][1]?>deg,#08a66a <?=$visionDegrees['done'][0]?>deg <?=$visionDegrees['done'][1]?>deg,#99a8b3 <?=$visionDegrees['other'][0]?>deg <?=$visionDegrees['other'][1]?>deg)"><span><strong><?=number_format((int)($vision['total']??0),0,',','.')?></strong><small>total</small></span></div>
+       <div class="tda-legend"><?php foreach(['upcoming'=>['Próximos','blue'],'today'=>['Hoje','yellow'],'late'=>['Vencidos','red'],'done'=>['Concluídos','green'],'other'=>['Outros','gray']] as $visionKey=>$visionMeta):$visionValue=$visionValues[$visionKey];?><div><span><i class="<?=$visionMeta[1]?>"></i><?=$visionMeta[0]?></span><strong><?=number_format($visionValue,0,',','.')?></strong><b><?=round($visionValue/$visionTotal*100)?>%</b></div><?php endforeach;?></div>
+      </div>
+      <?php else:?>
+       <div class="tda-personal-status"><?php foreach(['upcoming'=>['Próximos','blue','fa-calendar-check'],'today'=>['Hoje','yellow','fa-clock'],'late'=>['Vencidos','red','fa-triangle-exclamation'],'done'=>['Concluídos','green','fa-circle-check'],'other'=>['Outros','gray','fa-layer-group']] as $visionKey=>$visionMeta):$visionValue=$visionValues[$visionKey];?><article class="<?=$visionMeta[1]?>"><span><i class="fa-solid <?=$visionMeta[2]?>"></i></span><div><small><?=$visionMeta[0]?></small><strong><?=number_format($visionValue,0,',','.')?></strong><em><?=round($visionValue/$visionTotal*100)?>% do total</em></div></article><?php endforeach;?></div>
+      <?php endif;?>
+     </section>
+     </div>
 
-    <section class="tda-list">
-     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Abra o cliente, edite a descrição, reagende ou conclua o retorno.</small></div></div><span class="tda-list-count"><?=count($rows)?> exibido(s)</span></div>
-
-     <?php if(!$rows):?>
-      <div class="tda-empty"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Nenhum compromisso encontrado</strong><p>Não existem pendências para os filtros selecionados.</p></div></div>
-     <?php else:?>
-      <?php foreach(['late'=>['Vencidos','Ação imediata','fa-triangle-exclamation'],'today'=>['Hoje','Compromissos do dia','fa-clock'],'upcoming'=>['Próximos','Planejamento futuro','fa-calendar-days']] as $groupKey=>$groupInfo):?>
-       <?php if(!empty($groups[$groupKey])):?>
-        <div class="tda-group-head <?=$groupKey?>"><div><i class="fa-solid <?=$groupInfo[2]?>"></i><span><strong><?=$groupInfo[0]?></strong><small><?=$groupInfo[1]?></small></span></div><b><?=count($groups[$groupKey])?></b></div>
-        <?php foreach($groups[$groupKey] as $r):
-         $due=strtotime((string)$r['due_at']);$isLate=$groupKey==='late';$isCollection=($r['type']??'')==='collection';
-         $responsibleInitial=mb_strtoupper(mb_substr((string)($r['assigned_name']??''),0,1));
-        ?>
-         <article class="tda-item <?=$isLate?'late':''?>">
-          <div class="tda-time"><span><i class="fa-regular <?=$isLate?'fa-clock':'fa-calendar'?>"></i></span><div><strong><?=date('H:i',$due)?></strong><small><?=date('d/m/Y',$due)?></small></div></div>
-          <div class="tda-client">
-           <strong><?=e($r['name'])?></strong>
-           <small><?=e($r['title'])?></small>
-           <?php if(!empty($teamAgenda)):?><div class="tda-owner"><span><?=$responsibleInitial?></span><b><?=e($r['assigned_name']??'Não identificado')?></b></div><?php endif;?>
-          </div>
-          <span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-user'?>"></i><?=$isCollection?'Cobrança':'Comercial'?></span>
-          <div class="tda-actions">
-           <a class="tda-btn tda-btn-open" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>"><i class="fa-regular fa-folder-open"></i>Abrir</a>
-           <details class="tda-reschedule"><summary class="tda-btn tda-btn-edit"><i class="fa-solid fa-pen"></i>Editar</summary><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/edit"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><label><span>Descrição</span><input class="form-control" type="text" name="title" value="<?=e($r['title'])?>" maxlength="180" required></label><button class="tda-btn tda-btn-edit" type="submit"><i class="fa-solid fa-check"></i>Salvar descrição</button></form></details>
-           <details class="tda-reschedule"><summary class="tda-btn tda-btn-reschedule"><i class="fa-regular fa-calendar-plus"></i>Reagendar</summary><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/reschedule"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><label><span>Nova data e horário</span><input class="form-control" type="datetime-local" name="due_at" value="<?=date('Y-m-d\TH:i',$due)?>" required></label><button class="tda-btn tda-btn-reschedule" type="submit"><i class="fa-solid fa-calendar-check"></i>Confirmar horário</button></form></details>
-           <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><button class="tda-btn tda-btn-primary" data-confirm="Concluir este compromisso?"><i class="fa-solid fa-check"></i>Concluir</button></form>
-           <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><button class="tda-btn tda-btn-danger" data-confirm="Excluir este compromisso da agenda?"><i class="fa-regular fa-trash-can"></i>Excluir</button></form>
-          </div>
-         </article>
-        <?php endforeach;?>
-       <?php endif;?>
-      <?php endforeach;?>
-     <?php endif;?>
+    <section class="tda-list table-card">
+     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Gerencie os compromissos da equipe, filtre, visualize e acompanhe cada retorno.</small></div></div><button class="tda-btn tda-btn-primary" type="button" data-agenda-create><i class="fa-solid fa-plus"></i>Novo compromisso</button></div>
+     <div class="tda-list-tabs"><?php foreach(['upcoming'=>['Próximos',$agendaUpcoming,'fa-folder-open'],'late'=>['Vencidos',$agendaLate,'fa-triangle-exclamation'],'today'=>['Hoje',$agendaTodayCount,'fa-clock'],'all'=>['Todos',$agendaTotal,'fa-list']] as $tabValue=>$tabInfo):$tabQuery=$agendaQueryBase;if($tabValue!=='all')$tabQuery['period']=$tabValue;?><a class="<?=($agendaPeriod??'all')===$tabValue?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($tabQuery))?>"><i class="fa-solid <?=$tabInfo[2]?>"></i><?=$tabInfo[0]?> (<?=$tabInfo[1]?>)</a><?php endforeach;?></div>
+     <div class="tda-table-wrap">
+      <table class="table tda-table" data-page-length="5">
+       <thead><tr><th>Data de criação</th><th>Data do agendamento</th><th>Cliente</th><th>Descrição</th><th>Tipo</th><th>Responsável</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead>
+       <tbody><?php foreach($rows as $r):$due=strtotime((string)$r['due_at']);$created=strtotime((string)$r['created_at']);$isLate=date('Y-m-d',$due)<date('Y-m-d');$isToday=date('Y-m-d',$due)===date('Y-m-d');$isCollection=($r['type']??'')==='collection';$responsibleInitial=mb_strtoupper(mb_substr((string)($r['assigned_name']??''),0,1));?>
+        <tr>
+         <td data-order="<?=$created?>"><strong><?=date('d/m/Y H:i',$created)?></strong></td>
+         <td data-order="<?=$due?>"><strong><?=date('d/m/Y H:i',$due)?></strong></td>
+         <td><a class="tda-table-client" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>"><?=e($r['name'])?></a></td>
+         <td><span class="tda-description"><?=e($r['title'])?></span></td>
+         <td><span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-user-tie'?>"></i><?=$isCollection?'Cobrança':'Comercial'?></span></td>
+         <td><span class="tda-owner-cell"><i><?=$responsibleInitial?></i><b><?=e($r['assigned_name']??'Não identificado')?></b></span></td>
+         <td><span class="tda-status <?=$isLate?'late':($isToday?'today':'upcoming')?>"><i class="fa-regular <?=$isLate?'fa-circle-xmark':($isToday?'fa-clock':'fa-calendar-check')?>"></i><?=$isLate?'Vencido':($isToday?'Hoje':'Agendado')?></span></td>
+         <td><div class="tda-actions compact">
+          <a class="tda-btn tda-btn-open" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>" title="Abrir cliente"><i class="fa-solid fa-eye"></i></a>
+          <details class="tda-reschedule"><summary class="tda-btn tda-btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></summary><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/edit"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><label><span>Descrição</span><input class="form-control" type="text" name="title" value="<?=e($r['title'])?>" maxlength="180" required></label><button class="tda-btn tda-btn-edit" type="submit"><i class="fa-solid fa-check"></i>Salvar descrição</button></form></details>
+          <details class="tda-reschedule"><summary class="tda-btn tda-btn-reschedule" title="Reagendar"><i class="fa-regular fa-calendar-plus"></i></summary><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/reschedule"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><label><span>Nova data e horário</span><input class="form-control" type="datetime-local" name="due_at" value="<?=date('Y-m-d\TH:i',$due)?>" required></label><button class="tda-btn tda-btn-reschedule" type="submit"><i class="fa-solid fa-calendar-check"></i>Confirmar horário</button></form></details>
+          <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><button class="tda-btn tda-btn-primary" data-confirm="Concluir este compromisso?" title="Concluir"><i class="fa-solid fa-check"></i></button></form>
+          <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><button class="tda-btn tda-btn-danger" data-confirm="Excluir este compromisso da agenda?" title="Excluir"><i class="fa-regular fa-trash-can"></i></button></form>
+         </div></td>
+        </tr>
+       <?php endforeach;?></tbody>
+      </table>
+     </div>
     </section>
+    <dialog class="tda-create-modal" data-agenda-create-modal><form method="post" action="<?=APP_URL?>/agenda/create" data-agenda-create-form><input type="hidden" name="_token" value="<?=CSRF::token()?>"><header><span><i class="fa-regular fa-calendar-plus"></i></span><div><small><?=$u['role']==='collector'?'AGENDA DE COBRANÇA':'AGENDA E RETORNOS'?></small><strong>Novo compromisso</strong></div><button type="button" data-agenda-create-close><i class="fa-solid fa-xmark"></i></button></header><div class="tda-create-body"><label><span>Cliente</span><div class="search-box"><input class="form-control" type="search" placeholder="Busque por nome, documento ou código" autocomplete="off" data-agenda-client-search><input type="hidden" name="client_id" data-agenda-client-id required><div class="search-results" data-agenda-client-results></div><div class="selected-box" data-agenda-client-selected></div></div></label><?php if(!empty($teamAgenda)):?><label><span>Responsável</span><select class="form-select" name="assigned_user_id" required><option value="">Selecione</option><?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>"><?=e($agendaUser['name'])?> · <?=e($agendaRoleLabels[$agendaUser['role']]??$agendaUser['role'])?></option><?php endforeach;?></select></label><?php endif;?><label><span>Tipo</span><?php if($u['role']==='collector'):?><input type="hidden" name="type" value="collection"><input class="form-control" value="Cobrança" disabled><?php else:?><select class="form-select" name="type"><option value="sales">Comercial</option><option value="collection">Cobrança</option></select><?php endif;?></label><label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" required></label><label class="wide"><span>Descrição</span><input class="form-control" name="title" maxlength="180" placeholder="Ex.: Retorno de proposta, acordo ou acompanhamento" required></label></div><footer><button class="tda-btn" type="button" data-agenda-create-close>Cancelar</button><button class="tda-btn tda-btn-primary" type="submit"><i class="fa-solid fa-check"></i>Salvar compromisso</button></footer></form></dialog>
    </section>
   <?php endif;?>
   <?php break;
@@ -1651,7 +1818,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     'references'=>['label'=>'Referências Omie','description'=>'Cadastros auxiliares usados em pedidos, serviços e financeiro.','icon'=>'fa-diagram-project','keys'=>['categories','departments','accounts','stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types']],
     'movement'=>['label'=>'Movimentação','description'=>'Dados operacionais que mudam diariamente e exigem acompanhamento mais próximo.','icon'=>'fa-arrows-rotate','keys'=>['orders','services','financial']]
    ];
-   $modeLabels=['manual_period'=>'Período escolhido','forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
+   $modeLabels=['manual_period'=>'Período escolhido','forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','products_full'=>'Catálogo completo','products_incremental'=>'Novos e alterados','clients_reconcile'=>'Reconciliação completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
    $lastSuccessLabel=$summary['last_success']?date('d/m/Y H:i',strtotime($summary['last_success'])):'Nenhuma execução concluída';
    ?>
    <section class="tdsync2-page">
@@ -1741,7 +1908,9 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
             <button class="tdsync2-btn" data-sync-action="last5" data-module="<?=$key?>"><i class="fa-regular fa-calendar-days"></i>Últimos 5 dias</button>
             <button class="tdsync2-btn" data-sync-action="full" data-module="<?=$key?>" data-sync-confirm="Executar carga completa do ano corrente para <?=e($item['label'])?>?"><i class="fa-solid fa-layer-group"></i>Carga completa</button>
            <?php else:?>
-            <button class="tdsync2-btn primary" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar agora</button>
+            <button class="tdsync2-btn primary" data-sync-action="sync" data-module="<?=$key?>"><i class="fa-solid fa-arrows-rotate"></i><?=in_array($key,['products','clients'],true)?($lastSuccess||(int)$item['local_count']>0?'Buscar novos e alterados':'Carregar '.($key==='products'?'catálogo':'clientes')):'Sincronizar agora'?></button>
+            <?php if($key==='clients'):?><button class="tdsync2-btn" data-sync-action="reconcile_clients" data-module="clients" data-sync-confirm="Executar a reconciliação completa? Clientes ativos serão inseridos ou atualizados pelo código Omie. Cadastros que já chegam inativos serão ignorados; se um cliente existente tiver sido inativado no Omie, ficará apenas arquivado no CRM. Nenhum histórico será excluído."><i class="fa-solid fa-shield-halved"></i>Reconciliar base completa</button><?php endif;?>
+            <?php if($key==='products'):?><button class="tdsync2-btn" data-sync-action="product_obs" data-module="products" data-sync-confirm="Atualizar uma vez todo o catálogo para carregar a Descrição Detalhada e as Observações Internas da Omie? A carga é paginada, preserva os produtos locais e pode ser retomada."><i class="fa-regular fa-note-sticky"></i>Carregar descrições e observações</button><?php endif;?>
            <?php endif;?>
            <button class="tdsync2-btn" data-sync-action="resume" data-module="<?=$key?>" <?=$item['resumable']?'':'disabled'?>><i class="fa-solid fa-play"></i>Retomar</button>
           </div>
@@ -1773,6 +1942,8 @@ function layout(string $body,?array $u,string $page=''): void{
  $pageMeta=[
   'dashboard'=>['Dashboard','Visão geral da operação','fa-chart-line'],
   'clients'=>['Clientes','Base e carteiras','fa-users'],
+  'client_audit'=>['Clientes','Auditoria de cadastros','fa-user-shield'],
+  'products'=>['Produtos','Catálogo comercial','fa-boxes-stacked'],
   'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
   'client'=>['Clientes','Detalhes do cliente','fa-address-card'],
   'contact_monitoring'=>['Comercial','Contatos e retornos','fa-headset'],
@@ -1781,6 +1952,7 @@ function layout(string $body,?array $u,string $page=''): void{
   'order_new'=>['Pedidos','Novo pedido','fa-cart-plus'],
   'services'=>['Serviços','Ordens de serviço','fa-screwdriver-wrench'],
   'collection'=>['Cobrança','Carteira de cobrança','fa-hand-holding-dollar'],
+  'collection_report'=>['Cobrança','Relatório de cobranças','fa-chart-column'],
   'collection_recoveries'=>['Cobrança','Pagamentos recuperados','fa-money-bill-transfer'],
   'collection_case'=>['Cobrança','Atendimento de cobrança','fa-file-invoice-dollar'],
   'agenda'=>['Agenda','Agenda e retornos','fa-calendar-check'],
@@ -1797,7 +1969,7 @@ function layout(string $body,?array $u,string $page=''): void{
   'result'=>['Resultados','Meu desempenho','fa-chart-line']
  ];
  $pageInfo=$pageMeta[$page]??['Tecnodata CRM','Operação','fa-graduation-cap'];
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/client-audit-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/client-audit-v1.css')?filemtime(APP_ROOT.'/public/assets/client-audit-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
@@ -1810,12 +1982,13 @@ function layout(string $body,?array $u,string $page=''): void{
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-list"></i><span>Lista de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
+     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-list"></i><span>Clientes Geral</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
      <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
+     <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
     <?php elseif($u['role']==='collector'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="collector-collection" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Carteira de cobrança</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a></div></div>
+     <div class="tdcrm-nav-group" data-nav-group="collector-collection" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Carteira de cobrança</span></a><a href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-column"></i><span>Relatório de cobranças</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a></div></div>
     <?php else:?>
      <div class="tdcrm-nav-context">
       <span><?=e($u['role']==='admin'?'ADMINISTRAÇÃO':'SUPERVISÃO')?></span>
@@ -1829,7 +2002,11 @@ function layout(string $body,?array $u,string $page=''): void{
       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-handshake"></i>Comercial</span><i class="fa-solid fa-chevron-down"></i></button>
       <div class="tdcrm-nav-group-links">
        <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
-       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes Geral</span></a>
+       <a href="<?=APP_URL?>/clients-ead-reciclagem"><i class="fa-solid fa-graduation-cap"></i><span>Clientes EAD Reciclagem</span></a>
+       <a href="<?=APP_URL?>/clients-suporte-pet"><i class="fa-solid fa-paw"></i><span>Clientes Suporte PET</span></a>
+       <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span>Auditoria de clientes</span></a>
+       <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
        <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
        <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
        <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
@@ -1840,6 +2017,7 @@ function layout(string $body,?array $u,string $page=''): void{
       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-circle-dollar-to-slot"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button>
       <div class="tdcrm-nav-group-links">
        <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><span>Carteira de cobrança</span></a>
+       <a href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-column"></i><span>Relatório de cobranças</span></a>
        <a href="<?=APP_URL?>/agenda?type=collection"><i class="fa-regular fa-calendar-check"></i><span>Agenda de cobrança</span></a>
       </div>
      </div>
@@ -1912,6 +2090,14 @@ function layout(string $body,?array $u,string $page=''): void{
    <section class="tdcrm-content"><?=$body?></section>
   </main>
  </div>
+ <?php if($u):?>
+ <dialog class="product-detail-modal" data-product-detail-modal>
+  <div class="product-detail-shell">
+   <header><span><i class="fa-solid fa-box-open"></i></span><div><small>CATÁLOGO LOCAL</small><strong data-product-detail-title>Detalhes do produto</strong><p data-product-detail-subtitle>Informações sincronizadas da Omie</p></div><button type="button" data-product-detail-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+   <div class="product-detail-body" data-product-detail-body><div class="product-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i><span>Carregando detalhes...</span></div></div>
+  </div>
+ </dialog>
+ <?php endif;?>
  <?php }?>
  <script>window.APP_URL=<?=json_encode(APP_URL)?>;window.CSRF=<?=json_encode(CSRF::token())?>;</script>
  <script src="https://cdn.datatables.net/3.0.3/js/dataTables.min.js"></script>

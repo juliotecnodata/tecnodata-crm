@@ -153,10 +153,27 @@ if(isset($c['user_id'])&&isset($c['assigned_user_id']))execStep($pdo,$log,'migra
 modifyCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NOT NULL');
 $c=cols($pdo,$t);
 if(isset($c['user_id']))modifyCol($pdo,$log,$t,'user_id','INT UNSIGNED NULL');
+if(isset($c['client_id'])&&isset($c['status'])&&isset($c['type'])&&isset($c['due_at'])&&!idxExists($pdo,$t,'idx_tasks_client_status_due')){
+ execStep($pdo,$log,'índice de tarefas por cliente e prazo','ALTER TABLE '.qi($t).' ADD INDEX idx_tasks_client_status_due(client_id,status,type,due_at,id)');
+}
+if(isset($c['status'])&&isset($c['due_at'])&&!idxExists($pdo,$t,'idx_tasks_status_due')){
+ execStep($pdo,$log,'índice geral de tarefas pendentes','ALTER TABLE '.qi($t).' ADD INDEX idx_tasks_status_due(status,due_at)');
+}
+if(isset($c['created_at'])&&isset($c['assigned_user_id'])&&isset($c['type'])&&isset($c['status'])&&!idxExists($pdo,$t,'idx_tasks_created_user_type')){
+ execStep($pdo,$log,'índice da agenda por criação e responsável','ALTER TABLE '.qi($t).' ADD INDEX idx_tasks_created_user_type(created_at,assigned_user_id,type,status)');
+}
+
+$t=$prefix.'collection_cases';$c=cols($pdo,$t);
+if(isset($c['status'])&&isset($c['assigned_user_id'])&&isset($c['max_overdue_days'])&&!idxExists($pdo,$t,'idx_collection_status_assigned_delay')){
+ execStep($pdo,$log,'índice da carteira de cobrança','ALTER TABLE '.qi($t).' ADD INDEX idx_collection_status_assigned_delay(status,assigned_user_id,max_overdue_days)');
+}
 
 $t=$prefix.'collection_actions';
 addCol($pdo,$log,$t,'author_user_id','INT UNSIGNED NULL');
 addCol($pdo,$log,$t,'promise_date','DATE NULL');
+addCol($pdo,$log,$t,'local_status',"ENUM('none','pending','reconciled','cancelled') NOT NULL DEFAULT 'none'");
+addCol($pdo,$log,$t,'reconciled_at','DATETIME NULL');
+addCol($pdo,$log,$t,'recorded_at','DATETIME NULL');
 $c=cols($pdo,$t);
 if(isset($c['user_id'])&&isset($c['author_user_id']))execStep($pdo,$log,'migrar autor de cobrança','UPDATE '.qi($t).' SET author_user_id=COALESCE(author_user_id,user_id)');
 if(isset($c['promised_for'])&&isset($c['promise_date']))execStep($pdo,$log,'migrar promessa de cobrança','UPDATE '.qi($t).' SET promise_date=COALESCE(promise_date,promised_for)');
@@ -166,8 +183,14 @@ modifyCol($pdo,$log,$t,'result','VARCHAR(40) NOT NULL');
 modifyCol($pdo,$log,$t,'author_user_id','INT UNSIGNED NOT NULL');
 modifyCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NOT NULL');
 $c=cols($pdo,$t);
+if(isset($c['created_at'])&&isset($c['assigned_user_id'])&&isset($c['client_id'])&&!idxExists($pdo,$t,'idx_ca_created_assigned')){
+ execStep($pdo,$log,'índice mensal das ações de cobrança','ALTER TABLE '.qi($t).' ADD INDEX idx_ca_created_assigned(created_at,assigned_user_id,client_id)');
+}
 if(isset($c['user_id']))modifyCol($pdo,$log,$t,'user_id','INT UNSIGNED NULL');
 if(isset($c['action_type']))modifyCol($pdo,$log,$t,'action_type','VARCHAR(30) NULL');
+if(isset($c['result'])&&isset($c['created_at'])&&isset($c['assigned_user_id'])&&!idxExists($pdo,$t,'idx_ca_result_date_user')){
+ execStep($pdo,$log,'índice de resultados de cobrança','ALTER TABLE '.qi($t).' ADD INDEX idx_ca_result_date_user(result,created_at,assigned_user_id)');
+}
 
 // Normaliza valores legados para os valores usados pela rebuild-clean.
 if(tableExists($pdo,$t)){
@@ -175,6 +198,10 @@ if(tableExists($pdo,$t)){
   "UPDATE ".qi($t)." SET channel=CASE channel WHEN 'ligacao' THEN 'phone' WHEN 'outro' THEN 'other' ELSE channel END");
  execStep($pdo,$log,'normalizar resultados de cobrança',
   "UPDATE ".qi($t)." SET result=CASE result WHEN 'falou' THEN 'contact' WHEN 'nao_atendeu' THEN 'no_answer' WHEN 'promessa' THEN 'promise' WHEN 'acordo' THEN 'agreement' WHEN 'pagamento' THEN 'payment' WHEN 'sem_previsao' THEN 'contact' ELSE result END");
+ execStep($pdo,$log,'preparar baixas locais pendentes',
+  "UPDATE ".qi($t)." SET local_status='pending' WHERE result='payment' AND amount>0 AND local_status='none'");
+ execStep($pdo,$log,'preencher data de lançamento da cobrança',
+  "UPDATE ".qi($t)." SET recorded_at=created_at WHERE recorded_at IS NULL");
 }
 
 $t=$prefix.'payment_methods';modifyCol($pdo,$log,$t,'code','VARCHAR(4) NOT NULL');

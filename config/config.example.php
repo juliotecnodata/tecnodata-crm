@@ -13,6 +13,24 @@ return [
   'session_name'=>'tecnodata_crm',
  ],
 
+ 'google_auth'=>[
+  // Crie um cliente OAuth 2.0 do tipo "Aplicativo da Web" no Google Cloud.
+  // URI de redirecionamento: https://SEU-DOMINIO/crm/auth/google/callback
+  'enabled'=>true,
+  'client_id'=>'SEU_CLIENT_ID.apps.googleusercontent.com',
+  'client_secret'=>'SEU_CLIENT_SECRET',
+  'hosted_domain'=>'tecnodatacfc.com.br',
+ ],
+
+ 'client_segments'=>[
+  'general'=>['label'=>'Clientes Geral','description'=>'Base comercial ativa.','seller_codes'=>[]],
+  'ead_reciclagem'=>['label'=>'Clientes EAD Reciclagem','description'=>'Operação virtual EAD.','seller_codes'=>['594326005']],
+  'suporte_pet'=>['label'=>'Clientes Suporte PET','description'=>'Operação virtual PET.','seller_codes'=>['559876552']],
+ ],
+
+ // Carteiras administradas somente no CRM; informe os códigos Omie dos usuários.
+ 'crm_portfolio_seller_codes'=>['CODIGO_JESSICA','CODIGO_PAMELA'],
+
  'database'=>[
   'table_prefix'=>'tdcrm_',
 
