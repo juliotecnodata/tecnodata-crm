@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(section==='my-portfolio')page='clients';
   if(section==='clients-ead-reciclagem'||section==='clients-suporte-pet')page='clients';
   if(section==='clients-audit')page='client-audit';
+  if(section==='clients-sync')page='client-sync';
   if(section==='clients')page=relativeParts[1]==='new'||relativeParts[2]==='edit'?'client-editor':(relativeParts[1]?'client-detail':'clients');
   if(section==='orders')page=relativeParts[1]==='new'?'order-new':(relativeParts[1]?'order-detail':'orders');
   if(section==='collection'&&relativeParts[1])page='collection-case';
@@ -263,8 +264,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     try{
       const current=new URL(location.href).pathname.replace(/\/$/,'');
       const target=new URL(link.href).pathname.replace(/\/$/,'');
-      const clientsHubAudit=section==='clients-audit'&&target.endsWith('/clients');
-      if(target===current||(target!=='/'&&current.startsWith(target+'/'))||clientsHubAudit)link.classList.add('active');
+      const clientsHubSubpage=['clients-audit','clients-sync'].includes(section)&&target.endsWith('/clients');
+      if(target===current||(target!=='/'&&current.startsWith(target+'/'))||clientsHubSubpage)link.classList.add('active');
     }catch(e){}
   });
 
@@ -433,6 +434,61 @@ document.addEventListener('DOMContentLoaded',()=>{
     dt.on?.('search',()=>{const next=String(dt.search?.()||'');if(next!==lastSearch){lastSearch=next;clearSelection();}});
     syncSelection();
   }
+  const clientSyncHub=document.querySelector('[data-client-sync-hub]');
+  if(clientSyncHub){
+    const selected=new Set(),excluded=new Set();let allFiltered=false,running=false;
+    const endpoint=clientSyncHub.dataset.endpoint,csrf=clientSyncHub.dataset.csrf,status=clientSyncHub.dataset.status||'all',query=clientSyncHub.dataset.query||'';
+    const total=()=>Number(clientSyncHub.dataset.total||0);
+    const countLabel=clientSyncHub.querySelector('[data-sync-count]');
+    const selectFiltered=clientSyncHub.querySelector('[data-sync-select-filtered]');
+    const clearButton=clientSyncHub.querySelector('[data-sync-clear]');
+    const runButton=clientSyncHub.querySelector('[data-sync-run]');
+    const progress=clientSyncHub.querySelector('[data-sync-progress]');
+    const progressText=clientSyncHub.querySelector('[data-sync-progress-text]');
+    const pageCheck=clientSyncHub.querySelector('[data-sync-page]');
+    const rowChecks=()=>Array.from(clientSyncHub.querySelectorAll('[data-sync-select]'));
+    const selectedCount=()=>allFiltered?Math.max(0,total()-excluded.size):selected.size;
+    const paint=()=>{
+      rowChecks().forEach(check=>{const id=Number(check.value);check.checked=allFiltered?!excluded.has(id):selected.has(id);});
+      const rows=rowChecks(),checked=rows.filter(check=>check.checked).length;
+      if(pageCheck){pageCheck.checked=rows.length>0&&checked===rows.length;pageCheck.indeterminate=checked>0&&checked<rows.length;}
+      const count=selectedCount();if(countLabel)countLabel.textContent=count.toLocaleString('pt-BR')+' selecionado'+(count===1?'':'s');
+      if(selectFiltered)selectFiltered.hidden=allFiltered||total()===0;
+      if(clearButton)clearButton.hidden=count===0;
+      if(runButton)runButton.disabled=running||count===0;
+      clientSyncHub.querySelectorAll('[data-sync-one]').forEach(button=>button.disabled=running);
+    };
+    const clear=()=>{selected.clear();excluded.clear();allFiltered=false;paint();};
+    rowChecks().forEach(check=>check.addEventListener('change',()=>{const id=Number(check.value);if(allFiltered){if(check.checked)excluded.delete(id);else excluded.add(id);}else{if(check.checked)selected.add(id);else selected.delete(id);}paint();}));
+    pageCheck?.addEventListener('change',()=>{rowChecks().forEach(check=>{check.checked=pageCheck.checked;check.dispatchEvent(new Event('change'));});paint();});
+    selectFiltered?.addEventListener('click',()=>{selected.clear();excluded.clear();allFiltered=true;paint();});
+    clearButton?.addEventListener('click',clear);
+    const execute=async(onlyId=null)=>{
+      if(running)return;const target=onlyId!==null?1:selectedCount();if(target===0)return;
+      const message=onlyId!==null?'Sincronizar este cliente com a Omie agora?':'Enviar '+target.toLocaleString('pt-BR')+' cliente(s) para a Omie agora? Os registros com erro continuarão nesta fila.';
+      if(!window.confirm(message))return;
+      running=true;paint();if(progress)progress.hidden=false;let cursor=0,processed=0,succeeded=0,failed=0,errors=[],loops=0;
+      try{
+        do{
+          if(progressText)progressText.textContent='Processando '+processed.toLocaleString('pt-BR')+' de '+target.toLocaleString('pt-BR')+'...';
+          const payload={_token:csrf,selection_mode:onlyId!==null?'selected':(allFiltered?'filtered':'selected'),client_ids:onlyId!==null?[onlyId]:Array.from(selected),excluded_ids:onlyId!==null?[]:Array.from(excluded),status,q:query,cursor};
+          const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
+          const data=await response.json().catch(()=>({success:false,error:'Resposta inválida do servidor.'}));
+          if(!response.ok||!data.success)throw new Error(data.error||'Não foi possível concluir a sincronização.');
+          processed+=Number(data.processed||0);succeeded+=Number(data.succeeded||0);failed+=Number(data.failed||0);errors=errors.concat(Array.isArray(data.errors)?data.errors:[]).slice(0,20);cursor=Number(data.next_cursor||0);loops++;
+          if(data.done||onlyId!==null)break;if(loops>10000)throw new Error('A operação excedeu o limite seguro de lotes.');
+        }while(true);
+        const detail=failed?failed+' cliente(s) permaneceram para tratamento. '+errors.slice(0,3).map(item=>item.name+': '+item.message).join(' | '):'Todos os clientes enviados foram sincronizados.';
+        showNotice(failed?'warning':'success',succeeded.toLocaleString('pt-BR')+' sincronizado(s)',detail);
+        window.setTimeout(()=>location.reload(),700);
+      }catch(error){showNotice('danger','Sincronização interrompida',error.message||'Tente novamente.');}
+      finally{running=false;if(progress)progress.hidden=true;paint();}
+    };
+    runButton?.addEventListener('click',()=>execute(null));
+    clientSyncHub.querySelectorAll('[data-sync-one]').forEach(button=>button.addEventListener('click',()=>execute(Number(button.dataset.syncOne))));
+    paint();
+  }
+
   document.querySelectorAll('[data-datatable-container]').forEach(container=>container.addEventListener('toggle',()=>{
     if(!container.open)return;
     container.querySelectorAll('.table-card table').forEach(table=>{
