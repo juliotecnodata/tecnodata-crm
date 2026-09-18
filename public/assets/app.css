@@ -1889,3 +1889,54 @@ body{background:var(--bg);color:var(--text)}
  .client-action span{display:none}
  .client-action-group{gap:5px}
 }
+
+/* Modal global de tarefas */
+.tdcrm-new-task{min-height:38px;padding:0 12px;border:1px solid #2A4859;border-radius:9px;background:#162735;color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:800;white-space:nowrap}
+.tdcrm-new-task:hover{border-color:#BDD630;color:#BDD630}
+.tdcrm-new-task i{color:#BDD630}
+.tdcrm-task-modal{width:min(760px,calc(100vw - 24px));padding:0;border:1px solid #D9E3E9;border-radius:10px;background:#fff}
+.tdcrm-task-modal::backdrop{background:rgba(8,25,36,.48)}
+.tdcrm-task-modal form>header{display:flex;align-items:flex-start;gap:11px;padding:15px 16px;border-bottom:1px solid #E5EBEF;background:#FBFCFD}
+.tdcrm-task-modal form>header>span{display:grid;place-items:center;width:40px;height:40px;border-radius:9px;background:#EAF5FC;color:#007FC7;flex:0 0 auto}
+.tdcrm-task-modal form>header>div{min-width:0;flex:1}
+.tdcrm-task-modal form>header small,.tdcrm-task-modal form>header strong,.tdcrm-task-modal form>header p{display:block}
+.tdcrm-task-modal form>header small{font-size:8px;font-weight:800;color:#007FC7}
+.tdcrm-task-modal form>header strong{margin-top:2px;font-size:16px;color:#18303F}
+.tdcrm-task-modal form>header p{margin:3px 0 0;color:#6E818D;font-size:10px}
+.tdcrm-task-modal form>header button{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:8px;background:transparent;color:#70838F}
+.tdcrm-task-modal form>header button:hover{background:#F0F4F6;color:#18303F}
+.tdcrm-task-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}
+.tdcrm-task-body>label{margin:0}
+.tdcrm-task-body>label>span{display:block;margin-bottom:5px;color:#506673;font-size:9px;font-weight:800}
+.tdcrm-task-body .wide{grid-column:1/-1}
+.tdcrm-task-body .form-control,.tdcrm-task-body .form-select{min-height:42px;border:1px solid #C9D6DE;border-radius:8px;font-size:11px}
+.tdcrm-task-body textarea.form-control{min-height:98px;padding-top:10px;resize:vertical}
+.tdcrm-task-client{position:relative}
+.tdcrm-task-client-results{position:absolute;z-index:70;top:calc(100% + 5px);left:0;right:0;max-height:260px;overflow:auto;border:1px solid #D6E1E7;border-radius:9px;background:#fff}
+.tdcrm-task-client-results:empty{display:none}
+.tdcrm-task-client-results button{width:100%;padding:9px 10px;border:0;border-bottom:1px solid #EDF1F3;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+.tdcrm-task-client-results button:hover{background:#F7FAFB}
+.tdcrm-task-client-results button:last-child{border-bottom:0}
+.tdcrm-task-client-results strong,.tdcrm-task-client-results small{display:block}
+.tdcrm-task-client-results strong{font-size:10px;color:#1D3745}
+.tdcrm-task-client-results small{margin-top:2px;color:#748893;font-size:8px}
+.tdcrm-task-search-state{padding:11px;color:#6E818D;font-size:10px}
+.tdcrm-task-client-selected:not(:empty){min-height:42px;padding:7px 9px;border:1px solid #CFE1EA;border-radius:8px;background:#F6FAFC;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tdcrm-task-client-selected strong,.tdcrm-task-client-selected small{display:block}
+.tdcrm-task-client-selected strong{font-size:10px;color:#1E3947}
+.tdcrm-task-client-selected small{margin-top:2px;color:#6E828D;font-size:8px}
+.tdcrm-task-client-selected button{border:0;background:transparent;color:#D14B43}
+.tdcrm-task-note{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid #D8E7EF;border-radius:9px;background:#F6FAFC;color:#4E6876;font-size:10px;line-height:1.45}
+.tdcrm-task-note i{margin-top:2px;color:#007FC7}
+.tdcrm-task-modal footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #E5EBEF;background:#FBFCFD}
+.tdcrm-task-btn{min-height:38px;padding:0 13px;border:1px solid #CCD8DF;border-radius:8px;background:#fff;color:#334D5B;font-size:10px;font-weight:800}
+.tdcrm-task-btn.primary{border-color:#009657;background:#009657;color:#fff}
+.tdcrm-task-btn.primary:hover{background:#007F49}
+@media(max-width:780px){
+ .tdcrm-new-task span{display:none}
+ .tdcrm-new-task{width:38px;padding:0}
+ .tdcrm-task-body{grid-template-columns:1fr}
+ .tdcrm-task-body .wide{grid-column:auto}
+ .tdcrm-task-modal footer{flex-direction:column-reverse}
+ .tdcrm-task-modal footer .tdcrm-task-btn{width:100%}
+}
