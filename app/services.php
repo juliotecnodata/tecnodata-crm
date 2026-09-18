@@ -587,6 +587,7 @@ final class ClientService {
    ClientPortfolioService::logPrincipalChange($id,Auth::id(),$previousSeller,$sellerCode,$previousOmieSeller,$previousOmieSeller,'Alteração em massa pendente de sincronização com a Omie.');
     if(ClientSegmentPolicy::isVirtualSeller($sellerCode))ClientPortfolioService::clearAssignment($id,null,Auth::id(),'Carteira comercial do mês removida porque o cliente passou para uma operação virtual.');
   }else DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[$rawJson,$id]);
+  if($tagOperation!=='none')ClientTagIndex::replace($id,array_values($current));
  }
 
  private static function tagNames(mixed $items): array{
@@ -679,6 +680,7 @@ final class ClientService {
    [$localCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
 
   $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$localCode]);
+  if($client)ClientTagIndex::replace((int)$client['id'],(array)($p['tags']??[]));
   return ['client'=>$client,'payload'=>$p];
  }
 
@@ -805,6 +807,7 @@ final class ClientService {
    [$omieCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
 
   $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$omieCode]);
+  if($client)ClientTagIndex::replace((int)$client['id'],(array)($p['tags']??[]));
   return ['client'=>$client,'response'=>$response,'payload'=>$p];
  }
  public static function formFromClient(array $client): array{
@@ -869,7 +872,8 @@ final class ClientService {
   DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,portfolio_locked=?,raw_json=?,updated_at=NOW() WHERE id=?",
    [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$lock,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
   ClientPortfolioService::logPrincipalChange($id,(int)($u['id']??0),$previousSeller,$seller,$previousOmieSeller,$previousOmieSeller,'Vendedor principal alterado no cadastro do CRM.');
-   if(ClientSegmentPolicy::isVirtualSeller($seller))ClientPortfolioService::clearAssignment($id,null,(int)($u['id']??0),'Carteira comercial do mês removida porque o cliente passou para uma operação virtual.');
+  ClientTagIndex::replace($id,(array)($p['tags']??[]));
+  if(ClientSegmentPolicy::isVirtualSeller($seller))ClientPortfolioService::clearAssignment($id,null,(int)($u['id']??0),'Carteira comercial do mês removida porque o cliente passou para uma operação virtual.');
 
   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
@@ -2048,7 +2052,7 @@ final class TestDataService {
             ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),
             phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),omie_seller_code=VALUES(omie_seller_code),seller_omie_code=IF(portfolio_locked=1,seller_omie_code,VALUES(seller_omie_code)),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
    [$omie,$name,$client['razao_social']??null,$client['cnpj_cpf']??null,$client['email']??null,$phone,$client['cidade']??null,$client['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($client,JSON_UNESCAPED_UNICODE)]);
-  return DB::one("SELECT * FROM clients WHERE omie_code=?",[$omie])??[];
+  $saved=DB::one("SELECT * FROM clients WHERE omie_code=?",[$omie])??[];if($saved)ClientTagIndex::replaceFromRaw((int)$saved['id'],$client);return $saved;
  }
 
  public static function importProduct(string $omieCode): array{
@@ -2361,6 +2365,8 @@ final class SyncService {
              active=1,raw_json=VALUES(raw_json),
              updated_at=NOW()",
     [$c,(string)($r['nome_fantasia']??$r['razao_social']??$c),$r['razao_social']??null,$r['cnpj_cpf']??null,$r['email']??null,$phone,$r['cidade']??null,$r['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,$active,$raw]);
+   $clientId=$existing?(int)$existing['id']:(int)(DB::scalar("SELECT id FROM clients WHERE omie_code=? LIMIT 1",[$c])??0);
+   if($clientId>0)ClientTagIndex::replaceFromRaw($clientId,$r);
    $activeCount++;$processed++;
   }
   $stats=['active'=>$activeCount,'inactive'=>$inactiveCount,'processed'=>$processed];
