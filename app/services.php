@@ -1497,6 +1497,20 @@ final class OrderService {
   $items=json_decode((string)($i['items_json']??'[]'),true);if(!is_array($items)||!$items)throw new RuntimeException('Inclua ao menos um produto.');
   if(count($items)>199)throw new RuntimeException('A Omie aceita no máximo 199 itens por pedido.');
 
+  // Resolve produtos e catálogos dos itens em lote para evitar consultas N+1.
+  $productIds=[];$categoryCodes=[];$taxCodes=[];$stockCodes=[];
+  foreach($items as $item){
+   if(!is_array($item))continue;
+   $productId=(int)($item['product_id']??0);if($productId>0)$productIds[$productId]=$productId;
+   $categoryCode=trim((string)($item['category_code']??''));if($categoryCode!=='')$categoryCodes[$categoryCode]=$categoryCode;
+   $taxCode=trim((string)($item['tax_scenario_code']??''));if($taxCode!=='')$taxCodes[$taxCode]=$taxCode;
+   $stockCode=trim((string)($item['stock_location_code']??$header['stock_location']));if($stockCode!=='')$stockCodes[$stockCode]=$stockCode;
+  }
+  $productsById=[];if($productIds){$ids=array_values($productIds);$ph=implode(',',array_fill(0,count($ids),'?'));foreach(DB::all("SELECT * FROM products WHERE active=1 AND id IN (".$ph.")",$ids) as $row)$productsById[(int)$row['id']]=$row;}
+  $validCategoryCodes=[];if($categoryCodes){$codes=array_values($categoryCodes);$ph=implode(',',array_fill(0,count($codes),'?'));foreach(DB::all("SELECT code FROM categories WHERE active=1 AND code IN (".$ph.")",$codes) as $row)$validCategoryCodes[(string)$row['code']]=true;}
+  $validTaxCodes=[];if($taxCodes){$codes=array_values($taxCodes);$ph=implode(',',array_fill(0,count($codes),'?'));foreach(DB::all("SELECT omie_code FROM tax_scenarios WHERE active=1 AND omie_code IN (".$ph.")",$codes) as $row)$validTaxCodes[(string)$row['omie_code']]=true;}
+  $validStockCodes=[];if($stockCodes){$codes=array_values($stockCodes);$ph=implode(',',array_fill(0,count($codes),'?'));foreach(DB::all("SELECT omie_code FROM stock_locations WHERE active=1 AND omie_code IN (".$ph.")",$codes) as $row)$validStockCodes[(string)$row['omie_code']]=true;}
+
   $requestToken=preg_replace('/[^A-Za-z0-9_-]/','',(string)($i['request_token']??''));
   if($requestToken==='')$requestToken=date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
   $integration=substr('TDCRM-'.$requestToken,0,60);
@@ -1506,7 +1520,7 @@ final class OrderService {
 
   $det=[];$commercialTotal=0.0;$fiscalTotal=0.0;$financialTotal=0.0;$calculatedNetWeight=0.0;$calculatedGrossWeight=0.0;$n=0;
   foreach($items as $it){
-   $p=DB::one("SELECT * FROM products WHERE id=? AND active=1",[(int)($it['product_id']??0)]);if(!$p)throw new RuntimeException('Produto inválido.');
+   $productId=(int)($it['product_id']??0);$p=$productsById[$productId]??null;if(!$p)throw new RuntimeException('Produto inválido.');
    $q=(float)($it['quantity']??0);if($q<=0)throw new RuntimeException('Quantidade inválida para '.$p['description'].'.');
    $price=(float)($it['unit_price']??$p['unit_price']);if($price<=0)throw new RuntimeException('Produto sem preço: '.$p['description'].'.');
    $discountType=in_array((string)($it['discount_type']??'V'),['V','P'],true)?(string)$it['discount_type']:'V';
@@ -1534,15 +1548,15 @@ final class OrderService {
     'nao_somar_total'=>$noTotal,
    ];
    $categoryItem=trim((string)($it['category_code']??''));if($categoryItem!==''){
-    if(!DB::one("SELECT 1 FROM categories WHERE code=? AND active=1",[$categoryItem]))throw new RuntimeException('Categoria inválida no item '.$n.'.');
+    if(empty($validCategoryCodes[$categoryItem]))throw new RuntimeException('Categoria inválida no item '.$n.'.');
     $inf['codigo_categoria_item']=$categoryItem;
    }
    $taxItem=trim((string)($it['tax_scenario_code']??''));if($taxItem!==''){
-    if(!DB::one("SELECT 1 FROM tax_scenarios WHERE omie_code=? AND active=1",[$taxItem]))throw new RuntimeException('Cenário fiscal inválido no item '.$n.'.');
+    if(empty($validTaxCodes[$taxItem]))throw new RuntimeException('Cenário fiscal inválido no item '.$n.'.');
     $inf['codigo_cenario_impostos_item']=(int)$taxItem;
    }
    $stockItem=trim((string)($it['stock_location_code']??$header['stock_location']));if($stockItem!==''){
-    if(!DB::one("SELECT 1 FROM stock_locations WHERE omie_code=? AND active=1",[$stockItem]))throw new RuntimeException('Local de estoque inválido no item '.$n.'.');
+    if(empty($validStockCodes[$stockItem]))throw new RuntimeException('Local de estoque inválido no item '.$n.'.');
     $inf['codigo_local_estoque']=(int)$stockItem;
    }
    $po=trim((string)($it['purchase_order_number']??''));if($po!=='')$inf['numero_pedido_compra']=mb_substr($po,0,15);
@@ -1562,13 +1576,15 @@ final class OrderService {
    $parcelInput=json_decode((string)($i['installments_json']??'[]'),true);if(!is_array($parcelInput)||!$parcelInput)throw new RuntimeException('Inclua ao menos uma parcela personalizada.');
    if(count($parcelInput)>999)throw new RuntimeException('A Omie aceita no máximo 999 parcelas.');
    $targetCents=(int)round($financialOrderTotal*100);if($targetCents<=0)throw new RuntimeException('Não há valor financeiro para parcelar.');
+   $parcelMethodCodes=[];foreach($parcelInput as $parcelRow)if(is_array($parcelRow)){$method=trim((string)($parcelRow['payment_method']??$header['payment_method']));if($method!=='')$parcelMethodCodes[$method]=$method;}
+   $validParcelMethods=[];if($parcelMethodCodes){$codes=array_values($parcelMethodCodes);$ph=implode(',',array_fill(0,count($codes),'?'));foreach(DB::all("SELECT code FROM payment_methods WHERE code IN (".$ph.")",$codes) as $row)$validParcelMethods[(string)$row['code']]=true;}
    $parcelSource=[];$parcelCents=0;
    foreach(array_values($parcelInput) as $index=>$row){
     if(!is_array($row))throw new RuntimeException('Parcela personalizada inválida.');
     $valueCents=(int)round((float)str_replace(',','.',(string)($row['value']??0))*100);if($valueCents<=0)throw new RuntimeException('O valor da parcela '.($index+1).' deve ser maior que zero.');
     $due=(string)($row['due_date']??'');$date=DateTime::createFromFormat('Y-m-d',$due);if(!$date||$date->format('Y-m-d')!==$due)throw new RuntimeException('Vencimento inválido na parcela '.($index+1).'.');
     if($due<date('Y-m-d'))throw new RuntimeException('O vencimento da parcela '.($index+1).' não pode estar no passado.');
-    $method=trim((string)($row['payment_method']??$header['payment_method']));if($method!==''&&!DB::one("SELECT 1 FROM payment_methods WHERE code=?",[$method]))throw new RuntimeException('Meio de pagamento inválido na parcela '.($index+1).'.');
+    $method=trim((string)($row['payment_method']??$header['payment_method']));if($method!==''&&empty($validParcelMethods[$method]))throw new RuntimeException('Meio de pagamento inválido na parcela '.($index+1).'.');
     $parcelCents+=$valueCents;$parcelSource[]=['value_cents'=>$valueCents,'due_date'=>$due,'payment_method'=>$method,'generate_boleto'=>!empty($row['generate_boleto'])];
    }
    if($parcelCents!==$targetCents)throw new RuntimeException('As parcelas devem totalizar '.number_format($targetCents/100,2,',','.').'. Diferença atual: '.number_format(($targetCents-$parcelCents)/100,2,',','.').'.');
@@ -1600,13 +1616,15 @@ final class OrderService {
   $departmentBase=round($commercialTotal,2);
   if($departmentBase<=0)throw new RuntimeException('Não é possível distribuir departamentos em um pedido com valor total zerado.');
 
+  $departmentCodes=[];foreach($departmentsRaw as $departmentRow)if(is_array($departmentRow)){$code=trim((string)($departmentRow['code']??''));if($code!=='')$departmentCodes[$code]=$code;}
+  $validDepartmentCodes=[];if($departmentCodes){$codes=array_values($departmentCodes);$ph=implode(',',array_fill(0,count($codes),'?'));foreach(DB::all("SELECT code FROM departments WHERE active=1 AND code IN (".$ph.")",$codes) as $row)$validDepartmentCodes[(string)$row['code']]=true;}
   $departmentSource=[];$departmentPercent=0.0;
   foreach($departmentsRaw as $dep){
    if(!is_array($dep))continue;
    $code=trim((string)($dep['code']??''));
    $percent=(float)str_replace(',','.',(string)($dep['percent']??0));
    if($code===''||$percent<=0)continue;
-   if(!DB::one("SELECT 1 FROM departments WHERE code=? AND active=1",[$code]))throw new RuntimeException('Departamento inválido no rateio do pedido.');
+   if(empty($validDepartmentCodes[$code]))throw new RuntimeException('Departamento inválido no rateio do pedido.');
    $departmentPercent+=$percent;
    $departmentSource[]=['code'=>$code,'percent'=>$percent];
   }
