@@ -60,6 +60,14 @@ function client_segment_filter(string $segment,string $alias='c'): array{
   ?['('.$sellerColumn.' IS NULL OR '.$sellerColumn."='' OR ".$sellerColumn.' NOT IN ('.$placeholders.'))',$codes]
   :[$sellerColumn.' IN ('.$placeholders.')',$codes];
 }
+function client_sync_condition(string $status='all',string $alias='c'): array{
+ if(!in_array($alias,['c','clients'],true))throw new InvalidArgumentException('Alias de cliente inválido.');
+ $status=in_array($status,['all','pending','local','divergent','error'],true)?$status:'all';
+ $p=$alias.'.';$remoteStatus="COALESCE(JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.omie_status')),'')";
+ $local=$p."omie_code LIKE 'LOCAL-%'";$pending=$remoteStatus." IN ('pending','pending_update')";$error=$remoteStatus."='error'";$divergent="COALESCE(".$p."seller_omie_code,'')<>COALESCE(".$p."omie_seller_code,'')";
+ $sql=match($status){'pending'=>$pending,'local'=>$local,'divergent'=>$divergent,'error'=>$error,default=>'('.$local.' OR '.$pending.' OR '.$error.' OR '.$divergent.')'};
+ return [$sql,[]];
+}
 function client_audit_document_valid(string $digits): bool{
  if(strlen($digits)===11){
   if(preg_match('/^(\d)\1{10}$/',$digits))return false;
@@ -416,6 +424,56 @@ $router->get('/clients',function()use($renderClients){$renderClients(false);});
 $router->get('/my-portfolio',function()use($renderClients){$renderClients(true,'general');});
 $router->get('/clients-ead-reciclagem',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='ead_reciclagem';redirect('/clients?'.http_build_query($query));});
 $router->get('/clients-suporte-pet',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='suporte_pet';redirect('/clients?'.http_build_query($query));});
+$router->get('/clients-sync',function(){
+ Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();
+ $status=(string)($_GET['status']??'all');if(!in_array($status,['all','pending','local','divergent','error'],true))$status='all';
+ $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
+ [$syncSql,$syncParams]=client_sync_condition($status,'c');$where=['c.active=1',$syncSql];$params=$syncParams;
+ if($q!==''){$like='%'.$q.'%';$where[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";array_push($params,$like,$like,$like,$like,$like,$like);}
+ $summary=DB::one("SELECT
+  SUM(CASE WHEN (c.omie_code LIKE 'LOCAL-%' OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update','error') OR COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')) THEN 1 ELSE 0 END) total,
+  SUM(CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update') THEN 1 ELSE 0 END) pending,
+  SUM(CASE WHEN c.omie_code LIKE 'LOCAL-%' THEN 1 ELSE 0 END) local,
+  SUM(CASE WHEN COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'') THEN 1 ELSE 0 END) divergent,
+  SUM(CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'')='error' THEN 1 ELSE 0 END) errors
+  FROM clients c WHERE c.active=1")?:[];
+ $total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code WHERE ".implode(' AND ',$where),$params)??0);
+ $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=max(1,min($pages,(int)($_GET['page']??1)));$offset=($page-1)*$perPage;
+ $rows=DB::all("SELECT c.*,ps.name principal_seller_name,os.name omie_seller_name,
+  COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') sync_status,
+  JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.sync_error')) sync_error,
+  JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.sync_error_at')) sync_error_at,
+  JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.source')) sync_source
+  FROM clients c LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
+  WHERE ".implode(' AND ',$where)."
+  ORDER BY CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'')='error' THEN 0 WHEN c.omie_code LIKE 'LOCAL-%' THEN 1 WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update') THEN 2 ELSE 3 END,c.updated_at DESC,c.id DESC
+  LIMIT ".$perPage." OFFSET ".$offset,$params);
+ $catalog=client_segment_catalog();foreach($rows as &$row){$seller=trim((string)($row['seller_omie_code']??''));$row['segment_label']='Base geral';foreach($catalog as $key=>$meta){if($key==='general')continue;if(in_array($seller,array_map('strval',(array)($meta['seller_codes']??[])),true)){$row['segment_label']=(string)($meta['label']??$key);break;}}$remoteStatus=(string)($row['sync_status']??'');$divergent=trim((string)($row['seller_omie_code']??''))!==trim((string)($row['omie_seller_code']??''));$row['sync_kind']=$remoteStatus==='error'?'error':(str_starts_with((string)$row['omie_code'],'LOCAL-')?'local':(in_array($remoteStatus,['pending','pending_update'],true)?'pending':($divergent?'divergent':'pending')));}unset($row);
+ $flash=$_SESSION['clients_sync_flash']??null;unset($_SESSION['clients_sync_flash']);
+ render('client_sync',['syncRows'=>$rows,'syncStatus'=>$status,'syncQuery'=>$q,'syncStats'=>$summary,'syncPagination'=>['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)],'flash'=>$flash]);
+});
+
+$router->post('/api/clients-sync/bulk',function(){
+ Auth::requireRole('admin','supervisor');$input=json_decode((string)file_get_contents('php://input'),true);if(!is_array($input))$input=$_POST;CSRF::require($input['_token']??null);
+ try{
+  $selection=(string)($input['selection_mode']??'selected');if(!in_array($selection,['selected','filtered'],true))throw new RuntimeException('Seleção inválida.');
+  $status=(string)($input['status']??'all');if(!in_array($status,['all','pending','local','divergent','error'],true))$status='all';
+  $q=trim((string)($input['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);$cursor=max(0,(int)($input['cursor']??0));
+  $ids=[];foreach((array)($input['client_ids']??[]) as $id){$id=(int)$id;if($id>0)$ids[$id]=$id;}$excluded=[];foreach((array)($input['excluded_ids']??[]) as $id){$id=(int)$id;if($id>0)$excluded[$id]=$id;}
+  if($selection==='selected'&&!$ids)throw new RuntimeException('Selecione pelo menos um cliente.');
+  [$syncSql,$syncParams]=client_sync_condition($status,'c');$where=['c.active=1',$syncSql];$params=$syncParams;
+  if($q!==''){$like='%'.$q.'%';$where[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";array_push($params,$like,$like,$like,$like,$like,$like);}
+  if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
+  if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
+  $baseWhere=$where;$baseParams=$params;$where[]='c.id>?';$params[]=$cursor;
+  $rows=DB::all("SELECT c.id,c.name FROM clients c LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code WHERE ".implode(' AND ',$where)." ORDER BY c.id ASC LIMIT 5",$params);
+  $success=0;$failed=0;$errors=[];$nextCursor=$cursor;$u=Auth::user();
+  foreach($rows as $row){$id=(int)$row['id'];$nextCursor=max($nextCursor,$id);try{ClientService::syncLocalWithOmie($id,$u);$success++;}catch(Throwable $e){ClientService::markSyncError($id,$e->getMessage());$failed++;if(count($errors)<20)$errors[]=['id'=>$id,'name'=>(string)$row['name'],'message'=>$e->getMessage()];}}
+  $remaining=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code WHERE ".implode(' AND ',$baseWhere)." AND c.id>?",array_merge($baseParams,[$nextCursor]))??0);
+  json_response(['success'=>true,'processed'=>count($rows),'succeeded'=>$success,'failed'=>$failed,'errors'=>$errors,'next_cursor'=>$nextCursor,'done'=>count($rows)===0||$remaining===0]);
+ }catch(Throwable $e){json_response(['success'=>false,'error'=>$e->getMessage()],422);}
+});
+
 $router->get('/clients-audit',function(){
  Auth::requireRole('admin','supervisor');
  $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','responsibility','inactive'],true))$tab='duplicates';
