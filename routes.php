@@ -562,17 +562,24 @@ $router->post('/clients/portfolio/assign',function(){
   ClientSegmentPolicy::ensureSchema();
   if(!preg_match('/^[A-Z]{2}$/',$uf))throw new RuntimeException('Selecione um estado válido.');
   if(!$ddds)throw new RuntimeException('Selecione pelo menos um DDD do estado antes de aplicar a carteira.');
-  if(in_array($target,client_virtual_seller_codes(),true))throw new RuntimeException('Vendedores virtuais não podem receber clientes pela gestão de carteiras reais.');
-  if(!ClientSegmentPolicy::isCrmPortfolioSeller($target))throw new RuntimeException('Selecione uma carteira comercial administrada pelo CRM.');
-  $targetSeller=DB::one("SELECT omie_code,name FROM sellers WHERE omie_code=? AND active=1",[$target]);if(!$targetSeller)throw new RuntimeException('Selecione um vendedor de destino válido.');
+  $returnToPrincipal=$target==='__principal__';
+  if(!$returnToPrincipal&&in_array($target,client_virtual_seller_codes(),true))throw new RuntimeException('Vendedores virtuais não podem receber clientes pela gestão de carteiras reais.');
+  if(!$returnToPrincipal&&!ClientSegmentPolicy::isCrmPortfolioSeller($target))throw new RuntimeException('Selecione uma carteira comercial administrada pelo CRM.');
+  $targetSeller=$returnToPrincipal?null:DB::one("SELECT omie_code,name FROM sellers WHERE omie_code=? AND active=1",[$target]);if(!$returnToPrincipal&&!$targetSeller)throw new RuntimeException('Selecione um vendedor de destino válido.');
   [$generalSql,$generalParams]=client_segment_filter('general','c');$effective=client_effective_seller_sql('c',$month);
   $where=['c.active=1',$generalSql,'UPPER(TRIM(c.uf))=?',client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')'];$params=array_merge($generalParams,[$uf],$ddds);$sourceLabel='todos os clientes';
   if($source==='__unassigned__'){$where[]="((".$effective.") IS NULL OR TRIM((".$effective."))='')";$sourceLabel='clientes sem responsável no mês';}
   elseif($source!=='__all__'){$sourceSeller=DB::one("SELECT name FROM sellers WHERE omie_code=?",[$source]);if($source===$target)throw new RuntimeException('O responsável atual e o vendedor de destino são iguais.');$where[]='('.$effective.')=?';$params[]=$source;$sourceLabel='carteira de '.($sourceSeller['name']??$source);}
   $clients=DB::all("SELECT c.id,c.name FROM clients c WHERE ".implode(' AND ',$where)." ORDER BY c.id",$params);
-  $affected=ClientPortfolioService::setAssignments(array_column($clients,'id'),$month,$target,Auth::id(),'Redistribuição mensal por UF/DDD: '.$uf.' · '.implode(', ',$ddds).'.');
+  $affected=$returnToPrincipal
+   ?ClientPortfolioService::clearAssignments(array_column($clients,'id'),$month,Auth::id(),'Retorno ao vendedor principal por UF/DDD: '.$uf.' · '.implode(', ',$ddds).'.')
+   :ClientPortfolioService::setAssignments(array_column($clients,'id'),$month,$target,Auth::id(),'Redistribuição mensal por UF/DDD: '.$uf.' · '.implode(', ',$ddds).'.');
   $label=date('m/Y',strtotime($month.'-01'));
-  $_SESSION['clients_flash']=['type'=>$affected>0?'success':'info','message'=>$affected>0?number_format($affected,0,',','.').' cliente(s) de '.$uf.' nos DDDs '.implode(', ',$ddds).' atribuídos à carteira de '.$targetSeller['name'].' em '.$label.'. O vendedor principal e a Omie não foram alterados.':'Nenhum cliente corresponde à carteira selecionada para '.$label.'.'];
+  $_SESSION['clients_flash']=['type'=>$affected>0?'success':'info','message'=>$affected>0
+   ?($returnToPrincipal
+     ?number_format($affected,0,',','.').' cliente(s) voltaram a usar o vendedor principal em '.$label.'. Nenhum cadastro principal ou dado da Omie foi alterado.'
+     :number_format($affected,0,',','.').' cliente(s) de '.$uf.' nos DDDs '.implode(', ',$ddds).' atribuídos à carteira de '.$targetSeller['name'].' em '.$label.'. O vendedor principal e a Omie não foram alterados.')
+   :'Nenhum cliente corresponde à carteira selecionada para '.$label.'.'];
  }catch(Throwable $e){$_SESSION['clients_flash']=['type'=>'danger','message'=>'Não foi possível atualizar a carteira mensal: '.$e->getMessage()];}
  $redirect=['uf'=>$uf,'month'=>$month];if($ddds)$redirect['ddds']=$ddds;redirect('/clients?'.http_build_query($redirect));
 });
@@ -1713,7 +1720,7 @@ $router->post('/api/clients/bulk',function(){
   if($tag!==''){$where[]=client_tag_filter_sql('c');$params[]=$tag;}
    if($sellerFilter==='__none__')$where[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
    elseif($sellerFilter!==''){$where[]='('.$effectiveSellerSql.')=?';$params[]=$sellerFilter;}
-  if($search!==''){$like='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR s.name LIKE ? OR c.seller_omie_code LIKE ?)';array_push($params,$like,$like,$like,$like,$like,$like,$like);}
+  if($search!==''){$like='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR EXISTS (SELECT 1 FROM sellers search_effective WHERE search_effective.omie_code=('.$effectiveSellerSql.') AND search_effective.name LIKE ?) OR ('.$effectiveSellerSql.') LIKE ?)';array_push($params,$like,$like,$like,$like,$like,$like,$like);}
   if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
   if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
   $baseWhere=$where;$baseParams=$params;
@@ -1789,7 +1796,7 @@ $router->get('/api/clients/datatable',function(){
  $sqlWhere=implode(' AND ',$where);
  $recordsFiltered=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code WHERE ".$sqlWhere,$params)??0);
  $canManage=Auth::can('admin','supervisor');
- $orderColumns=$canManage?['c.id','c.name','c.city','s.name','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','s.name','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id'];
+ $orderColumns=$canManage?['c.id','c.name','c.city','('.$effectiveSellerSql.')','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerSql.')','c.id','m.last_purchase_at','last_contact_at','m.last_purchase_at','m.revenue_12m','c.id'];
  $orderInput=$_GET['order']??[];
  $orderIndex=(int)(is_array($orderInput)?($orderInput[0]['column']??0):0);
  $orderBy=$orderColumns[$orderIndex]??'c.name';
@@ -1845,7 +1852,7 @@ $router->get('/api/clients/datatable',function(){
   $openLabel=$canEdit?'Abrir cliente':($unassigned?'Selecionar cliente disponível':'Cliente vinculado a outro vendedor');
   $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.APP_URL.'/clients/'.$id.'" title="'.e($openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
   if($canEdit)$actions.='<a class="client-action client-action-edit" href="'.APP_URL.'/clients/'.$id.'/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a>';
-  if($canManage)$actions.='<button class="client-action client-action-sync" type="button" data-client-omie-one="'.$id.'" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i><span>Omie</span></button><form method="post" action="'.APP_URL.'/clients/'.$id.'/delete-local"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-local" type="submit" title="Remover apenas do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database"></i><span>CRM</span></button></form><form method="post" action="'.APP_URL.'/clients/'.$id.'/delete"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-delete" type="submit" title="Excluir do CRM e da Omie" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form>';
+  if($canManage){$actions.='<button class="client-action client-action-sync" type="button" data-client-omie-one="'.$id.'" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i><span>Omie</span></button>';if(str_starts_with((string)$row['omie_code'],'LOCAL-'))$actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete-local"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-local" type="submit" title="Remover apenas do CRM" data-confirm="Excluir somente do CRM local? Esta ação será bloqueada se houver histórico relacionado."><i class="fa-solid fa-database"></i><span>CRM</span></button></form>';$actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-delete" type="submit" title="Excluir ou arquivar preservando histórico" data-confirm="Excluir este cliente? Se houver histórico no CRM, ele será preservado em arquivo."><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form>';}
   $actions.='</div>';
   $cells=[$identity,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$daysContactHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
   if($canManage)array_unshift($cells,'<label class="tdc-row-check" title="Selecionar cliente"><input type="checkbox" data-client-select value="'.$id.'"><span></span></label>');
