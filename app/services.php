@@ -532,9 +532,11 @@ final class ClientService {
   if($changeSeller&&$omieAlreadyUpdated){
    DB::exec("UPDATE clients SET seller_omie_code=?,omie_seller_code=?,portfolio_locked=0,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
    ClientPortfolioService::logPrincipalChange($id,Auth::id(),$previousSeller,$sellerCode,$previousOmieSeller,$sellerCode,'Alteração em massa confirmada como já aplicada na Omie.');
+    if(ClientSegmentPolicy::isVirtualSeller($sellerCode))ClientPortfolioService::clearAssignment($id,null,Auth::id(),'Carteira comercial do mês removida porque o cliente passou para uma operação virtual.');
   }elseif($changeSeller){
    DB::exec("UPDATE clients SET seller_omie_code=?,portfolio_locked=1,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
    ClientPortfolioService::logPrincipalChange($id,Auth::id(),$previousSeller,$sellerCode,$previousOmieSeller,$previousOmieSeller,'Alteração em massa pendente de sincronização com a Omie.');
+    if(ClientSegmentPolicy::isVirtualSeller($sellerCode))ClientPortfolioService::clearAssignment($id,null,Auth::id(),'Carteira comercial do mês removida porque o cliente passou para uma operação virtual.');
   }else DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[$rawJson,$id]);
  }
 
@@ -806,6 +808,7 @@ final class ClientService {
   DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,portfolio_locked=?,raw_json=?,updated_at=NOW() WHERE id=?",
    [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$lock,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
   ClientPortfolioService::logPrincipalChange($id,(int)($u['id']??0),$previousSeller,$seller,$previousOmieSeller,$previousOmieSeller,'Vendedor principal alterado no cadastro do CRM.');
+   if(ClientSegmentPolicy::isVirtualSeller($seller))ClientPortfolioService::clearAssignment($id,null,(int)($u['id']??0),'Carteira comercial do mês removida porque o cliente passou para uma operação virtual.');
 
   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
