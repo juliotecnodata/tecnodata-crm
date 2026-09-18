@@ -36,11 +36,38 @@ final class OmieClient {
  }
 }
 
+final class ClientTagIndex {
+ public static function tagsFromRaw(mixed $rawJson): array{
+  $raw=is_array($rawJson)?$rawJson:json_decode((string)$rawJson,true);if(!is_array($raw))return [];
+  $source=is_array($raw['request']??null)?$raw['request']:$raw;$tags=[];
+  foreach((array)($source['tags']??[]) as $item){
+   $tag=trim((string)(is_array($item)?($item['tag']??''):$item));if($tag===''||mb_strlen($tag)>190)continue;
+   $key=mb_strtolower($tag,'UTF-8');$tags[$key]=$tag;
+  }
+  return $tags;
+ }
+ public static function replace(int $clientId,array $tags): void{
+  if($clientId<=0)return;
+  $normalized=[];foreach($tags as $key=>$value){
+   $tag=trim((string)(is_array($value)?($value['tag']??''):$value));if($tag===''||mb_strlen($tag)>190)continue;
+   $tagKey=is_string($key)&&!is_numeric($key)?mb_strtolower(trim($key),'UTF-8'):mb_strtolower($tag,'UTF-8');
+   if($tagKey!=='')$normalized[$tagKey]=$tag;
+  }
+  $pdo=DB::conn();$ownTransaction=!$pdo->inTransaction();if($ownTransaction)$pdo->beginTransaction();
+  try{
+   DB::exec("DELETE FROM client_tags WHERE client_id=?",[$clientId]);
+   foreach($normalized as $tagKey=>$tag)DB::exec("INSERT INTO client_tags(client_id,tag_key,tag) VALUES(?,?,?)",[$clientId,$tagKey,$tag]);
+   if($ownTransaction)$pdo->commit();
+  }catch(Throwable $e){if($ownTransaction&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+ }
+ public static function replaceFromRaw(int $clientId,mixed $rawJson): void{self::replace($clientId,self::tagsFromRaw($rawJson));}
+}
+
 final class ClientSegmentPolicy {
  private static bool $schemaReady=false;
  public static function ensureSchema(): void{
   if(self::$schemaReady)return;
-  $schemaVersion=3;$stateRaw=null;
+  $schemaVersion=4;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='client_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$schemaReady=true;return;}
@@ -53,6 +80,13 @@ final class ClientSegmentPolicy {
   if(!isset($indexes['idx_clients_active_uf']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active_uf(active,uf)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_portfolio_assignments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,month_ref CHAR(7) NOT NULL,client_id BIGINT UNSIGNED NOT NULL,seller_omie_code VARCHAR(80) NULL,created_by INT UNSIGNED NULL,updated_by INT UNSIGNED NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_client_portfolio_month(month_ref,client_id),INDEX idx_portfolio_month_seller(month_ref,seller_omie_code),INDEX idx_portfolio_client_month(client_id,month_ref),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_seller_audit(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,actor_user_id INT UNSIGNED NULL,change_type VARCHAR(40) NOT NULL,month_ref CHAR(7) NULL,previous_seller_omie_code VARCHAR(80) NULL,new_seller_omie_code VARCHAR(80) NULL,previous_omie_seller_code VARCHAR(80) NULL,new_omie_seller_code VARCHAR(80) NULL,notes VARCHAR(255) NULL,created_at DATETIME NOT NULL,INDEX idx_client_seller_audit_client(client_id,created_at),INDEX idx_client_seller_audit_month(month_ref,created_at),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL)");
+  DB::exec("CREATE TABLE IF NOT EXISTS client_tags(client_id BIGINT UNSIGNED NOT NULL,tag_key VARCHAR(190) NOT NULL,tag VARCHAR(190) NOT NULL,PRIMARY KEY(client_id,tag_key),INDEX idx_client_tags_key(tag_key,client_id),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE)");
+  DB::exec("INSERT IGNORE INTO client_tags(client_id,tag_key,tag)
+            SELECT c.id,LOWER(TRIM(j.tag)),MIN(TRIM(j.tag))
+            FROM clients c
+            JOIN JSON_TABLE(COALESCE(JSON_EXTRACT(c.raw_json,'$.request.tags'),JSON_EXTRACT(c.raw_json,'$.tags'),JSON_ARRAY()), '$[*]' COLUMNS(tag VARCHAR(190) PATH '$.tag')) j
+            WHERE j.tag IS NOT NULL AND TRIM(j.tag)<>''
+            GROUP BY c.id,LOWER(TRIM(j.tag))");
   if($upgrading){
    DB::exec("UPDATE clients SET omie_seller_code=COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.recomendacoes.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.recomendacoes.codigo_vendedor')),''))");
    $protected=self::crmPortfolioSellerCodes();if($protected)DB::exec("UPDATE clients SET portfolio_locked=1 WHERE seller_omie_code IN (".implode(',',array_fill(0,count($protected),'?')).")",$protected);
