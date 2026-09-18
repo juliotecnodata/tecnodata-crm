@@ -111,6 +111,24 @@ final class ClientPortfolioService {
    $pdo->commit();return $changed;
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
  }
+ public static function clearAssignments(array $clientIds,?string $month,int $actorId,string $notes=''): int{
+  ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);
+  $ids=[];foreach($clientIds as $id){$id=(int)$id;if($id>0)$ids[$id]=$id;}$ids=array_values($ids);if(!$ids)return 0;
+  $changed=0;$pdo=DB::conn();$pdo->beginTransaction();
+  try{
+   foreach(array_chunk($ids,500) as $chunk){
+    $ph=implode(',',array_fill(0,count($chunk),'?'));
+    $rows=DB::all("SELECT c.id,c.seller_omie_code,c.omie_seller_code,pa.seller_omie_code month_seller FROM clients c JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=? WHERE c.id IN (".$ph.")",array_merge([$month],$chunk));
+    foreach($rows as $row){
+     $id=(int)$row['id'];$previous=trim((string)($row['month_seller']??''));$next=trim((string)($row['seller_omie_code']??''));
+     DB::exec("DELETE FROM client_portfolio_assignments WHERE month_ref=? AND client_id=?",[$month,$id]);
+     DB::exec("INSERT INTO client_seller_audit(client_id,actor_user_id,change_type,month_ref,previous_seller_omie_code,new_seller_omie_code,previous_omie_seller_code,new_omie_seller_code,notes,created_at) VALUES(?,?,'monthly_reset',?,?,?,?,?,?,NOW())",[$id,$actorId?:null,$month,$previous!==''?$previous:null,$next!==''?$next:null,$row['omie_seller_code']??null,$row['omie_seller_code']??null,mb_substr($notes,0,255)]);
+     $changed++;
+    }
+   }
+   $pdo->commit();return $changed;
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+ }
  public static function clearAssignment(int $clientId,?string $month,int $actorId,string $notes=''): void{
   ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);$assignment=self::assignment($clientId,$month);if(!$assignment)return;
   $previous=self::effectiveSellerCode($clientId,$month);$client=DB::one("SELECT seller_omie_code,omie_seller_code FROM clients WHERE id=?",[$clientId]);
