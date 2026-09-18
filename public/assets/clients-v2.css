@@ -36,7 +36,7 @@ body[data-page="client-sync"] .tdcrm-content *{box-shadow:none!important;letter-
 .tdc-head h1{margin:0;font-size:30px;line-height:1.12;font-weight:800;color:var(--tdc-text)}
 .tdc-head p{margin:5px 0 0;font-size:13px;line-height:1.45;color:var(--tdc-muted)}
 .tdc-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.tdc-hub-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:6px;border:1px solid var(--tdc-line);border-radius:10px;background:#fff}
+.tdc-hub-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:6px;border:1px solid var(--tdc-line);border-radius:10px;background:#fff}
 .tdc-hub-nav>a{min-width:0;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid transparent;border-radius:8px;color:#5A6F7C;text-decoration:none}
 .tdc-hub-nav>a>i{width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;border-radius:8px;background:#F1F5F7;color:#607684}
 .tdc-hub-nav>a strong{display:block;font-size:11px;color:#29424F}
