@@ -362,7 +362,8 @@ function render(string $name,array $vars=[]): void{
    ?>
    <section class="tdc-page tdc-sync-center" data-client-sync-hub data-endpoint="<?=APP_URL?>/api/clients-sync/bulk" data-csrf="<?=CSRF::token()?>" data-total="<?=(int)$syncPagination['total']?>" data-status="<?=e($syncStatus)?>" data-query="<?=e($syncQuery)?>">
     <nav class="tdc-hub-nav" aria-label="Central de clientes">
-     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
+     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-layer-group"></i><span><strong>Todos</strong><small>Base ativa completa</small></span></a>
+     <a href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small>Carteiras comerciais</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
      <a class="active" href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
@@ -406,7 +407,8 @@ function render(string $name,array $vars=[]): void{
    ?>
    <section class="tdaudit-page">
     <nav class="tdc-hub-nav" aria-label="Central de clientes">
-     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
+     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-layer-group"></i><span><strong>Todos</strong><small>Base ativa completa</small></span></a>
+     <a href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small>Carteiras comerciais</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
@@ -494,21 +496,22 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
   case 'clients':?>
-   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??'general';$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Clientes Geral';$clientSegmentDescription=$clientSegmentDescription??'Base comercial ativa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralUrl=APP_URL.'/clients'.($clientSegment!=='general'?'?'.http_build_query(['segment'=>$clientSegment]):'');?>
+   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??(Auth::can('admin','supervisor')?'all':'general');$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralUrl=APP_URL.'/clients'.($clientSegment!=='all'?'?'.http_build_query(['segment'=>$clientSegment]):'');?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
     <header class="tdc-head">
      <div class="tdc-head-main">
       <span class="tdc-head-icon"><i class="fa-solid <?=$portfolioMode?'fa-briefcase':'fa-users'?>"></i></span>
       <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':'Central de clientes'?></h1><p><?=$portfolioMode?'Seus clientes vinculados, organizados para facilitar contatos, pedidos e acompanhamento comercial.':'Uma única base para segmentação, carteiras, saneamento cadastral e integração com a Omie.'?></p></div>
      </div>
-     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=$portfolioMode?APP_URL.'/my-portfolio':e($clientCentralUrl)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||$clientSegment==='general'):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
+     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=$portfolioMode?APP_URL.'/my-portfolio':e($clientCentralUrl)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||in_array($clientSegment,['all','general'],true)):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
     </header>
 
     <?php if(!$portfolioMode&&Auth::can('admin','supervisor')):?>
     <nav class="tdc-hub-nav" aria-label="Central de clientes">
-     <a class="<?=$clientSegment==='general'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
-     <a class="<?=$clientSegment==='ead_reciclagem'?'active':''?>" href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
-     <a class="<?=$clientSegment==='suporte_pet'?'active':''?>" href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a class="<?=$clientSegment==='all'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-layer-group"></i><span><strong>Todos</strong><small><?=number_format((int)($baseCounts['all']??0),0,',','.')?> ativos</small></span></a>
+     <a class="<?=$clientSegment==='general'?'active':''?>" href="<?=APP_URL?>/clients?segment=general"><i class="fa-solid fa-briefcase"></i><span><strong>Comercial</strong><small><?=number_format((int)($baseCounts['general']??0),0,',','.')?> ativos</small></span></a>
+     <a class="<?=$clientSegment==='ead_reciclagem'?'active':''?>" href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small><?=number_format((int)($baseCounts['ead_reciclagem']??0),0,',','.')?> ativos</small></span></a>
+     <a class="<?=$clientSegment==='suporte_pet'?'active':''?>" href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small><?=number_format((int)($baseCounts['suporte_pet']??0),0,',','.')?> ativos</small></span></a>
      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
@@ -517,13 +520,13 @@ function render(string $name,array $vars=[]): void{
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <div class="tdc-kpis">
-     <article class="tdc-kpi green"><span class="tdc-kpi-icon"><i class="fa-solid fa-address-book"></i></span><div><small><?=$portfolioMode?'Clientes vinculados':'Clientes na consulta'?></small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?=$tag!==''?'Tag: '.e($tag):($uf!==''?'Carteira de '.$uf.($ddds?' · DDD '.implode(', ',$ddds):''):($q!==''?'Resultado do filtro atual':($portfolioMode?'Somente sua responsabilidade':'Base comercial ativa')))?></p></div></article>
+     <article class="tdc-kpi green"><span class="tdc-kpi-icon"><i class="fa-solid fa-address-book"></i></span><div><small><?=$portfolioMode?'Clientes vinculados':($clientSegment==='all'?'Ativos na base completa':'Clientes nesta visão')?></small><strong><?=number_format((int)$clientStats['total'],0,',','.')?></strong><p><?php if($portfolioMode):?>Somente sua responsabilidade<?php elseif($tag!==''||$uf!==''||$q!==''||$sellerFilter!==''):?>Filtro atual · base ativa total <?=number_format((int)($baseCounts['all']??0),0,',','.')?><?php elseif($clientSegment==='all'):?><?=number_format((int)($baseCounts['stored']??0),0,',','.')?> armazenados · <?=number_format((int)($baseCounts['inactive']??0),0,',','.')?> inativos preservados<?php else:?>De <?=number_format((int)($baseCounts['all']??0),0,',','.')?> clientes ativos na base completa<?php endif;?></p></div></article>
      <article class="tdc-kpi blue"><span class="tdc-kpi-icon"><i class="fa-solid fa-chart-line"></i></span><div><small>Receita em 12 meses</small><strong><?=money($clientStats['revenue'])?></strong><p>Produção acumulada da carteira</p></div></article>
      <article class="tdc-kpi yellow"><span class="tdc-kpi-icon"><i class="fa-solid fa-cart-shopping"></i></span><div><small>Pedidos em 12 meses</small><strong><?=number_format((int)$clientStats['orders'],0,',','.')?></strong><p>Volume comercial recente</p></div></article>
      <?php if($portfolioMode):?><article class="tdc-kpi orange owner"><span class="tdc-kpi-icon"><i class="fa-solid fa-user-tie"></i></span><div><small>Responsável pela carteira</small><strong><?=e(Auth::user()['name']??'Vendedor')?></strong><p>Vínculo exclusivo do seu usuário</p></div></article><?php else:?><article class="tdc-kpi orange"><span class="tdc-kpi-icon"><i class="fa-solid fa-user-tag"></i></span><div><small>Sem vendedor</small><strong><?=number_format((int)$clientStats['without_seller'],0,',','.')?></strong><p>Clientes para distribuição</p></div></article><?php endif;?>
     </div>
 
-    <?php if(Auth::can('admin','supervisor')&&$clientSegment==='general'):?>
+    <?php if(Auth::can('admin','supervisor')&&in_array($clientSegment,['all','general'],true)):?>
     <section class="tdc-intelligence" aria-label="Saúde da base de clientes">
      <div class="tdc-intelligence-head"><span><i class="fa-solid fa-brain"></i></span><div><strong>Controle inteligente da base</strong><small>Separe correção definitiva, carteira provisória e sincronização com a Omie.</small></div></div>
      <div class="tdc-intelligence-items">
@@ -560,7 +563,7 @@ function render(string $name,array $vars=[]): void{
      <div class="tdc-list-filterbar">
       <div class="tdc-filter-title"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine estado, tag e vendedor para encontrar exatamente os clientes que deseja revisar.</small></div></div>
       <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>">
-       <?php if(!$portfolioMode&&$clientSegment!=='general'):?><input type="hidden" name="segment" value="<?=e($clientSegment)?>"><?php endif;?>
+       <?php if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all'):?><input type="hidden" name="segment" value="<?=e($clientSegment)?>"><?php endif;?>
        <?php if(Auth::can('admin','supervisor')&&$clientSegment==='general'):?><label><span><i class="fa-regular fa-calendar"></i> Mês da carteira</span><input class="form-control" type="month" name="month" value="<?=e($portfolioMonth)?>" onchange="this.form.submit()"></label><?php else:?><input type="hidden" name="month" value="<?=e($portfolioMonth)?>"><?php endif;?>
        <?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
        <label><span><i class="fa-solid fa-map-location-dot"></i> Estado</span><select class="form-select" name="uf" onchange="this.form.submit()"><option value="">Todos os estados</option><?php foreach($clientStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
@@ -568,7 +571,7 @@ function render(string $name,array $vars=[]): void{
         <label><span><i class="fa-solid fa-tags"></i> Filtrar por tag</span><select class="form-select" name="tag" data-client-tag-filter><option value="">Todas as tags</option><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>" <?=$tag===$clientTag['tag']?'selected':''?>><?=e($clientTag['tag'])?> (<?=number_format((int)$clientTag['client_count'],0,',','.')?>)</option><?php endforeach;?></select></label>
         <label><span><i class="fa-solid fa-user-tie"></i> Responsável em <?=$portfolioMonthLabel?></span><select class="form-select" name="seller_filter" onchange="this.form.submit()"><option value="">Todos os responsáveis</option><option value="__none__" <?=$sellerFilter==='__none__'?'selected':''?>>⚠ Sem responsável</option><?php foreach($clientSellerFilters??[] as $filterSeller):?><option value="<?=e($filterSeller['omie_code'])?>" <?=$sellerFilter===(string)$filterSeller['omie_code']?'selected':''?>><?=e($filterSeller['name'])?><?=empty($filterSeller['active'])?' (inativo)':''?></option><?php endforeach;?></select></label>
        <?php endif;?>
-       <?php if($uf!==''||(!$portfolioMode&&($tag!==''||$sellerFilter!==''))):?><?php $clearParams=[];if(!$portfolioMode&&$clientSegment!=='general')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
+       <?php if($uf!==''||(!$portfolioMode&&($tag!==''||$sellerFilter!==''))):?><?php $clearParams=[];if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
       </form>
       <small class="tdc-filter-meta"><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; o Estado apenas refina a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
      </div>
