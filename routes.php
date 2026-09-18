@@ -1604,9 +1604,10 @@ $router->get('/api/tasks/{id}',function($p){
  Auth::requireLogin();$u=Auth::user();$id=(int)$p['id'];$task=task_access_row($id,$u,false);
  if(!$task){json_response(['ok'=>false,'error'=>'Tarefa não encontrada ou sem permissão de acesso.'],404);}
  $context=(string)$task['type'];$status=(string)$task['status'];
- $users=task_assignable_users($u,$context);
- $types=task_type_options($context,false);$results=task_result_options($context);
- json_response(['ok'=>true,'task'=>[
+ $users=['sales'=>task_assignable_users($u,'sales'),'collection'=>task_assignable_users($u,'collection')];
+ $types=['sales'=>task_type_options('sales',false),'collection'=>task_type_options('collection',false)];
+ $results=['sales'=>task_result_options('sales'),'collection'=>task_result_options('collection')];
+ json_response(['ok'=>true,'current_role'=>(string)($u['role']??''),'task'=>[
   'id'=>(int)$task['id'],'client_id'=>(int)$task['client_id'],'client_name'=>(string)$task['client_name'],
   'client_document'=>(string)($task['client_document']??''),'client_city'=>(string)($task['client_city']??''),'client_uf'=>(string)($task['client_uf']??''),
   'assigned_user_id'=>(int)$task['assigned_user_id'],'assigned_name'=>(string)$task['assigned_name'],'assigned_role'=>(string)$task['assigned_role'],
