@@ -40,16 +40,24 @@ final class ClientSegmentPolicy {
  private static bool $schemaReady=false;
  public static function ensureSchema(): void{
   if(self::$schemaReady)return;
+  $schemaVersion=3;$stateRaw=null;
+  try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='client_schema_version' LIMIT 1");}catch(Throwable $e){}
+  $state=$stateRaw?json_decode((string)$stateRaw,true):null;
+  if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$schemaReady=true;return;}
   $columns=[];foreach(DB::all("SHOW COLUMNS FROM clients") as $column)$columns[(string)($column['Field']??'')]=true;
   $upgrading=!isset($columns['omie_seller_code'])||!isset($columns['portfolio_locked']);
   if(!isset($columns['omie_seller_code']))DB::exec("ALTER TABLE clients ADD COLUMN omie_seller_code VARCHAR(80) NULL AFTER seller_omie_code, ADD INDEX idx_clients_omie_seller(omie_seller_code,active)");
   if(!isset($columns['portfolio_locked']))DB::exec("ALTER TABLE clients ADD COLUMN portfolio_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER omie_seller_code");
+  $indexes=[];foreach(DB::all("SHOW INDEX FROM clients") as $index)$indexes[(string)($index['Key_name']??'')]=true;
+  if(!isset($indexes['idx_clients_active']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active(active,id)");
+  if(!isset($indexes['idx_clients_active_uf']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active_uf(active,uf)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_portfolio_assignments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,month_ref CHAR(7) NOT NULL,client_id BIGINT UNSIGNED NOT NULL,seller_omie_code VARCHAR(80) NULL,created_by INT UNSIGNED NULL,updated_by INT UNSIGNED NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_client_portfolio_month(month_ref,client_id),INDEX idx_portfolio_month_seller(month_ref,seller_omie_code),INDEX idx_portfolio_client_month(client_id,month_ref),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_seller_audit(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,actor_user_id INT UNSIGNED NULL,change_type VARCHAR(40) NOT NULL,month_ref CHAR(7) NULL,previous_seller_omie_code VARCHAR(80) NULL,new_seller_omie_code VARCHAR(80) NULL,previous_omie_seller_code VARCHAR(80) NULL,new_omie_seller_code VARCHAR(80) NULL,notes VARCHAR(255) NULL,created_at DATETIME NOT NULL,INDEX idx_client_seller_audit_client(client_id,created_at),INDEX idx_client_seller_audit_month(month_ref,created_at),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL)");
   if($upgrading){
    DB::exec("UPDATE clients SET omie_seller_code=COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.recomendacoes.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.recomendacoes.codigo_vendedor')),''))");
    $protected=self::crmPortfolioSellerCodes();if($protected)DB::exec("UPDATE clients SET portfolio_locked=1 WHERE seller_omie_code IN (".implode(',',array_fill(0,count($protected),'?')).")",$protected);
   }
+  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('client_schema_version',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['version'=>$schemaVersion],JSON_UNESCAPED_UNICODE)]);
   self::$schemaReady=true;
  }
  public static function catalog(): array{$catalog=$GLOBALS['config']['client_segments']??[];return is_array($catalog)?$catalog:[];}
