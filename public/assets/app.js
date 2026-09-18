@@ -363,7 +363,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       heading.textContent=settings[0];icon.innerHTML=settings[1];
       submit.className='tda-btn tda-task-submit '+(settings[3]||'');
       submit.innerHTML=mode==='complete'?'<i class="fa-solid fa-check"></i><span>Concluir tarefa</span>':mode==='reschedule'?'<i class="fa-solid fa-calendar-check"></i><span>Confirmar reagendamento</span>':'<i class="fa-solid fa-floppy-disk"></i><span>Salvar tarefa</span>';
-      agendaTaskModal.querySelector('[data-agenda-task-close]').textContent='';
       if(isComplete){
         const results=payload?.results?.[task.context]||[];
         result.innerHTML='<option value="">Somente concluir tarefa</option>'+results.map(item=>'<option value="'+esc(item.code)+'">'+esc(item.label)+'</option>').join('');
