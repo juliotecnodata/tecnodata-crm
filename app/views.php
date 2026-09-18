@@ -880,26 +880,14 @@ function render(string $name,array $vars=[]): void{
       <form class="tdo-stage-filter" method="get"><?php if(!empty($period['all'])):?><input type="hidden" name="period" value="all"><?php else:?><input type="hidden" name="date_from" value="<?=e((string)$period['from'])?>"><input type="hidden" name="date_to" value="<?=e((string)$period['to'])?>"><?php endif;?><input type="hidden" name="view" value="<?=e($view)?>"><span><i class="fa-solid fa-filter"></i>Filtrar por etapa</span><div class="tdo-stage-radios"><label class="<?=($stageFilter??'')===''?'active':''?>"><input type="radio" name="stage" value="" <?=($stageFilter??'')===''?'checked':''?> onchange="this.form.submit()"><span>Todas</span></label><?php foreach($stages??[] as $stage):$code=(string)$stage['code'];$stageIsBudget=in_array($code,$budgetCodes??['00','10'],true);if(($view==='budget'&&!$stageIsBudget)||($view==='all'&&$stageIsBudget))continue;?><label class="<?=($stageFilter??'')===$code?'active':''?>"><input type="radio" name="stage" value="<?=e($code)?>" <?=($stageFilter??'')===$code?'checked':''?> onchange="this.form.submit()"><span><b><?=e($code)?></b><?=e($stage['name'])?></span></label><?php endforeach;?></div></form>
      </div>
 
-     <?php if(!$orders):?>
-      <div class="tdo-empty"><span><i class="fa-solid fa-receipt"></i></span><div><strong><?=$view==='budget'?'Nenhum pedido em orçamento neste período':'Nenhum pedido encontrado neste período'?></strong><p><?=$view==='budget'?'Não há propostas para analisar. Escolha outro período ou volte aos pedidos confirmados.':'Escolha outro período ou atualize a sincronização de pedidos.'?></p></div><a class="tdo-btn" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a></div>
-     <?php else:?>
-      <div class="tdo-table-head"><div class="tdo-table-title"><span><i class="fa-solid <?=$view==='budget'?'fa-magnifying-glass-chart':'fa-table-list'?>"></i></span><div><strong><?=$view==='budget'?'Fila de propostas':'Pedidos sincronizados'?></strong><small><?=$view==='budget'?'Revise cliente, vendedor, etapa, data e valor.':'Use a busca para localizar pedido, cliente, vendedor, etapa ou status.'?></small></div></div><?php if($withoutSeller>0):?><div class="tdo-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> pedido(s) sem vendedor</div><?php endif;?></div>
-      <div class="table-card tdo-table-wrap">
-       <table class="table orders-datatable tdo-table" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc">
-        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
-        <tbody><?php foreach($orders as $o):$status=(string)($o['status']??'ATIVO');$upper=mb_strtoupper($status);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':(in_array((string)($o['stage_code']??''),$budgetCodes??['00','10'],true)?'budget':'active'));?><tr>
-         <td><a class="tdo-order-cell" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><span class="tdo-order-icon"><i class="fa-solid fa-receipt"></i></span><span><strong><?=e($o['number']??'—')?></strong><small><?=e($o['omie_code'])?></small></span></a></td>
-         <td><strong><?=e($o['client_name']??($o['client_omie_code']??'—'))?></strong><?php if(!empty($o['client_name'])&&!empty($o['client_omie_code'])):?><small><?=e($o['client_omie_code'])?></small><?php endif;?></td>
-         <td><?php if(!empty($o['seller_name'])):?><strong><?=e($o['seller_name'])?></strong><small><?=e($o['seller_omie_code'])?></small><?php elseif(!empty($o['seller_omie_code'])):?><strong><?=e($o['seller_omie_code'])?></strong><small>código do vendedor</small><?php else:?><span class="tdo-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
-         <td data-order="<?=e((string)$o['order_date'])?>"><?=brdate($o['order_date'])?></td>
-         <td><span class="tdo-stage"><strong><?=e($o['stage_name']??($o['stage_code']??'—'))?></strong><?php if(!empty($o['stage_name'])&&!empty($o['stage_code'])):?><small><?=e($o['stage_code'])?></small><?php endif;?></span></td>
-         <td><span class="tdo-status <?=$statusClass?>"><?=e($status)?></span></td>
-         <td class="text-end"><strong><?=money($o['total'])?></strong></td>
-         <td><div class="tdo-actions"><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><?php if($statusClass==='budget'):?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/edit" title="Editar proposta"><i class="fa-regular fa-pen-to-square"></i></a><?php endif;?><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/pdf" target="_blank" rel="noopener" title="Gerar PDF"><i class="fa-regular fa-file-pdf"></i></a><a class="tdo-icon-btn" href="<?=APP_URL?>/orders/<?=(int)$o['id']?>/duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$o['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-icon-btn danger" type="submit" title="Excluir" data-confirm="Excluir definitivamente o pedido <?=e($o['number']??$o['omie_code'])?> da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
-        </tr><?php endforeach;?></tbody>
-       </table>
-      </div>
-     <?php endif;?>
+     <?php $orderDataParams=['view'=>$view];if(!empty($period['all']))$orderDataParams['period']='all';else{$orderDataParams['date_from']=$period['from'];$orderDataParams['date_to']=$period['to'];}if(($stageFilter??'')!=='')$orderDataParams['stage']=$stageFilter;?>
+     <div class="tdo-table-head"><div class="tdo-table-title"><span><i class="fa-solid <?=$view==='budget'?'fa-magnifying-glass-chart':'fa-table-list'?>"></i></span><div><strong><?=$view==='budget'?'Fila de propostas':'Pedidos sincronizados'?></strong><small><?=$view==='budget'?'Revise cliente, vendedor, etapa, data e valor.':'Use a busca para localizar pedido, cliente, vendedor, etapa ou status.'?></small></div></div><?php if($withoutSeller>0):?><div class="tdo-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> pedido(s) sem vendedor</div><?php endif;?></div>
+     <div class="table-card tdo-table-wrap">
+      <table class="table orders-datatable tdo-table" data-server-url="<?=APP_URL?>/api/orders/datatable?<?=e(http_build_query($orderDataParams))?>" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc">
+       <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Etapa</th><th>Status</th><th class="text-end">Valor</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
+       <tbody></tbody>
+      </table>
+     </div>
     </section>
    </section>
   <?php break;
@@ -977,23 +965,13 @@ function render(string $name,array $vars=[]): void{
 
     <section class="tds-shell">
      <div class="tds-shell-head"><div class="tds-shell-title"><span><i class="fa-solid fa-table-list"></i></span><div><strong>Base sincronizada</strong><small>Localize OS, cliente, vendedor ou status.</small></div></div><?php if($withoutSeller>0):?><div class="tds-warning"><i class="fa-solid fa-triangle-exclamation"></i><?=$withoutSeller?> OS sem vendedor vinculado</div><?php endif;?></div>
-     <?php if(!$rows):?>
-      <div class="tds-empty"><span><i class="fa-solid fa-magnifying-glass-chart"></i></span><div><strong>Nenhuma ordem de serviço encontrada neste período</strong><p>Selecione outro período ou sincronize Serviços novamente na Central de Sincronização.</p></div><a class="tds-btn" href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i>Sincronização</a></div>
-     <?php else:?>
-      <div class="table-card tds-table-wrap">
-       <table class="table services-datatable tds-table" data-page-length="10" data-length-change="1">
-        <thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
-        <tbody><?php foreach($rows as $row):$status=(string)($row['status']??'ATIVO');$upper=mb_strtoupper($status);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');?><tr>
-         <td><div class="tds-os-cell"><span class="tds-os-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><span><strong><?=e($row['omie_code'])?></strong><small>código Omie</small></span></div></td>
-         <td><strong><?=e($row['client_name']??($row['client_omie_code']??'—'))?></strong><?php if(!empty($row['client_name'])&&!empty($row['client_omie_code'])):?><small><?=e($row['client_omie_code'])?></small><?php endif;?></td>
-         <td><?php $effectiveSeller=(string)($row['effective_seller_code']??$row['seller_omie_code']??'');if(!empty($row['seller_name'])):?><strong><?=e($row['seller_name'])?></strong><small><?=e($effectiveSeller)?></small><?php elseif($effectiveSeller!==''):?><strong><?=e($effectiveSeller)?></strong><small>código do vendedor</small><?php else:?><span class="tds-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span><?php endif;?></td>
-         <td data-order="<?=e((string)($row['effective_date']??$row['service_date']))?>"><?=brdate($row['effective_date']??$row['service_date'])?></td>
-         <td><span class="tds-status <?=$statusClass?>"><?=e($status)?></span></td>
-         <td class="text-end"><strong><?=money($row['total'])?></strong></td>
-        </tr><?php endforeach;?></tbody>
-       </table>
-      </div>
-     <?php endif;?>
+     <?php $serviceDataParams=[];if(!empty($period['all']))$serviceDataParams['period']='all';else{$serviceDataParams['date_from']=$period['from'];$serviceDataParams['date_to']=$period['to'];}?>
+     <div class="table-card tds-table-wrap">
+      <table class="table services-datatable tds-table" data-server-url="<?=APP_URL?>/api/services/datatable?<?=e(http_build_query($serviceDataParams))?>" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc">
+       <thead><tr><th>OS</th><th>Cliente</th><th>Vendedor</th><th>Data</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
+       <tbody></tbody>
+      </table>
+     </div>
     </section>
    </section>
   <?php break;
