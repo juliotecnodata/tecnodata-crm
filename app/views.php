@@ -721,7 +721,7 @@ function render(string $name,array $vars=[]): void{
    <section class="tdc-page">
     <header class="tdc-head tdc-detail-head">
      <div class="tdc-head-main"><span class="tdc-detail-avatar"><?=e(mb_strtoupper(mb_substr((string)$client['name'],0,1)))?></span><div><a class="tdc-back" href="<?=APP_URL?>/clients<?=!empty($sharedUnassigned)?'?scope=unassigned':''?>"><i class="fa-solid fa-arrow-left"></i>Carteira de clientes</a><h1><?=e($client['name'])?></h1><div class="tdc-meta"><span><i class="fa-solid fa-location-dot"></i><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /')?:'Localização não informada')?></span><span><i class="fa-regular fa-id-card"></i><?=e($client['document']?:'Documento não informado')?></span><span><i class="fa-solid fa-cloud"></i><?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></span></div></div></div>
-     <div class="tdc-head-actions"><?php if(!empty($scheduleConsultants)):?><button class="tdc-btn tdc-btn-schedule" type="button" data-client-consultant-schedule><i class="fa-regular fa-calendar-plus"></i>Agendar para consultor</button><?php endif;?><?php if(empty($sharedUnassigned)):?><a class="tdc-btn" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><?php endif;?><?php if($operationalAccess&&sales_flow_enabled()&&!$isLocal):?><a class="tdc-btn" href="<?=APP_URL?>/opportunities?client_id=<?=$client['id']?>"><i class="fa-solid fa-chart-column"></i>Oportunidade</a><?php endif;?><?php if($operationalAccess&&!$isLocal):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?></div>
+     <div class="tdc-head-actions"><?php if(!empty($scheduleConsultants)):?><button class="tdc-btn tdc-btn-schedule" type="button" data-global-task-open data-task-client-id="<?=$client['id']?>" data-task-client-name="<?=e($client['name'])?>" data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Agendar para consultor</button><?php endif;?><?php if(empty($sharedUnassigned)):?><a class="tdc-btn" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><?php endif;?><?php if($operationalAccess&&sales_flow_enabled()&&!$isLocal):?><a class="tdc-btn" href="<?=APP_URL?>/opportunities?client_id=<?=$client['id']?>"><i class="fa-solid fa-chart-column"></i>Oportunidade</a><?php endif;?><?php if($operationalAccess&&!$isLocal):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?></div>
     </header>
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
@@ -765,9 +765,9 @@ function render(string $name,array $vars=[]): void{
       <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-headset"></i></span><div><strong>Registrar contato</strong><small>Atualize o relacionamento e programe o próximo passo.</small></div></div></div>
       <?php if($operationalAccess):?>
        <form class="tdc-contact-form" method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><?php foreach($taskResults??[] as $resultOption):?><option value="<?=e($resultOption['code'])?>"><?=e($resultOption['label'])?></option><?php endforeach;?></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="tdc-btn tdc-btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form>
-       <div class="tdc-directed-action"><div><strong>Precisa passar este retorno para outro consultor?</strong><small>Crie apenas o compromisso. A carteira permanece com o responsável atual.</small></div><button class="tdc-btn tdc-btn-schedule" type="button" data-client-consultant-schedule><i class="fa-regular fa-calendar-plus"></i>Agendar para outro consultor</button></div>
+       <div class="tdc-directed-action"><div><strong>Precisa passar este retorno para outro consultor?</strong><small>Crie apenas o compromisso. A carteira permanece com o responsável atual.</small></div><button class="tdc-btn tdc-btn-schedule" type="button" data-global-task-open data-task-client-id="<?=$client['id']?>" data-task-client-name="<?=e($client['name'])?>" data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Agendar para outro consultor</button></div>
       <?php else:?>
-       <div class="tdc-contact-locked"><i class="fa-solid fa-user-lock"></i><strong>Atendimento de outra carteira</strong><p>O cliente continua pertencendo a <?=e((string)$effectiveSellerName)?>, mas você pode direcionar um retorno para outro consultor sem alterar a carteira.</p><button class="tdc-btn tdc-btn-schedule" type="button" data-client-consultant-schedule><i class="fa-regular fa-calendar-plus"></i>Agendar para consultor</button></div>
+       <div class="tdc-contact-locked"><i class="fa-solid fa-user-lock"></i><strong>Atendimento de outra carteira</strong><p>O cliente continua pertencendo a <?=e((string)$effectiveSellerName)?>, mas você pode direcionar um retorno para outro consultor sem alterar a carteira.</p><button class="tdc-btn tdc-btn-schedule" type="button" data-global-task-open data-task-client-id="<?=$client['id']?>" data-task-client-name="<?=e($client['name'])?>" data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Agendar para consultor</button></div>
       <?php endif;?>
      </section>
     </div>
@@ -785,21 +785,6 @@ function render(string $name,array $vars=[]): void{
       <?php endforeach;?>
      </div>
     </section>
-    <?php endif;?>
-    <?php if(!empty($scheduleConsultants)):?>
-    <dialog class="tdc-schedule-dialog" data-client-consultant-dialog>
-     <form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/schedule-consultant" data-client-consultant-form>
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <header><span><i class="fa-regular fa-calendar-plus"></i></span><div><small>AGENDAMENTO DIRECIONADO</small><strong>Agendar para consultor</strong><p><?=e($client['name'])?> · carteira atual: <?=e((string)$effectiveSellerName)?></p></div><button type="button" data-client-consultant-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
-      <div class="tdc-schedule-body">
-       <label><span>Consultor que receberá o retorno</span><select class="form-select" name="assigned_user_id" required><option value="">Selecione o consultor</option><?php foreach($scheduleConsultants as $consultant):?><option value="<?=(int)$consultant['id']?>"><?=e($consultant['name'])?></option><?php endforeach;?></select></label>
-       <label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" required data-client-consultant-due></label>
-       <label class="wide"><span>Motivo / orientação para o consultor</span><input class="form-control" name="title" maxlength="180" placeholder="Ex.: Cliente ligou e pediu retorno sobre proposta" required></label>
-       <div class="tdc-schedule-note wide"><i class="fa-solid fa-circle-info"></i><span>Esse agendamento <strong>não altera o vendedor principal nem a carteira mensal</strong>. Apenas cria uma tarefa na agenda do consultor escolhido.</span></div>
-      </div>
-      <footer><button class="tdc-btn" type="button" data-client-consultant-close>Cancelar</button><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-calendar-check"></i>Criar agendamento</button></footer>
-     </form>
-    </dialog>
     <?php endif;?>
    </section>
   <?php break;
@@ -934,7 +919,7 @@ function render(string $name,array $vars=[]): void{
    <section class="tdo-page tdo-detail">
     <header class="tdo-head">
      <div class="tdo-head-main"><span class="tdo-head-icon"><i class="fa-solid fa-receipt"></i></span><div><a class="tdo-kicker" href="<?=APP_URL?>/orders"><i class="fa-solid fa-arrow-left"></i> PEDIDOS / DETALHE</a><h1>Pedido <?=e($order['number']??$order['omie_code'])?></h1><p><?=e($order['client_name']??'Cliente não identificado')?> · <?=e($order['seller_name']??$order['seller_omie_code']??'Sem vendedor')?> · <?=brdate($order['order_date'])?></p></div></div>
-     <div class="tdo-head-actions"><?php if($statusClass==='budget'):?><a class="tdo-btn tdo-btn-primary" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar proposta</a><?php endif;?><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/pdf" target="_blank" rel="noopener"><i class="fa-regular fa-file-pdf"></i>Gerar PDF</a><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/duplicate"><i class="fa-regular fa-copy"></i>Duplicar</a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$order['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-btn tdo-btn-danger" type="submit" data-confirm="Excluir definitivamente este pedido da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i>Excluir</button></form><?php endif;?></div>
+     <div class="tdo-head-actions"><?php if(!empty($order['client_id'])):?><button class="tdo-btn" type="button" data-global-task-open data-task-client-id="<?=(int)$order['client_id']?>" data-task-client-name="<?=e((string)($order['client_name']??''))?>" data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Nova tarefa</button><?php endif;?><?php if($statusClass==='budget'):?><a class="tdo-btn tdo-btn-primary" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar proposta</a><?php endif;?><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/pdf" target="_blank" rel="noopener"><i class="fa-regular fa-file-pdf"></i>Gerar PDF</a><a class="tdo-btn" href="<?=APP_URL?>/orders/<?=(int)$order['id']?>/duplicate"><i class="fa-regular fa-copy"></i>Duplicar</a><?php if(Auth::can('admin')):?><form method="post" action="<?=APP_URL?>/orders/<?=(int)$order['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdo-btn tdo-btn-danger" type="submit" data-confirm="Excluir definitivamente este pedido da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i>Excluir</button></form><?php endif;?></div>
     </header>
 
     <?php if($actionSuccess):?><div class="alert alert-success"><?=e($actionSuccess)?></div><?php endif;?>
@@ -1306,6 +1291,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    <section class="tdcob-page tdcob4-case-page">
     <header class="tdcob-head">
      <div class="tdcob-head-main"><span class="tdcob-head-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span><div><a class="tdcob-kicker" href="<?=APP_URL?>/collection"><i class="fa-solid fa-arrow-left"></i> COBRANÇA / CLIENTE</a><h1><?=e($case['name'])?></h1><p><?=money($case['available_amount'])?> disponíveis · <?=$case['max_overdue_days']?> dias de atraso</p></div></div>
+      <div class="tdcob-head-actions"><button class="tdcob-btn" type="button" data-global-task-open data-task-client-id="<?=(int)$case['client_id']?>" data-task-client-name="<?=e($case['name'])?>" data-task-context="collection"><i class="fa-regular fa-calendar-plus"></i>Nova tarefa</button></div>
     </header>
 
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
@@ -1482,7 +1468,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      </div>
 
     <section class="tda-list table-card">
-     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Gerencie os compromissos da equipe, filtre, visualize e acompanhe cada retorno.</small></div></div><button class="tda-btn tda-btn-primary" type="button" data-agenda-create><i class="fa-solid fa-plus"></i><?=$u['role']==='seller'?'Agendar para consultor':'Novo compromisso'?></button></div>
+     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Gerencie os compromissos da equipe, filtre, visualize e acompanhe cada retorno.</small></div></div><button class="tda-btn tda-btn-primary" type="button" data-global-task-open data-task-context="<?=$u['role']==='collector'?'collection':'sales'?>"><i class="fa-solid fa-plus"></i><?=$u['role']==='seller'?'Agendar para consultor':'Novo compromisso'?></button></div>
      <div class="tda-list-tabs"><?php foreach(['upcoming'=>['Próximos',$agendaUpcoming,'fa-folder-open'],'late'=>['Vencidos',$agendaLate,'fa-triangle-exclamation'],'today'=>['Hoje',$agendaTodayCount,'fa-clock'],'all'=>['Todos',$agendaTotal,'fa-list']] as $tabValue=>$tabInfo):$tabQuery=$agendaQueryBase;if($tabValue!=='all')$tabQuery['period']=$tabValue;?><a class="<?=($agendaPeriod??'all')===$tabValue?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($tabQuery))?>"><i class="fa-solid <?=$tabInfo[2]?>"></i><?=$tabInfo[0]?> (<?=$tabInfo[1]?>)</a><?php endforeach;?></div>
      <div class="tda-table-wrap">
       <table class="table tda-table" data-page-length="5">
@@ -1508,23 +1494,6 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       </table>
      </div>
     </section>
-     <dialog class="tda-create-modal" data-agenda-create-modal>
-      <form method="post" action="<?=APP_URL?>/agenda/create" data-agenda-create-form>
-       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-       <header><span><i class="fa-regular fa-calendar-plus"></i></span><div><small><?=$u['role']==='collector'?'AGENDA DE COBRANÇA':($u['role']==='seller'?'AGENDAMENTO DIRECIONADO':'AGENDA E RETORNOS')?></small><strong><?=$u['role']==='seller'?'Agendar para um consultor':'Novo compromisso'?></strong></div><button type="button" data-agenda-create-close><i class="fa-solid fa-xmark"></i></button></header>
-       <div class="tda-create-body">
-        <label class="wide"><span>Cliente</span><div class="search-box"><input class="form-control" type="search" placeholder="Busque por nome fantasia, documento ou código" autocomplete="off" data-agenda-client-search><input type="hidden" name="client_id" data-agenda-client-id required><div class="search-results" data-agenda-client-results></div><div class="selected-box" data-agenda-client-selected></div></div></label>
-        <?php if(!empty($teamAgenda)||$u['role']==='seller'):?>
-         <label><span><?=$u['role']==='seller'?'Consultor responsável':'Responsável'?></span><select class="form-select" name="assigned_user_id" required><option value="">Selecione</option><?php foreach($agendaAssignableUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)$agendaUser['id']===(int)$u['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e($agendaRoleLabels[$agendaUser['role']]??$agendaUser['role'])?></option><?php endforeach;?></select></label>
-        <?php endif;?>
-        <label><span>Tipo</span><?php if($u['role']==='collector'):?><input type="hidden" name="type" value="collection"><input class="form-control" value="Cobrança" disabled><?php elseif($u['role']==='seller'):?><input type="hidden" name="type" value="sales"><input class="form-control" value="Comercial" disabled><?php else:?><select class="form-select" name="type"><option value="sales">Comercial</option><option value="collection">Cobrança</option></select><?php endif;?></label>
-        <label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" required></label>
-        <label class="wide"><span>Descrição / motivo</span><input class="form-control" name="title" maxlength="180" placeholder="Ex.: Cliente ligou e pediu retorno sobre proposta" required></label>
-        <?php if($u['role']==='seller'):?><div class="tda-directed-note wide"><i class="fa-solid fa-circle-info"></i><span>Este agendamento cria apenas um compromisso para o consultor escolhido. <strong>A carteira e o vendedor principal do cliente não serão alterados.</strong></span></div><?php endif;?>
-       </div>
-       <footer><button class="tda-btn" type="button" data-agenda-create-close>Cancelar</button><button class="tda-btn tda-btn-primary" type="submit"><i class="fa-solid fa-calendar-check"></i><?=$u['role']==='seller'?'Agendar para consultor':'Salvar compromisso'?></button></footer>
-      </form>
-     </dialog>
    </section>
   <?php endif;?>
   <?php break;
@@ -1904,7 +1873,18 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        </form>
       </section>
 
-      <section class="tdcfg-card" id="tarefas">
+       <section class="tdcfg-card" id="task-types">
+        <header><span class="blue"><i class="fa-solid fa-list-check"></i></span><div><strong>Tipos padronizados de tarefa</strong><small>O supervisor define os tipos; vendedores e cobrança apenas selecionam no modal Nova tarefa.</small></div><b class="tdcfg-state ok"><?=count(array_filter($taskTypes??[],static fn($item)=>!empty($item['active'])))?> ativos</b></header>
+        <form method="post" action="<?=APP_URL?>/settings/task-types" class="tdcfg-result-create">
+         <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+         <label><span>Nome do tipo</span><input class="form-control" name="label" maxlength="80" placeholder="Ex.: Visita presencial" required></label>
+         <fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked> Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked> Cobrança</label></fieldset>
+         <button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar tipo</button>
+        </form>
+        <div class="tdcfg-result-list"><?php foreach($taskTypes??[] as $taskType):?><div class="<?=!empty($taskType['active'])?'active':'inactive'?>"><span><strong><?=e($taskType['label'])?></strong><small><?=in_array('sales',(array)$taskType['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$taskType['contexts'],true)&&in_array('collection',(array)$taskType['contexts'],true)?' · ':''?><?=in_array('collection',(array)$taskType['contexts'],true)?'Cobrança':''?><?=!empty($taskType['system'])?' · padrão do sistema':''?></small></span><form method="post" action="<?=APP_URL?>/settings/task-types/<?=e($taskType['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="tdcfg-toggle <?=!empty($taskType['active'])?'on':'off'?>"><i class="fa-solid <?=!empty($taskType['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($taskType['active'])?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></div>
+       </section>
+
+      <section class="tdcfg-card" id="task-results">
        <header><span class="red"><i class="fa-solid fa-list-check"></i></span><div><strong>Resultados de tarefas e atendimentos</strong><small>Personalize os resultados usados no Comercial e na Cobrança.</small></div><b class="tdcfg-state ok"><?=$activeTaskResults?> ativos</b></header>
        <form method="post" action="<?=APP_URL?>/settings/task-results" class="tdcfg-result-create">
         <input type="hidden" name="_token" value="<?=CSRF::token()?>">
@@ -2234,6 +2214,7 @@ function layout(string $body,?array $u,string $page=''): void{
      <div class="tdcrm-topbar-context"><span><i class="fa-solid <?=e($pageInfo[2])?>"></i></span><div><small><?=e($pageInfo[0])?></small><strong><?=e($pageInfo[1])?></strong></div></div>
     </div>
     <div class="tdcrm-topbar-right">
+      <button class="tdcrm-new-task" type="button" data-global-task-open title="Nova tarefa"><i class="fa-regular fa-calendar-plus"></i><span>Nova tarefa</span></button>
      <?php $notifications=NotificationService::forUser($u);$notificationTotal=(int)($notifications['total']??0);?>
      <div class="tdcrm-notification-wrap">
       <button class="tdcrm-notification" type="button" title="Notificações" aria-expanded="false" data-notification-toggle><i class="fa-regular fa-bell"></i><?php if($notificationTotal>0):?><b><?=$notificationTotal>99?'99+':$notificationTotal?></b><?php endif;?></button>
@@ -2269,6 +2250,23 @@ function layout(string $body,?array $u,string $page=''): void{
    <div class="product-detail-body" data-product-detail-body><div class="product-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i><span>Carregando detalhes...</span></div></div>
   </div>
  </dialog>
+  <dialog class="tdcrm-task-modal" data-global-task-modal>
+   <form data-global-task-form>
+    <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+    <input type="hidden" name="client_id" data-task-client-id>
+    <header><span><i class="fa-regular fa-calendar-plus"></i></span><div><small>CRM / TAREFAS</small><strong>Nova tarefa</strong><p>Crie para você ou direcione a outro responsável sem sair da tela atual.</p></div><button type="button" data-global-task-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+    <div class="tdcrm-task-body">
+     <label class="wide"><span>Cliente</span><div class="tdcrm-task-client"><input class="form-control" type="search" placeholder="Busque por nome fantasia, documento ou código" autocomplete="off" data-task-client-search><div class="tdcrm-task-client-results" data-task-client-results></div><div class="tdcrm-task-client-selected" data-task-client-selected></div></div></label>
+     <label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" required data-task-due></label>
+     <label><span>Área</span><select class="form-select" name="context" data-task-context required><option value="sales">Comercial</option><option value="collection">Cobrança</option></select></label>
+     <label><span>Atribuir a</span><select class="form-select" name="assigned_user_id" data-task-assigned required><option value="">Carregando responsáveis...</option></select></label>
+     <label><span>Tipo de tarefa</span><select class="form-select" name="task_type_code" data-task-type required><option value="">Selecione</option></select></label>
+     <label class="wide"><span>Descrição</span><textarea class="form-control" name="title" rows="4" maxlength="180" placeholder="Descreva objetivamente o que deve ser feito" required></textarea></label>
+     <div class="tdcrm-task-note wide"><i class="fa-solid fa-circle-info"></i><span>O responsável padrão é você. Troque somente quando quiser direcionar esta tarefa para outro consultor ou usuário da cobrança.</span></div>
+    </div>
+    <footer><button class="tdcrm-task-btn" type="button" data-global-task-close>Cancelar</button><button class="tdcrm-task-btn primary" type="submit"><i class="fa-solid fa-calendar-check"></i>Criar tarefa</button></footer>
+   </form>
+  </dialog>
  <?php endif;?>
  <?php }?>
  <script>window.APP_URL=<?=json_encode(APP_URL)?>;window.CSRF=<?=json_encode(CSRF::token())?>;</script>
