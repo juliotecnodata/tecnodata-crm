@@ -418,7 +418,8 @@ $router->get('/clients-ead-reciclagem',function()use($renderClients){$renderClie
 $router->get('/clients-suporte-pet',function()use($renderClients){$renderClients(false,'suporte_pet');});
 $router->get('/clients-audit',function(){
  Auth::requireRole('admin','supervisor');
- $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','inactive'],true))$tab='duplicates';
+ $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','responsibility','inactive'],true))$tab='duplicates';
+ $auditMonth=ClientPortfolioService::monthRef($_GET['month']??null);
  $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
  $conflict=(string)($_GET['conflict']??'all');if(!in_array($conflict,['all','active','mixed','invalid'],true))$conflict='all';
  $docSql="REGEXP_REPLACE(COALESCE(c.document,''),'[^0-9]','')";
@@ -444,6 +445,8 @@ $router->get('/clients-audit',function(){
  $auditStats['total_clients']=(int)(DB::scalar('SELECT COUNT(*) FROM clients')??0);
  $auditStats['active_clients']=(int)(DB::scalar('SELECT COUNT(*) FROM clients WHERE active=1')??0);
  $auditStats['inactive_clients']=$inactiveCount;
+ $auditStats['seller_divergences']=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE c.active=1 AND COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')")??0);
+ $auditStats['monthly_overrides']=(int)(DB::scalar("SELECT COUNT(*) FROM client_portfolio_assignments pa JOIN clients c ON c.id=pa.client_id WHERE c.active=1 AND pa.month_ref=?",[$auditMonth])??0);
 
  $filteredGroups=array_values(array_filter($groups,static function(array $group)use($q,$conflict): bool{
   if($conflict==='active'&&$group['conflict_type']!=='active')return false;
@@ -475,6 +478,25 @@ $router->get('/clients-audit',function(){
    ORDER BY c.updated_at DESC,c.name",
   $inactiveParams
  );
+ $responsibilityRows=[];
+ if($tab==='responsibility'){
+  $effectiveAuditSql=client_effective_seller_sql('c',$auditMonth);
+  $responsibilityWhere=["c.active=1","(COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'') OR EXISTS (SELECT 1 FROM client_portfolio_assignments pa_check WHERE pa_check.client_id=c.id AND pa_check.month_ref='".$auditMonth."'))"];$responsibilityParams=[];
+  if($q!==''){$needle='%'.$q.'%';$responsibilityWhere[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";$responsibilityParams=array_fill(0,6,$needle);}
+  $responsibilityRows=DB::all(
+   "SELECT c.*,ps.name principal_seller_name,os.name omie_seller_name,(".$effectiveAuditSql.") effective_seller_code,
+           (SELECT es.name FROM sellers es WHERE es.omie_code=(".$effectiveAuditSql.") LIMIT 1) effective_seller_name,
+           (SELECT pa_row.id FROM client_portfolio_assignments pa_row WHERE pa_row.client_id=c.id AND pa_row.month_ref='".$auditMonth."' LIMIT 1) portfolio_assignment_id,
+           (SELECT pa_row.seller_omie_code FROM client_portfolio_assignments pa_row WHERE pa_row.client_id=c.id AND pa_row.month_ref='".$auditMonth."' LIMIT 1) portfolio_seller_code
+    FROM clients c
+    LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code
+    LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
+    WHERE ".implode(' AND ',$responsibilityWhere)."
+    ORDER BY (COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')) DESC,c.updated_at DESC,c.name
+    LIMIT 500",
+   $responsibilityParams
+  );
+ }
  $allAuditRows=$duplicateRows;
  $auditCodes=array_values(array_unique(array_filter(array_map(static fn($row)=>trim((string)($row['omie_code']??'')),$allAuditRows))));
  $auditIds=array_values(array_unique(array_map(static fn($row)=>(int)$row['id'],$allAuditRows)));
@@ -508,8 +530,8 @@ $router->get('/clients-audit',function(){
  foreach($inactiveRows as &$inactiveRow){$inactiveRow['orders_history']=0;$inactiveRow['services_history']=0;$inactiveRow['financial_history']=0;$inactiveRow['crm_history']=0;$inactiveRow['history_preserved']=1;$inactiveRow['active_matches']=$activeMatches[(string)($inactiveRow['document_digits']??'')]??'';}unset($inactiveRow);
  foreach($duplicateRows as $row)$duplicateRowsByDocument[(string)$row['document_digits']][]=$row;
  render('client_audit',[
-  'auditTab'=>$tab,'auditQuery'=>$q,'auditConflict'=>$conflict,'auditStats'=>$auditStats,
-  'auditGroups'=>$visibleGroups,'auditRowsByDocument'=>$duplicateRowsByDocument,'auditInactiveRows'=>$inactiveRows,
+  'auditTab'=>$tab,'auditQuery'=>$q,'auditConflict'=>$conflict,'auditMonth'=>$auditMonth,'auditStats'=>$auditStats,
+  'auditGroups'=>$visibleGroups,'auditRowsByDocument'=>$duplicateRowsByDocument,'auditInactiveRows'=>$inactiveRows,'auditResponsibilityRows'=>$responsibilityRows,
   'auditPagination'=>['page'=>$page,'pages'=>$pages,'total'=>count($filteredGroups),'from'=>count($filteredGroups)?$offset+1:0,'to'=>min($offset+$perPage,count($filteredGroups))]
  ]);
 });
