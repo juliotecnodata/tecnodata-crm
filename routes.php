@@ -263,7 +263,7 @@ function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?arra
 }
 function task_assignable_users(array $user,string $context): array{
  $role=(string)($user['role']??'');$uid=(int)($user['id']??0);$context=$context==='collection'?'collection':'sales';
- if($context==='sales')$roles=['seller','supervisor'];else $roles=['collector','supervisor'];
+ if($context==='sales')$roles=['seller','supervisor'];else $roles=['collector','supervisor'];if($role==='admin')$roles[]='admin';
  $placeholders=implode(',',array_fill(0,count($roles),'?'));$params=$roles;
  if($uid>0)return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",array_merge($roles,[$uid]));
  return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY name",$roles);
@@ -1576,7 +1576,7 @@ $router->get('/api/tasks/form-context',function(){
  if($role==='seller')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor'),name",[(int)$u['id']]);
  elseif($role==='collector')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'collector','supervisor'),name",[(int)$u['id']]);
  elseif($role==='supervisor')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",[(int)$u['id']]);
- else $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor') ORDER BY FIELD(role,'supervisor','seller','collector'),name");
+ else $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor','admin') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'admin','supervisor','seller','collector'),name",[(int)$u['id']]);
  json_response(['ok'=>true,'current_user_id'=>(int)$u['id'],'role'=>$role,'default_context'=>$context,'users'=>$users,'types'=>task_type_catalog(),'client'=>$client]);
 });
 $router->post('/api/tasks',function(){
@@ -1590,8 +1590,8 @@ $router->post('/api/tasks',function(){
   $client=$clientId>0?DB::one("SELECT id,name FROM clients WHERE id=? AND active=1",[$clientId]):null;if(!$client)throw new RuntimeException('Selecione um cliente válido.');
   $assigned=$assignedId>0?DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]):null;if(!$assigned)throw new RuntimeException('Selecione um responsável ativo.');
   $assignedRole=(string)$assigned['role'];
-  if($context==='sales'&&!in_array($assignedRole,['seller','supervisor'],true))throw new RuntimeException('Tarefas comerciais devem ser atribuídas a um consultor ou supervisor.');
-  if($context==='collection'&&!in_array($assignedRole,['collector','supervisor'],true))throw new RuntimeException('Tarefas de cobrança devem ser atribuídas à cobrança ou a um supervisor.');
+  if($context==='sales'&&!in_array($assignedRole,['seller','supervisor','admin'],true))throw new RuntimeException('Tarefas comerciais devem ser atribuídas a vendedor, supervisor ou administrador.');
+  if($context==='collection'&&!in_array($assignedRole,['collector','supervisor','admin'],true))throw new RuntimeException('Tarefas de cobrança devem ser atribuídas à cobrança, supervisor ou administrador.');
   $allowed=array_column(task_type_options($context),'code');if(!in_array($taskTypeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa válido.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
   if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição com até 180 caracteres.');
@@ -1642,10 +1642,10 @@ $router->post('/api/tasks/{id}',function($p){
   $assignedId=max(0,(int)($_POST['assigned_user_id']??0));$assigned=$assignedId>0?DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]):null;
   if(!$assigned)throw new RuntimeException('Selecione um responsável ativo.');
   $assignedRole=(string)$assigned['role'];
-  if($context==='sales'&&!in_array($assignedRole,['seller','supervisor'],true))throw new RuntimeException('Em Comercial, selecione vendedor ou supervisor.');
-  if($context==='collection'&&!in_array($assignedRole,['collector','supervisor'],true))throw new RuntimeException('Em Cobrança, selecione cobrança ou supervisor.');
+  if($context==='sales'&&!in_array($assignedRole,['seller','supervisor','admin'],true))throw new RuntimeException('Em Comercial, selecione vendedor, supervisor ou administrador.');
+  if($context==='collection'&&!in_array($assignedRole,['collector','supervisor','admin'],true))throw new RuntimeException('Em Cobrança, selecione cobrança, supervisor ou administrador.');
   $typeCode=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['task_type_code']??''))));
-  $allowed=array_column(task_type_options($context),'code');if(!in_array($typeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa ativo.');
+  $allowed=array_column(task_type_options($context),'code');$sameType=$context===(string)$task['type']&&$typeCode===(string)($task['task_type_code']??'');if(!$sameType&&!in_array($typeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa ativo.');
   DB::exec("UPDATE tasks SET assigned_user_id=?,type=?,task_type_code=?,title=?,due_at=?,updated_at=NOW() WHERE id=?",[$assignedId,$context,$typeCode,$title,$formatted,$id]);
   json_response(['ok'=>true,'message'=>'Tarefa atualizada com sucesso.']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
