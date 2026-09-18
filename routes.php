@@ -261,6 +261,36 @@ function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?arra
   LEFT JOIN users completed ON completed.id=t.completed_by_user_id
   WHERE ".implode(' AND ',$where),$params);
 }
+function task_creator_meta(array $task): array{
+ $name=trim((string)($task['created_by_name']??''));
+ if($name!=='')return ['label'=>$name,'source'=>'audit','known'=>true];
+ $clientId=(int)($task['client_id']??0);$createdAt=(string)($task['created_at']??'');$dueAt=(string)($task['due_at']??'');$title=(string)($task['title']??'');
+ if($clientId>0&&$createdAt!==''&&$dueAt!==''&&str_starts_with($title,'Retorno comercial')){
+  $row=DB::one("SELECT u.name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? AND a.next_at=? AND ABS(TIMESTAMPDIFF(SECOND,a.created_at,?))<=15 ORDER BY ABS(TIMESTAMPDIFF(SECOND,a.created_at,?)),a.id DESC LIMIT 1",[$clientId,$dueAt,$createdAt,$createdAt]);
+  $detected=trim((string)($row['name']??''));if($detected!=='')return ['label'=>$detected,'source'=>'activity','known'=>true];
+ }
+ if($clientId>0&&$createdAt!==''&&$dueAt!==''&&str_starts_with($title,'Retorno de cobrança')){
+  $row=DB::one("SELECT u.name FROM collection_actions ca JOIN users u ON u.id=ca.author_user_id WHERE ca.client_id=? AND ca.promise_date=DATE(?) AND ABS(TIMESTAMPDIFF(SECOND,ca.created_at,?))<=15 ORDER BY ABS(TIMESTAMPDIFF(SECOND,ca.created_at,?)),ca.id DESC LIMIT 1",[$clientId,$dueAt,$createdAt,$createdAt]);
+  $detected=trim((string)($row['name']??''));if($detected!=='')return ['label'=>$detected,'source'=>'collection_action','known'=>true];
+ }
+ return ['label'=>'Não registrado (tarefa anterior à auditoria)','source'=>'legacy','known'=>false];
+}
+function task_status_meta(array $task): array{
+ $status=(string)($task['status']??'pending');
+ if($status==='done')return ['label'=>'Concluída','tone'=>'done','lifecycle'=>'Concluída'];
+ if($status==='cancelled')return ['label'=>'Cancelada','tone'=>'cancelled','lifecycle'=>'Cancelada'];
+ $due=!empty($task['due_at'])?strtotime((string)$task['due_at']):false;
+ if($due!==false&&$due<time())return ['label'=>'Atrasada','tone'=>'late','lifecycle'=>'Pendente'];
+ if($due!==false&&date('Y-m-d',$due)===date('Y-m-d'))return ['label'=>'Hoje','tone'=>'today','lifecycle'=>'Pendente'];
+ return ['label'=>'Agendada','tone'=>'scheduled','lifecycle'=>'Pendente'];
+}
+function task_updated_label(array $task): string{
+ if(empty($task['updated_at']))return 'Sem alteração posterior';
+ $updated=strtotime((string)$task['updated_at']);$created=!empty($task['created_at'])?strtotime((string)$task['created_at']):false;
+ if($updated===false)return 'Sem alteração posterior';
+ if($created!==false&&abs($updated-$created)<=5)return 'Sem alteração posterior';
+ return date('d/m/Y H:i',$updated);
+}
 function task_assignable_users(array $user,string $context): array{
  $role=(string)($user['role']??'');$uid=(int)($user['id']??0);$context=$context==='collection'?'collection':'sales';
  if($context==='sales')$roles=['seller','supervisor'];else $roles=['collector','supervisor'];if($role==='admin')$roles[]='admin';
@@ -1603,7 +1633,7 @@ $router->post('/api/tasks',function(){
 $router->get('/api/tasks/{id}',function($p){
  Auth::requireLogin();$u=Auth::user();$id=(int)$p['id'];$task=task_access_row($id,$u,false);
  if(!$task){json_response(['ok'=>false,'error'=>'Tarefa não encontrada ou sem permissão de acesso.'],404);}
- $context=(string)$task['type'];$status=(string)$task['status'];
+ $context=(string)$task['type'];$status=(string)$task['status'];$creatorMeta=task_creator_meta($task);$statusMeta=task_status_meta($task);$updatedLabel=task_updated_label($task);
  $users=['sales'=>task_assignable_users($u,'sales'),'collection'=>task_assignable_users($u,'collection')];
  $types=['sales'=>task_type_options('sales',false),'collection'=>task_type_options('collection',false)];
  $results=['sales'=>task_result_options('sales'),'collection'=>task_result_options('collection')];
@@ -1611,12 +1641,12 @@ $router->get('/api/tasks/{id}',function($p){
   'id'=>(int)$task['id'],'client_id'=>(int)$task['client_id'],'client_name'=>(string)$task['client_name'],
   'client_document'=>(string)($task['client_document']??''),'client_city'=>(string)($task['client_city']??''),'client_uf'=>(string)($task['client_uf']??''),
   'assigned_user_id'=>(int)$task['assigned_user_id'],'assigned_name'=>(string)$task['assigned_name'],'assigned_role'=>(string)$task['assigned_role'],
-  'created_by_name'=>(string)($task['created_by_name']??''),'completed_by_name'=>(string)($task['completed_by_name']??''),
+  'created_by_name'=>$creatorMeta['label'],'created_by_source'=>$creatorMeta['source'],'created_by_known'=>$creatorMeta['known'],'completed_by_name'=>(string)($task['completed_by_name']??''),
   'context'=>$context,'task_type_code'=>(string)($task['task_type_code']??''),'task_type_label'=>task_type_label((string)($task['task_type_code']??'')),
   'title'=>(string)$task['title'],'due_at'=>date('Y-m-d\TH:i',strtotime((string)$task['due_at'])),
   'due_at_label'=>date('d/m/Y H:i',strtotime((string)$task['due_at'])),'created_at_label'=>date('d/m/Y H:i',strtotime((string)$task['created_at'])),
-  'updated_at_label'=>!empty($task['updated_at'])?date('d/m/Y H:i',strtotime((string)$task['updated_at'])):'',
-  'status'=>$status,'status_label'=>$status==='done'?'Concluída':($status==='cancelled'?'Cancelada':'Pendente'),
+  'updated_at_label'=>$updatedLabel,
+  'status'=>$status,'status_label'=>$statusMeta['label'],'status_tone'=>$statusMeta['tone'],'lifecycle_status_label'=>$statusMeta['lifecycle'],
   'completion_result_code'=>(string)($task['completion_result_code']??''),'completion_result_label'=>task_result_label((string)($task['completion_result_code']??'')),
   'completion_notes'=>(string)($task['completion_notes']??''),'completed_at_label'=>!empty($task['completed_at'])?date('d/m/Y H:i',strtotime((string)$task['completed_at'])):''
  ],'users'=>$users,'types'=>$types,'results'=>$results,'can_edit'=>$status==='pending']);
