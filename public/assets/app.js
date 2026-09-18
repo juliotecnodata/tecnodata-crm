@@ -293,6 +293,45 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   }
 
+  const agendaActionModal=document.querySelector('[data-agenda-action-modal]');
+  if(agendaActionModal){
+    const agendaActionForm=agendaActionModal.querySelector('[data-agenda-action-form]');
+    const agendaActionTitle=agendaActionModal.querySelector('[data-agenda-action-title]');
+    const agendaActionClient=agendaActionModal.querySelector('[data-agenda-action-client]');
+    const agendaActionOwner=agendaActionModal.querySelector('[data-agenda-action-owner]');
+    const agendaActionIcon=agendaActionModal.querySelector('[data-agenda-action-icon]');
+    const agendaEditField=agendaActionModal.querySelector('[data-agenda-edit-field]');
+    const agendaRescheduleField=agendaActionModal.querySelector('[data-agenda-reschedule-field]');
+    const agendaDescription=agendaActionModal.querySelector('[data-agenda-action-description]');
+    const agendaDue=agendaActionModal.querySelector('[data-agenda-action-due]');
+    const agendaSubmit=agendaActionModal.querySelector('[data-agenda-action-submit]');
+    const agendaBase=String(window.APP_URL||'').replace(/\/$/,'');
+    const openAgendaAction=button=>{
+      const mode=String(button.dataset.agendaTaskAction||'edit');
+      const id=Number(button.dataset.taskId||0);if(!id)return;
+      const editing=mode==='edit';
+      agendaActionForm.action=agendaBase+'/agenda/'+id+'/'+(editing?'edit':'reschedule');
+      agendaActionModal.dataset.mode=mode;
+      agendaActionTitle.textContent=editing?'Editar descrição':'Reagendar tarefa';
+      agendaActionClient.textContent=button.dataset.taskClient||'Tarefa';
+      agendaActionOwner.textContent=button.dataset.taskOwner?'Responsável: '+button.dataset.taskOwner:'';
+      agendaActionIcon.innerHTML=editing?'<i class="fa-solid fa-pen"></i>':'<i class="fa-regular fa-calendar-plus"></i>';
+      agendaEditField.hidden=!editing;agendaRescheduleField.hidden=editing;
+      agendaDescription.disabled=!editing;agendaDescription.required=editing;agendaDescription.value=button.dataset.taskTitle||'';
+      agendaDue.disabled=editing;agendaDue.required=!editing;agendaDue.value=button.dataset.taskDue||'';
+      agendaSubmit.classList.toggle('edit',editing);agendaSubmit.classList.toggle('reschedule',!editing);
+      agendaSubmit.innerHTML=editing?'<i class="fa-solid fa-check"></i><span>Salvar alteração</span>':'<i class="fa-solid fa-calendar-check"></i><span>Confirmar novo horário</span>';
+      agendaActionModal.showModal();
+      setTimeout(()=>editing?agendaDescription.focus():agendaDue.focus(),0);
+    };
+    document.addEventListener('click',event=>{
+      const button=event.target.closest?.('[data-agenda-task-action]');if(!button)return;
+      event.preventDefault();openAgendaAction(button);
+    });
+    agendaActionModal.querySelectorAll('[data-agenda-action-close]').forEach(button=>button.addEventListener('click',()=>agendaActionModal.close()));
+    agendaActionModal.addEventListener('click',event=>{if(event.target===agendaActionModal)agendaActionModal.close();});
+  }
+
   let lastValidationNotice=0;
   document.addEventListener('invalid',event=>{
     event.preventDefault();
@@ -677,16 +716,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     modal=document.createElement('div');
     modal.id='appConfirmModal';
     modal.className='app-confirm-backdrop';
-    modal.innerHTML='<div class="app-confirm-card" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle"><div class="app-confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="app-confirm-copy"><strong id="appConfirmTitle">Confirmar operação</strong><span data-confirm-message></span></div><div class="app-confirm-actions"><button type="button" class="btn btn-outline-secondary" data-confirm-cancel>Cancelar</button><button type="button" class="btn btn-danger" data-confirm-ok>Confirmar</button></div></div>';
+    modal.innerHTML='<div class="app-confirm-card" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle"><div class="app-confirm-icon" data-confirm-icon><i class="fa-solid fa-triangle-exclamation"></i></div><div class="app-confirm-copy"><strong id="appConfirmTitle" data-confirm-title>Confirmar operação</strong><span data-confirm-message></span></div><div class="app-confirm-actions"><button type="button" class="btn btn-outline-secondary" data-confirm-cancel>Cancelar</button><button type="button" class="btn btn-danger app-confirm-ok" data-confirm-ok>Confirmar</button></div></div>';
     document.body.appendChild(modal);
     return modal;
   };
-  const askConfirm=message=>new Promise(resolve=>{
+  const askConfirm=(message,options={})=>new Promise(resolve=>{
     const modal=ensureConfirmModal();
     const msg=modal.querySelector('[data-confirm-message]');
+    const title=modal.querySelector('[data-confirm-title]');
+    const icon=modal.querySelector('[data-confirm-icon]');
     const ok=modal.querySelector('[data-confirm-ok]');
     const cancel=modal.querySelector('[data-confirm-cancel]');
+    const tone=['success','danger','warning'].includes(options.tone)?options.tone:'warning';
+    modal.dataset.tone=tone;
+    title.textContent=options.title||'Confirmar operação';
     msg.textContent=message||'Confirmar operação?';
+    ok.textContent=options.label||'Confirmar';
+    ok.className='btn app-confirm-ok '+(tone==='success'?'btn-success':tone==='danger'?'btn-danger':'btn-warning');
+    icon.innerHTML=tone==='success'?'<i class="fa-solid fa-check"></i>':tone==='danger'?'<i class="fa-regular fa-trash-can"></i>':'<i class="fa-solid fa-triangle-exclamation"></i>';
     modal.classList.add('show');
     const finish=value=>{
       modal.classList.remove('show');
@@ -710,7 +757,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     const el=e.target.closest?.('[data-confirm]');
     if(!el)return;
     e.preventDefault();
-    if(await askConfirm(el.dataset.confirm||'Confirmar operação?')){
+    if(await askConfirm(el.dataset.confirm||'Confirmar operação?',{
+      title:el.dataset.confirmTitle||'Confirmar operação',
+      label:el.dataset.confirmLabel||'Confirmar',
+      tone:el.dataset.confirmTone||'warning'
+    })){
       if(el.tagName==='BUTTON'&&el.form)el.form.requestSubmit(el);
       else if(el.tagName==='A'&&el.href)location.href=el.href;
     }
