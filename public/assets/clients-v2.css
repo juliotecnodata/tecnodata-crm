@@ -509,3 +509,39 @@ body[data-page="client-sync"] .tdcrm-content *{box-shadow:none!important;letter-
 }
 .tdc-contact-days small,
 .tdc-contact-days i{display:none!important}
+
+/* Agendamento direcionado na ficha do cliente */
+.tdc-btn{box-sizing:border-box;line-height:1.15;text-decoration:none!important;white-space:nowrap}
+.tdc-btn i{flex:0 0 auto}
+.tdc-btn-schedule{border-color:#007FC7!important;background:#007FC7!important;color:#fff!important}
+.tdc-btn-schedule:hover{border-color:#006BA8!important;background:#006BA8!important;color:#fff!important}
+.tdc-directed-action{margin-top:12px;padding:12px;border:1px solid #D6E6F0;border-radius:10px;background:#F7FBFD;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tdc-directed-action strong,.tdc-directed-action small{display:block}
+.tdc-directed-action strong{font-size:11px;color:#1E3847}
+.tdc-directed-action small{margin-top:3px;font-size:9px;line-height:1.4;color:#6E828E}
+.tdc-contact-locked .tdc-btn{margin-top:10px}
+.tdc-schedule-dialog{width:min(680px,calc(100vw - 24px));padding:0;border:1px solid #D9E4EA;border-radius:10px;background:#fff}
+.tdc-schedule-dialog::backdrop{background:rgba(12,32,44,.48)}
+.tdc-schedule-dialog form>header{display:flex;align-items:flex-start;gap:11px;padding:15px 16px;border-bottom:1px solid #E5ECEF;background:#FBFCFD}
+.tdc-schedule-dialog form>header>span{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;background:#EAF5FC;color:#007FC7;flex:0 0 auto}
+.tdc-schedule-dialog form>header>div{min-width:0;flex:1}
+.tdc-schedule-dialog form>header small,.tdc-schedule-dialog form>header strong,.tdc-schedule-dialog form>header p{display:block}
+.tdc-schedule-dialog form>header small{font-size:8px;color:#007FC7;font-weight:800}
+.tdc-schedule-dialog form>header strong{margin-top:2px;font-size:15px;color:#1C3443}
+.tdc-schedule-dialog form>header p{margin:3px 0 0;font-size:9px;color:#6A7E8A}
+.tdc-schedule-dialog form>header button{border:0;background:transparent;color:#738691;padding:6px}
+.tdc-schedule-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}
+.tdc-schedule-body label{margin:0}
+.tdc-schedule-body label>span{display:block;margin-bottom:5px;color:#526875;font-size:9px;font-weight:800}
+.tdc-schedule-body .wide{grid-column:1/-1}
+.tdc-schedule-note{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid #CFE3EF;border-radius:9px;background:#F5FAFD;color:#486371;font-size:10px;line-height:1.45}
+.tdc-schedule-note i{margin-top:2px;color:#007FC7}
+.tdc-schedule-dialog footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #E5ECEF;background:#FBFCFD}
+@media(max-width:720px){
+ .tdc-directed-action{align-items:stretch;flex-direction:column}
+ .tdc-directed-action .tdc-btn{width:100%}
+ .tdc-schedule-body{grid-template-columns:1fr}
+ .tdc-schedule-body .wide{grid-column:auto}
+ .tdc-schedule-dialog footer{flex-direction:column-reverse}
+ .tdc-schedule-dialog footer .tdc-btn{width:100%}
+}
