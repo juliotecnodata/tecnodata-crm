@@ -220,8 +220,8 @@ body[data-page="agenda"] .content{max-width:none;padding:16px 18px}
 .tda-task-modal form>header button:hover{background:#F0F4F6;color:#18303F}
 .tda-task-body{padding:16px;overflow:auto}
 .tda-task-client-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid #DDE7EC;border-radius:10px;background:#F8FBFC}
-.tda-task-client-card>div{display:flex;align-items:center;gap:10px;min-width:0}
-.tda-task-client-card>div>span{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;background:#EAF5FC;color:#007FC7;flex:0 0 auto}
+.tda-task-client-card>.tda-task-client-identity{display:flex;align-items:center;gap:10px;min-width:0}
+.tda-task-client-card>.tda-task-client-identity>span{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;background:#EAF5FC;color:#007FC7;flex:0 0 auto}
 .tda-task-client-card small,.tda-task-client-card strong,.tda-task-client-card p{display:block}
 .tda-task-client-card small{font-size:8px;font-weight:800;color:#6D818D}
 .tda-task-client-card strong{margin-top:2px;font-size:13px;color:#18313F}
@@ -264,3 +264,10 @@ body[data-page="agenda"] .content{max-width:none;padding:16px 18px}
  .tda-task-modal footer{flex-direction:column-reverse}
  .tda-task-modal footer .tda-btn{width:100%}
 }
+
+
+/* Resumo interno da ficha de tarefa: isolado do ícone do cliente */
+.tda-task-client-insights{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tda-task-client-insights>article{min-width:0;padding:8px 10px;border:1px solid #E0E8EC;border-radius:8px;background:#fff}
+.tda-task-client-insights>article small{display:block;font-size:8px;font-weight:800;color:#7A8D98}
+.tda-task-client-insights>article strong{display:block;margin-top:3px;overflow:hidden;font-size:10px;line-height:1.25;color:#2C4655;text-overflow:ellipsis;white-space:nowrap}
