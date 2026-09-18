@@ -1462,7 +1462,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      </div>
 
     <section class="tda-list table-card">
-     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Gerencie os compromissos da equipe, filtre, visualize e acompanhe cada retorno.</small></div></div><button class="tda-btn tda-btn-primary" type="button" data-agenda-create><i class="fa-solid fa-plus"></i>Novo compromisso</button></div>
+     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Gerencie os compromissos da equipe, filtre, visualize e acompanhe cada retorno.</small></div></div><button class="tda-btn tda-btn-primary" type="button" data-agenda-create><i class="fa-solid fa-plus"></i><?=$u['role']==='seller'?'Agendar para consultor':'Novo compromisso'?></button></div>
      <div class="tda-list-tabs"><?php foreach(['upcoming'=>['Próximos',$agendaUpcoming,'fa-folder-open'],'late'=>['Vencidos',$agendaLate,'fa-triangle-exclamation'],'today'=>['Hoje',$agendaTodayCount,'fa-clock'],'all'=>['Todos',$agendaTotal,'fa-list']] as $tabValue=>$tabInfo):$tabQuery=$agendaQueryBase;if($tabValue!=='all')$tabQuery['period']=$tabValue;?><a class="<?=($agendaPeriod??'all')===$tabValue?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($tabQuery))?>"><i class="fa-solid <?=$tabInfo[2]?>"></i><?=$tabInfo[0]?> (<?=$tabInfo[1]?>)</a><?php endforeach;?></div>
      <div class="tda-table-wrap">
       <table class="table tda-table" data-page-length="5">
