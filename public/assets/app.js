@@ -213,17 +213,18 @@ document.addEventListener('DOMContentLoaded',()=>{
     const clearAgendaClient=()=>{clientId.value='';clientSelected.innerHTML='';clientSearch.value='';clientSearch.hidden=false;clientSearch.focus();};
     const selectAgendaClient=client=>{
       clientId.value=String(client.id||'');clientSearch.hidden=true;clientResults.innerHTML='';
-      clientSelected.innerHTML='<span><strong>'+escAgenda(client.name||'Cliente')+'</strong><small>'+escAgenda([client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small></span><button type="button" title="Trocar cliente"><i class="fa-solid fa-xmark"></i></button>';
+      const owner=client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:'Sem responsável de carteira';
+      clientSelected.innerHTML='<span><strong>'+escAgenda(client.name||'Cliente')+'</strong><small>'+escAgenda([client.document,client.city,client.uf,owner].filter(Boolean).join(' • '))+'</small></span><button type="button" title="Trocar cliente"><i class="fa-solid fa-xmark"></i></button>';
       clientSelected.querySelector('button')?.addEventListener('click',clearAgendaClient);
     };
     const findAgendaClients=async()=>{
       const query=clientSearch.value.trim();if(query.length<2){clientResults.innerHTML='';return;}
       clientResults.innerHTML='<div class="search-result"><span>Buscando clientes...</span></div>';
       try{
-        const response=await fetch((window.APP_URL||'')+'/api/clients?q='+encodeURIComponent(query),{credentials:'same-origin',headers:{Accept:'application/json'}});
+        const response=await fetch((window.APP_URL||'')+'/api/clients?scope=agenda&q='+encodeURIComponent(query),{credentials:'same-origin',headers:{Accept:'application/json'}});
         const data=await response.json();if(!response.ok)throw new Error(data.error||'Falha na busca.');
         const items=Array.isArray(data.items)?data.items:[];
-        clientResults.innerHTML=items.map((client,index)=>'<button class="search-result" type="button" data-agenda-client="'+index+'"><span><strong>'+escAgenda(client.name)+'</strong><small>'+escAgenda([client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>').join('')||'<div class="search-result"><span>Nenhum cliente encontrado.</span></div>';
+        clientResults.innerHTML=items.map((client,index)=>{const owner=client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:'Sem responsável de carteira';return '<button class="search-result" type="button" data-agenda-client="'+index+'"><span><strong>'+escAgenda(client.name)+'</strong><small>'+escAgenda([client.document,client.city,client.uf,owner].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>';}).join('')||'<div class="search-result"><span>Nenhum cliente encontrado.</span></div>';
         clientResults.querySelectorAll('[data-agenda-client]').forEach(button=>button.addEventListener('click',()=>selectAgendaClient(items[Number(button.dataset.agendaClient)]||{})));
       }catch(error){clientResults.innerHTML='';showNotice('danger','Não foi possível buscar clientes',error.message||'Tente novamente.');}
     };
