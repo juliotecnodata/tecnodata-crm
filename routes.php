@@ -892,7 +892,7 @@ $router->post('/clients/{id}/activity',function($p){
  if(!in_array($result,$allowed,true))$result='contact';
  $nextAt=trim((string)($_POST['next_at']??''));
  DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),$result,trim((string)($_POST['notes']??'')),$nextAt!==''?$nextAt:null]);
- if($nextAt!==''){ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,'sales','return',?,?,'pending',NOW())",[$id,(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);}
+ if($nextAt!==''){ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,'sales','return',?,?,'pending',NOW(),NOW())",[$id,(int)$u['id'],(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);}
  redirect('/clients/'.$id);
 });
 
@@ -951,10 +951,10 @@ $router->post('/contact-monitoring/{id}/schedule',function($p){
   if($taskId>0){
    $task=DB::one("SELECT id FROM tasks WHERE id=? AND client_id=? AND type IN ('sales','collection') AND status='pending'",[$taskId,$clientId]);
    if(!$task)throw new RuntimeException('Este agendamento não está mais pendente. Atualize a tela.');
-   DB::exec("UPDATE tasks SET assigned_user_id=?,type=?,title=?,due_at=? WHERE id=?",[$assignedId,$seller['role']==='collector'?'collection':'sales',$title,$formatted,$taskId]);
+   ensure_task_detail_columns();DB::exec("UPDATE tasks SET assigned_user_id=?,type=?,task_type_code='return',title=?,due_at=?,updated_at=NOW() WHERE id=?",[$assignedId,$seller['role']==='collector'?'collection':'sales',$title,$formatted,$taskId]);
    $message='Próximo contato de '.$client['name'].' reagendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.';
   }else{
-   ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$seller['role']==='collector'?'collection':'sales','return',$title,$formatted]);
+   ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId,$assignedId,Auth::id(),$seller['role']==='collector'?'collection':'sales','return',$title,$formatted]);
    $message='Próximo contato de '.$client['name'].' agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.';
   }
   $_SESSION['contact_monitoring_flash']=['type'=>'success','message'=>$message];
@@ -1442,7 +1442,7 @@ $router->post('/collection/{id}/action',function($p){
  try{
   DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);
   DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,local_status,reconciled_at,recorded_at,notes,created_at) VALUES(?,?,?,?,?,?,?, ?,NULL,NOW(),?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),$result,$amount,$promiseDate,$result==='payment'?'pending':'none',trim((string)($_POST['notes']??''))]);
-  if($promiseDueAt!==null){ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,'collection','return',?,?,'pending',NOW())",[$id,$assigned,'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);}
+  if($promiseDueAt!==null){ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,'collection','return',?,?,'pending',NOW(),NOW())",[$id,$assigned,(int)$u['id'],'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);}
   DB::conn()->commit();
   $_SESSION['collection_case_flash']=['type'=>'success','message'=>$promiseDueAt?'Ação salva e retorno agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.':'Ação de cobrança salva com sucesso.'];
  }catch(Throwable $e){
@@ -1696,7 +1696,7 @@ $router->post('/agenda/create',function(){
   if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
 
-  DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,title,due_at,status,created_at) VALUES(?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$type,$title,$date->format('Y-m-d H:i:00')]);
+  ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId,$assignedId,(int)$u['id'],$type,'return',$title,$date->format('Y-m-d H:i:00')]);
   $directed=$assignedId!==(int)$u['id'];
   $_SESSION['agenda_flash']=['type'=>'success','message'=>$directed
    ?'Agendamento de '.$client['name'].' enviado para '.$assignedUser['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'. A carteira do cliente não foi alterada.'
