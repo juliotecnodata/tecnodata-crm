@@ -26,7 +26,7 @@ function client_effective_seller_sql(string $alias='c',?string $month=null): str
  return "CASE WHEN EXISTS (SELECT 1 FROM client_portfolio_assignments pa_effective WHERE pa_effective.client_id=".$prefix."id AND pa_effective.month_ref='".$month."') THEN (SELECT pa_effective_value.seller_omie_code FROM client_portfolio_assignments pa_effective_value WHERE pa_effective_value.client_id=".$prefix."id AND pa_effective_value.month_ref='".$month."' LIMIT 1) ELSE ".$prefix."seller_omie_code END";
 }
 function client_tag_filter_sql(string $alias='c'): string{
- if(!in_array($alias,['c',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
+ if(!in_array($alias,['c','clients',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
  $column=($alias!==''?$alias.'.':'').'raw_json';
  return "EXISTS (SELECT 1 FROM JSON_TABLE(COALESCE(JSON_EXTRACT(".$column.", '$.request.tags'),JSON_EXTRACT(".$column.", '$.tags'),JSON_ARRAY()), '$[*]' COLUMNS(tag VARCHAR(190) PATH '$.tag')) client_tag WHERE LOWER(TRIM(client_tag.tag))=LOWER(TRIM(?)))";
 }
@@ -44,7 +44,10 @@ function client_tag_catalog(): array{
  return $items;
 }
 function client_segment_catalog(): array{
- return ClientSegmentPolicy::catalog();
+ $catalog=ClientSegmentPolicy::catalog();
+ $catalog['supplier']=['label'=>'Fornecedores','description'=>'Cadastros identificados pela tag Fornecedor.','seller_codes'=>[],'tag'=>'Fornecedor'];
+ $catalog['carrier']=['label'=>'Transportadoras','description'=>'Cadastros identificados pela tag Transportadora.','seller_codes'=>[],'tag'=>'Transportadora'];
+ return $catalog;
 }
 function client_virtual_seller_codes(): array{
  return ClientSegmentPolicy::virtualSellerCodes();
@@ -55,12 +58,21 @@ function client_segment_filter(string $segment,string $alias='c'): array{
  $prefix=$alias!==''?$alias.'.':'';$sellerColumn=$prefix.'seller_omie_code';$catalog=client_segment_catalog();
  if($segment==='all')return ['1=1',[]];
  if(!isset($catalog[$segment]))$segment='general';
+ if(in_array($segment,['supplier','carrier'],true)){
+  $tag=$segment==='supplier'?'Fornecedor':'Transportadora';
+  return [client_tag_filter_sql($alias),[$tag]];
+ }
  $codes=$segment==='general'?client_virtual_seller_codes():array_values(array_filter(array_map('strval',(array)($catalog[$segment]['seller_codes']??[]))));
- if(!$codes)return ['1=1',[]];
+ if($segment==='general'){
+  $parts=[];$params=[];
+  if($codes){$parts[]='('.$sellerColumn.' IS NULL OR '.$sellerColumn."='' OR ".$sellerColumn.' NOT IN ('.implode(',',array_fill(0,count($codes),'?')).'))';array_push($params,...$codes);}
+  $parts[]='NOT ('.client_tag_filter_sql($alias).')';$params[]='Fornecedor';
+  $parts[]='NOT ('.client_tag_filter_sql($alias).')';$params[]='Transportadora';
+  return [implode(' AND ',$parts),$params];
+ }
+ if(!$codes)return ['1=0',[]];
  $placeholders=implode(',',array_fill(0,count($codes),'?'));
- return $segment==='general'
-  ?['('.$sellerColumn.' IS NULL OR '.$sellerColumn."='' OR ".$sellerColumn.' NOT IN ('.$placeholders.'))',$codes]
-  :[$sellerColumn.' IN ('.$placeholders.')',$codes];
+ return [$sellerColumn.' IN ('.$placeholders.')',$codes];
 }
 function client_sync_condition(string $status='all',string $alias='c'): array{
  if(!in_array($alias,['c','clients'],true))throw new InvalidArgumentException('Alias de cliente inválido.');
@@ -404,7 +416,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
  $stateWhere='c.active=1 AND '.$stateSegmentSql;$stateParams=$stateSegmentParams;$stateEffectiveSql=client_effective_seller_sql('c',$portfolioMonth);
  $baseCounts=['all'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1")??0),'inactive'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=0")??0)];$baseCounts['stored']=$baseCounts['all']+$baseCounts['inactive'];
- foreach(['general','ead_reciclagem','suporte_pet'] as $countSegment){[$countSql,$countParams]=client_segment_filter($countSegment,'clients');$baseCounts[$countSegment]=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND ".$countSql,$countParams)??0);}
+ foreach(['general','ead_reciclagem','suporte_pet','supplier','carrier'] as $countSegment){[$countSql,$countParams]=client_segment_filter($countSegment,'clients');$baseCounts[$countSegment]=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND ".$countSql,$countParams)??0);}
  if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.client_effective_seller_sql('c',$portfolioMonth).')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
  render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
