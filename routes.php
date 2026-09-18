@@ -248,10 +248,11 @@ $router->get('/',function(){
  $resultArea=(string)($_GET['result_area']??'commercial');
  if(!in_array($resultArea,['commercial','collection'],true))$resultArea='commercial';
  $resultSeller=trim((string)($_GET['seller']??''));
- $dashboard=CRMService::dashboard($u);
+ $role=(string)($u['role']??'');
+ $dashboard=[];
  $payload=[
   'u'=>$u,
-  'data'=>$dashboard,
+  'data'=>&$dashboard,
   'month'=>$month,
   'selectedDays'=>$selectedDays,
   'daysInMonth'=>$daysInMonth,
@@ -260,8 +261,15 @@ $router->get('/',function(){
   'resultArea'=>$resultArea,
   'resultSeller'=>$resultSeller
  ];
- if(in_array($u['role'],['admin','supervisor'],true))$payload['management']=($month===date('Y-m')&&!$selectedDays&&!empty($dashboard['management']))?$dashboard['management']:GoalService::managementMonth($month,$selectedDays);
- else $payload['result']=GoalService::userMonth(Auth::id(),$month,$selectedDays);
+ if(in_array($role,['admin','supervisor'],true)){
+  $payload['management']=GoalService::managementMonth($month,$selectedDays);
+  $dashboard['debt']=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
+  $dashboard['clients']=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1")??0);
+  $dashboard['late']=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<NOW()")??0);
+ }else{
+  $payload['result']=GoalService::userMonth(Auth::id(),$month,$selectedDays);
+  if($role==='collector')$dashboard['debt']=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
+ }
  render('dashboard',$payload);
 });
 $router->get('/result',function(){
