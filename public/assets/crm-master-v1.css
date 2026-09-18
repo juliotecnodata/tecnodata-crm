@@ -557,3 +557,142 @@ body[data-page="agenda"] .tda-kpis .tda-kpi{min-height:78px!important}
 body[data-page="agenda"] .tda-filters .tda-btn-filter{background:#0a84e8!important;border-color:#0a84e8!important;color:#fff!important}
 body[data-page="agenda"] .tda-filters .tda-btn-filter i{color:#fff!important}
 body[data-page="agenda"] .tda-actions.compact .tda-btn{width:28px!important;min-width:28px!important;min-height:27px!important;height:27px!important;padding:0!important}
+
+
+/* ===== MODAL DE TAREFA — acabamento definitivo ===== */
+body[data-page="agenda"] .tda-task-modal{
+ width:min(980px,calc(100vw - 32px))!important;max-width:980px!important;max-height:calc(100vh - 32px)!important;
+ margin:auto!important;padding:0!important;border:1px solid #D6E2E8!important;border-radius:10px!important;
+ background:#fff!important;color:var(--crm-text)!important;overflow:hidden!important;box-shadow:none!important
+}
+body[data-page="agenda"] .tda-task-modal::backdrop{background:rgba(13,34,46,.58)!important}
+body[data-page="agenda"] .tda-task-modal>form{display:flex!important;flex-direction:column!important;max-height:calc(100vh - 32px)!important;background:#fff!important}
+body[data-page="agenda"] .tda-task-modal form>header{
+ display:grid!important;grid-template-columns:44px minmax(0,1fr) 38px!important;align-items:start!important;gap:12px!important;
+ padding:17px 18px!important;border-bottom:1px solid #E4EBEF!important;background:#FAFCFD!important
+}
+body[data-page="agenda"] .tda-task-modal form>header>span{
+ display:grid!important;place-items:center!important;width:44px!important;height:44px!important;border-radius:10px!important;
+ background:#EAF5FD!important;color:var(--crm-blue)!important;font-size:15px!important
+}
+body[data-page="agenda"] .tda-task-modal[data-mode="edit"] form>header>span{background:#F0ECFA!important;color:#7047B8!important}
+body[data-page="agenda"] .tda-task-modal[data-mode="reschedule"] form>header>span{background:#FFF5D7!important;color:#A27600!important}
+body[data-page="agenda"] .tda-task-modal[data-mode="complete"] form>header>span{background:#E9F7F0!important;color:var(--crm-green)!important}
+body[data-page="agenda"] .tda-task-modal form>header>div{min-width:0!important}
+body[data-page="agenda"] .tda-task-modal form>header small{display:block!important;color:#627784!important;font-size:9px!important;font-weight:800!important;letter-spacing:0!important}
+body[data-page="agenda"] .tda-task-modal form>header strong{display:block!important;margin-top:2px!important;color:var(--crm-text)!important;font-size:19px!important;line-height:1.2!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-modal form>header p{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;margin:5px 0 0!important}
+body[data-page="agenda"] .tda-task-modal form>header p b{color:#294654!important;font-size:11px!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-modal form>header p em{color:#728691!important;font-size:10px!important;font-style:normal!important}
+body[data-page="agenda"] .tda-task-modal form>header>button{
+ display:grid!important;place-items:center!important;width:38px!important;height:38px!important;margin:0!important;padding:0!important;
+ border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;color:#617783!important;font-size:15px!important
+}
+body[data-page="agenda"] .tda-task-modal form>header>button:hover{border-color:#DCE5EA!important;background:#F1F5F7!important;color:#17313F!important}
+
+body[data-page="agenda"] .tda-task-body{padding:18px!important;overflow:auto!important;background:#fff!important}
+body[data-page="agenda"] .tda-task-client-card{
+ display:grid!important;grid-template-columns:minmax(250px,1.2fr) minmax(330px,1fr) auto!important;align-items:center!important;gap:14px!important;
+ padding:14px!important;border:1px solid #D7E4EA!important;border-radius:10px!important;background:#F7FAFC!important
+}
+body[data-page="agenda"] .tda-task-client-identity{display:flex!important;align-items:center!important;gap:11px!important;min-width:0!important}
+body[data-page="agenda"] .tda-task-client-identity>span{
+ display:grid!important;place-items:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;
+ border-radius:10px!important;background:#EAF5FD!important;color:var(--crm-blue)!important;font-size:14px!important
+}
+body[data-page="agenda"] .tda-task-client-identity>div{min-width:0!important}
+body[data-page="agenda"] .tda-task-client-identity small{display:block!important;color:#657B88!important;font-size:9px!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-client-identity strong{
+ display:block!important;margin-top:2px!important;overflow:hidden!important;color:#203B4A!important;font-size:14px!important;line-height:1.25!important;
+ font-weight:800!important;text-overflow:ellipsis!important;white-space:nowrap!important
+}
+body[data-page="agenda"] .tda-task-client-identity p{margin:3px 0 0!important;color:#718590!important;font-size:10px!important;line-height:1.35!important}
+body[data-page="agenda"] .tda-task-client-insights{
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;min-width:0!important
+}
+body[data-page="agenda"] .tda-task-client-insights>span{
+ min-width:0!important;padding:7px 9px!important;border:1px solid #E0E8EC!important;border-radius:8px!important;background:#fff!important
+}
+body[data-page="agenda"] .tda-task-client-insights small{display:block!important;color:#7A8D98!important;font-size:8px!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-client-insights strong{
+ display:block!important;margin-top:2px!important;overflow:hidden!important;color:#2C4655!important;font-size:10px!important;line-height:1.25!important;
+ font-weight:800!important;text-overflow:ellipsis!important;white-space:nowrap!important
+}
+body[data-page="agenda"] .tda-task-client-card>a{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;min-height:38px!important;padding:0 12px!important;
+ border:1px solid #BDD3DE!important;border-radius:8px!important;background:#fff!important;color:#315D73!important;text-decoration:none!important;
+ font-size:10px!important;font-weight:800!important;white-space:nowrap!important
+}
+body[data-page="agenda"] .tda-task-client-card>a:hover{border-color:#8EB6C9!important;background:#F3F8FA!important;color:#173E52!important}
+
+body[data-page="agenda"] .tda-task-summary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:9px!important;margin-top:12px!important}
+body[data-page="agenda"] .tda-task-summary>div{
+ position:relative!important;min-width:0!important;padding:11px 12px 12px!important;border:1px solid #DDE6EA!important;border-radius:10px!important;background:#fff!important
+}
+body[data-page="agenda"] .tda-task-summary>div::before{content:""!important;position:absolute!important;left:0!important;top:10px!important;bottom:10px!important;width:3px!important;border-radius:0 3px 3px 0!important;background:#C9D6DD!important}
+body[data-page="agenda"] .tda-task-summary>.created::before{background:var(--crm-blue)!important}
+body[data-page="agenda"] .tda-task-summary>.creator::before{background:var(--crm-green)!important}
+body[data-page="agenda"] .tda-task-summary>.updated::before{background:#B8C935!important}
+body[data-page="agenda"] .tda-task-summary small{display:block!important;color:#708590!important;font-size:9px!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-summary strong{
+ display:block!important;margin-top:4px!important;color:#263F4D!important;font-size:13px!important;line-height:1.3!important;font-weight:800!important;overflow-wrap:anywhere!important
+}
+body[data-page="agenda"] .tda-task-modal[data-task-status="late"] .tda-task-summary>.status{border-color:#F0CBC4!important;background:#FFF8F6!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="late"] .tda-task-summary>.status::before{background:#EA5127!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="late"] .tda-task-summary>.status strong{color:#B63A22!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="today"] .tda-task-summary>.status{border-color:#F0DE9A!important;background:#FFFCF0!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="today"] .tda-task-summary>.status::before{background:#D6A600!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="scheduled"] .tda-task-summary>.status::before{background:var(--crm-blue)!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="done"] .tda-task-summary>.status{border-color:#CFE6DA!important;background:#F6FCF8!important}
+body[data-page="agenda"] .tda-task-modal[data-task-status="done"] .tda-task-summary>.status::before{background:var(--crm-green)!important}
+
+body[data-page="agenda"] .tda-task-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:13px 14px!important;margin-top:15px!important}
+body[data-page="agenda"] .tda-task-grid label{display:block!important;margin:0!important;color:#4D6473!important;font-size:11px!important;font-weight:700!important}
+body[data-page="agenda"] .tda-task-grid label>span{display:block!important;margin:0 0 6px!important;color:#506875!important;font-size:10px!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-grid label>span small{color:#8A99A2!important;font-size:9px!important;font-weight:600!important}
+body[data-page="agenda"] .tda-task-grid .wide{grid-column:1/-1!important}
+body[data-page="agenda"] .tda-task-grid .form-control,
+body[data-page="agenda"] .tda-task-grid .form-select{
+ min-height:44px!important;padding:8px 11px!important;border:1px solid #C7D5DD!important;border-radius:8px!important;background:#fff!important;
+ color:#284352!important;font-size:12px!important;line-height:1.35!important;box-shadow:none!important
+}
+body[data-page="agenda"] .tda-task-grid textarea.form-control{min-height:104px!important;resize:vertical!important}
+body[data-page="agenda"] .tda-task-grid .form-control:disabled,
+body[data-page="agenda"] .tda-task-grid .form-select:disabled,
+body[data-page="agenda"] .tda-task-grid textarea:read-only{background:#F5F7F8!important;color:#536A77!important;opacity:1!important}
+
+body[data-page="agenda"] .tda-task-completion{margin-top:16px!important;padding:14px!important;border:1px solid #CDE4D8!important;border-radius:10px!important;background:#F7FCF9!important}
+body[data-page="agenda"] .tda-task-completion>header{display:flex!important;align-items:center!important;gap:10px!important;padding:0 0 10px!important;border:0!important;background:transparent!important}
+body[data-page="agenda"] .tda-task-completion>header>span{display:grid!important;place-items:center!important;width:36px!important;height:36px!important;border-radius:9px!important;background:#E7F6EE!important;color:var(--crm-green)!important}
+body[data-page="agenda"] .tda-task-completion>header strong{display:block!important;color:#234337!important;font-size:12px!important;font-weight:800!important}
+body[data-page="agenda"] .tda-task-completion>header small{display:block!important;margin-top:2px!important;color:#668176!important;font-size:10px!important}
+
+body[data-page="agenda"] .tda-task-modal footer{
+ display:flex!important;justify-content:flex-end!important;gap:9px!important;padding:13px 18px!important;border-top:1px solid #E4EBEF!important;background:#FAFCFD!important
+}
+body[data-page="agenda"] .tda-task-modal footer .tda-btn{min-height:40px!important;padding:0 15px!important;border-radius:8px!important;font-size:11px!important;font-weight:800!important;box-shadow:none!important}
+body[data-page="agenda"] .tda-task-submit.complete{border-color:var(--crm-green)!important;background:var(--crm-green)!important;color:#fff!important}
+body[data-page="agenda"] .tda-task-submit.complete:hover{background:#007D49!important}
+body[data-page="agenda"] .tda-task-submit.edit{border-color:#7047B8!important;background:#7047B8!important;color:#fff!important}
+body[data-page="agenda"] .tda-task-submit.reschedule{border-color:#DDA700!important;background:#F2B705!important;color:#2F2600!important}
+
+@media(max-width:860px){
+ body[data-page="agenda"] .tda-task-modal{width:min(760px,calc(100vw - 20px))!important}
+ body[data-page="agenda"] .tda-task-client-card{grid-template-columns:minmax(0,1fr) auto!important}
+ body[data-page="agenda"] .tda-task-client-insights{grid-column:1/-1!important;grid-row:2!important}
+ body[data-page="agenda"] .tda-task-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:580px){
+ body[data-page="agenda"] .tda-task-modal{width:calc(100vw - 12px)!important;max-height:calc(100vh - 12px)!important}
+ body[data-page="agenda"] .tda-task-modal>form{max-height:calc(100vh - 12px)!important}
+ body[data-page="agenda"] .tda-task-modal form>header{grid-template-columns:40px minmax(0,1fr) 34px!important;padding:13px!important}
+ body[data-page="agenda"] .tda-task-body{padding:12px!important}
+ body[data-page="agenda"] .tda-task-client-card{grid-template-columns:1fr!important;padding:12px!important}
+ body[data-page="agenda"] .tda-task-client-card>a{width:100%!important}
+ body[data-page="agenda"] .tda-task-client-insights{grid-column:auto!important;grid-row:auto!important;grid-template-columns:1fr 1fr!important}
+ body[data-page="agenda"] .tda-task-summary{grid-template-columns:1fr!important}
+ body[data-page="agenda"] .tda-task-grid{grid-template-columns:1fr!important}
+ body[data-page="agenda"] .tda-task-grid .wide{grid-column:auto!important}
+ body[data-page="agenda"] .tda-task-modal footer{flex-direction:column-reverse!important}
+ body[data-page="agenda"] .tda-task-modal footer .tda-btn{width:100%!important}
+}
