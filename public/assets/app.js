@@ -395,7 +395,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(onlyId===null&&action!=='sync'&&!changesSeller&&!changesTags){showNotice('warning','Escolha o que alterar','Defina o vendedor ou uma ação para as tags.');return;}
       if(onlyId===null&&action!=='sync'&&['add','remove'].includes(tagOperation?.value||'')&&!String(tagsInput?.value||'').trim()){showNotice('warning','Informe as tags','Digite pelo menos uma tag para continuar.');return;}
       const targetCount=onlyId!==null?1:selectionCount();
-      const confirmation=onlyId!==null?'Atualizar este cliente na Omie agora?':(action==='apply_sync'?'Salvar as alterações e atualizar '+targetCount.toLocaleString('pt-BR')+' cliente(s) na Omie?':(action==='sync'?'Enviar '+targetCount.toLocaleString('pt-BR')+' cliente(s) selecionado(s) para a Omie agora?':'Confirmar que estes '+targetCount.toLocaleString('pt-BR')+' cliente(s) já foram corrigidos na Omie e atualizar somente o CRM?'));
+      const sellerLabel=changesSeller?sellerSelect?.selectedOptions?.[0]?.textContent?.trim()||'vendedor selecionado':'';
+      let confirmation='';
+      if(onlyId!==null)confirmation='Atualizar este cliente na Omie agora?';
+      else if(action==='apply_sync')confirmation='Aplicar '+targetCount.toLocaleString('pt-BR')+' alteração(ões) no CRM'+(changesSeller?' para '+sellerLabel:'')+' e sincronizar a Omie agora?';
+      else if(action==='sync')confirmation='Sincronizar com a Omie os '+targetCount.toLocaleString('pt-BR')+' cliente(s) selecionado(s) que já possuem alterações pendentes no CRM?';
+      else confirmation='Aplicar no CRM '+targetCount.toLocaleString('pt-BR')+' alteração(ões)'+(changesSeller?' para '+sellerLabel:'')+' e deixar a Omie pendente para sincronização posterior?';
       if(!window.confirm(confirmation))return;
       running=true;syncSelection();if(progress)progress.hidden=false;
       let cursor=0,processed=0,succeeded=0,failed=0,errors=[],loops=0;
