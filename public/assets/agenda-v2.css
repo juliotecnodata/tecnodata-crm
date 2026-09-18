@@ -152,3 +152,15 @@ body[data-page="agenda"] .content{max-width:none;padding:16px 18px}
 @media(min-width:761px) and (max-width:1050px){.tda-personal-status{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:1050px){.tda-audit-grid{grid-template-columns:1fr}.tda-audit-kpis{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.tda-audit-head{align-items:flex-start;flex-direction:column}.tda-audit-head form,.tda-audit-head form label,.tda-audit-head input{width:100%}.tda-audit-kpis{grid-template-columns:1fr}}
+
+/* Correção final dos botões principais da agenda */
+.tda-list-head>.tda-btn,.tda-section-head>.tda-btn{min-height:38px;padding:0 13px;font-size:11px;line-height:1.15;white-space:nowrap;box-sizing:border-box}
+.tda-create-modal{border:1px solid #DCE5EA;border-radius:10px;box-shadow:none!important}
+.tda-create-modal footer .tda-btn{min-height:38px;padding:0 13px;font-size:11px;white-space:nowrap}
+.tda-create-modal form>header button{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;cursor:pointer}
+@media(max-width:720px){
+ .tda-list-head{align-items:stretch;flex-direction:column}
+ .tda-list-head>.tda-btn{width:100%}
+ .tda-create-modal footer{flex-direction:column-reverse}
+ .tda-create-modal footer .tda-btn{width:100%}
+}
