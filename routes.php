@@ -52,7 +52,7 @@ function client_virtual_seller_codes(): array{
 function client_segment_filter(string $segment,string $alias='c'): array{
  if(!in_array($alias,['c','clients',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
  ClientSegmentPolicy::ensureSchema();
- $prefix=$alias!==''?$alias.'.':'';$sellerColumn='COALESCE(NULLIF('.$prefix."omie_seller_code,''),".$prefix.'seller_omie_code)';$catalog=client_segment_catalog();if(!isset($catalog[$segment]))$segment='general';
+ $prefix=$alias!==''?$alias.'.':'';$sellerColumn=$prefix.'seller_omie_code';$catalog=client_segment_catalog();if(!isset($catalog[$segment]))$segment='general';
  $codes=$segment==='general'?client_virtual_seller_codes():array_values(array_filter(array_map('strval',(array)($catalog[$segment]['seller_codes']??[]))));
  if(!$codes)return ['1=1',[]];
  $placeholders=implode(',',array_fill(0,count($codes),'?'));
@@ -405,7 +405,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
   'page'=>$page,'pages'=>$totalPages,'per_page'=>$perPage,
   'from'=>$totalClients?($offset+1):0,'to'=>min($offset+$perPage,$totalClients),
  ],'portfolioSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".$crmPortfolioSql." ORDER BY name",$crmPortfolioCodes):[],
- 'bulkSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".($segment==='general'?$crmPortfolioSql:'')." ORDER BY name",$segment==='general'?$crmPortfolioCodes:[]):[],
+ 'bulkSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
  'portfolioSourceSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT DISTINCT (".$stateEffectiveSql.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveSql."))) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveSql.") WHERE c.active=1 AND (".$stateEffectiveSql.") IS NOT NULL AND TRIM((".$stateEffectiveSql."))<>''".($virtualCodes?' AND ('.$stateEffectiveSql.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
  'clientSellerFilters'=>DB::all("SELECT DISTINCT (".$stateEffectiveSql.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveSql."))) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveSql.") WHERE ".$stateWhere." AND (".$stateEffectiveSql.") IS NOT NULL AND TRIM((".$stateEffectiveSql."))<>'' ORDER BY active DESC,name",$stateParams),
  'portfolioStates'=>Auth::can('admin','supervisor')?DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c WHERE ".$stateWhere." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams):[],
@@ -1731,7 +1731,6 @@ $router->post('/api/clients/bulk',function(){
   if($changeSeller&&$sellerCode!==''){
    $targetSeller=DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]);
    if(!$targetSeller)throw new RuntimeException('Selecione um vendedor ativo.');
-   if($segment==='general'&&!ClientSegmentPolicy::isCrmPortfolioSeller($sellerCode))throw new RuntimeException('Em Clientes Geral, somente Pamela, Jéssica ou sem vendedor podem ser definidos pelo CRM.');
   }
   if(!in_array($tagOperation,['none','add','remove','replace'],true))throw new RuntimeException('Operação de tags inválida.');
   if(in_array($tagOperation,['add','remove'],true)&&!$requestedTags)throw new RuntimeException('Informe ao menos uma tag.');
@@ -1743,7 +1742,7 @@ $router->post('/api/clients/bulk',function(){
   foreach($rows as $row){
    $id=(int)$row['id'];$nextCursor=max($nextCursor,$id);
    try{
-    if(in_array($action,['apply','apply_sync'],true))ClientService::applyBulkLocal($id,$changeSeller,$sellerCode,$tagOperation,$requestedTags,$action==='apply');
+    if(in_array($action,['apply','apply_sync'],true))ClientService::applyBulkLocal($id,$changeSeller,$sellerCode,$tagOperation,$requestedTags,false);
     if(in_array($action,['sync','apply_sync'],true))ClientService::syncLocalWithOmie($id,$u);
     $success++;
    }catch(Throwable $e){$failed++;if(count($errors)<20)$errors[]=['id'=>$id,'name'=>(string)$row['name'],'message'=>$e->getMessage()];}
