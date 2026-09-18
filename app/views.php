@@ -409,6 +409,7 @@ function render(string $name,array $vars=[]): void{
      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
      <a href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
      <a class="active" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
     <header class="tdaudit-head">
@@ -508,6 +509,7 @@ function render(string $name,array $vars=[]): void{
      <a class="<?=$clientSegment==='general'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
      <a class="<?=$clientSegment==='ead_reciclagem'?'active':''?>" href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
      <a class="<?=$clientSegment==='suporte_pet'?'active':''?>" href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
     <?php endif;?>
@@ -527,7 +529,7 @@ function render(string $name,array $vars=[]): void{
      <div class="tdc-intelligence-items">
       <a href="<?=APP_URL?>/clients-audit?tab=responsibility&month=<?=e($portfolioMonth)?>"><b><?=number_format((int)($clientStats['seller_divergences']??0),0,',','.')?></b><span>Divergências CRM × Omie</span><small>Vendedor principal diferente da origem Omie</small></a>
       <div><b><?=number_format((int)($clientStats['monthly_overrides']??0),0,',','.')?></b><span>Ajustes em <?=$portfolioMonthLabel?></span><small>Carteiras provisórias deste mês</small></div>
-      <div><b><?=number_format((int)($clientStats['pending_sync']??0),0,',','.')?></b><span>Pendentes de sincronização</span><small>Alterações locais aguardando Omie</small></div>
+      <a href="<?=APP_URL?>/clients-sync?status=pending"><b><?=number_format((int)($clientStats['pending_sync']??0),0,',','.')?></b><span>Pendentes de sincronização</span><small>Alterações locais aguardando Omie</small></a>
      </div>
     </section>
 
@@ -2052,6 +2054,7 @@ function layout(string $body,?array $u,string $page=''): void{
   'dashboard'=>['Dashboard','Visão geral da operação','fa-chart-line'],
   'clients'=>['Clientes','Central de clientes','fa-users'],
   'client_audit'=>['Clientes','Central de clientes','fa-users'],
+  'client_sync'=>['Clientes','Sincronização com a Omie','fa-cloud-arrow-up'],
   'products'=>['Produtos','Catálogo comercial','fa-boxes-stacked'],
   'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
   'client'=>['Clientes','Detalhes do cliente','fa-address-card'],
