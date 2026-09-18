@@ -2005,7 +2005,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 function layout(string $body,?array $u,string $page=''): void{
  $pageMeta=[
   'dashboard'=>['Dashboard','Visão geral da operação','fa-chart-line'],
-  'clients'=>['Clientes','Base e carteiras','fa-users'],
+  'clients'=>['Clientes','Central de clientes','fa-users'],
   'client_audit'=>['Clientes','Central de clientes','fa-users'],
   'products'=>['Produtos','Catálogo comercial','fa-boxes-stacked'],
   'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
