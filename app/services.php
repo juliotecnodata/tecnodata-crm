@@ -937,24 +937,29 @@ final class OrderService {
  private static bool $draftTableReady=false;
  private static function ensureDraftTable(): void{
   if(self::$draftTableReady)return;
-  DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS local_order_drafts(
-   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-   request_token VARCHAR(80) NOT NULL,
-   created_by INT UNSIGNED NOT NULL,
-   client_id BIGINT UNSIGNED NULL,
-   seller_omie_code VARCHAR(80) NULL,
-   status ENUM('draft','sent') NOT NULL DEFAULT 'draft',
-   total DECIMAL(15,2) NOT NULL DEFAULT 0,
-   form_json JSON NOT NULL,
-   omie_code VARCHAR(80) NULL,
-   omie_number VARCHAR(30) NULL,
-   created_at DATETIME NOT NULL,
-   updated_at DATETIME NOT NULL,
-   sent_at DATETIME NULL,
-   UNIQUE KEY uq_local_order_draft_token(request_token),
-   INDEX idx_local_order_draft_user_status(created_by,status),
-   INDEX idx_local_order_draft_updated(updated_at)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+  $version=1;$raw=null;try{$raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='order_draft_schema_version' LIMIT 1");}catch(Throwable $e){}
+  $state=$raw?json_decode((string)$raw,true):null;
+  if(!is_array($state)||(int)($state['version']??0)<$version){
+   DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS local_order_drafts(
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    request_token VARCHAR(80) NOT NULL,
+    created_by INT UNSIGNED NOT NULL,
+    client_id BIGINT UNSIGNED NULL,
+    seller_omie_code VARCHAR(80) NULL,
+    status ENUM('draft','sent') NOT NULL DEFAULT 'draft',
+    total DECIMAL(15,2) NOT NULL DEFAULT 0,
+    form_json JSON NOT NULL,
+    omie_code VARCHAR(80) NULL,
+    omie_number VARCHAR(30) NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    sent_at DATETIME NULL,
+    UNIQUE KEY uq_local_order_draft_token(request_token),
+    INDEX idx_local_order_draft_user_status(created_by,status),
+    INDEX idx_local_order_draft_updated(updated_at)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('order_draft_schema_version',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['version'=>$version],JSON_UNESCAPED_UNICODE)]);
+  }
   self::$draftTableReady=true;
  }
 
@@ -1076,10 +1081,12 @@ final class OrderService {
  public static function duplicateOrderForm(int $id,array $u): array{
   $detail=self::orderDetail($id,$u);$order=$detail['order'];$raw=$detail['raw'];
   $header=(array)($raw['cabecalho']??[]);$info=(array)($raw['informacoes_adicionais']??[]);$freight=(array)($raw['frete']??[]);
-  $defaults=self::defaults();$items=[];$missing=[];
+  $defaults=self::defaults();$items=[];$missing=[];$productCodes=[];
+  foreach($detail['items'] as $row){$product=(array)$row['product'];$omieCode=trim((string)($product['codigo_produto']??''));if($omieCode!=='')$productCodes[$omieCode]=$omieCode;}
+  $localProducts=[];if($productCodes){$codes=array_values($productCodes);$ph=implode(',',array_fill(0,count($codes),'?'));foreach(DB::all("SELECT id,omie_code,description,sku,unit,ncm,active,raw_json FROM products WHERE omie_code IN (".$ph.")",$codes) as $localProduct)$localProducts[(string)$localProduct['omie_code']]=$localProduct;}
   foreach($detail['items'] as $row){
    $product=(array)$row['product'];$extra=(array)$row['extra'];$omieCode=(string)($product['codigo_produto']??'');
-   $local=$omieCode!==''?DB::one("SELECT id,description,sku,unit,ncm,active,raw_json FROM products WHERE omie_code=?",[$omieCode]):null;
+   $local=$omieCode!==''?($localProducts[$omieCode]??null):null;
    if(!$local||!(int)$local['active']){$missing[]=(string)($product['descricao']??$omieCode?:'Item sem identificação');continue;}
    $localRaw=json_decode((string)($local['raw_json']??''),true);if(!is_array($localRaw))$localRaw=[];$itemQuantity=max(0.0001,(float)($product['quantidade']??1));
    $items[]=[
@@ -1368,17 +1375,10 @@ final class OrderService {
   return false;
  }
  public static function carrierCandidates(): array{
-  $selected=array_flip(self::selectedCarrierCodes());
-  $rows=DB::all("SELECT id,omie_code,name,legal_name,document,city,uf,raw_json FROM clients WHERE active=1 AND LOWER(CAST(raw_json AS CHAR)) LIKE ? ORDER BY name",['%transportadora%']);
-  $carriers=[];
-  foreach($rows as $row){
-   $code=trim((string)($row['omie_code']??''));
-   if($code===''||!ctype_digit($code)||!self::clientHasTag($row,'Transportadora'))continue;
-   $row['selected']=isset($selected[$code]);
-   unset($row['raw_json']);
-   $carriers[]=$row;
-  }
-  return $carriers;
+  ClientSegmentPolicy::ensureSchema();$selected=array_flip(self::selectedCarrierCodes());
+  $rows=DB::all("SELECT c.id,c.omie_code,c.name,c.legal_name,c.document,c.city,c.uf FROM clients c JOIN client_tags t ON t.client_id=c.id AND t.tag_key='transportadora' WHERE c.active=1 ORDER BY c.name");
+  foreach($rows as &$row){$code=trim((string)($row['omie_code']??''));$row['selected']=$code!==''&&ctype_digit($code)&&isset($selected[$code]);}unset($row);
+  return array_values(array_filter($rows,static fn($row)=>ctype_digit(trim((string)($row['omie_code']??'')))));
  }
  public static function configuredCarriers(): array{
   return array_values(array_filter(self::carrierCandidates(),static fn($row)=>!empty($row['selected'])));
