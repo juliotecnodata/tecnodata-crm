@@ -1941,6 +1941,106 @@ $router->get('/api/clients',function(){
  if($q!==''){$w[]="(name LIKE ? OR document LIKE ? OR omie_code LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) LIKE ? OR CAST(id AS CHAR)=?)";$needle='%'.$q.'%';array_push($p,$needle,$needle,$needle,$needle,$q);}
  json_response(['items'=>DB::all("SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,name,document,email,city,uf,(SELECT assigned_user_id FROM collection_cases WHERE client_id=clients.id) collection_assigned_user_id FROM clients WHERE ".implode(' AND ',$w)." ORDER BY CASE WHEN (".$effective.")=? THEN 0 ELSE 1 END,name LIMIT 25",array_merge($p,[$u['role']==='seller'?$u['seller_omie_code']:'']))]);
 });
+
+$router->get('/api/orders/datatable',function(){
+ Auth::requireRole('admin','supervisor','seller');$u=Auth::user();
+ $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
+ $period=selected_date_period();$view=(string)($_GET['view']??'all');if(!in_array($view,['all','budget'],true))$view='all';
+ $budgetCodes=OrderPolicy::budgetStageCodes();$stageFilter=trim((string)($_GET['stage']??''));if(mb_strlen($stageFilter)>20)$stageFilter='';
+ $where=[];$params=[];
+ if(!$period['all']){$where[]='o.order_date>=?';$where[]='o.order_date<?';array_push($params,$period['from'],$period['next']);}
+ if(($u['role']??'')==='seller'){$where[]='o.seller_omie_code=?';$params[]=(string)($u['seller_omie_code']??'');}
+ $budgetPlaceholders=implode(',',array_fill(0,count($budgetCodes),'?'));
+ if($view==='budget'){$where[]='o.stage_code IN ('.$budgetPlaceholders.')';array_push($params,...$budgetCodes);}
+ else{$where[]='(o.stage_code IS NULL OR o.stage_code NOT IN ('.$budgetPlaceholders.'))';array_push($params,...$budgetCodes);}
+ if($stageFilter!==''){$where[]='o.stage_code=?';$params[]=$stageFilter;}
+ $baseWhere=$where;$baseParams=$params;$baseSql=$baseWhere?implode(' AND ',$baseWhere):'1=1';
+ $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM orders o WHERE ".$baseSql,$baseParams)??0);
+
+ $searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
+ if($search!==''){
+  $needle='%'.$search.'%';
+  $where[]='(o.number LIKE ? OR o.omie_code LIKE ? OR c.name LIKE ? OR c.document LIKE ? OR s.name LIKE ? OR o.seller_omie_code LIKE ? OR os.name LIKE ? OR o.stage_code LIKE ? OR o.status LIKE ?)';
+  array_push($params,$needle,$needle,$needle,$needle,$needle,$needle,$needle,$needle,$needle);
+ }
+ $sqlWhere=$where?implode(' AND ',$where):'1=1';
+ $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
+  "SELECT COUNT(*) FROM orders o LEFT JOIN clients c ON c.omie_code=o.client_omie_code LEFT JOIN sellers s ON s.omie_code=o.seller_omie_code LEFT JOIN order_stages os ON os.code=o.stage_code WHERE ".$sqlWhere,$params
+ )??0);
+
+ $orderInput=$_GET['order'][0]??[];$orderIndex=max(0,(int)(is_array($orderInput)?($orderInput['column']??3):3));$orderDir=strtolower((string)(is_array($orderInput)?($orderInput['dir']??'desc'):'desc'))==='asc'?'ASC':'DESC';
+ $orderColumns=['o.number','c.name','s.name','o.order_date','os.name','o.status','o.total','o.id'];$orderBy=$orderColumns[$orderIndex]??'o.order_date';
+ $rows=DB::all(
+  "SELECT o.id,o.omie_code,o.number,o.client_omie_code,o.seller_omie_code,o.order_date,o.forecast_date,o.total,o.status,o.stage_code,c.name client_name,s.name seller_name,os.name stage_name
+   FROM orders o
+   LEFT JOIN clients c ON c.omie_code=o.client_omie_code
+   LEFT JOIN sellers s ON s.omie_code=o.seller_omie_code
+   LEFT JOIN order_stages os ON os.code=o.stage_code
+   WHERE ".$sqlWhere." ORDER BY ".$orderBy." ".$orderDir.",o.id DESC LIMIT ".$length." OFFSET ".$start,
+  $params
+ );
+ $data=[];$token=CSRF::token();$canDelete=Auth::can('admin');
+ foreach($rows as $o){
+  $id=(int)$o['id'];$status=(string)($o['status']??'ATIVO');$upper=mb_strtoupper($status);$isBudget=in_array((string)($o['stage_code']??''),$budgetCodes,true);
+  $statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':($isBudget?'budget':'active'));
+  $orderCell='<a class="tdo-order-cell" href="'.APP_URL.'/orders/'.$id.'"><span class="tdo-order-icon"><i class="fa-solid fa-receipt"></i></span><span><strong>'.e($o['number']??'—').'</strong><small>'.e($o['omie_code']).'</small></span></a>';
+  $clientName=(string)($o['client_name']??'');$clientCode=(string)($o['client_omie_code']??'');$clientCell='<strong>'.e($clientName!==''?$clientName:($clientCode!==''?$clientCode:'—')).'</strong>'.($clientName!==''&&$clientCode!==''?'<small>'.e($clientCode).'</small>':'');
+  if(!empty($o['seller_name']))$sellerCell='<strong>'.e($o['seller_name']).'</strong><small>'.e($o['seller_omie_code']).'</small>';
+  elseif(!empty($o['seller_omie_code']))$sellerCell='<strong>'.e($o['seller_omie_code']).'</strong><small>código do vendedor</small>';
+  else $sellerCell='<span class="tdo-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span>';
+  $stageName=(string)($o['stage_name']??'');$stageCode=(string)($o['stage_code']??'');$stageCell='<span class="tdo-stage"><strong>'.e($stageName!==''?$stageName:($stageCode!==''?$stageCode:'—')).'</strong>'.($stageName!==''&&$stageCode!==''?'<small>'.e($stageCode).'</small>':'').'</span>';
+  $actions='<div class="tdo-actions"><a class="tdo-icon-btn" href="'.APP_URL.'/orders/'.$id.'" title="Visualizar"><i class="fa-regular fa-eye"></i></a>';
+  if($isBudget)$actions.='<a class="tdo-icon-btn" href="'.APP_URL.'/orders/'.$id.'/edit" title="Editar proposta"><i class="fa-regular fa-pen-to-square"></i></a>';
+  $actions.='<a class="tdo-icon-btn" href="'.APP_URL.'/orders/'.$id.'/pdf" target="_blank" rel="noopener" title="Gerar PDF"><i class="fa-regular fa-file-pdf"></i></a><a class="tdo-icon-btn" href="'.APP_URL.'/orders/'.$id.'/duplicate" title="Duplicar"><i class="fa-regular fa-copy"></i></a>';
+  if($canDelete){$label=(string)($o['number']??$o['omie_code']);$actions.='<form method="post" action="'.APP_URL.'/orders/'.$id.'/delete"><input type="hidden" name="_token" value="'.e($token).'"><button class="tdo-icon-btn danger" type="submit" title="Excluir" data-confirm="Excluir definitivamente o pedido '.e($label).' da Omie e do CRM?"><i class="fa-regular fa-trash-can"></i></button></form>';}
+  $actions.='</div>';
+  $data[]=[$orderCell,$clientCell,$sellerCell,brdate($o['order_date']??null),$stageCell,'<span class="tdo-status '.$statusClass.'">'.e($status).'</span>','<strong>'.money($o['total']??0).'</strong>',$actions];
+ }
+ json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
+});
+
+$router->get('/api/services/datatable',function(){
+ Auth::requireRole('admin','supervisor');
+ $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
+ $period=selected_date_period();$where=[];$params=[];
+ if(!$period['all']){$where[]='so.service_date>=?';$where[]='so.service_date<?';array_push($params,$period['from'],$period['next']);}
+ $baseWhere=$where;$baseParams=$params;$baseSql=$baseWhere?implode(' AND ',$baseWhere):'1=1';
+ $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM service_orders so WHERE ".$baseSql,$baseParams)??0);
+
+ $searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
+ if($search!==''){
+  $needle='%'.$search.'%';
+  $where[]='(so.omie_code LIKE ? OR c.name LIKE ? OR c.document LIKE ? OR s.name LIKE ? OR so.seller_omie_code LIKE ? OR so.status LIKE ?)';
+  array_push($params,$needle,$needle,$needle,$needle,$needle,$needle);
+ }
+ $sqlWhere=$where?implode(' AND ',$where):'1=1';
+ $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
+  "SELECT COUNT(*) FROM service_orders so LEFT JOIN clients c ON c.omie_code=so.client_omie_code LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code WHERE ".$sqlWhere,$params
+ )??0);
+
+ $orderInput=$_GET['order'][0]??[];$orderIndex=max(0,(int)(is_array($orderInput)?($orderInput['column']??3):3));$orderDir=strtolower((string)(is_array($orderInput)?($orderInput['dir']??'desc'):'desc'))==='asc'?'ASC':'DESC';
+ $orderColumns=['so.omie_code','c.name','s.name','so.service_date','so.status','so.total'];$orderBy=$orderColumns[$orderIndex]??'so.service_date';
+ $rows=DB::all(
+  "SELECT so.id,so.omie_code,so.client_omie_code,so.seller_omie_code,so.service_date,so.total,so.status,c.name client_name,s.name seller_name
+   FROM service_orders so
+   LEFT JOIN clients c ON c.omie_code=so.client_omie_code
+   LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code
+   WHERE ".$sqlWhere." ORDER BY ".$orderBy." ".$orderDir.",so.id DESC LIMIT ".$length." OFFSET ".$start,
+  $params
+ );
+ $data=[];
+ foreach($rows as $row){
+  $status=(string)($row['status']??'ATIVO');$upper=mb_strtoupper($status);$statusClass=str_contains($upper,'CANCEL')?'cancelled':(str_contains($upper,'FATUR')?'billed':'active');
+  $osCell='<div class="tds-os-cell"><span class="tds-os-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span><span><strong>'.e($row['omie_code']).'</strong><small>código Omie</small></span></div>';
+  $clientName=(string)($row['client_name']??'');$clientCode=(string)($row['client_omie_code']??'');$clientCell='<strong>'.e($clientName!==''?$clientName:($clientCode!==''?$clientCode:'—')).'</strong>'.($clientName!==''&&$clientCode!==''?'<small>'.e($clientCode).'</small>':'');
+  if(!empty($row['seller_name']))$sellerCell='<strong>'.e($row['seller_name']).'</strong><small>'.e($row['seller_omie_code']).'</small>';
+  elseif(!empty($row['seller_omie_code']))$sellerCell='<strong>'.e($row['seller_omie_code']).'</strong><small>código do vendedor</small>';
+  else $sellerCell='<span class="tds-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span>';
+  $data[]=[$osCell,$clientCell,$sellerCell,brdate($row['service_date']??null),'<span class="tds-status '.$statusClass.'">'.e($status).'</span>','<strong>'.money($row['total']??0).'</strong>'];
+ }
+ json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
+});
+
 $router->get('/api/products/datatable',function(){
  Auth::requireRole('admin','supervisor','seller');
  $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??5)));
