@@ -52,7 +52,9 @@ function client_virtual_seller_codes(): array{
 function client_segment_filter(string $segment,string $alias='c'): array{
  if(!in_array($alias,['c','clients',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
  ClientSegmentPolicy::ensureSchema();
- $prefix=$alias!==''?$alias.'.':'';$sellerColumn=$prefix.'seller_omie_code';$catalog=client_segment_catalog();if(!isset($catalog[$segment]))$segment='general';
+ $prefix=$alias!==''?$alias.'.':'';$sellerColumn=$prefix.'seller_omie_code';$catalog=client_segment_catalog();
+ if($segment==='all')return ['1=1',[]];
+ if(!isset($catalog[$segment]))$segment='general';
  $codes=$segment==='general'?client_virtual_seller_codes():array_values(array_filter(array_map('strval',(array)($catalog[$segment]['seller_codes']??[]))));
  if(!$codes)return ['1=1',[]];
  $placeholders=implode(',',array_fill(0,count($codes),'?'));
@@ -324,11 +326,12 @@ $router->post('/clients/{id}/omie-sync',function($p){
 $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  Auth::requireRole('admin','supervisor','seller');
  $u=Auth::user();
- $segment=(string)($forcedSegment??($_GET['segment']??'general'));
- $segmentCatalog=client_segment_catalog();if(!isset($segmentCatalog[$segment]))$segment='general';
+ $defaultSegment=in_array((string)$u['role'],['admin','supervisor'],true)?'all':'general';
+ $segment=(string)($forcedSegment??($_GET['segment']??$defaultSegment));
+ $segmentCatalog=client_segment_catalog();if($segment!=='all'&&!isset($segmentCatalog[$segment]))$segment=$defaultSegment;
  if($portfolioOnly)$segment='general';
  if($segment!=='general'&&!in_array((string)$u['role'],['admin','supervisor'],true)){http_response_code(403);exit('Segmento restrito à gestão.');}
- $segmentMeta=(array)($segmentCatalog[$segment]??[]);
+ $segmentMeta=$segment==='all'?['label'=>'Todos os clientes','description'=>'Base ativa completa, incluindo Comercial, EAD Reciclagem e Suporte PET.']:(array)($segmentCatalog[$segment]??[]);
  $clientBasePath='clients';
  if($portfolioOnly&&$u['role']!=='seller'){redirect('/clients');}
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
@@ -400,6 +403,8 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $crmPortfolioCodes=ClientSegmentPolicy::crmPortfolioSellerCodes();$crmPortfolioSql=$crmPortfolioCodes?' AND omie_code IN ('.implode(',',array_fill(0,count($crmPortfolioCodes),'?')).')':' AND 1=0';
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
  $stateWhere='c.active=1 AND '.$stateSegmentSql;$stateParams=$stateSegmentParams;$stateEffectiveSql=client_effective_seller_sql('c',$portfolioMonth);
+ $baseCounts=['all'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1")??0),'inactive'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=0")??0)];
+ foreach(['general','ead_reciclagem','suporte_pet'] as $countSegment){[$countSql,$countParams]=client_segment_filter($countSegment,'clients');$baseCounts[$countSegment]=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND ".$countSql,$countParams)??0);}
  if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.client_effective_seller_sql('c',$portfolioMonth).')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
  render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
@@ -412,7 +417,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  ],'clientPagination'=>[
   'page'=>$page,'pages'=>$totalPages,'per_page'=>$perPage,
   'from'=>$totalClients?($offset+1):0,'to'=>min($offset+$perPage,$totalClients),
- ],'portfolioSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".$crmPortfolioSql." ORDER BY name",$crmPortfolioCodes):[],
+ ],'baseCounts'=>$baseCounts,'portfolioSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".$crmPortfolioSql." ORDER BY name",$crmPortfolioCodes):[],
  'bulkSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
  'portfolioSourceSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT DISTINCT (".$stateEffectiveSql.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveSql."))) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveSql.") WHERE c.active=1 AND (".$stateEffectiveSql.") IS NOT NULL AND TRIM((".$stateEffectiveSql."))<>''".($virtualCodes?' AND ('.$stateEffectiveSql.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
  'clientSellerFilters'=>DB::all("SELECT DISTINCT (".$stateEffectiveSql.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveSql."))) name,COALESCE(s.active,0) active FROM clients c LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveSql.") WHERE ".$stateWhere." AND (".$stateEffectiveSql.") IS NOT NULL AND TRIM((".$stateEffectiveSql."))<>'' ORDER BY active DESC,name",$stateParams),
@@ -1760,7 +1765,7 @@ $router->post('/api/clients/bulk',function(){
   if(!in_array($selection,['selected','filtered'],true))throw new RuntimeException('Seleção inválida.');
   $action=(string)($input['action']??'apply');
   if(!in_array($action,['apply','sync','apply_sync'],true))throw new RuntimeException('Ação inválida.');
-  $segment=(string)($input['segment']??'general');if(!isset(client_segment_catalog()[$segment]))$segment='general';
+   $segment=(string)($input['segment']??'all');if($segment!=='all'&&!isset(client_segment_catalog()[$segment]))$segment='all';
   $uf=mb_strtoupper(trim((string)($input['uf']??'')),'UTF-8');if($uf!==''&&!preg_match('/^[A-Z]{2}$/',$uf))$uf='';
   $ddds=client_portfolio_ddds($input['ddds']??[],$uf);
   $tag=trim((string)($input['tag']??''));if(mb_strlen($tag)>190)$tag='';
@@ -1817,7 +1822,8 @@ $router->get('/api/clients/datatable',function(){
  $draw=max(0,(int)($_GET['draw']??0));
  $start=max(0,(int)($_GET['start']??0));
  $length=(int)($_GET['length']??5);$length=$length<1?5:min(100,$length);
- $segment=(string)($_GET['segment']??'general');if(!isset(client_segment_catalog()[$segment]))$segment='general';
+ $defaultSegment=in_array((string)$u['role'],['admin','supervisor'],true)?'all':'general';
+ $segment=(string)($_GET['segment']??$defaultSegment);if($segment!=='all'&&!isset(client_segment_catalog()[$segment]))$segment=$defaultSegment;
  if($segment!=='general'&&!in_array((string)$u['role'],['admin','supervisor'],true)){http_response_code(403);json_response(['error'=>'Segmento restrito à gestão.']);}
  $portfolioOnly=$u['role']==='seller'&&(string)($_GET['portfolio']??'')==='mine';
  if($portfolioOnly)$segment='general';
