@@ -1507,10 +1507,10 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
         <section class="tda-task-client-card">
          <div class="tda-task-client-identity"><span><i class="fa-regular fa-building"></i></span><div><small>CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
          <div class="tda-task-client-insights" aria-label="Resumo da tarefa">
-          <span><small>Área</small><strong data-agenda-task-card-context>—</strong></span>
-          <span><small>Tipo</small><strong data-agenda-task-card-type>—</strong></span>
-          <span><small>Responsável</small><strong data-agenda-task-card-assigned>—</strong></span>
-          <span><small>Prazo</small><strong data-agenda-task-card-due>—</strong></span>
+          <article><small>Área</small><strong data-agenda-task-card-context>—</strong></article>
+          <article><small>Tipo</small><strong data-agenda-task-card-type>—</strong></article>
+          <article><small>Responsável</small><strong data-agenda-task-card-assigned>—</strong></article>
+          <article><small>Prazo</small><strong data-agenda-task-card-due>—</strong></article>
          </div>
          <a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cliente</a>
         </section>
