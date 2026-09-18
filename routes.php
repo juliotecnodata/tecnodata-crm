@@ -264,16 +264,62 @@ function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?arra
 function task_creator_meta(array $task): array{
  $name=trim((string)($task['created_by_name']??''));
  if($name!=='')return ['label'=>$name,'source'=>'audit','known'=>true];
- $clientId=(int)($task['client_id']??0);$createdAt=(string)($task['created_at']??'');$dueAt=(string)($task['due_at']??'');$title=(string)($task['title']??'');
- if($clientId>0&&$createdAt!==''&&$dueAt!==''&&str_starts_with($title,'Retorno comercial')){
-  $row=DB::one("SELECT u.name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? AND a.next_at=? AND ABS(TIMESTAMPDIFF(SECOND,a.created_at,?))<=15 ORDER BY ABS(TIMESTAMPDIFF(SECOND,a.created_at,?)),a.id DESC LIMIT 1",[$clientId,$dueAt,$createdAt,$createdAt]);
-  $detected=trim((string)($row['name']??''));if($detected!=='')return ['label'=>$detected,'source'=>'activity','known'=>true];
+
+ $taskId=(int)($task['id']??0);
+ $clientId=(int)($task['client_id']??0);
+ $assignedId=(int)($task['assigned_user_id']??0);
+ $assignedName=trim((string)($task['assigned_name']??''));
+ $createdAt=(string)($task['created_at']??'');
+ $dueAt=(string)($task['due_at']??'');
+ $title=trim((string)($task['title']??''));
+
+ $persist=static function(int $userId)use($taskId): void{
+  if($taskId<=0||$userId<=0)return;
+  DB::exec("UPDATE tasks SET created_by_user_id=? WHERE id=? AND created_by_user_id IS NULL",[$userId,$taskId]);
+ };
+
+ // Retornos comerciais antigos nasceram do atendimento do próprio vendedor.
+ // Antes da coluna created_by_user_id existir, a regra gravava activities.user_id
+ // também em tasks.assigned_user_id. Portanto o autor é recuperável com segurança.
+ if($clientId>0&&str_starts_with($title,'Retorno comercial')){
+  if($dueAt!==''){
+   $rows=DB::all("SELECT a.user_id,u.name,a.result,a.created_at,
+      ABS(TIMESTAMPDIFF(SECOND,a.created_at,?)) created_gap
+     FROM activities a
+     JOIN users u ON u.id=a.user_id
+     WHERE a.client_id=? AND a.next_at IS NOT NULL
+       AND ABS(TIMESTAMPDIFF(SECOND,a.next_at,?))<=90
+     ORDER BY created_gap,a.id DESC LIMIT 8",[$createdAt,$clientId,$dueAt]);
+   foreach($rows as $row){
+    $resultLabel=task_result_label((string)($row['result']??''));
+    if($resultLabel!==''&&!str_contains(mb_strtolower($title,'UTF-8'),mb_strtolower($resultLabel,'UTF-8')))continue;
+    $userId=(int)($row['user_id']??0);$detected=trim((string)($row['name']??''));
+    if($userId>0&&$detected!==''){$persist($userId);return ['label'=>$detected,'source'=>'activity','known'=>true];}
+   }
+  }
+  // Fallback seguro para esse fluxo legado: o código antigo sempre criava
+  // o retorno comercial para o mesmo usuário que registrou o atendimento.
+  if($assignedId>0&&$assignedName!==''){$persist($assignedId);return ['label'=>$assignedName,'source'=>'legacy_commercial_return','known'=>true];}
  }
+
+ // Retornos de cobrança guardavam o autor em collection_actions.author_user_id.
  if($clientId>0&&$createdAt!==''&&$dueAt!==''&&str_starts_with($title,'Retorno de cobrança')){
-  $row=DB::one("SELECT u.name FROM collection_actions ca JOIN users u ON u.id=ca.author_user_id WHERE ca.client_id=? AND ca.promise_date=DATE(?) AND ABS(TIMESTAMPDIFF(SECOND,ca.created_at,?))<=15 ORDER BY ABS(TIMESTAMPDIFF(SECOND,ca.created_at,?)),ca.id DESC LIMIT 1",[$clientId,$dueAt,$createdAt,$createdAt]);
-  $detected=trim((string)($row['name']??''));if($detected!=='')return ['label'=>$detected,'source'=>'collection_action','known'=>true];
+  $rows=DB::all("SELECT ca.author_user_id user_id,u.name,ca.result,ca.created_at,
+     ABS(TIMESTAMPDIFF(SECOND,ca.created_at,?)) created_gap
+    FROM collection_actions ca
+    JOIN users u ON u.id=ca.author_user_id
+    WHERE ca.client_id=? AND ca.promise_date=DATE(?)
+      AND ABS(TIMESTAMPDIFF(SECOND,ca.created_at,?))<=1800
+    ORDER BY created_gap,ca.id DESC LIMIT 8",[$createdAt,$clientId,$dueAt,$createdAt]);
+  foreach($rows as $row){
+   $resultLabel=task_result_label((string)($row['result']??''));
+   if($resultLabel!==''&&!str_contains(mb_strtolower($title,'UTF-8'),mb_strtolower($resultLabel,'UTF-8')))continue;
+   $userId=(int)($row['user_id']??0);$detected=trim((string)($row['name']??''));
+   if($userId>0&&$detected!==''){$persist($userId);return ['label'=>$detected,'source'=>'collection_action','known'=>true];}
+  }
  }
- return ['label'=>'Não registrado (tarefa anterior à auditoria)','source'=>'legacy','known'=>false];
+
+ return ['label'=>'Não identificado no histórico','source'=>'legacy','known'=>false];
 }
 function task_status_meta(array $task): array{
  $status=(string)($task['status']??'pending');
