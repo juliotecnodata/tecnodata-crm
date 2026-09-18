@@ -721,7 +721,7 @@ function render(string $name,array $vars=[]): void{
    <section class="tdc-page">
     <header class="tdc-head tdc-detail-head">
      <div class="tdc-head-main"><span class="tdc-detail-avatar"><?=e(mb_strtoupper(mb_substr((string)$client['name'],0,1)))?></span><div><a class="tdc-back" href="<?=APP_URL?>/clients<?=!empty($sharedUnassigned)?'?scope=unassigned':''?>"><i class="fa-solid fa-arrow-left"></i>Carteira de clientes</a><h1><?=e($client['name'])?></h1><div class="tdc-meta"><span><i class="fa-solid fa-location-dot"></i><?=e(trim(($client['city']??'').' / '.($client['uf']??''),' /')?:'Localização não informada')?></span><span><i class="fa-regular fa-id-card"></i><?=e($client['document']?:'Documento não informado')?></span><span><i class="fa-solid fa-cloud"></i><?=$isLocal?'Somente local':'Omie '.e($client['omie_code'])?></span></div></div></div>
-     <div class="tdc-head-actions"><?php if(empty($sharedUnassigned)):?><a class="tdc-btn" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><?php endif;?><?php if($operationalAccess&&sales_flow_enabled()&&!$isLocal):?><a class="tdc-btn" href="<?=APP_URL?>/opportunities?client_id=<?=$client['id']?>"><i class="fa-solid fa-chart-column"></i>Oportunidade</a><?php endif;?><?php if($operationalAccess&&!$isLocal):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?></div>
+     <div class="tdc-head-actions"><?php if(!empty($scheduleConsultants)):?><button class="tdc-btn tdc-btn-schedule" type="button" data-client-consultant-schedule><i class="fa-regular fa-calendar-plus"></i>Agendar para consultor</button><?php endif;?><?php if(empty($sharedUnassigned)):?><a class="tdc-btn" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar</a><?php endif;?><?php if($operationalAccess&&sales_flow_enabled()&&!$isLocal):?><a class="tdc-btn" href="<?=APP_URL?>/opportunities?client_id=<?=$client['id']?>"><i class="fa-solid fa-chart-column"></i>Oportunidade</a><?php endif;?><?php if($operationalAccess&&!$isLocal):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/orders/new?client_id=<?=$client['id']?>"><i class="fa-solid fa-plus"></i>Novo pedido</a><?php endif;?></div>
     </header>
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
@@ -763,7 +763,12 @@ function render(string $name,array $vars=[]): void{
      </section>
      <section class="tdc-card">
       <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-headset"></i></span><div><strong>Registrar contato</strong><small>Atualize o relacionamento e programe o próximo passo.</small></div></div></div>
-      <?php if($operationalAccess):?><form class="tdc-contact-form" method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><?php foreach($taskResults??[] as $resultOption):?><option value="<?=e($resultOption['code'])?>"><?=e($resultOption['label'])?></option><?php endforeach;?></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="tdc-btn tdc-btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form><?php else:?><div class="tdc-contact-locked"><i class="fa-solid fa-user-lock"></i><strong>Atendimento de outra carteira</strong><p>O cadastro pode ser corrigido por você, mas agenda, contatos e pedidos seguem o responsável efetivo deste mês.</p></div><?php endif;?>
+      <?php if($operationalAccess):?>
+       <form class="tdc-contact-form" method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/activity"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Canal utilizado</label><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select><label>Resultado do contato</label><select class="form-select" name="result"><?php foreach($taskResults??[] as $resultOption):?><option value="<?=e($resultOption['code'])?>"><?=e($resultOption['label'])?></option><?php endforeach;?></select><label>Próximo retorno</label><input class="form-control" type="datetime-local" name="next_at"><label>Anotação</label><textarea class="form-control" name="notes" rows="4"></textarea><button class="tdc-btn tdc-btn-primary w-100 mt-2"><i class="fa-solid fa-check"></i>Salvar contato</button></form>
+       <div class="tdc-directed-action"><div><strong>Precisa passar este retorno para outro consultor?</strong><small>Crie apenas o compromisso. A carteira permanece com o responsável atual.</small></div><button class="tdc-btn tdc-btn-schedule" type="button" data-client-consultant-schedule><i class="fa-regular fa-calendar-plus"></i>Agendar para outro consultor</button></div>
+      <?php else:?>
+       <div class="tdc-contact-locked"><i class="fa-solid fa-user-lock"></i><strong>Atendimento de outra carteira</strong><p>O cliente continua pertencendo a <?=e((string)$effectiveSellerName)?>, mas você pode direcionar um retorno para outro consultor sem alterar a carteira.</p><button class="tdc-btn tdc-btn-schedule" type="button" data-client-consultant-schedule><i class="fa-regular fa-calendar-plus"></i>Agendar para consultor</button></div>
+      <?php endif;?>
      </section>
     </div>
 
@@ -780,6 +785,21 @@ function render(string $name,array $vars=[]): void{
       <?php endforeach;?>
      </div>
     </section>
+    <?php endif;?>
+    <?php if(!empty($scheduleConsultants)):?>
+    <dialog class="tdc-schedule-dialog" data-client-consultant-dialog>
+     <form method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/schedule-consultant" data-client-consultant-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <header><span><i class="fa-regular fa-calendar-plus"></i></span><div><small>AGENDAMENTO DIRECIONADO</small><strong>Agendar para consultor</strong><p><?=e($client['name'])?> · carteira atual: <?=e((string)$effectiveSellerName)?></p></div><button type="button" data-client-consultant-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="tdc-schedule-body">
+       <label><span>Consultor que receberá o retorno</span><select class="form-select" name="assigned_user_id" required><option value="">Selecione o consultor</option><?php foreach($scheduleConsultants as $consultant):?><option value="<?=(int)$consultant['id']?>"><?=e($consultant['name'])?></option><?php endforeach;?></select></label>
+       <label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" required data-client-consultant-due></label>
+       <label class="wide"><span>Motivo / orientação para o consultor</span><input class="form-control" name="title" maxlength="180" placeholder="Ex.: Cliente ligou e pediu retorno sobre proposta" required></label>
+       <div class="tdc-schedule-note wide"><i class="fa-solid fa-circle-info"></i><span>Esse agendamento <strong>não altera o vendedor principal nem a carteira mensal</strong>. Apenas cria uma tarefa na agenda do consultor escolhido.</span></div>
+      </div>
+      <footer><button class="tdc-btn" type="button" data-client-consultant-close>Cancelar</button><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-calendar-check"></i>Criar agendamento</button></footer>
+     </form>
+    </dialog>
     <?php endif;?>
    </section>
   <?php break;
