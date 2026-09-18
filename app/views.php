@@ -1505,14 +1505,20 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        </header>
        <div class="tda-task-body">
         <section class="tda-task-client-card">
-         <div><span><i class="fa-regular fa-building"></i></span><div><small>CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
+         <div class="tda-task-client-identity"><span><i class="fa-regular fa-building"></i></span><div><small>CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
+         <div class="tda-task-client-insights" aria-label="Resumo da tarefa">
+          <span><small>Área</small><strong data-agenda-task-card-context>—</strong></span>
+          <span><small>Tipo</small><strong data-agenda-task-card-type>—</strong></span>
+          <span><small>Responsável</small><strong data-agenda-task-card-assigned>—</strong></span>
+          <span><small>Prazo</small><strong data-agenda-task-card-due>—</strong></span>
+         </div>
          <a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cliente</a>
         </section>
         <div class="tda-task-summary">
-         <div><small>Criada em</small><strong data-agenda-task-created>—</strong></div>
-         <div><small>Criada por</small><strong data-agenda-task-created-by>—</strong></div>
-         <div><small>Status</small><strong data-agenda-task-status-label>—</strong></div>
-         <div><small>Última alteração</small><strong data-agenda-task-updated>—</strong></div>
+         <div class="created"><small>Criada em</small><strong data-agenda-task-created>—</strong></div>
+         <div class="creator"><small>Criada por</small><strong data-agenda-task-created-by>—</strong></div>
+         <div class="status"><small>Status</small><strong data-agenda-task-status-label>—</strong></div>
+         <div class="updated"><small>Última alteração</small><strong data-agenda-task-updated>—</strong></div>
         </div>
         <div class="tda-task-grid">
          <label><span>Área</span><select class="form-select" name="context" data-agenda-task-context><option value="sales">Comercial</option><option value="collection">Cobrança</option></select></label>
