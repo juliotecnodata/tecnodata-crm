@@ -235,6 +235,39 @@ function ensure_task_type_column(): void{
  if(!db_column_exists('tasks','task_type_code'))DB::exec("ALTER TABLE tasks ADD COLUMN task_type_code VARCHAR(50) NULL AFTER type, ADD INDEX idx_tasks_task_type(task_type_code)");
  $ready=true;
 }
+function ensure_task_detail_columns(): void{
+ static $ready=false;if($ready)return;ensure_task_type_column();
+ $columns=DB::all("SHOW COLUMNS FROM tasks");$have=array_fill_keys(array_map(static fn($row)=>(string)($row['Field']??''),$columns),true);
+ $changes=[
+  'created_by_user_id'=>"ALTER TABLE tasks ADD COLUMN created_by_user_id INT UNSIGNED NULL AFTER assigned_user_id",
+  'completion_result_code'=>"ALTER TABLE tasks ADD COLUMN completion_result_code VARCHAR(40) NULL AFTER status",
+  'completion_notes'=>"ALTER TABLE tasks ADD COLUMN completion_notes TEXT NULL AFTER completion_result_code",
+  'completed_by_user_id'=>"ALTER TABLE tasks ADD COLUMN completed_by_user_id INT UNSIGNED NULL AFTER completion_notes",
+  'updated_at'=>"ALTER TABLE tasks ADD COLUMN updated_at DATETIME NULL AFTER completed_at"
+ ];
+ foreach($changes as $name=>$sql){if(isset($have[$name]))continue;try{DB::exec($sql);}catch(Throwable $e){$check=DB::all("SHOW COLUMNS FROM tasks");$names=array_map(static fn($row)=>(string)($row['Field']??''),$check);if(!in_array($name,$names,true))throw $e;}}
+ $ready=true;
+}
+function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?array{
+ ensure_task_detail_columns();$where=['t.id=?'];$params=[$taskId];if($pendingOnly)$where[]="t.status='pending'";
+ if(!in_array((string)($user['role']??''),['admin','supervisor'],true)){$where[]='t.assigned_user_id=?';$params[]=(int)($user['id']??0);}
+ return DB::one("SELECT t.*,c.name client_name,c.document client_document,c.city client_city,c.uf client_uf,
+   assigned.name assigned_name,assigned.role assigned_role,
+   creator.name created_by_name,completed.name completed_by_name
+  FROM tasks t
+  JOIN clients c ON c.id=t.client_id
+  JOIN users assigned ON assigned.id=t.assigned_user_id
+  LEFT JOIN users creator ON creator.id=t.created_by_user_id
+  LEFT JOIN users completed ON completed.id=t.completed_by_user_id
+  WHERE ".implode(' AND ',$where),$params);
+}
+function task_assignable_users(array $user,string $context): array{
+ $role=(string)($user['role']??'');$uid=(int)($user['id']??0);$context=$context==='collection'?'collection':'sales';
+ if($context==='sales')$roles=['seller','supervisor'];else $roles=['collector','supervisor'];
+ $placeholders=implode(',',array_fill(0,count($roles),'?'));$params=$roles;
+ if($uid>0)return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",array_merge($roles,[$uid]));
+ return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY name",$roles);
+}
 
 function contact_monitoring_user_ids(): ?array{
  $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='contact_monitoring_users'");
@@ -1562,8 +1595,70 @@ $router->post('/api/tasks',function(){
   $allowed=array_column(task_type_options($context),'code');if(!in_array($taskTypeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa válido.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
   if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição com até 180 caracteres.');
-  ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$context,$taskTypeCode,$title,$date->format('Y-m-d H:i:00')]);
+  ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId,$assignedId,(int)$u['id'],$context,$taskTypeCode,$title,$date->format('Y-m-d H:i:00')]);
   json_response(['ok'=>true,'message'=>'Tarefa criada para '.$assigned['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'.','task'=>['client_name'=>$client['name'],'assigned_name'=>$assigned['name'],'task_type'=>task_type_label($taskTypeCode)]]);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
+});
+
+$router->get('/api/tasks/{id}',function($p){
+ Auth::requireLogin();$u=Auth::user();$id=(int)$p['id'];$task=task_access_row($id,$u,false);
+ if(!$task){json_response(['ok'=>false,'error'=>'Tarefa não encontrada ou sem permissão de acesso.'],404);}
+ $context=(string)$task['type'];$status=(string)$task['status'];
+ $users=task_assignable_users($u,$context);
+ $types=task_type_options($context,false);$results=task_result_options($context);
+ json_response(['ok'=>true,'task'=>[
+  'id'=>(int)$task['id'],'client_id'=>(int)$task['client_id'],'client_name'=>(string)$task['client_name'],
+  'client_document'=>(string)($task['client_document']??''),'client_city'=>(string)($task['client_city']??''),'client_uf'=>(string)($task['client_uf']??''),
+  'assigned_user_id'=>(int)$task['assigned_user_id'],'assigned_name'=>(string)$task['assigned_name'],'assigned_role'=>(string)$task['assigned_role'],
+  'created_by_name'=>(string)($task['created_by_name']??''),'completed_by_name'=>(string)($task['completed_by_name']??''),
+  'context'=>$context,'task_type_code'=>(string)($task['task_type_code']??''),'task_type_label'=>task_type_label((string)($task['task_type_code']??'')),
+  'title'=>(string)$task['title'],'due_at'=>date('Y-m-d\TH:i',strtotime((string)$task['due_at'])),
+  'due_at_label'=>date('d/m/Y H:i',strtotime((string)$task['due_at'])),'created_at_label'=>date('d/m/Y H:i',strtotime((string)$task['created_at'])),
+  'updated_at_label'=>!empty($task['updated_at'])?date('d/m/Y H:i',strtotime((string)$task['updated_at'])):'',
+  'status'=>$status,'status_label'=>$status==='done'?'Concluída':($status==='cancelled'?'Cancelada':'Pendente'),
+  'completion_result_code'=>(string)($task['completion_result_code']??''),'completion_result_label'=>task_result_label((string)($task['completion_result_code']??'')),
+  'completion_notes'=>(string)($task['completion_notes']??''),'completed_at_label'=>!empty($task['completed_at'])?date('d/m/Y H:i',strtotime((string)$task['completed_at'])):''
+ ],'users'=>$users,'types'=>$types,'results'=>$results,'can_edit'=>$status==='pending']);
+});
+$router->post('/api/tasks/{id}',function($p){
+ Auth::requireLogin();CSRF::require($_POST['_token']??null);$u=Auth::user();$id=(int)$p['id'];
+ try{
+  $task=task_access_row($id,$u,true);if(!$task)throw new RuntimeException('Tarefa não encontrada, encerrada ou sem permissão.');
+  $mode=(string)($_POST['mode']??'edit');if(!in_array($mode,['edit','reschedule'],true))$mode='edit';
+  $title=trim((string)($_POST['title']??''));if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
+  $value=trim((string)($_POST['due_at']??''));$date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
+  if(!$date||$date->format('Y-m-d\TH:i')!==$value)throw new RuntimeException('Informe uma data e hora válidas.');
+  $formatted=$date->format('Y-m-d H:i:00');$original=(string)$task['due_at'];
+  if(($mode==='reschedule'||$formatted!==$original)&&$date->getTimestamp()<time()-60)throw new RuntimeException('Ao alterar o horário, escolha uma data futura.');
+
+  if($mode==='reschedule'){
+   DB::exec("UPDATE tasks SET title=?,due_at=?,updated_at=NOW() WHERE id=?",[$title,$formatted,$id]);
+   json_response(['ok'=>true,'message'=>'Tarefa reagendada para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.']);
+  }
+
+  $context=(string)($_POST['context']??$task['type']);if(!in_array($context,['sales','collection'],true))throw new RuntimeException('Área da tarefa inválida.');
+  $role=(string)($u['role']??'');if($role==='seller')$context='sales';elseif($role==='collector')$context='collection';
+  $assignedId=max(0,(int)($_POST['assigned_user_id']??0));$assigned=$assignedId>0?DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]):null;
+  if(!$assigned)throw new RuntimeException('Selecione um responsável ativo.');
+  $assignedRole=(string)$assigned['role'];
+  if($context==='sales'&&!in_array($assignedRole,['seller','supervisor'],true))throw new RuntimeException('Em Comercial, selecione vendedor ou supervisor.');
+  if($context==='collection'&&!in_array($assignedRole,['collector','supervisor'],true))throw new RuntimeException('Em Cobrança, selecione cobrança ou supervisor.');
+  $typeCode=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['task_type_code']??''))));
+  $allowed=array_column(task_type_options($context),'code');if(!in_array($typeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa ativo.');
+  DB::exec("UPDATE tasks SET assigned_user_id=?,type=?,task_type_code=?,title=?,due_at=?,updated_at=NOW() WHERE id=?",[$assignedId,$context,$typeCode,$title,$formatted,$id]);
+  json_response(['ok'=>true,'message'=>'Tarefa atualizada com sucesso.']);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
+});
+$router->post('/api/tasks/{id}/complete',function($p){
+ Auth::requireLogin();CSRF::require($_POST['_token']??null);$u=Auth::user();$id=(int)$p['id'];
+ try{
+  $task=task_access_row($id,$u,true);if(!$task)throw new RuntimeException('Tarefa não encontrada, já encerrada ou sem permissão.');
+  $title=trim((string)($_POST['title']??$task['title']));if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
+  $result=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['completion_result_code']??''))));
+  if($result!==''){$allowed=array_column(task_result_options((string)$task['type']),'code');if(!in_array($result,$allowed,true))throw new RuntimeException('Resultado de conclusão inválido.');}
+  $notes=trim((string)($_POST['completion_notes']??''));if(mb_strlen($notes)>4000)throw new RuntimeException('A observação final deve ter até 4.000 caracteres.');
+  DB::exec("UPDATE tasks SET title=?,status='done',completion_result_code=?,completion_notes=?,completed_by_user_id=?,completed_at=NOW(),updated_at=NOW() WHERE id=? AND status='pending'",[$title,$result!==''?$result:null,$notes!==''?$notes:null,(int)$u['id'],$id]);
+  json_response(['ok'=>true,'message'=>'Tarefa concluída com sucesso.']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
