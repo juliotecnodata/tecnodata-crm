@@ -356,13 +356,13 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
   case 'client_audit':
-   $auditStats=$auditStats??[];$auditGroups=$auditGroups??[];$auditRowsByDocument=$auditRowsByDocument??[];$auditInactiveRows=$auditInactiveRows??[];$auditPagination=$auditPagination??['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
-   $auditTab=$auditTab??'duplicates';$auditQuery=$auditQuery??'';$auditConflict=$auditConflict??'all';
-   $auditUrl=static function(array $changes=[])use($auditTab,$auditQuery,$auditConflict){$params=['tab'=>$auditTab,'q'=>$auditQuery,'conflict'=>$auditConflict];foreach($changes as $key=>$value){if($value===null||$value==='')unset($params[$key]);else $params[$key]=$value;}return APP_URL.'/clients-audit?'.http_build_query($params);};
+   $auditStats=$auditStats??[];$auditGroups=$auditGroups??[];$auditRowsByDocument=$auditRowsByDocument??[];$auditInactiveRows=$auditInactiveRows??[];$auditResponsibilityRows=$auditResponsibilityRows??[];$auditPagination=$auditPagination??['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
+   $auditTab=$auditTab??'duplicates';$auditQuery=$auditQuery??'';$auditConflict=$auditConflict??'all';$auditMonth=$auditMonth??date('Y-m');$auditMonthLabel=date('m/Y',strtotime($auditMonth.'-01'));
+   $auditUrl=static function(array $changes=[])use($auditTab,$auditQuery,$auditConflict,$auditMonth){$params=['tab'=>$auditTab,'q'=>$auditQuery,'conflict'=>$auditConflict,'month'=>$auditMonth];foreach($changes as $key=>$value){if($value===null||$value==='')unset($params[$key]);else $params[$key]=$value;}return APP_URL.'/clients-audit?'.http_build_query($params);};
    ?>
    <section class="tdaudit-page">
     <header class="tdaudit-head">
-     <div class="tdaudit-head-main"><span class="tdaudit-head-icon"><i class="fa-solid fa-user-shield"></i></span><div><span class="tdaudit-kicker">QUALIDADE DA BASE / CLIENTES</span><h1>Auditoria de cadastros</h1><p>Compare CPF/CNPJ repetidos e valide os clientes inativos antes de qualquer correção.</p></div></div>
+     <div class="tdaudit-head-main"><span class="tdaudit-head-icon"><i class="fa-solid fa-user-shield"></i></span><div><span class="tdaudit-kicker">QUALIDADE DA BASE / CLIENTES</span><h1>Auditoria de cadastros</h1><p>Revise duplicidades, responsabilidade comercial, divergências com a Omie e registros preservados.</p></div></div>
      <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
     </header>
 
@@ -371,21 +371,23 @@ function render(string $name,array $vars=[]): void{
     <div class="tdaudit-kpis">
      <article><span class="blue"><i class="fa-solid fa-address-book"></i></span><div><small>Total no CRM</small><strong><?=number_format((int)($auditStats['total_clients']??0),0,',','.')?></strong><p><?=number_format((int)($auditStats['active_clients']??0),0,',','.')?> ativos</p></div></article>
      <article><span class="orange"><i class="fa-solid fa-clone"></i></span><div><small>Grupos duplicados</small><strong><?=number_format((int)($auditStats['duplicate_groups']??0),0,',','.')?></strong><p><?=number_format((int)($auditStats['duplicate_rows']??0),0,',','.')?> cadastros envolvidos</p></div></article>
-     <article><span class="red"><i class="fa-solid fa-triangle-exclamation"></i></span><div><small>Múltiplos ativos</small><strong><?=number_format((int)($auditStats['active_groups']??0),0,',','.')?></strong><p>podem bloquear a edição</p></div></article>
-     <article><span class="gray"><i class="fa-solid fa-user-slash"></i></span><div><small>Inativos indevidos</small><strong><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?></strong><p>este número deve ser zero</p></div></article>
+     <article><span class="red"><i class="fa-solid fa-code-compare"></i></span><div><small>CRM × Omie</small><strong><?=number_format((int)($auditStats['seller_divergences']??0),0,',','.')?></strong><p>vínculos para conferir</p></div></article>
+     <article><span class="gray"><i class="fa-solid fa-box-archive"></i></span><div><small>Inativos preservados</small><strong><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?></strong><p>histórico mantido no CRM</p></div></article>
     </div>
 
     <nav class="tdaudit-tabs" aria-label="Tipos de auditoria">
      <a class="<?=$auditTab==='duplicates'?'active':''?>" href="<?=e($auditUrl(['tab'=>'duplicates','page'=>1]))?>"><span><i class="fa-solid fa-clone"></i><b>Cadastros duplicados</b></span><em><?=number_format((int)($auditStats['duplicate_groups']??0),0,',','.')?> grupos</em></a>
-     <a class="<?=$auditTab==='inactive'?'active':''?>" href="<?=e($auditUrl(['tab'=>'inactive','page'=>1]))?>"><span><i class="fa-solid fa-user-slash"></i><b>Controle de inativos</b></span><em><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?> indevidos</em></a>
+     <a class="<?=$auditTab==='responsibility'?'active':''?>" href="<?=e($auditUrl(['tab'=>'responsibility','page'=>1]))?>"><span><i class="fa-solid fa-user-arrows"></i><b>Responsabilidade comercial</b></span><em><?=number_format((int)($auditStats['seller_divergences']??0),0,',','.')?> divergências</em></a>
+     <a class="<?=$auditTab==='inactive'?'active':''?>" href="<?=e($auditUrl(['tab'=>'inactive','page'=>1]))?>"><span><i class="fa-solid fa-box-archive"></i><b>Registros preservados</b></span><em><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?> inativos</em></a>
     </nav>
 
     <form class="tdaudit-filter" method="get" action="<?=APP_URL?>/clients-audit">
      <input type="hidden" name="tab" value="<?=e($auditTab)?>">
      <label class="tdaudit-search"><span>Buscar cadastro</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="<?=e($auditQuery)?>" placeholder="Nome, CPF/CNPJ ou código Omie"></div></label>
      <?php if($auditTab==='duplicates'):?><label><span>Tipo de conflito</span><select name="conflict" class="form-select"><option value="all">Todos os conflitos</option><option value="active" <?=$auditConflict==='active'?'selected':''?>>Múltiplos ativos</option><option value="mixed" <?=$auditConflict==='mixed'?'selected':''?>>Ativo + inativo</option><option value="invalid" <?=$auditConflict==='invalid'?'selected':''?>>Documento inválido</option></select></label><?php endif;?>
+     <?php if($auditTab==='responsibility'):?><label><span>Mês da carteira</span><input class="form-control" type="month" name="month" value="<?=e($auditMonth)?>"></label><?php else:?><input type="hidden" name="month" value="<?=e($auditMonth)?>"><?php endif;?>
      <button class="tdaudit-btn primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar filtros</button>
-     <?php if($auditQuery!==''||$auditConflict!=='all'):?><a class="tdaudit-btn" href="<?=APP_URL?>/clients-audit?tab=<?=e($auditTab)?>"><i class="fa-solid fa-xmark"></i>Limpar</a><?php endif;?>
+     <?php if($auditQuery!==''||$auditConflict!=='all'):?><a class="tdaudit-btn" href="<?=APP_URL?>/clients-audit?<?=e(http_build_query(['tab'=>$auditTab,'month'=>$auditMonth]))?>"><i class="fa-solid fa-xmark"></i>Limpar</a><?php endif;?>
     </form>
 
     <?php if($auditTab==='duplicates'):?>
@@ -415,6 +417,21 @@ function render(string $name,array $vars=[]): void{
       <?php if(!$auditGroups):?><div class="tdaudit-empty"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Nenhum grupo encontrado</strong><p>Ajuste os filtros ou faça uma nova busca.</p></div></div><?php endif;?>
      </div>
      <?php if((int)$auditPagination['pages']>1):?><nav class="tdaudit-pager"><a class="tdaudit-btn <?=(int)$auditPagination['page']<=1?'disabled':''?>" href="<?=e($auditUrl(['page'=>max(1,(int)$auditPagination['page']-1)]))?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><span>Página <strong><?=(int)$auditPagination['page']?></strong> de <strong><?=(int)$auditPagination['pages']?></strong></span><a class="tdaudit-btn <?=(int)$auditPagination['page']>=(int)$auditPagination['pages']?'disabled':''?>" href="<?=e($auditUrl(['page'=>min((int)$auditPagination['pages'],(int)$auditPagination['page']+1)]))?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
+    <?php elseif($auditTab==='responsibility'):?>
+     <div class="tdaudit-section-head"><div><span>RESPONSABILIDADE COMERCIAL</span><h2>Principal, carteira <?=$auditMonthLabel?> e Omie</h2><p>A carteira do mês é provisória; o vendedor principal é definitivo no CRM e pode ser reconciliado com a Omie quando necessário.</p></div><div class="tdaudit-legend"><span><i class="active"></i>Alinhado</span><span><i class="local"></i>Carteira provisória</span><span><i class="inactive"></i>CRM ≠ Omie</span></div></div>
+     <div class="tdaudit-inactive-card"><div class="tdaudit-table-wrap"><table class="tdaudit-table responsibility-list"><thead><tr><th>Cliente</th><th>Principal CRM</th><th>Carteira <?=$auditMonthLabel?></th><th>Omie</th><th>Situação</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
+      <?php foreach($auditResponsibilityRows as $row):$isDivergent=trim((string)($row['seller_omie_code']??''))!==trim((string)($row['omie_seller_code']??''));$hasMonthly=!empty($row['portfolio_assignment_id']);?>
+       <tr>
+        <td><div class="tdaudit-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['document']?:'Documento não informado')?> · <?=e(trim(($row['city']??'').' / '.($row['uf']??''),' /'))?></small></div></div></td>
+        <td><strong><?=e($row['principal_seller_name']?:($row['seller_omie_code']?:'Sem vendedor'))?></strong><small>Vínculo definitivo no CRM</small></td>
+        <td><strong><?=e($row['effective_seller_name']?:'Sem responsável')?></strong><small><?=$hasMonthly?'Exceção provisória':'Usando o principal'?></small></td>
+        <td><strong><?=e($row['omie_seller_name']?:($row['omie_seller_code']?:'Sem vendedor'))?></strong><small><?=e($row['omie_seller_code']?:'Não informado')?></small></td>
+        <td><div class="tdaudit-responsibility-status"><?php if($isDivergent):?><span class="danger"><i class="fa-solid fa-code-compare"></i> CRM ≠ Omie</span><?php else:?><span class="ok"><i class="fa-solid fa-check"></i> Alinhado</span><?php endif;?><?php if($hasMonthly):?><span class="monthly"><i class="fa-regular fa-calendar"></i> Carteira provisória</span><?php endif;?></div></td>
+        <td><strong><?=!empty($row['updated_at'])?date('d/m/Y',strtotime((string)$row['updated_at'])):'—'?></strong><small><?=!empty($row['updated_at'])?date('H:i',strtotime((string)$row['updated_at'])):''?></small></td>
+        <td><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>"><i class="fa-regular fa-folder-open"></i><span>Revisar</span></a></td>
+       </tr>
+      <?php endforeach;?>
+     </tbody></table><?php if(!$auditResponsibilityRows):?><div class="tdaudit-empty inline"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Responsabilidades alinhadas</strong><p>Nenhuma divergência ou exceção mensal encontrada neste recorte.</p></div></div><?php endif;?></div></div>
     <?php else:?>
      <div class="tdaudit-section-head"><div><span>CONTROLE DE INTEGRIDADE</span><h2>Cadastros inativos indevidos</h2><p>Clientes inativados na Omie permanecem no CRM quando necessário para preservar agenda, tarefas, atendimentos e histórico. Revise esses registros antes de qualquer exclusão.</p></div></div>
      <div class="tdaudit-inactive-card"><div class="tdaudit-table-wrap"><table class="tdaudit-table inactive-list"><thead><tr><th>Cliente</th><th>CPF/CNPJ</th><th>Código Omie</th><th>Vendedor</th><th>Histórico encontrado</th><th>Cadastro ativo correspondente</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
@@ -449,7 +466,7 @@ function render(string $name,array $vars=[]): void{
     <section class="tdc-intelligence" aria-label="Saúde da base de clientes">
      <div class="tdc-intelligence-head"><span><i class="fa-solid fa-brain"></i></span><div><strong>Controle inteligente da base</strong><small>Separe correção definitiva, carteira provisória e sincronização com a Omie.</small></div></div>
      <div class="tdc-intelligence-items">
-      <a href="<?=APP_URL?>/clients-audit"><b><?=number_format((int)($clientStats['seller_divergences']??0),0,',','.')?></b><span>Divergências CRM × Omie</span><small>Vendedor principal diferente da origem Omie</small></a>
+      <a href="<?=APP_URL?>/clients-audit?tab=responsibility&month=<?=e($portfolioMonth)?>"><b><?=number_format((int)($clientStats['seller_divergences']??0),0,',','.')?></b><span>Divergências CRM × Omie</span><small>Vendedor principal diferente da origem Omie</small></a>
       <div><b><?=number_format((int)($clientStats['monthly_overrides']??0),0,',','.')?></b><span>Ajustes em <?=$portfolioMonthLabel?></span><small>Carteiras provisórias deste mês</small></div>
       <div><b><?=number_format((int)($clientStats['pending_sync']??0),0,',','.')?></b><span>Pendentes de sincronização</span><small>Alterações locais aguardando Omie</small></div>
      </div>
@@ -463,7 +480,7 @@ function render(string $name,array $vars=[]): void{
       <div class="tdc-field"><label>Estado</label><select class="form-select" name="uf" required data-client-state-filter><option value="">Selecione</option><?php foreach($portfolioStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></div>
       <div class="tdc-ddd-picker clients-ddd-picker"><span>DDDs da região</span><div><?php foreach(($portfolioDddMap[$uf]??[]) as $ddd):?><label><input type="checkbox" name="ddds[]" value="<?=e($ddd)?>" <?=in_array($ddd,$ddds??[],true)?'checked':''?>><b><?=e($ddd)?></b></label><?php endforeach;?><?php if($uf===''):?><small>Selecione primeiro o estado.</small><?php endif;?></div><?php if($uf!==''):?><button class="tdc-btn" type="button" data-client-ddd-apply><i class="fa-solid fa-filter"></i>Filtrar tabela</button><?php endif;?></div>
       <div class="tdc-field"><label>Responsável em <?=$portfolioMonthLabel?></label><select class="form-select" name="source_seller" required><option value="__unassigned__">Somente sem responsável</option><option value="__all__">Todos dos DDDs</option><?php foreach($portfolioSourceSellers??$portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?><?=isset($seller['active'])&&!(int)$seller['active']?' (inativo)':''?></option><?php endforeach;?></select></div>
-      <div class="tdc-field"><label>Destino provisório</label><select class="form-select" name="target_seller" required><option value="">Selecione</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></div>
+      <div class="tdc-field"><label>Destino provisório</label><select class="form-select" name="target_seller" required><option value="">Selecione</option><option value="__principal__">↩ Voltar ao vendedor principal</option><?php foreach($portfolioSellers??[] as $seller):?><option value="<?=e($seller['omie_code'])?>"><?=e($seller['name'])?></option><?php endforeach;?></select></div>
       <button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a carteira provisória deste mês? O vendedor principal e a Omie não serão alterados."><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
      </form>
     </section>
@@ -482,7 +499,7 @@ function render(string $name,array $vars=[]): void{
      <div class="tdc-list-filterbar">
       <div class="tdc-filter-title"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine estado, tag e vendedor para encontrar exatamente os clientes que deseja revisar.</small></div></div>
       <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?>">
-       <input type="hidden" name="month" value="<?=e($portfolioMonth)?>">
+       <?php if(Auth::can('admin','supervisor')&&$clientSegment==='general'):?><label><span><i class="fa-regular fa-calendar"></i> Mês da carteira</span><input class="form-control" type="month" name="month" value="<?=e($portfolioMonth)?>" onchange="this.form.submit()"></label><?php else:?><input type="hidden" name="month" value="<?=e($portfolioMonth)?>"><?php endif;?>
        <?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
        <label><span><i class="fa-solid fa-map-location-dot"></i> Estado</span><select class="form-select" name="uf" onchange="this.form.submit()"><option value="">Todos os estados</option><?php foreach($clientStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
        <?php if(!$portfolioMode):?>
@@ -528,7 +545,7 @@ function render(string $name,array $vars=[]): void{
         <td><?php $lastContactAt=trim((string)($r['last_contact_at']??''));if($lastContactAt===''):?><span class="tdc-contact-days never"><strong>Nunca</strong></span><?php else:$contactDays=max(0,(int)floor((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',strtotime($lastContactAt))))/86400));$contactClass=$contactDays<=30?'ok':($contactDays<=60?'warning':'late');?><span class="tdc-contact-days <?=$contactClass?>"><strong><?=$contactDays?></strong></span><?php endif;?></td>
         <td><strong><?=brdate($r['last_purchase_at']??null)?></strong><small><?=($r['orders_12m']??0)>0?(int)$r['orders_12m'].' pedido(s) em 12 meses':'Sem pedidos recentes'?></small></td>
         <td class="text-end"><strong><?=money($r['revenue_12m']??0)?></strong></td>
-        <td><div class="tdc-actions"><a class="tdc-icon-btn view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><a class="tdc-icon-btn edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php if(Auth::can('admin','supervisor')):?><button class="tdc-icon-btn sync" type="button" data-client-omie-one="<?=(int)$r['id']?>" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i></button><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn local" type="submit" title="Remover somente do CRM" data-confirm="Excluir somente do CRM local? Nenhuma chamada será feita à Omie."><i class="fa-solid fa-database"></i></button></form><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn delete" type="submit" title="Excluir da Omie e do CRM" data-confirm="Excluir este cliente na Omie e também no CRM?"><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
+        <td><div class="tdc-actions"><a class="tdc-icon-btn view" href="<?=APP_URL?>/clients/<?=$r['id']?>" title="Visualizar"><i class="fa-regular fa-eye"></i></a><a class="tdc-icon-btn edit" href="<?=APP_URL?>/clients/<?=$r['id']?>/edit" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a><?php if(Auth::can('admin','supervisor')):?><button class="tdc-icon-btn sync" type="button" data-client-omie-one="<?=(int)$r['id']?>" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i></button><?php if(str_starts_with((string)$r['omie_code'],'LOCAL-')):?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete-local"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn local" type="submit" title="Remover somente do CRM" data-confirm="Excluir este cadastro local? A ação será bloqueada se houver histórico relacionado."><i class="fa-solid fa-database"></i></button></form><?php endif;?><form method="post" action="<?=APP_URL?>/clients/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-icon-btn delete" type="submit" title="Excluir ou arquivar preservando histórico" data-confirm="Excluir este cliente? Se houver histórico no CRM, ele será preservado em arquivo."><i class="fa-regular fa-trash-can"></i></button></form><?php endif;?></div></td>
        </tr><?php endforeach;?></tbody>
       </table>
      </div>
@@ -664,6 +681,16 @@ function render(string $name,array $vars=[]): void{
      <section class="tdc-card"><div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-regular fa-comments"></i></span><div><strong>Últimos contatos</strong><small>Histórico de relacionamento.</small></div></div></div><div class="tdc-list"><?php $resultLabels=$taskResultLabels??[];foreach($activities as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div>Nenhum contato registrado.</div><?php endif;?></div></section>
      <section class="tdc-card" id="tdc-orders"><div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Últimos pedidos</strong><small>Compras mais recentes do cliente.</small></div></div></div><div class="tdc-list"><?php foreach($orders as $o):?><div><a href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><strong><?=brdate($o['order_date'])?> · <?=e($o['number']??$o['omie_code'])?></strong></a><small><?=money($o['total'])?></small></div><?php endforeach;?><?php if(!$orders):?><div>Nenhum pedido encontrado.</div><?php endif;?></div></section>
     </div>
+    <?php if(Auth::can('admin','supervisor')&&!empty($sellerAudit)):?>
+    <section class="tdc-card tdc-seller-audit">
+     <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico de responsabilidade</strong><small>Alterações do vendedor principal, carteira mensal e alinhamento com a Omie.</small></div></div></div>
+     <div class="tdc-seller-audit-list">
+      <?php foreach($sellerAudit as $change):$type=(string)($change['change_type']??'');$monthLabel=!empty($change['month_ref'])?date('m/Y',strtotime($change['month_ref'].'-01')):null;$previous=$change['previous_seller_name']??$change['previous_seller_omie_code']??'Sem vendedor';$next=$change['new_seller_name']??$change['new_seller_omie_code']??'Sem vendedor';?>
+       <div><span class="icon"><i class="fa-solid <?=$type==='monthly_assignment'?'fa-calendar-check':($type==='monthly_reset'?'fa-rotate-left':'fa-user-pen')?>"></i></span><div><strong><?=$type==='monthly_assignment'?'Carteira provisória alterada':($type==='monthly_reset'?'Retorno ao vendedor principal':'Vendedor principal alterado')?></strong><p><?=e((string)$previous)?> <i class="fa-solid fa-arrow-right"></i> <?=e((string)$next)?><?=$monthLabel?' · '.$monthLabel:''?></p><small><?=e($change['actor_name']?:'Sistema')?> · <?=date('d/m/Y H:i',strtotime((string)$change['created_at']))?><?=!empty($change['notes'])?' · '.e($change['notes']):''?></small></div></div>
+      <?php endforeach;?>
+     </div>
+    </section>
+    <?php endif;?>
    </section>
   <?php break;
 
