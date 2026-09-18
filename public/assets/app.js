@@ -263,7 +263,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     try{
       const current=new URL(location.href).pathname.replace(/\/$/,'');
       const target=new URL(link.href).pathname.replace(/\/$/,'');
-      if(target===current||(target!=='/'&&current.startsWith(target+'/')))link.classList.add('active');
+      const clientsHubAudit=section==='clients-audit'&&target.endsWith('/clients');
+      if(target===current||(target!=='/'&&current.startsWith(target+'/'))||clientsHubAudit)link.classList.add('active');
     }catch(e){}
   });
 
