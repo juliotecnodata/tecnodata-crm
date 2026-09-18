@@ -197,6 +197,44 @@ function task_result_label(string $code): string{
 function save_task_result_catalog(array $catalog): void{
  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('task_result_catalog',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(array_values($catalog),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
 }
+function task_type_catalog(): array{
+ $defaults=[
+  ['code'=>'call','label'=>'Ligação','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'whatsapp','label'=>'WhatsApp','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'return','label'=>'Retorno','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'proposal','label'=>'Enviar proposta','contexts'=>['sales'],'active'=>true,'system'=>true],
+  ['code'=>'follow_up','label'=>'Acompanhamento','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'post_sale','label'=>'Pós-venda','contexts'=>['sales'],'active'=>true,'system'=>true],
+  ['code'=>'renewal','label'=>'Renovação','contexts'=>['sales'],'active'=>true,'system'=>true],
+  ['code'=>'collection','label'=>'Cobrança','contexts'=>['collection'],'active'=>true,'system'=>true],
+  ['code'=>'other','label'=>'Outro','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+ ];
+ $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='task_type_catalog'");
+ $saved=$raw?json_decode((string)$raw,true):null;$map=[];foreach($defaults as $item)$map[$item['code']]=$item;
+ if(is_array($saved))foreach($saved as $item){
+  if(!is_array($item))continue;$code=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($item['code']??''))));$label=trim((string)($item['label']??''));
+  if($code===''||$label==='')continue;$contexts=array_values(array_intersect(['sales','collection'],array_map('strval',(array)($item['contexts']??[]))));if(!$contexts)continue;
+  $base=$map[$code]??['code'=>$code,'system'=>false];$map[$code]=$base+[];$map[$code]['label']=$label;$map[$code]['contexts']=$contexts;
+  $map[$code]['active']=!array_key_exists('active',$item)||(bool)$item['active'];$map[$code]['system']=(bool)($base['system']??false);
+ }
+ return array_values($map);
+}
+function task_type_options(string $context,bool $activeOnly=true): array{
+ $context=in_array($context,['sales','collection'],true)?$context:'sales';
+ return array_values(array_filter(task_type_catalog(),static fn($item)=>in_array($context,(array)($item['contexts']??[]),true)&&(!$activeOnly||!empty($item['active']))));
+}
+function task_type_label(string $code): string{
+ foreach(task_type_catalog() as $item)if((string)$item['code']===$code)return (string)$item['label'];
+ return $code!==''?$code:'Retorno / outro';
+}
+function save_task_type_catalog(array $catalog): void{
+ DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('task_type_catalog',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(array_values($catalog),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+}
+function ensure_task_type_column(): void{
+ static $ready=false;if($ready)return;
+ if(!db_column_exists('tasks','task_type_code'))DB::exec("ALTER TABLE tasks ADD COLUMN task_type_code VARCHAR(50) NULL AFTER type, ADD INDEX idx_tasks_task_type(task_type_code)");
+ $ready=true;
+}
 
 function contact_monitoring_user_ids(): ?array{
  $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='contact_monitoring_users'");
@@ -1520,6 +1558,34 @@ $router->get('/agenda',function(){
   'agendaCreatedDate'=>$createdDate,'flash'=>$flash
  ]);
 });
+$router->get('/api/tasks/form-context',function(){
+ Auth::requireLogin();$u=Auth::user();$role=(string)($u['role']??'');$context=$role==='collector'?'collection':'sales';$clientId=max(0,(int)($_GET['client_id']??0));$client=null;
+ if($clientId>0)$client=DB::one("SELECT id,name,document,city,uf FROM clients WHERE id=? AND active=1",[$clientId]);
+ if($role==='seller')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role='seller' ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,name",[(int)$u['id']]);
+ elseif($role==='collector')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role='collector' ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,name",[(int)$u['id']]);
+ else $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector') ORDER BY FIELD(role,'seller','collector'),name");
+ json_response(['ok'=>true,'current_user_id'=>(int)$u['id'],'role'=>$role,'default_context'=>$context,'users'=>$users,'types'=>task_type_catalog(),'client'=>$client]);
+});
+$router->post('/api/tasks',function(){
+ Auth::requireLogin();CSRF::require($_POST['_token']??null);$u=Auth::user();$role=(string)($u['role']??'');
+ try{
+  $clientId=max(0,(int)($_POST['client_id']??0));$assignedId=max(0,(int)($_POST['assigned_user_id']??0));
+  $context=(string)($_POST['context']??($role==='collector'?'collection':'sales'));if(!in_array($context,['sales','collection'],true))$context='sales';
+  if($role==='seller')$context='sales';if($role==='collector')$context='collection';
+  $taskTypeCode=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['task_type_code']??''))));
+  $title=trim((string)($_POST['title']??''));$value=trim((string)($_POST['due_at']??''));$date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
+  $client=$clientId>0?DB::one("SELECT id,name FROM clients WHERE id=? AND active=1",[$clientId]):null;if(!$client)throw new RuntimeException('Selecione um cliente válido.');
+  $assigned=$assignedId>0?DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]):null;if(!$assigned)throw new RuntimeException('Selecione um responsável ativo.');
+  if($context==='sales'&&(string)$assigned['role']!=='seller')throw new RuntimeException('Tarefas comerciais devem ser atribuídas a um consultor de vendas.');
+  if($context==='collection'&&(string)$assigned['role']!=='collector')throw new RuntimeException('Tarefas de cobrança devem ser atribuídas a um usuário da cobrança.');
+  $allowed=array_column(task_type_options($context),'code');if(!in_array($taskTypeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa válido.');
+  if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
+  if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição com até 180 caracteres.');
+  ensure_task_type_column();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,type,task_type_code,title,due_at,status,created_at) VALUES(?,?,?,?,?,?,'pending',NOW())",[$clientId,$assignedId,$context,$taskTypeCode,$title,$date->format('Y-m-d H:i:00')]);
+  json_response(['ok'=>true,'message'=>'Tarefa criada para '.$assigned['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'.','task'=>['client_name'=>$client['name'],'assigned_name'=>$assigned['name'],'task_type'=>task_type_label($taskTypeCode)]]);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
+});
+
 $router->post('/agenda/create',function(){
  Auth::requireLogin();CSRF::require($_POST['_token']??null);
  $u=Auth::user();$role=(string)($u['role']??'');$teamAgenda=in_array($role,['admin','supervisor'],true);$sellerCanDirect=$role==='seller';
@@ -1670,7 +1736,7 @@ $router->get('/settings',function(){
  $data=[
   'flash'=>$flash,
   'settingsAdmin'=>$isAdmin,'monitorUsers'=>$monitorUsers,'monitorIds'=>$monitorIds,'monitorConfigured'=>$monitorConfigured,
-  'taskResults'=>task_result_catalog()
+  'taskResults'=>task_result_catalog(),'taskTypes'=>task_type_catalog()
  ];
  if($isAdmin)$data=array_merge($data,[
   'defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
@@ -1715,6 +1781,26 @@ $router->post('/settings/task-results/{code}/toggle',function($p){
  if($found){save_task_result_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Disponibilidade do resultado atualizada.'];}
  else $_SESSION['settings_flash']=['type'=>'danger','message'=>'Resultado não encontrado.'];
  redirect('/settings#task-results');
+});
+
+$router->post('/settings/task-types',function(){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ try{
+  $label=trim((string)($_POST['label']??''));if($label===''||mb_strlen($label)>80)throw new RuntimeException('Informe um nome de tipo com até 80 caracteres.');
+  $contexts=array_values(array_intersect(['sales','collection'],array_map('strval',(array)($_POST['contexts']??[]))));if(!$contexts)throw new RuntimeException('Selecione onde o tipo será utilizado.');
+  $catalog=task_type_catalog();foreach($catalog as $item)if(mb_strtolower(trim((string)$item['label']))===mb_strtolower($label))throw new RuntimeException('Já existe um tipo de tarefa com esse nome.');
+  $code='custom_'.substr(hash('sha256',mb_strtolower($label).'|'.date('c').'|'.Auth::id()),0,12);$catalog[]=['code'=>$code,'label'=>$label,'contexts'=>$contexts,'active'=>true,'system'=>false];
+  save_task_type_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Tipo de tarefa “'.$label.'” criado.'];
+ }catch(Throwable $e){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível criar o tipo de tarefa: '.$e->getMessage()];}
+ redirect('/settings#task-types');
+});
+$router->post('/settings/task-types/{code}/toggle',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ $code=(string)($p['code']??'');$catalog=task_type_catalog();$found=false;
+ foreach($catalog as &$item)if((string)$item['code']===$code){$item['active']=empty($item['active']);$found=true;break;}unset($item);
+ if($found){save_task_type_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Disponibilidade do tipo de tarefa atualizada.'];}
+ else $_SESSION['settings_flash']=['type'=>'danger','message'=>'Tipo de tarefa não encontrado.'];
+ redirect('/settings#task-types');
 });
 
 $router->post('/settings/freight-default',function(){
@@ -2076,9 +2162,9 @@ $router->get('/api/clients/datatable',function(){
 });
 
 $router->get('/api/clients',function(){
- Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));$agendaScope=(string)($_GET['scope']??'')==='agenda';
+ Auth::requireRole('admin','supervisor','seller','collector');$u=Auth::user();$q=trim((string)($_GET['q']??''));$broadScope=in_array((string)($_GET['scope']??''),['agenda','task'],true);
  [$segmentSql,$segmentParams]=client_segment_filter('general','clients');$effective=client_effective_seller_sql('clients');$w=['active=1',$segmentSql];$p=$segmentParams;
- if($u['role']==='seller'&&!$agendaScope){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
+ if($u['role']==='seller'&&!$broadScope){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('clients'),['CAST(clients.id AS CHAR)']));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
  $items=DB::all(
   "SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,
