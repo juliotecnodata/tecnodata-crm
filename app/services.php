@@ -1759,16 +1759,21 @@ final class GoalService {
  private static bool $virtualGoalTableReady=false;
  private static function ensureVirtualGoalTable(): void{
   if(self::$virtualGoalTableReady)return;
-  DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS virtual_seller_goals(
-   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-   seller_omie_code VARCHAR(80) NOT NULL,
-   month_ref CHAR(7) NOT NULL,
-   sales_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
-   updated_by INT UNSIGNED NULL,
-   updated_at DATETIME NOT NULL,
-   UNIQUE KEY uq_virtual_seller_goal(seller_omie_code,month_ref),
-   INDEX idx_virtual_goal_month(month_ref)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+  $version=1;$raw=null;try{$raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='virtual_goal_schema_version' LIMIT 1");}catch(Throwable $e){}
+  $state=$raw?json_decode((string)$raw,true):null;
+  if(!is_array($state)||(int)($state['version']??0)<$version){
+   DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS virtual_seller_goals(
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    seller_omie_code VARCHAR(80) NOT NULL,
+    month_ref CHAR(7) NOT NULL,
+    sales_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
+    updated_by INT UNSIGNED NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY uq_virtual_seller_goal(seller_omie_code,month_ref),
+    INDEX idx_virtual_goal_month(month_ref)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('virtual_goal_schema_version',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['version'=>$version],JSON_UNESCAPED_UNICODE)]);
+  }
   self::$virtualGoalTableReady=true;
  }
  public static function isVirtualSellerName(string $name): bool{
