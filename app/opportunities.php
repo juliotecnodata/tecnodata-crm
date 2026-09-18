@@ -2,15 +2,21 @@
 declare(strict_types=1);
 
 function sales_flow_enabled(): bool{
+ static $cached=null;
+ if($cached!==null)return $cached;
  try{
   $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='sales_flow_enabled'");
-  if(!$raw)return false;
+  if(!$raw)return $cached=false;
   $v=json_decode((string)$raw,true);
-  return is_array($v)?!empty($v['enabled']):(bool)$v;
- }catch(Throwable){return false;}
+  return $cached=is_array($v)?!empty($v['enabled']):(bool)$v;
+ }catch(Throwable){return $cached=false;}
 }
 
 function ensure_sales_flow_tables(): void{
+ static $ready=false;if($ready)return;
+ $version=1;$raw=null;try{$raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='sales_flow_schema_version' LIMIT 1");}catch(Throwable){}
+ $state=$raw?json_decode((string)$raw,true):null;
+ if(is_array($state)&&(int)($state['version']??0)>=$version){$ready=true;return;}
  DB::exec("CREATE TABLE IF NOT EXISTS pipeline_stages(
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL,
@@ -87,6 +93,8 @@ function ensure_sales_flow_tables(): void{
   $hasOpportunityTask=DB::one("SHOW COLUMNS FROM tasks LIKE 'opportunity_id'");
   if(!$hasOpportunityTask)DB::exec("ALTER TABLE tasks ADD COLUMN opportunity_id BIGINT UNSIGNED NULL AFTER client_id, ADD INDEX idx_tasks_opportunity(opportunity_id,status)");
  }catch(Throwable){}
+ DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('sales_flow_schema_version',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['version'=>$version],JSON_UNESCAPED_UNICODE)]);
+ $ready=true;
 }
 
 function sales_flow_stages(bool $activeOnly=true): array{
