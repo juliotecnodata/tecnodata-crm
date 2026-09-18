@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       };
       if(table.dataset.search)options.search={search:table.dataset.search};
-      if(serverUrl){options.processing=true;options.serverSide=true;options.ajax={url:serverUrl,dataSrc:'data',error:()=>showNotice('danger','Erro ao carregar a tabela','Não foi possível consultar os registros. Tente novamente.')};}
+      if(serverUrl){options.processing=true;options.serverSide=true;options.ajax={url:serverUrl,dataSrc:'data',error:xhr=>{let detail='Não foi possível consultar os registros. Tente novamente.';try{const payload=xhr?.responseJSON||JSON.parse(xhr?.responseText||'{}');if(payload?.error)detail=String(payload.error);}catch(e){}showNotice('danger','Erro ao carregar a tabela',detail);}};}
       table._dataTable=new DataTable(table,options);
       return table._dataTable;
   };
