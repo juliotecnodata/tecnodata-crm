@@ -33,3 +33,7 @@
  .tdopp-stage-setting-list form{grid-template-columns:20px 1fr 60px}
  .tdopp-stage-setting-list form button{grid-column:auto}
 }
+
+.tdopp-detail-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tdopp-detail-actions .tdopp-btn{min-height:36px}
+@media(max-width:720px){.tdopp-detail-actions{width:100%}.tdopp-detail-actions .tdopp-btn{flex:1}}
