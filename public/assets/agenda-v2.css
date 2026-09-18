@@ -164,3 +164,5 @@ body[data-page="agenda"] .content{max-width:none;padding:16px 18px}
  .tda-create-modal footer{flex-direction:column-reverse}
  .tda-create-modal footer .tda-btn{width:100%}
 }
+
+.tda-type-context{display:block;margin-top:3px;color:#7A8C97;font-size:8px;font-weight:700}
