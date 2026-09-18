@@ -199,58 +199,98 @@ document.addEventListener('DOMContentLoaded',()=>{
     productDetailModal.addEventListener('click',event=>{if(event.target===productDetailModal)productDetailModal.close();});
   }
 
-  const agendaCreateModal=document.querySelector('[data-agenda-create-modal]');
-  if(agendaCreateModal){
-    const agendaForm=agendaCreateModal.querySelector('[data-agenda-create-form]');
-    const clientSearch=agendaCreateModal.querySelector('[data-agenda-client-search]');
-    const clientId=agendaCreateModal.querySelector('[data-agenda-client-id]');
-    const clientResults=agendaCreateModal.querySelector('[data-agenda-client-results]');
-    const clientSelected=agendaCreateModal.querySelector('[data-agenda-client-selected]');
-    const dueInput=agendaCreateModal.querySelector('[name="due_at"]');
-    const escAgenda=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
-    let agendaClientTimer;
-    const defaultAgendaDate=()=>{const date=new Date(Date.now()+60*60*1000);date.setMinutes(0,0,0);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);};
-    const clearAgendaClient=()=>{clientId.value='';clientSelected.innerHTML='';clientSearch.value='';clientSearch.hidden=false;clientSearch.focus();};
-    const selectAgendaClient=client=>{
-      clientId.value=String(client.id||'');clientSearch.hidden=true;clientResults.innerHTML='';
-      const owner=client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:'Sem responsável de carteira';
-      clientSelected.innerHTML='<span><strong>'+escAgenda(client.name||'Cliente')+'</strong><small>'+escAgenda([client.document,client.city,client.uf,owner].filter(Boolean).join(' • '))+'</small></span><button type="button" title="Trocar cliente"><i class="fa-solid fa-xmark"></i></button>';
-      clientSelected.querySelector('button')?.addEventListener('click',clearAgendaClient);
-    };
-    const findAgendaClients=async()=>{
-      const query=clientSearch.value.trim();if(query.length<2){clientResults.innerHTML='';return;}
-      clientResults.innerHTML='<div class="search-result"><span>Buscando clientes...</span></div>';
-      try{
-        const response=await fetch((window.APP_URL||'')+'/api/clients?scope=agenda&q='+encodeURIComponent(query),{credentials:'same-origin',headers:{Accept:'application/json'}});
-        const data=await response.json();if(!response.ok)throw new Error(data.error||'Falha na busca.');
-        const items=Array.isArray(data.items)?data.items:[];
-        clientResults.innerHTML=items.map((client,index)=>{const owner=client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:'Sem responsável de carteira';return '<button class="search-result" type="button" data-agenda-client="'+index+'"><span><strong>'+escAgenda(client.name)+'</strong><small>'+escAgenda([client.document,client.city,client.uf,owner].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>';}).join('')||'<div class="search-result"><span>Nenhum cliente encontrado.</span></div>';
-        clientResults.querySelectorAll('[data-agenda-client]').forEach(button=>button.addEventListener('click',()=>selectAgendaClient(items[Number(button.dataset.agendaClient)]||{})));
-      }catch(error){clientResults.innerHTML='';showNotice('danger','Não foi possível buscar clientes',error.message||'Tente novamente.');}
-    };
-    clientSearch?.addEventListener('input',()=>{clearTimeout(agendaClientTimer);agendaClientTimer=setTimeout(findAgendaClients,240);});
-    document.querySelectorAll('[data-agenda-create]').forEach(button=>button.addEventListener('click',()=>{agendaForm?.reset();clearAgendaClient();if(dueInput){dueInput.min=defaultAgendaDate();dueInput.value=defaultAgendaDate();}agendaCreateModal.showModal();}));
-    agendaCreateModal.querySelectorAll('[data-agenda-create-close]').forEach(button=>button.addEventListener('click',()=>agendaCreateModal.close()));
-    agendaCreateModal.addEventListener('click',event=>{if(event.target===agendaCreateModal)agendaCreateModal.close();});
-    agendaForm?.addEventListener('submit',event=>{if(!clientId.value){event.preventDefault();showNotice('warning','Selecione um cliente','Use a busca e escolha o cliente antes de salvar.');clientSearch.hidden=false;clientSearch.focus();}});
-  }
+  const globalTaskModal=document.querySelector('[data-global-task-modal]');
+  if(globalTaskModal){
+    const form=globalTaskModal.querySelector('[data-global-task-form]');
+    const clientIdInput=globalTaskModal.querySelector('[data-task-client-id]');
+    const clientSearch=globalTaskModal.querySelector('[data-task-client-search]');
+    const clientResults=globalTaskModal.querySelector('[data-task-client-results]');
+    const clientSelected=globalTaskModal.querySelector('[data-task-client-selected]');
+    const dueInput=globalTaskModal.querySelector('[data-task-due]');
+    const contextSelect=globalTaskModal.querySelector('[data-task-context]');
+    const assignedSelect=globalTaskModal.querySelector('[data-task-assigned]');
+    const typeSelect=globalTaskModal.querySelector('[data-task-type]');
+    const base=String(window.APP_URL||'').replace(/\/$/,'');
+    const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    const localDateTime=minutes=>{const date=new Date(Date.now()+minutes*60000);const pad=n=>String(n).padStart(2,'0');return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());};
+    let config=null,clientTimer=null,currentClient=null,openingTrigger=null;
 
-  const clientConsultantDialog=document.querySelector('[data-client-consultant-dialog]');
-  if(clientConsultantDialog){
-    const dueInput=clientConsultantDialog.querySelector('[data-client-consultant-due]');
-    const form=clientConsultantDialog.querySelector('[data-client-consultant-form]');
-    const localDateTime=minutes=>{
-      const date=new Date(Date.now()+minutes*60000);
-      const pad=n=>String(n).padStart(2,'0');
-      return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+    const clearClient=()=>{
+      currentClient=null;clientIdInput.value='';clientSelected.innerHTML='';clientSearch.hidden=false;clientSearch.value='';clientResults.innerHTML='';clientSearch.focus();
     };
-    document.querySelectorAll('[data-client-consultant-schedule]').forEach(button=>button.addEventListener('click',()=>{
-      form?.reset();
-      if(dueInput){dueInput.min=localDateTime(0);dueInput.value=localDateTime(30);}
-      clientConsultantDialog.showModal();
-    }));
-    clientConsultantDialog.querySelectorAll('[data-client-consultant-close]').forEach(button=>button.addEventListener('click',()=>clientConsultantDialog.close()));
-    clientConsultantDialog.addEventListener('click',event=>{if(event.target===clientConsultantDialog)clientConsultantDialog.close();});
+    const selectClient=client=>{
+      currentClient=client||null;clientIdInput.value=String(client?.id||'');clientSearch.hidden=true;clientSearch.value='';clientResults.innerHTML='';
+      const owner=client?.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:'';
+      clientSelected.innerHTML='<div><strong>'+esc(client?.name||'Cliente')+'</strong><small>'+esc([client?.document,client?.city,client?.uf,owner].filter(Boolean).join(' • '))+'</small></div><button type="button" title="Trocar cliente"><i class="fa-solid fa-xmark"></i></button>';
+      clientSelected.querySelector('button')?.addEventListener('click',clearClient);
+    };
+    const renderSelectors=()=>{
+      if(!config)return;
+      const context=contextSelect.value||config.default_context||'sales';
+      const roleNeeded=context==='collection'?'collector':'seller';
+      const users=(config.users||[]).filter(user=>String(user.role||'')===roleNeeded);
+      const previous=assignedSelect.value;
+      assignedSelect.innerHTML='<option value="">Selecione o responsável</option>'+users.map(user=>'<option value="'+Number(user.id)+'">'+esc(user.name)+(Number(user.id)===Number(config.current_user_id)?' · você':'')+'</option>').join('');
+      const preferred=openingTrigger?.dataset.taskAssignedId||previous||String(config.current_user_id||'');
+      if([...assignedSelect.options].some(option=>option.value===String(preferred)))assignedSelect.value=String(preferred);
+      else if(users.length===1)assignedSelect.value=String(users[0].id);
+
+      const types=(config.types||[]).filter(type=>type.active!==false&&(type.contexts||[]).includes(context));
+      typeSelect.innerHTML='<option value="">Selecione o tipo</option>'+types.map(type=>'<option value="'+esc(type.code)+'">'+esc(type.label)+'</option>').join('');
+      const preferredType=openingTrigger?.dataset.taskType||'';
+      if(preferredType&&[...typeSelect.options].some(option=>option.value===preferredType))typeSelect.value=preferredType;
+    };
+    const loadConfig=async clientId=>{
+      const url=base+'/api/tasks/form-context'+(clientId?'?client_id='+encodeURIComponent(clientId):'');
+      const response=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json'}});
+      const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível preparar a tarefa.');
+      config=data;
+      const requestedContext=openingTrigger?.dataset.taskContext||data.default_context||'sales';
+      contextSelect.value=requestedContext;
+      contextSelect.disabled=['seller','collector'].includes(String(data.role||''));
+      if(data.client)selectClient(data.client);
+      renderSelectors();
+    };
+    const searchClients=async()=>{
+      const query=clientSearch.value.trim();if(query.length<2){clientResults.innerHTML='';return;}
+      clientResults.innerHTML='<div class="tdcrm-task-search-state">Buscando clientes...</div>';
+      try{
+        const response=await fetch(base+'/api/clients?scope=task&q='+encodeURIComponent(query),{credentials:'same-origin',headers:{Accept:'application/json'}});
+        const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Falha na busca.');
+        const items=Array.isArray(data.items)?data.items:[];
+        clientResults.innerHTML=items.length?items.map((client,index)=>'<button type="button" data-global-task-client="'+index+'"><span><strong>'+esc(client.name)+'</strong><small>'+esc([client.document,client.city,client.uf,client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:''].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>').join(''):'<div class="tdcrm-task-search-state">Nenhum cliente encontrado.</div>';
+        clientResults.querySelectorAll('[data-global-task-client]').forEach(button=>button.addEventListener('click',()=>selectClient(items[Number(button.dataset.globalTaskClient)]||{})));
+      }catch(error){clientResults.innerHTML='';showNotice('danger','Busca de clientes',error.message||'Não foi possível consultar os clientes.');}
+    };
+    const openTask=async trigger=>{
+      openingTrigger=trigger;config=null;currentClient=null;form?.reset();clientIdInput.value='';clientSelected.innerHTML='';clientResults.innerHTML='';clientSearch.hidden=false;clientSearch.value='';
+      dueInput.min=localDateTime(0);dueInput.value=localDateTime(30);
+      assignedSelect.innerHTML='<option value="">Carregando responsáveis...</option>';typeSelect.innerHTML='<option value="">Carregando tipos...</option>';
+      globalTaskModal.showModal();
+      const clientId=Number(trigger?.dataset.taskClientId||0);
+      const clientName=String(trigger?.dataset.taskClientName||'').trim();
+      if(clientId&&clientName)selectClient({id:clientId,name:clientName});
+      try{await loadConfig(clientId);}catch(error){showNotice('danger','Nova tarefa',error.message||'Não foi possível abrir o formulário.');globalTaskModal.close();}
+    };
+
+    document.addEventListener('click',event=>{const trigger=event.target.closest?.('[data-global-task-open]');if(trigger){event.preventDefault();openTask(trigger);}});
+    contextSelect?.addEventListener('change',renderSelectors);
+    clientSearch?.addEventListener('input',()=>{clearTimeout(clientTimer);clientTimer=setTimeout(searchClients,240);});
+    globalTaskModal.querySelectorAll('[data-global-task-close]').forEach(button=>button.addEventListener('click',()=>globalTaskModal.close()));
+    globalTaskModal.addEventListener('click',event=>{if(event.target===globalTaskModal)globalTaskModal.close();});
+    form?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if(!clientIdInput.value){showNotice('warning','Selecione um cliente','Busque e selecione o cliente antes de criar a tarefa.');clientSearch.hidden=false;clientSearch.focus();return;}
+      const submit=form.querySelector('[type="submit"]');const original=submit?.innerHTML;if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Criando...';}
+      try{
+        const data=new FormData(form);if(contextSelect.disabled)data.set('context',contextSelect.value);
+        const response=await fetch(base+'/api/tasks',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},body:data});
+        const payload=await response.json().catch(()=>({}));if(!response.ok||!payload.ok)throw new Error(payload.error||'Não foi possível criar a tarefa.');
+        globalTaskModal.close();showNotice('success','Tarefa criada',payload.message||'A tarefa foi criada com sucesso.',9000);
+        if(document.body.dataset.page==='agenda')setTimeout(()=>location.reload(),700);
+      }catch(error){showNotice('danger','Não foi possível criar a tarefa',error.message||'Revise os dados e tente novamente.',10000);}
+      finally{if(submit){submit.disabled=false;submit.innerHTML=original;}}
+    });
   }
 
   let lastValidationNotice=0;
