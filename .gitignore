@@ -4,3 +4,5 @@
 /vendor
 /storage/logs/*.log
 /storage/cache/*
+/storage/sess_*
+/storage/*.tmp
