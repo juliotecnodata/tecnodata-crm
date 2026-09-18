@@ -44,6 +44,8 @@ final class ClientSegmentPolicy {
   $upgrading=!isset($columns['omie_seller_code'])||!isset($columns['portfolio_locked']);
   if(!isset($columns['omie_seller_code']))DB::exec("ALTER TABLE clients ADD COLUMN omie_seller_code VARCHAR(80) NULL AFTER seller_omie_code, ADD INDEX idx_clients_omie_seller(omie_seller_code,active)");
   if(!isset($columns['portfolio_locked']))DB::exec("ALTER TABLE clients ADD COLUMN portfolio_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER omie_seller_code");
+  DB::exec("CREATE TABLE IF NOT EXISTS client_portfolio_assignments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,month_ref CHAR(7) NOT NULL,client_id BIGINT UNSIGNED NOT NULL,seller_omie_code VARCHAR(80) NULL,created_by INT UNSIGNED NULL,updated_by INT UNSIGNED NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_client_portfolio_month(month_ref,client_id),INDEX idx_portfolio_month_seller(month_ref,seller_omie_code),INDEX idx_portfolio_client_month(client_id,month_ref),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE)");
+  DB::exec("CREATE TABLE IF NOT EXISTS client_seller_audit(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,actor_user_id INT UNSIGNED NULL,change_type VARCHAR(40) NOT NULL,month_ref CHAR(7) NULL,previous_seller_omie_code VARCHAR(80) NULL,new_seller_omie_code VARCHAR(80) NULL,previous_omie_seller_code VARCHAR(80) NULL,new_omie_seller_code VARCHAR(80) NULL,notes VARCHAR(255) NULL,created_at DATETIME NOT NULL,INDEX idx_client_seller_audit_client(client_id,created_at),INDEX idx_client_seller_audit_month(month_ref,created_at),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL)");
   if($upgrading){
    DB::exec("UPDATE clients SET omie_seller_code=COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.recomendacoes.codigo_vendedor')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.recomendacoes.codigo_vendedor')),''))");
    $protected=self::crmPortfolioSellerCodes();if($protected)DB::exec("UPDATE clients SET portfolio_locked=1 WHERE seller_omie_code IN (".implode(',',array_fill(0,count($protected),'?')).")",$protected);
@@ -62,6 +64,44 @@ final class ClientSegmentPolicy {
   return array_values($codes);
  }
  public static function isCrmPortfolioSeller(?string $sellerCode): bool{return in_array(trim((string)$sellerCode),self::crmPortfolioSellerCodes(),true);}
+}
+
+final class ClientPortfolioService {
+ public static function monthRef(?string $value=null): string{
+  $value=trim((string)$value);
+  return preg_match('/^\\d{4}-(0[1-9]|1[0-2])$/',$value)?$value:date('Y-m');
+ }
+ public static function assignment(int $clientId,?string $month=null): ?array{
+  ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);
+  return DB::one("SELECT * FROM client_portfolio_assignments WHERE month_ref=? AND client_id=? LIMIT 1",[$month,$clientId]);
+ }
+ public static function effectiveSellerCode(int $clientId,?string $month=null): string{
+  ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);
+  $row=DB::one("SELECT c.seller_omie_code principal_seller,pa.id assignment_id,pa.seller_omie_code month_seller FROM clients c LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=? WHERE c.id=? LIMIT 1",[$month,$clientId]);
+  if(!$row)return '';
+  return $row['assignment_id']!==null?trim((string)($row['month_seller']??'')):trim((string)($row['principal_seller']??''));
+ }
+ public static function setAssignment(int $clientId,?string $month,?string $sellerCode,int $actorId,string $notes=''): void{
+  ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);$sellerCode=trim((string)$sellerCode);$sellerCode=$sellerCode!==''?$sellerCode:null;
+  $client=DB::one("SELECT id,seller_omie_code,omie_seller_code FROM clients WHERE id=? AND active=1",[$clientId]);if(!$client)throw new RuntimeException('Cliente não encontrado.');
+  if($sellerCode!==null&&!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]))throw new RuntimeException('Vendedor inválido ou inativo.');
+  $previous=self::effectiveSellerCode($clientId,$month);
+  DB::exec("INSERT INTO client_portfolio_assignments(month_ref,client_id,seller_omie_code,created_by,updated_by,created_at,updated_at) VALUES(?,?,?,?,?,NOW(),NOW()) ON DUPLICATE KEY UPDATE seller_omie_code=VALUES(seller_omie_code),updated_by=VALUES(updated_by),updated_at=NOW()",[$month,$clientId,$sellerCode,$actorId?:null,$actorId?:null]);
+  $next=$sellerCode??'';
+  if($previous!==$next)DB::exec("INSERT INTO client_seller_audit(client_id,actor_user_id,change_type,month_ref,previous_seller_omie_code,new_seller_omie_code,previous_omie_seller_code,new_omie_seller_code,notes,created_at) VALUES(?,?,'monthly_assignment',?,?,?,?,?,?,NOW())",[$clientId,$actorId?:null,$month,$previous!==''?$previous:null,$next!==''?$next:null,$client['omie_seller_code']??null,$client['omie_seller_code']??null,mb_substr($notes,0,255)]);
+ }
+ public static function clearAssignment(int $clientId,?string $month,int $actorId,string $notes=''): void{
+  ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);$assignment=self::assignment($clientId,$month);if(!$assignment)return;
+  $previous=self::effectiveSellerCode($clientId,$month);$client=DB::one("SELECT seller_omie_code,omie_seller_code FROM clients WHERE id=?",[$clientId]);
+  DB::exec("DELETE FROM client_portfolio_assignments WHERE month_ref=? AND client_id=?",[$month,$clientId]);
+  $next=trim((string)($client['seller_omie_code']??''));
+  DB::exec("INSERT INTO client_seller_audit(client_id,actor_user_id,change_type,month_ref,previous_seller_omie_code,new_seller_omie_code,previous_omie_seller_code,new_omie_seller_code,notes,created_at) VALUES(?,?,'monthly_reset',?,?,?,?,?,?,NOW())",[$clientId,$actorId?:null,$month,$previous!==''?$previous:null,$next!==''?$next:null,$client['omie_seller_code']??null,$client['omie_seller_code']??null,mb_substr($notes,0,255)]);
+ }
+ public static function logPrincipalChange(int $clientId,int $actorId,?string $previous,?string $next,?string $previousOmie,?string $nextOmie,string $notes=''): void{
+  $previous=trim((string)$previous);$next=trim((string)$next);$previousOmie=trim((string)$previousOmie);$nextOmie=trim((string)$nextOmie);
+  if($previous===$next&&$previousOmie===$nextOmie)return;
+  DB::exec("INSERT INTO client_seller_audit(client_id,actor_user_id,change_type,month_ref,previous_seller_omie_code,new_seller_omie_code,previous_omie_seller_code,new_omie_seller_code,notes,created_at) VALUES(?,?,'principal_seller',NULL,?,?,?,?,?,NOW())",[$clientId,$actorId?:null,$previous!==''?$previous:null,$next!==''?$next:null,$previousOmie!==''?$previousOmie:null,$nextOmie!==''?$nextOmie:null,mb_substr($notes,0,255)]);
+ }
 }
 
 final class FreightQuoteService {
@@ -87,8 +127,9 @@ final class FreightQuoteService {
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$clientId]);
   if(!$client)throw new RuntimeException('Selecione um cliente válido antes de calcular o frete.');
   if(($user['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client)))throw new RuntimeException('Este cliente pertence a uma operação virtual e não está disponível para a carteira comercial.');
-  $unassigned=trim((string)($client['seller_omie_code']??''))==='';
-  if(($user['role']??'')==='seller'&&!$unassigned&&(string)$client['seller_omie_code']!==(string)($user['seller_omie_code']??''))throw new RuntimeException('Este cliente não está disponível para pedidos deste vendedor.');
+  $effectiveSeller=ClientPortfolioService::effectiveSellerCode($clientId);
+  $unassigned=$effectiveSeller==='';
+  if(($user['role']??'')==='seller'&&!$unassigned&&$effectiveSeller!==(string)($user['seller_omie_code']??''))throw new RuntimeException('Este cliente não está disponível para pedidos deste vendedor na carteira do mês.');
 
   $form=ClientService::formFromClient($client);
   $document=preg_replace('/\D+/','',(string)($client['document']??$form['document']??''));
@@ -448,9 +489,14 @@ final class ClientService {
   $raw['omie_status']=$omieAlreadyUpdated?'local_confirmed':(str_starts_with((string)$client['omie_code'],'LOCAL-')?'pending':'pending_update');
   $raw['source']=$omieAlreadyUpdated?'bulk_local_confirmed':'bulk_update_pending';
   $rawJson=json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-  if($changeSeller&&$omieAlreadyUpdated)DB::exec("UPDATE clients SET seller_omie_code=?,omie_seller_code=?,portfolio_locked=1,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
-  elseif($changeSeller)DB::exec("UPDATE clients SET seller_omie_code=?,portfolio_locked=1,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
-  else DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[$rawJson,$id]);
+  $previousSeller=trim((string)($client['seller_omie_code']??''));$previousOmieSeller=trim((string)($client['omie_seller_code']??''));
+  if($changeSeller&&$omieAlreadyUpdated){
+   DB::exec("UPDATE clients SET seller_omie_code=?,omie_seller_code=?,portfolio_locked=0,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
+   ClientPortfolioService::logPrincipalChange($id,Auth::id(),$previousSeller,$sellerCode,$previousOmieSeller,$sellerCode,'Alteração em massa confirmada como já aplicada na Omie.');
+  }elseif($changeSeller){
+   DB::exec("UPDATE clients SET seller_omie_code=?,portfolio_locked=1,raw_json=?,updated_at=NOW() WHERE id=?",[$sellerCode!==''?$sellerCode:null,$rawJson,$id]);
+   ClientPortfolioService::logPrincipalChange($id,Auth::id(),$previousSeller,$sellerCode,$previousOmieSeller,$previousOmieSeller,'Alteração em massa pendente de sincronização com a Omie.');
+  }else DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[$rawJson,$id]);
  }
 
  private static function tagNames(mixed $items): array{
@@ -540,7 +586,7 @@ final class ClientService {
 
   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
             VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())",
-   [$localCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
+   [$localCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
 
   $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$localCode]);
   return ['client'=>$client,'payload'=>$p];
@@ -567,8 +613,10 @@ final class ClientService {
     if($conflict)throw new RuntimeException('Este cliente já está vinculado no CRM a "'.$conflict['name'].'".');
 
     $remoteName=(string)($remoteExisting['nome_fantasia']??$remoteExisting['razao_social']??'Cliente Omie');
-    $raw=['request'=>$built['payload'],'response'=>$remoteExisting,'source'=>'omie_linked_existing','omie_status'=>'linked'];
-    DB::exec("UPDATE clients SET omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+    $remoteSeller=trim((string)($remoteExisting['recomendacoes']['codigo_vendedor']??$remoteExisting['codigo_vendedor']??''));
+    $desiredSeller=trim((string)($client['seller_omie_code']??''));
+    $raw=['request'=>$built['payload'],'response'=>$remoteExisting,'source'=>'omie_linked_existing','omie_status'=>$desiredSeller===$remoteSeller?'linked':'pending_update'];
+    DB::exec("UPDATE clients SET omie_code=?,omie_seller_code=?,portfolio_locked=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,$remoteSeller!==''?$remoteSeller:null,$desiredSeller===$remoteSeller?0:1,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
     return ['status'=>'already_exists','message'=>'Este CPF/CNPJ já existe na Omie como "'.$remoteName.'" (código '.$remoteCode.'). Nenhum cadastro duplicado foi criado; o CRM apenas vinculou os registros.'];
    }
 
@@ -585,7 +633,8 @@ final class ClientService {
     'source'=>'omie_created_from_local',
     'omie_status'=>'linked'
    ];
-   DB::exec("UPDATE clients SET omie_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+   $confirmedSeller=trim((string)($client['seller_omie_code']??''));
+   DB::exec("UPDATE clients SET omie_code=?,omie_seller_code=?,portfolio_locked=0,raw_json=?,updated_at=NOW() WHERE id=?",[$remoteCode,$confirmedSeller!==''?$confirmedSeller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
    return [
     'status'=>'created',
     'message'=>'Cliente integrado com sucesso. Código Omie '.$remoteCode.'.'
@@ -622,7 +671,9 @@ final class ClientService {
   $p['tags']=array_map(static fn($tag)=>['tag'=>$tag],$desiredTags);
   $raw=['request'=>$p,'response'=>$response,'tag_identity_response'=>$tagIdentityResponse,'tag_responses'=>$tagResponses,'confirmed'=>$confirmed,'source'=>'omie_updated_after_local_save','omie_status'=>'linked'];
   $syncedSeller=trim((string)($client['seller_omie_code']??''));
-  DB::exec("UPDATE clients SET omie_seller_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$syncedSeller!==''?$syncedSeller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  $previousOmieSeller=trim((string)($client['omie_seller_code']??''));
+  DB::exec("UPDATE clients SET omie_seller_code=?,portfolio_locked=0,raw_json=?,updated_at=NOW() WHERE id=?",[$syncedSeller!==''?$syncedSeller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  ClientPortfolioService::logPrincipalChange($id,(int)($u['id']??0),(string)($client['seller_omie_code']??''),(string)($client['seller_omie_code']??''),$previousOmieSeller,$syncedSeller,'Sincronização confirmada pela Omie.');
   return ['status'=>'updated','message'=>'Alterações locais sincronizadas com sucesso na Omie. Código Omie '.$originalOmieCode.'.'];
  }
 
@@ -711,8 +762,11 @@ final class ClientService {
    'previous_omie_code'=>$isLocal?null:(string)$client['omie_code'],
   ];
 
-  DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,omie_seller_code=?,portfolio_locked=0,raw_json=?,updated_at=NOW() WHERE id=?",
-   [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$seller!==''?$seller:null,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  $previousSeller=trim((string)($client['seller_omie_code']??''));$previousOmieSeller=trim((string)($client['omie_seller_code']??''));
+  $lock=$seller!==$previousOmieSeller?1:0;
+  DB::exec("UPDATE clients SET name=?,legal_name=?,document=?,email=?,phone=?,city=?,uf=?,seller_omie_code=?,portfolio_locked=?,raw_json=?,updated_at=NOW() WHERE id=?",
+   [$name,(string)($p['razao_social']??''),(string)($p['cnpj_cpf']??''),(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,$lock,json_encode($raw,JSON_UNESCAPED_UNICODE),$id]);
+  ClientPortfolioService::logPrincipalChange($id,(int)($u['id']??0),$previousSeller,$seller,$previousOmieSeller,$previousOmieSeller,'Vendedor principal alterado no cadastro do CRM.');
 
   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
@@ -720,8 +774,9 @@ final class ClientService {
  public static function deleteLocalOnly(int $id,array $u): array{
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
-  if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
-
+  if(!str_starts_with((string)$client['omie_code'],'LOCAL-'))throw new RuntimeException('Este cliente já está vinculado à Omie. A remoção somente local foi bloqueada para preservar vínculos e histórico.');
+  $history=(int)(DB::scalar("SELECT (SELECT COUNT(*) FROM activities WHERE client_id=?)+(SELECT COUNT(*) FROM tasks WHERE client_id=?)+(SELECT COUNT(*) FROM collection_actions WHERE client_id=?)",[$id,$id,$id])??0);
+  if($history>0)throw new RuntimeException('Este cliente possui agenda, tarefas ou atendimentos. A exclusão local foi bloqueada para preservar o histórico.');
   DB::exec("DELETE FROM clients WHERE id=?",[$id]);
   return ['status'=>'local_deleted','client'=>$client];
  }
@@ -1300,8 +1355,9 @@ final class OrderService {
   $r=self::ready();if(!$r['ok'])throw new RuntimeException('Configuração incompleta: '.implode(', ',$r['missing']).'.');$defaults=$r['defaults'];
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[(int)($i['client_id']??0)]);if(!$client)throw new RuntimeException('Cliente inválido.');
   if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client)))throw new RuntimeException('Este cliente pertence a uma operação virtual e não pode entrar no fluxo dos vendedores reais.');
-  $clientUnassigned=trim((string)($client['seller_omie_code']??''))==='';
-  if($u['role']==='seller'&&!$clientUnassigned&&(string)$client['seller_omie_code']!==(string)$u['seller_omie_code']){
+  $effectiveSeller=ClientPortfolioService::effectiveSellerCode((int)$client['id']);
+  $clientUnassigned=$effectiveSeller==='';
+  if($u['role']==='seller'&&!$clientUnassigned&&$effectiveSeller!==(string)$u['seller_omie_code']){
    $editableOriginal=null;$editingId=(int)($i['edit_order_id']??0);
    if($editingId>0)$editableOriginal=DB::one("SELECT client_omie_code FROM orders WHERE id=? AND seller_omie_code=?",[$editingId,(string)$u['seller_omie_code']]);
    if(!$editableOriginal||(string)$editableOriginal['client_omie_code']!==(string)$client['omie_code'])throw new RuntimeException('Cliente fora da sua carteira.');
@@ -2161,7 +2217,7 @@ final class SyncService {
   return ['code'=>$code,'number'=>$number,'client'=>$client,'seller'=>$seller,'date'=>$serviceDate,'total'=>$total,'status'=>$status];
  }
  private static function pick(array $d,array $keys): array{foreach($keys as $k)if(isset($d[$k])&&is_array($d[$k]))return $d[$k];return [];}
- private static function purgeInactiveClients(): int{return DB::exec('DELETE FROM clients WHERE active=0');}
+ private static function purgeInactiveClients(): int{return 0;}
  private static function upsertClients(array $items,?array &$stats=null): int{
   ClientSegmentPolicy::ensureSchema();
   $processed=0;$activeCount=0;$inactiveCount=0;
@@ -2171,11 +2227,24 @@ final class SyncService {
    if($c==='')continue;
    $phone=trim((string)($r['telefone1_ddd']??'').' '.(string)($r['telefone1_numero']??''));
    $active=mb_strtoupper((string)($r['inativo']??'N'))==='S'?0:1;
+   $seller=trim((string)($r['codigo_vendedor']??($r['recomendacoes']['codigo_vendedor']??'')));
+   $existing=DB::one("SELECT id,raw_json,portfolio_locked FROM clients WHERE omie_code=? LIMIT 1",[$c]);
+   $existingRaw=$existing?json_decode((string)($existing['raw_json']??''),true):null;
+   $pendingStatus=is_array($existingRaw)?(string)($existingRaw['omie_status']??''):'';
+   $hasPending=$existing&&in_array($pendingStatus,['pending','pending_update'],true);
    if(!$active){
-    DB::exec("DELETE FROM clients WHERE omie_code=?",[$c]);
+    if($existing){
+     if(!is_array($existingRaw))$existingRaw=[];
+     $existingRaw['remote_snapshot']=$r;$existingRaw['remote_inactive']=true;
+     DB::exec("UPDATE clients SET active=0,omie_seller_code=?,raw_json=?,updated_at=NOW() WHERE id=?",[$seller!==''?$seller:null,json_encode($existingRaw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$existing['id']]);
+    }
     $inactiveCount++;$processed++;continue;
    }
-   $seller=trim((string)($r['codigo_vendedor']??($r['recomendacoes']['codigo_vendedor']??'')));
+   if($hasPending){
+    $existingRaw['remote_snapshot']=$r;$existingRaw['remote_inactive']=false;
+    DB::exec("UPDATE clients SET active=1,omie_seller_code=?,raw_json=? WHERE id=?",[$seller!==''?$seller:null,json_encode($existingRaw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$existing['id']]);
+    $activeCount++;$processed++;continue;
+   }
    $raw=json_encode($r,JSON_UNESCAPED_UNICODE);
    DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
              VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,NOW())
