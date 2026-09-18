@@ -1264,30 +1264,38 @@ final class OrderService {
  }
 
  public static function ensureCoreCatalogs(): array{
-  DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
-  $checks=[
-   'stages'=>"SELECT COUNT(*) FROM order_stages WHERE active=1",
-   'categories'=>"SELECT COUNT(*) FROM categories WHERE active=1",
-   'departments'=>"SELECT COUNT(*) FROM departments WHERE active=1",
-   'accounts'=>"SELECT COUNT(*) FROM financial_accounts WHERE active=1",
-   'payment_terms'=>"SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999'",
-  ];
+  static $schemaReady=false;
+  if(!$schemaReady){
+   $version=2;$raw=null;try{$raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='order_core_schema_version' LIMIT 1");}catch(Throwable){}
+   $state=$raw?json_decode((string)$raw,true):null;
+   if(!is_array($state)||(int)($state['version']??0)<$version){
+    DB::conn()->exec(DB::sql("CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"));
+    $orderIndexes=[];foreach(DB::all("SHOW INDEX FROM orders") as $idx)$orderIndexes[(string)($idx['Key_name']??'')]=true;
+    if(!isset($orderIndexes['idx_orders_client_date']))DB::exec("ALTER TABLE orders ADD INDEX idx_orders_client_date(client_omie_code,order_date)");
+    $serviceIndexes=[];foreach(DB::all("SHOW INDEX FROM service_orders") as $idx)$serviceIndexes[(string)($idx['Key_name']??'')]=true;
+    if(!isset($serviceIndexes['idx_service_orders_client_date']))DB::exec("ALTER TABLE service_orders ADD INDEX idx_service_orders_client_date(client_omie_code,service_date)");
+    DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('order_core_schema_version',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['version'=>$version],JSON_UNESCAPED_UNICODE)]);
+   }
+   $schemaReady=true;
+  }
+  $counts=DB::one("SELECT
+   (SELECT COUNT(*) FROM order_stages WHERE active=1) stages,
+   (SELECT COUNT(*) FROM categories WHERE active=1) categories,
+   (SELECT COUNT(*) FROM departments WHERE active=1) departments,
+   (SELECT COUNT(*) FROM financial_accounts WHERE active=1) accounts,
+   (SELECT COUNT(*) FROM payment_terms WHERE active=1 AND code<>'999') payment_terms")?:[];
   $synced=[];$errors=[];
-  foreach($checks as $module=>$sql){
-   $count=(int)(DB::scalar($sql)??0);
-   if($count>0)continue;
+  foreach(['stages','categories','departments','accounts','payment_terms'] as $module){
+   if((int)($counts[$module]??0)>0)continue;
    try{
     $page=1;$guard=0;
     do{
      $result=SyncService::run($module,$page);
      $synced[$module]=($synced[$module]??0)+(int)($result['count']??0);
      $done=!empty($result['done']);
-     $page=(int)($result['page']??$page)+1;
-     $guard++;
+     $page=(int)($result['page']??$page)+1;$guard++;
     }while(!$done&&$guard<25);
-   }catch(Throwable $e){
-    $errors[$module]=$e->getMessage();
-   }
+   }catch(Throwable $e){$errors[$module]=$e->getMessage();}
   }
   return ['synced'=>$synced,'errors'=>$errors];
  }
