@@ -9,7 +9,7 @@
 .tdcob4-primary,.tdca4-primary{border:0;background:#009657;color:#fff}
 .tdcontact4-filters,.tdcob4-filters,.tdca4-filters{padding:12px;border:1px solid #DDE6EC;border-radius:10px;background:#fff}
 .tdcontact4-filters form,.tdcob4-filters form,.tdca4-filters form{display:grid;grid-template-columns:repeat(2,minmax(200px,1fr)) auto auto;gap:10px;align-items:end}
-.tdcob4-filters form{grid-template-columns:repeat(3,minmax(170px,1fr)) auto auto}
+.tdcob4-filters form{grid-template-columns:repeat(4,minmax(150px,1fr)) auto auto}
 .tdcontact4-filters label,.tdcob4-filters label,.tdca4-filters label{display:grid;gap:5px}.tdcontact4-filters label span,.tdcob4-filters label span,.tdca4-filters label span{font-size:10px;font-weight:700}
 .tdcontact4-clear,.tdcob4-clear,.tdca4-filters a{min-height:40px;display:flex;align-items:center;justify-content:center;gap:6px;color:#4E6575;text-decoration:none;font-size:10px}
 .tdcontact4-primary{min-height:40px;border:0;border-radius:8px;background:#009657;color:#fff;font-size:11px;font-weight:800}
