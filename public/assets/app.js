@@ -49,6 +49,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   const clientStateFilter=document.querySelector('[data-client-state-filter]');
   const clientTagFilter=document.querySelector('[data-client-tag-filter]');
   clientTagFilter?.addEventListener('change',()=>clientTagFilter.form?.requestSubmit());
+  document.querySelector('[data-client-uf-clear]')?.addEventListener('click',event=>{
+    const root=event.currentTarget.closest('[data-client-uf-filter]');
+    root?.querySelectorAll('input[name="ufs[]"]').forEach(input=>{input.checked=false;});
+  });
   const monitorForm=document.querySelector('.tdset-monitor-form');
   if(monitorForm){
     const monitorChecks=Array.from(monitorForm.querySelectorAll('[name="monitor_user_ids[]"]'));
@@ -58,13 +62,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     monitorForm.addEventListener('submit',event=>{if(!monitorChecks.some(input=>input.checked)){event.preventDefault();showNotice('warning','Selecione um participante','Marque pelo menos um usuário de vendas ou cobrança para o acompanhamento.');}});
   }
   const clearClientDddParams=url=>Array.from(new Set(url.searchParams.keys())).forEach(key=>{if(/^ddds(?:\[\d*\])?$/.test(key))url.searchParams.delete(key);});
+  const clearClientUfParams=url=>Array.from(new Set(url.searchParams.keys())).forEach(key=>{if(key==='uf'||/^ufs(?:\[\d*\])?$/.test(key))url.searchParams.delete(key);});
   if(clientStateFilter){
     clientStateFilter.addEventListener('change',()=>{
       const url=new URL(location.href);
       const state=clientStateFilter.value.trim();
       const clientTable=document.querySelector('.clients-datatable');
       const tableSearch=String(clientTable?._dataTable?.search?.()??'').trim();
-      if(state)url.searchParams.set('uf',state);else url.searchParams.delete('uf');
+      clearClientUfParams(url);
+      if(state)url.searchParams.set('uf',state);
       clearClientDddParams(url);
       if(tableSearch)url.searchParams.set('q',tableSearch);else url.searchParams.delete('q');
       url.searchParams.delete('page');
@@ -78,6 +84,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const clientTable=document.querySelector('.clients-datatable');
     const tableSearch=String(clientTable?._dataTable?.search?.()??'').trim();
     clearClientDddParams(url);
+    clearClientUfParams(url);
     selected.forEach(ddd=>url.searchParams.append('ddds[]',ddd));
     if(state)url.searchParams.set('uf',state);
     if(tableSearch)url.searchParams.set('q',tableSearch);else url.searchParams.delete('q');
@@ -373,7 +380,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const clearSelection=()=>{selected.clear();excluded.clear();allFiltered=false;syncSelection();};
     const currentFilters=()=>{
       const url=new URL(clientBulkTable.dataset.serverUrl,location.origin);
-      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',month:url.searchParams.get('month')||'',uf:url.searchParams.get('uf')||'',tag:url.searchParams.get('tag')||'',seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
+      const ufs=Array.from(url.searchParams.entries()).filter(([key])=>key==='ufs'||key.startsWith('ufs[')).map(([,value])=>value);
+      return {segment:url.searchParams.get('segment')||clientBulk.dataset.segment||'general',month:url.searchParams.get('month')||'',ufs:ufs.length?ufs:(url.searchParams.get('uf')?[url.searchParams.get('uf')]:[]),uf:url.searchParams.get('uf')||'',tag:url.searchParams.get('tag')||'',seller_filter:url.searchParams.get('seller_filter')||'',ddds:Array.from(url.searchParams.entries()).filter(([key])=>key==='ddds'||key.startsWith('ddds[')).map(([,value])=>value),search:String(dt.search?.()||'').trim()};
     };
     const payloadFor=(action,onlyId=null,cursor=0)=>({
       _token:clientBulk.dataset.csrf,
