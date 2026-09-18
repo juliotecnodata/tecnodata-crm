@@ -67,7 +67,7 @@ function client_virtual_seller_codes(): array{
 function client_segment_filter(string $segment,string $alias='c'): array{
  if(!in_array($alias,['c','clients',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
  ClientSegmentPolicy::ensureSchema();
- $prefix=$alias!==''?$alias.'.':'';$sellerColumn=$prefix.'seller_omie_code';$catalog=client_segment_catalog();
+ $prefix=$alias!==''?$alias.'.':'';$sellerColumn="COALESCE(NULLIF(".$prefix."omie_seller_code,''),".$prefix."seller_omie_code)";$catalog=client_segment_catalog();
  if($segment==='all')return ['1=1',[]];
  if(!isset($catalog[$segment]))$segment='general';
  $tagSql=client_tag_filter_sql($alias);
