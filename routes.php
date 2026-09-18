@@ -1535,7 +1535,7 @@ $router->get('/agenda',function(){
  render('agenda',[
   'rows'=>$rows,'agendaUsers'=>$users,'agendaAssignableUsers'=>$agendaAssignableUsers,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
   'agendaType'=>$agendaType,'agendaPeriod'=>$agendaPeriod,'agendaStats'=>$stats,'agendaWorkload'=>$workload,'agendaVision'=>$vision,
-  'agendaCreatedDate'=>$createdDate,'flash'=>$flash
+  'agendaCreatedDate'=>$createdDate,'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash
  ]);
 });
 $router->get('/api/tasks/form-context',function(){
