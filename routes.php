@@ -1133,18 +1133,33 @@ $router->get('/collection',function(){
  elseif($delay==='1_30')$where[]='cc.max_overdue_days BETWEEN 1 AND 30';
  elseif($delay==='31_60')$where[]='cc.max_overdue_days BETWEEN 31 AND 60';
  elseif($delay==='60_plus')$where[]='cc.max_overdue_days>60';
- $rows=DB::all("SELECT cc.*,c.name,c.document,c.uf,c.city,c.seller_omie_code,s.name seller_name,u.name assigned_name,
-   la.result last_result,la.channel last_channel,la.amount last_amount,la.created_at last_contact_at,
-   COALESCE(lp.pending_local,0) pending_local,
-   nt.id next_task_id,nt.title next_title,nt.due_at next_due_at
+ $whereSql=implode(' AND ',$where);
+ $stats=DB::one(
+  "SELECT COUNT(*) total,
+          COALESCE(SUM(GREATEST(0,cc.open_amount-COALESCE(lp.pending_local,0))),0) available_amount,
+          SUM(cc.max_overdue_days>0) overdue_count,
+          SUM(cc.max_overdue_days>60) critical_count,
+          SUM(cc.max_overdue_days<=0) current_count
    FROM collection_cases cc
    JOIN clients c ON c.id=cc.client_id
-   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
-   LEFT JOIN users u ON u.id=cc.assigned_user_id
-   LEFT JOIN collection_actions la ON la.id=(SELECT ca.id FROM collection_actions ca WHERE ca.client_id=cc.client_id AND ca.local_status<>'cancelled' ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1)
-   LEFT JOIN (SELECT client_id,SUM(amount) pending_local FROM collection_actions WHERE result='payment' AND local_status='pending' GROUP BY client_id) lp ON lp.client_id=cc.client_id
-   LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND t.type='collection' AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1)
-   WHERE ".implode(' AND ',$where)." ORDER BY cc.open_amount DESC LIMIT 500",$params);
+   LEFT JOIN (
+    SELECT client_id,SUM(amount) pending_local
+    FROM collection_actions
+    WHERE result='payment' AND local_status='pending'
+    GROUP BY client_id
+   ) lp ON lp.client_id=cc.client_id
+   WHERE ".$whereSql,
+  $params
+ )?:[];
+ $topAttention=DB::all(
+  "SELECT cc.client_id,cc.open_amount,cc.max_overdue_days,c.name
+   FROM collection_cases cc
+   JOIN clients c ON c.id=cc.client_id
+   WHERE ".$whereSql."
+   ORDER BY cc.max_overdue_days DESC,cc.open_amount DESC
+   LIMIT 5",
+  $params
+ );
  $collectors=DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name");
  $ufs=DB::all("SELECT DISTINCT c.uf FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY c.uf");
  $actionWhere=["ca.result='payment'","ca.local_status<>'cancelled'","ca.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01')"];$actionParams=[];
@@ -1156,7 +1171,11 @@ $router->get('/collection',function(){
  if($uf!==''){$promiseWhere[]='c.uf=?';$promiseParams[]=$uf;}
  $promises=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$promiseWhere),$promiseParams)??0);
  $flash=$_SESSION['collection_flash']??null;unset($_SESSION['collection_flash']);
- render('collection',['rows'=>$rows,'view'=>$view,'flash'=>$flash,'collectionCollectors'=>$collectors,'collectionUfs'=>$ufs,'collectionAssigned'=>$assigned,'collectionUf'=>$uf,'collectionDelay'=>$delay,'collectionRecovered'=>$recovered,'collectionPromises'=>$promises]);
+ render('collection',[
+  'rows'=>[],'view'=>$view,'flash'=>$flash,'collectionCollectors'=>$collectors,'collectionUfs'=>$ufs,
+  'collectionAssigned'=>$assigned,'collectionUf'=>$uf,'collectionDelay'=>$delay,'collectionRecovered'=>$recovered,'collectionPromises'=>$promises,
+  'collectionStats'=>$stats,'collectionTopAttention'=>$topAttention
+ ]);
 });
 $router->get('/collection/report',function(){
  Auth::requireRole('admin','supervisor','collector');
@@ -1224,12 +1243,8 @@ $router->get('/collection/recoveries',function(){
  $where=["ca.result='payment'","ca.amount>0","ca.local_status<>'cancelled'"];$params=[];
  if(!$period['all']){$where[]='ca.created_at>=?';$where[]='ca.created_at<?';$params[]=$period['from'].' 00:00:00';$params[]=$period['next'].' 00:00:00';}
  $sqlWhere=implode(' AND ',$where);
- $recoveries=DB::all("SELECT ca.id,ca.client_id,ca.amount,ca.notes,ca.created_at,ca.recorded_at,ca.local_status,c.omie_code,JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.codigo_cliente_integracao')) client_integration_code,c.name,c.document,assigned.name assigned_name,author.name author_name
-                      FROM collection_actions ca JOIN clients c ON c.id=ca.client_id
-                      LEFT JOIN users assigned ON assigned.id=ca.assigned_user_id LEFT JOIN users author ON author.id=ca.author_user_id
-                      WHERE ".$sqlWhere." ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1000",$params);
  $total=(float)(DB::scalar("SELECT COALESCE(SUM(ca.amount),0) FROM collection_actions ca WHERE ".$sqlWhere,$params)??0);
- render('collection_recoveries',['recoveries'=>$recoveries,'period'=>$period,'total'=>$total,'flash'=>$flash,'old'=>$old,'defaults'=>$defaults,'collectors'=>DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name")]);
+ render('collection_recoveries',['recoveries'=>[],'period'=>$period,'total'=>$total,'flash'=>$flash,'old'=>$old,'defaults'=>$defaults,'collectors'=>DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name")]);
 });
 $router->post('/collection/recoveries',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
@@ -2071,6 +2086,110 @@ $router->get('/api/services/datatable',function(){
   elseif(!empty($row['seller_omie_code']))$sellerCell='<strong>'.e($row['seller_omie_code']).'</strong><small>código do vendedor</small>';
   else $sellerCell='<span class="tds-no-seller"><i class="fa-solid fa-circle-exclamation"></i>Sem vendedor</span>';
   $data[]=[$osCell,$clientCell,$sellerCell,brdate($row['service_date']??null),'<span class="tds-status '.$statusClass.'">'.e($status).'</span>','<strong>'.money($row['total']??0).'</strong>'];
+ }
+ json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
+});
+
+
+$router->get('/api/collection/datatable',function(){
+ Auth::requireRole('admin','supervisor','collector');
+ $u=Auth::user();$draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
+ $view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
+ $assigned=max(0,(int)($_GET['assigned_user_id']??0));$uf=mb_strtoupper(trim((string)($_GET['uf']??'')));$delay=(string)($_GET['delay']??'all');
+ if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';if(($u['role']??'')==='collector')$assigned=0;
+ $baseWhere=['cc.status=?'];$baseParams=[$view];
+ if($assigned>0){$baseWhere[]='cc.assigned_user_id=?';$baseParams[]=$assigned;}
+ if($uf!==''){$baseWhere[]='c.uf=?';$baseParams[]=$uf;}
+ if($delay==='current')$baseWhere[]='cc.max_overdue_days<=0';
+ elseif($delay==='1_30')$baseWhere[]='cc.max_overdue_days BETWEEN 1 AND 30';
+ elseif($delay==='31_60')$baseWhere[]='cc.max_overdue_days BETWEEN 31 AND 60';
+ elseif($delay==='60_plus')$baseWhere[]='cc.max_overdue_days>60';
+ $baseSql=implode(' AND ',$baseWhere);
+ $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE ".$baseSql,$baseParams)??0);
+ $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
+ if($search!==''){$needle='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR s.name LIKE ? OR u.name LIKE ?)';array_push($params,$needle,$needle,$needle,$needle,$needle,$needle);}
+ $whereSql=implode(' AND ',$where);
+ $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
+  "SELECT COUNT(*) FROM collection_cases cc
+   JOIN clients c ON c.id=cc.client_id
+   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+   LEFT JOIN users u ON u.id=cc.assigned_user_id
+   WHERE ".$whereSql,$params
+ )??0);
+ $orderInput=$_GET['order'][0]??[];$orderIndex=max(0,(int)(is_array($orderInput)?($orderInput['column']??4):4));$orderDir=strtolower((string)(is_array($orderInput)?($orderInput['dir']??'desc'):'desc'))==='asc'?'ASC':'DESC';
+ $orderColumns=['c.name','s.name','u.name','cc.max_overdue_days','cc.open_amount','la.created_at','nt.due_at','cc.max_overdue_days','cc.id'];$orderBy=$orderColumns[$orderIndex]??'cc.open_amount';
+ $rows=DB::all(
+  "SELECT cc.*,c.name,c.document,c.uf,c.city,c.seller_omie_code,s.name seller_name,u.name assigned_name,
+          la.result last_result,la.channel last_channel,la.amount last_amount,la.created_at last_contact_at,
+          COALESCE((SELECT SUM(cp.amount) FROM collection_actions cp WHERE cp.client_id=cc.client_id AND cp.result='payment' AND cp.local_status='pending'),0) pending_local,
+          nt.id next_task_id,nt.title next_title,nt.due_at next_due_at
+   FROM collection_cases cc
+   JOIN clients c ON c.id=cc.client_id
+   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+   LEFT JOIN users u ON u.id=cc.assigned_user_id
+   LEFT JOIN collection_actions la ON la.id=(SELECT ca.id FROM collection_actions ca WHERE ca.client_id=cc.client_id AND ca.local_status<>'cancelled' ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1)
+   LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND t.type='collection' AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1)
+   WHERE ".$whereSql."
+   ORDER BY ".$orderBy." ".$orderDir.",cc.id DESC
+   LIMIT ".$length." OFFSET ".$start,
+  $params
+ );
+ $data=[];
+ foreach($rows as $row){
+  $days=(int)($row['max_overdue_days']??0);$pendingLocal=(float)($row['pending_local']??0);$available=max(0,(float)$row['open_amount']-$pendingLocal);
+  $hasAgreement=($row['last_result']??'')==='agreement'&&(float)($row['last_amount']??0)>0;
+  $statusClass=$pendingLocal>0?'local-paid':($hasAgreement?'agreement':($days>60?'danger':($days>30?'warning':($days>0?'today':'ok'))));
+  $statusText=$pendingLocal>0?'Baixa local pendente':($hasAgreement?'Acordo '.money($row['last_amount']):($days>60?'Crítico':($days>30?'Atenção':($days>0?'Em atraso':'Em dia'))));
+  $client='<div class="tdcob4-client"><span>'.e(mb_strtoupper(mb_substr((string)$row['name'],0,1))).'</span><div><strong>'.e($row['name']).'</strong><small>'.e(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:'')).'</small></div></div>';
+  $daysCell='<strong class="'.($days>30?'danger':'').'">'.($days>0?$days.' dias':'Em dia').'</strong>';
+  $amount='<strong>'.money($available).'</strong><small>Omie '.money($row['open_amount']).($pendingLocal>0?' · baixa '.money($pendingLocal):'').'</small>';
+  $last=!empty($row['last_contact_at'])?'<strong>'.date('d/m/Y',strtotime((string)$row['last_contact_at'])).'</strong><small>'.e($row['last_channel']??'contato').'</small>':'—';
+  $next=!empty($row['next_due_at'])?'<strong>'.e($row['next_title']??'Retorno').'</strong><small>'.date('d/m H:i',strtotime((string)$row['next_due_at'])).'</small>':'—';
+  $status='<span class="tdcob4-status '.$statusClass.'"><i></i>'.$statusText.'</span>';
+  $action='<a class="tdcob4-open" href="'.APP_URL.'/collection/'.(int)$row['client_id'].'" title="Abrir cobrança"><i class="fa-regular fa-folder-open"></i></a>';
+  $data[]=[$client,e($row['seller_name']??'—'),'<strong>'.e($row['assigned_name']??'Não atribuído').'</strong>',$daysCell,$amount,$last,$next,$status,$action];
+ }
+ json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
+});
+
+$router->get('/api/collection/recoveries/datatable',function(){
+ Auth::requireRole('admin','supervisor');
+ $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
+ $period=selected_date_period();$baseWhere=["ca.result='payment'","ca.amount>0","ca.local_status<>'cancelled'"];$baseParams=[];
+ if(!$period['all']){$baseWhere[]='ca.created_at>=?';$baseWhere[]='ca.created_at<?';$baseParams[]=$period['from'].' 00:00:00';$baseParams[]=$period['next'].' 00:00:00';}
+ $baseSql=implode(' AND ',$baseWhere);$recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions ca WHERE ".$baseSql,$baseParams)??0);
+ $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
+ if($search!==''){$needle='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR assigned.name LIKE ? OR author.name LIKE ? OR ca.notes LIKE ?)';array_push($params,$needle,$needle,$needle,$needle,$needle,$needle);}
+ $whereSql=implode(' AND ',$where);
+ $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
+  "SELECT COUNT(*) FROM collection_actions ca
+   JOIN clients c ON c.id=ca.client_id
+   LEFT JOIN users assigned ON assigned.id=ca.assigned_user_id
+   LEFT JOIN users author ON author.id=ca.author_user_id
+   WHERE ".$whereSql,$params
+ )??0);
+ $orderInput=$_GET['order'][0]??[];$orderIndex=max(0,(int)(is_array($orderInput)?($orderInput['column']??3):3));$orderDir=strtolower((string)(is_array($orderInput)?($orderInput['dir']??'desc'):'desc'))==='asc'?'ASC':'DESC';
+ $orderColumns=['c.omie_code','c.name','ca.amount','ca.created_at','ca.recorded_at','assigned.name','author.name','ca.id'];$orderBy=$orderColumns[$orderIndex]??'ca.created_at';
+ $rows=DB::all(
+  "SELECT ca.id,ca.client_id,ca.amount,ca.notes,ca.created_at,ca.recorded_at,ca.local_status,c.omie_code,
+          JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.codigo_cliente_integracao')) client_integration_code,c.name,c.document,
+          assigned.name assigned_name,author.name author_name
+   FROM collection_actions ca
+   JOIN clients c ON c.id=ca.client_id
+   LEFT JOIN users assigned ON assigned.id=ca.assigned_user_id
+   LEFT JOIN users author ON author.id=ca.author_user_id
+   WHERE ".$whereSql."
+   ORDER BY ".$orderBy." ".$orderDir.",ca.id DESC
+   LIMIT ".$length." OFFSET ".$start,
+  $params
+ );
+ $data=[];$token=CSRF::token();
+ foreach($rows as $row){
+  $code='<strong>'.e($row['client_integration_code']?:$row['omie_code']).'</strong><small>'.(!empty($row['client_integration_code'])?'Omie '.e($row['omie_code']):'').'</small>';
+  $client='<strong>'.e($row['name']).'</strong><small>'.e($row['document']??'').'</small>';
+  $author='<strong>'.e($row['author_name']??'—').'</strong>'.(!empty($row['notes'])?'<small>'.e($row['notes']).'</small>':'');
+  $action='<form method="post" action="'.APP_URL.'/collection/actions/'.(int)$row['id'].'/delete"><input type="hidden" name="_token" value="'.e($token).'"><input type="hidden" name="return_to" value="recoveries"><button class="tdcob-delete-value icon-only" type="submit" data-confirm="Excluir este valor recuperado? O saldo e os relatórios serão recalculados." title="Excluir"><i class="fa-regular fa-trash-can"></i></button></form>';
+  $data[]=[$code,$client,'<strong>'.money($row['amount']).'</strong>',date('d/m/Y H:i',strtotime((string)$row['created_at'])),date('d/m/Y H:i',strtotime((string)($row['recorded_at']??$row['created_at']))),e($row['assigned_name']??'—'),$author,$action];
  }
  json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
 });
