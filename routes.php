@@ -853,18 +853,7 @@ $router->get('/orders',function(){
  if($stageFilter!==''){$where[]='o.stage_code=?';$params[]=$stageFilter;}
  $sqlWhere=$where?' WHERE '.implode(' AND ',$where):'';
 
- $orders=DB::all(
-  "SELECT o.id,o.omie_code,o.number,o.client_omie_code,o.seller_omie_code,o.order_date,o.forecast_date,o.total,o.status,o.stage_code,
-          c.name client_name,s.name seller_name,os.name stage_name
-   FROM orders o
-   LEFT JOIN clients c ON c.omie_code=o.client_omie_code
-   LEFT JOIN sellers s ON s.omie_code=o.seller_omie_code
-   LEFT JOIN order_stages os ON os.code=o.stage_code".
-   $sqlWhere."
-   ORDER BY o.order_date DESC,o.id DESC
-   LIMIT 1500",
-  $params
- );
+ $orders=[]; // grade carregada via DataTables server-side
 
  $stats=DB::one(
   "SELECT COUNT(*) total_rows,
@@ -934,17 +923,7 @@ $router->get('/services',function(){
   }
   $sqlWhere=$where?' WHERE '.implode(' AND ',$where):'';
 
-  $rows=DB::all(
-   "SELECT so.id,so.omie_code,so.client_omie_code,so.seller_omie_code,so.service_date,so.total,so.status,so.updated_at,
-           c.name AS client_name,s.name AS seller_name
-    FROM service_orders so
-    LEFT JOIN clients c ON c.omie_code=so.client_omie_code
-    LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code".
-    $sqlWhere."
-    ORDER BY so.service_date DESC,so.id DESC
-    LIMIT 1500",
-   $params
-  );
+  $rows=[]; // grade carregada via DataTables server-side
 
   $stats=DB::one(
    "SELECT COUNT(*) total_rows,
