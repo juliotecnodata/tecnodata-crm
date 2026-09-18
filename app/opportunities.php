@@ -89,10 +89,8 @@ function ensure_sales_flow_tables(): void{
  foreach($stages as $s)DB::exec("INSERT IGNORE INTO pipeline_stages(code,name,position,active,is_won,is_lost,created_at,updated_at) VALUES(?,?,?,1,0,0,NOW(),NOW())",$s);
  $types=[['call','Ligação','fa-phone',10],['whatsapp','WhatsApp','fa-brands fa-whatsapp',20],['email','E-mail','fa-envelope',30],['meeting','Reunião','fa-users',40],['proposal','Enviar proposta','fa-file-signature',50],['followup','Retorno','fa-clock',60]];
  foreach($types as $t)DB::exec("INSERT IGNORE INTO sales_activity_types(code,name,icon,position,active,created_at,updated_at) VALUES(?,?,?,?,1,NOW(),NOW())",$t);
- try{
-  $hasOpportunityTask=DB::one("SHOW COLUMNS FROM tasks LIKE 'opportunity_id'");
-  if(!$hasOpportunityTask)DB::exec("ALTER TABLE tasks ADD COLUMN opportunity_id BIGINT UNSIGNED NULL AFTER client_id, ADD INDEX idx_tasks_opportunity(opportunity_id,status)");
- }catch(Throwable){}
+ $hasOpportunityTask=DB::one("SHOW COLUMNS FROM tasks LIKE 'opportunity_id'");
+ if(!$hasOpportunityTask)DB::exec("ALTER TABLE tasks ADD COLUMN opportunity_id BIGINT UNSIGNED NULL AFTER client_id, ADD INDEX idx_tasks_opportunity(opportunity_id,status)");
  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('sales_flow_schema_version',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(['version'=>$version],JSON_UNESCAPED_UNICODE)]);
  $ready=true;
 }
