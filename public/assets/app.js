@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(!config)return;
       const context=contextSelect.value||config.default_context||'sales';
       const roleNeeded=context==='collection'?'collector':'seller';
-      const users=(config.users||[]).filter(user=>String(user.role||'')===roleNeeded);
+      const users=(config.users||[]).filter(user=>{const userRole=String(user.role||'');return userRole===roleNeeded||userRole==='supervisor';});
       const previous=assignedSelect.value;
       assignedSelect.innerHTML='<option value="">Selecione o responsável</option>'+users.map(user=>'<option value="'+Number(user.id)+'">'+esc(user.name)+(Number(user.id)===Number(config.current_user_id)?' · você':'')+'</option>').join('');
       const preferred=openingTrigger?.dataset.taskAssignedId||previous||String(config.current_user_id||'');
