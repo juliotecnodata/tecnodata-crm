@@ -1342,25 +1342,25 @@ $router->get('/agenda',function(){
  if($createdDate!==''){$baseWhere[]='t.created_at>=? AND t.created_at<?';array_push($baseParams,$createdDate.' 00:00:00',$createdNext.' 00:00:00');}
 
  $listWhere=$baseWhere;$listParams=$baseParams;
- if($agendaPeriod==='late')$listWhere[]='DATE(t.due_at)<CURDATE()';
- elseif($agendaPeriod==='today')$listWhere[]='DATE(t.due_at)=CURDATE()';
- elseif($agendaPeriod==='next7')$listWhere[]='DATE(t.due_at)>CURDATE() AND DATE(t.due_at)<=DATE_ADD(CURDATE(),INTERVAL 7 DAY)';
- elseif($agendaPeriod==='upcoming')$listWhere[]='DATE(t.due_at)>CURDATE()';
+ if($agendaPeriod==='late')$listWhere[]='t.due_at<CURDATE()';
+ elseif($agendaPeriod==='today')$listWhere[]='t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY';
+ elseif($agendaPeriod==='next7')$listWhere[]='t.due_at>=CURDATE()+INTERVAL 1 DAY AND t.due_at<CURDATE()+INTERVAL 8 DAY';
+ elseif($agendaPeriod==='upcoming')$listWhere[]='t.due_at>=CURDATE()+INTERVAL 1 DAY';
 
  $rows=DB::all(
   "SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
    FROM tasks t JOIN clients c ON c.id=t.client_id
    JOIN users u ON u.id=t.assigned_user_id
    WHERE ".implode(' AND ',$listWhere)."
-   ORDER BY CASE WHEN DATE(t.due_at)<CURDATE() THEN 0 WHEN DATE(t.due_at)=CURDATE() THEN 1 ELSE 2 END,t.due_at",
+   ORDER BY CASE WHEN t.due_at<CURDATE() THEN 0 WHEN t.due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 2 END,t.due_at",
   $listParams
  );
 
  $stats=DB::one(
   "SELECT COUNT(*) total,
-          SUM(CASE WHEN DATE(t.due_at)<CURDATE() THEN 1 ELSE 0 END) late_count,
-          SUM(CASE WHEN DATE(t.due_at)=CURDATE() THEN 1 ELSE 0 END) today_count,
-          SUM(CASE WHEN DATE(t.due_at)>CURDATE() THEN 1 ELSE 0 END) upcoming_count,
+          SUM(CASE WHEN t.due_at<CURDATE() THEN 1 ELSE 0 END) late_count,
+          SUM(CASE WHEN t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) today_count,
+          SUM(CASE WHEN t.due_at>=CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) upcoming_count,
           SUM(CASE WHEN t.type='collection' THEN 1 ELSE 0 END) collection_count
    FROM tasks t WHERE ".implode(' AND ',$baseWhere),
   $baseParams
@@ -1378,9 +1378,9 @@ $router->get('/agenda',function(){
   if($createdDate!==''){$personalWhere[]='t.created_at>=? AND t.created_at<?';array_push($personalParams,$createdDate.' 00:00:00',$createdNext.' 00:00:00');}
   $vision=DB::one(
    "SELECT COUNT(*) total,
-           SUM(CASE WHEN t.status='pending' AND DATE(t.due_at)>CURDATE() THEN 1 ELSE 0 END) upcoming_count,
-           SUM(CASE WHEN t.status='pending' AND DATE(t.due_at)=CURDATE() THEN 1 ELSE 0 END) today_count,
-           SUM(CASE WHEN t.status='pending' AND DATE(t.due_at)<CURDATE() THEN 1 ELSE 0 END) late_count,
+           SUM(CASE WHEN t.status='pending' AND t.due_at>=CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) upcoming_count,
+           SUM(CASE WHEN t.status='pending' AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) today_count,
+           SUM(CASE WHEN t.status='pending' AND t.due_at<CURDATE() THEN 1 ELSE 0 END) late_count,
            SUM(CASE WHEN t.status='done' THEN 1 ELSE 0 END) done_count,
            SUM(CASE WHEN t.status NOT IN ('pending','done') THEN 1 ELSE 0 END) other_count
     FROM tasks t WHERE ".implode(' AND ',$personalWhere),$personalParams
@@ -1396,9 +1396,9 @@ $router->get('/agenda',function(){
   if($createdDate!==''){$teamWhere[]='t.created_at>=? AND t.created_at<?';array_push($teamParams,$createdDate.' 00:00:00',$createdNext.' 00:00:00');}
   $workload=DB::all(
    "SELECT u.id,u.name,u.role,COUNT(*) total,
-           SUM(CASE WHEN DATE(t.due_at)<CURDATE() THEN 1 ELSE 0 END) late_count,
-           SUM(CASE WHEN DATE(t.due_at)=CURDATE() THEN 1 ELSE 0 END) today_count,
-           SUM(CASE WHEN DATE(t.due_at)>CURDATE() THEN 1 ELSE 0 END) upcoming_count
+           SUM(CASE WHEN t.due_at<CURDATE() THEN 1 ELSE 0 END) late_count,
+           SUM(CASE WHEN t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) today_count,
+           SUM(CASE WHEN t.due_at>=CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) upcoming_count
     FROM tasks t JOIN users u ON u.id=t.assigned_user_id
     WHERE ".implode(' AND ',$teamWhere)."
     GROUP BY u.id,u.name,u.role
@@ -1500,24 +1500,27 @@ $router->post('/agenda/{id}/delete',function($p){
 
 $router->get('/admin',function(){
  Auth::requireRole('admin');
+ $userStats=DB::one("SELECT COUNT(*) users,SUM(active=1) active_users,SUM(active=1 AND role='seller') sellers,SUM(active=1 AND role='collector') collectors FROM users")?:[];
+ $taskStats=DB::one("SELECT SUM(status='pending' AND due_at>=CURDATE() AND due_at<CURDATE()+INTERVAL 1 DAY) today_tasks,SUM(status='pending' AND due_at<CURDATE()) overdue_tasks FROM tasks")?:[];
  $stats=[
-  'users'=>(int)(DB::scalar("SELECT COUNT(*) FROM users")??0),
-  'active_users'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE active=1")??0),
-  'sellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE role='seller' AND active=1")??0),
-  'collectors'=>(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE role='collector' AND active=1")??0),
+  'users'=>(int)($userStats['users']??0),
+  'active_users'=>(int)($userStats['active_users']??0),
+  'sellers'=>(int)($userStats['sellers']??0),
+  'collectors'=>(int)($userStats['collectors']??0),
   'sync_errors'=>(int)(DB::scalar("SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>''")??0),
   'monitored'=>count(contact_monitoring_user_ids()??[]),
   'open_opportunities'=>0,
   'pipeline_value'=>0.0,
-  'today_tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)=CURDATE()")??0),
-  'overdue_tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)<CURDATE()")??0),
+  'today_tasks'=>(int)($taskStats['today_tasks']??0),
+  'overdue_tasks'=>(int)($taskStats['overdue_tasks']??0),
   'open_collection'=>(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0),
  ];
  if(sales_flow_enabled()){
   try{
    ensure_sales_flow_tables();
-   $stats['open_opportunities']=(int)(DB::scalar("SELECT COUNT(*) FROM opportunities WHERE status='open'")??0);
-   $stats['pipeline_value']=(float)(DB::scalar("SELECT COALESCE(SUM(estimated_value),0) FROM opportunities WHERE status='open'")??0);
+   $oppStats=DB::one("SELECT COUNT(*) open_opportunities,COALESCE(SUM(estimated_value),0) pipeline_value FROM opportunities WHERE status='open'")?:[];
+   $stats['open_opportunities']=(int)($oppStats['open_opportunities']??0);
+   $stats['pipeline_value']=(float)($oppStats['pipeline_value']??0);
   }catch(Throwable){}
  }
  render('admin_center',[
