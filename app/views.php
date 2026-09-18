@@ -361,6 +361,12 @@ function render(string $name,array $vars=[]): void{
    $auditUrl=static function(array $changes=[])use($auditTab,$auditQuery,$auditConflict,$auditMonth){$params=['tab'=>$auditTab,'q'=>$auditQuery,'conflict'=>$auditConflict,'month'=>$auditMonth];foreach($changes as $key=>$value){if($value===null||$value==='')unset($params[$key]);else $params[$key]=$value;}return APP_URL.'/clients-audit?'.http_build_query($params);};
    ?>
    <section class="tdaudit-page">
+    <nav class="tdc-hub-nav" aria-label="Central de clientes">
+     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
+     <a href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
+     <a href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a class="active" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
+    </nav>
     <header class="tdaudit-head">
      <div class="tdaudit-head-main"><span class="tdaudit-head-icon"><i class="fa-solid fa-user-shield"></i></span><div><span class="tdaudit-kicker">QUALIDADE DA BASE / CLIENTES</span><h1>Auditoria de cadastros</h1><p>Revise duplicidades, responsabilidade comercial, divergências com a Omie e registros preservados.</p></div></div>
      <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
@@ -443,15 +449,24 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
   case 'clients':?>
-   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??'general';$clientSegmentLabel=$clientSegmentLabel??'Clientes Geral';$clientSegmentDescription=$clientSegmentDescription??'Base comercial ativa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));?>
+   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$portfolioMode=!empty($portfolioMode);$clientSegment=$clientSegment??'general';$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Clientes Geral';$clientSegmentDescription=$clientSegmentDescription??'Base comercial ativa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralUrl=APP_URL.'/clients'.($clientSegment!=='general'?'?'.http_build_query(['segment'=>$clientSegment]):'');?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
     <header class="tdc-head">
      <div class="tdc-head-main">
       <span class="tdc-head-icon"><i class="fa-solid <?=$portfolioMode?'fa-briefcase':'fa-users'?>"></i></span>
-      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':e($clientSegmentLabel)?></h1><p><?=$portfolioMode?'Seus clientes vinculados, organizados para facilitar contatos, pedidos e acompanhamento comercial.':e($clientSegmentDescription)?></p></div>
+      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':'Central de clientes'?></h1><p><?=$portfolioMode?'Seus clientes vinculados, organizados para facilitar contatos, pedidos e acompanhamento comercial.':'Uma única base para segmentação, carteiras, saneamento cadastral e integração com a Omie.'?></p></div>
      </div>
-     <div class="tdc-head-actions"><?php if(!$portfolioMode&&Auth::can('admin','supervisor')):?><a class="tdc-btn" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i>Auditar cadastros</a><?php endif;?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||$clientSegment==='general'):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
+     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=$portfolioMode?APP_URL.'/my-portfolio':e($clientCentralUrl)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||$clientSegment==='general'):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
     </header>
+
+    <?php if(!$portfolioMode&&Auth::can('admin','supervisor')):?>
+    <nav class="tdc-hub-nav" aria-label="Central de clientes">
+     <a class="<?=$clientSegment==='general'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base geral</strong><small>Clientes comerciais</small></span></a>
+     <a class="<?=$clientSegment==='ead_reciclagem'?'active':''?>" href="<?=APP_URL?>/clients?segment=ead_reciclagem"><i class="fa-solid fa-graduation-cap"></i><span><strong>EAD Reciclagem</strong><small>Operação virtual</small></span></a>
+     <a class="<?=$clientSegment==='suporte_pet'?'active':''?>" href="<?=APP_URL?>/clients?segment=suporte_pet"><i class="fa-solid fa-paw"></i><span><strong>Suporte PET</strong><small>Operação virtual</small></span></a>
+     <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
+    </nav>
+    <?php endif;?>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
@@ -495,10 +510,11 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
 
     <section class="tdc-table-card">
-     <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'BASE COMERCIAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':e($clientSegmentLabel)?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':'Busque por nome, documento, cidade ou vendedor.'?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
+     <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':'SEGMENTO ATUAL'?></span><h2><?=$portfolioMode?'Clientes da minha carteira':e($clientSegmentLabel)?></h2><p><?=$portfolioMode?'Busque somente entre os clientes vinculados ao seu vendedor.':e($clientSegmentDescription).' · Busque por nome, documento, cidade ou responsável.'?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-database"></i>CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
      <div class="tdc-list-filterbar">
       <div class="tdc-filter-title"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine estado, tag e vendedor para encontrar exatamente os clientes que deseja revisar.</small></div></div>
-      <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?>">
+      <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>">
+       <?php if(!$portfolioMode&&$clientSegment!=='general'):?><input type="hidden" name="segment" value="<?=e($clientSegment)?>"><?php endif;?>
        <?php if(Auth::can('admin','supervisor')&&$clientSegment==='general'):?><label><span><i class="fa-regular fa-calendar"></i> Mês da carteira</span><input class="form-control" type="month" name="month" value="<?=e($portfolioMonth)?>" onchange="this.form.submit()"></label><?php else:?><input type="hidden" name="month" value="<?=e($portfolioMonth)?>"><?php endif;?>
        <?php if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned'):?><input type="hidden" name="scope" value="unassigned"><?php endif;?>
        <label><span><i class="fa-solid fa-map-location-dot"></i> Estado</span><select class="form-select" name="uf" onchange="this.form.submit()"><option value="">Todos os estados</option><?php foreach($clientStates??[] as $state):?><option value="<?=e($state['uf'])?>" <?=$uf===$state['uf']?'selected':''?>><?=e($state['uf'])?></option><?php endforeach;?></select></label>
@@ -506,7 +522,7 @@ function render(string $name,array $vars=[]): void{
         <label><span><i class="fa-solid fa-tags"></i> Filtrar por tag</span><select class="form-select" name="tag" data-client-tag-filter><option value="">Todas as tags</option><?php foreach($clientTags??[] as $clientTag):?><option value="<?=e($clientTag['tag'])?>" <?=$tag===$clientTag['tag']?'selected':''?>><?=e($clientTag['tag'])?> (<?=number_format((int)$clientTag['client_count'],0,',','.')?>)</option><?php endforeach;?></select></label>
         <label><span><i class="fa-solid fa-user-tie"></i> Responsável em <?=$portfolioMonthLabel?></span><select class="form-select" name="seller_filter" onchange="this.form.submit()"><option value="">Todos os responsáveis</option><option value="__none__" <?=$sellerFilter==='__none__'?'selected':''?>>⚠ Sem responsável</option><?php foreach($clientSellerFilters??[] as $filterSeller):?><option value="<?=e($filterSeller['omie_code'])?>" <?=$sellerFilter===(string)$filterSeller['omie_code']?'selected':''?>><?=e($filterSeller['name'])?><?=empty($filterSeller['active'])?' (inativo)':''?></option><?php endforeach;?></select></label>
        <?php endif;?>
-       <?php if($uf!==''||(!$portfolioMode&&($tag!==''||$sellerFilter!==''))):?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':e($clientBasePath)?><?=(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')?'?scope=unassigned':''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
+       <?php if($uf!==''||(!$portfolioMode&&($tag!==''||$sellerFilter!==''))):?><?php $clearParams=[];if(!$portfolioMode&&$clientSegment!=='general')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
       </form>
       <small class="tdc-filter-meta"><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; o Estado apenas refina a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
      </div>
@@ -1990,7 +2006,7 @@ function layout(string $body,?array $u,string $page=''): void{
  $pageMeta=[
   'dashboard'=>['Dashboard','Visão geral da operação','fa-chart-line'],
   'clients'=>['Clientes','Base e carteiras','fa-users'],
-  'client_audit'=>['Clientes','Auditoria de cadastros','fa-user-shield'],
+  'client_audit'=>['Clientes','Central de clientes','fa-users'],
   'products'=>['Produtos','Catálogo comercial','fa-boxes-stacked'],
   'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
   'client'=>['Clientes','Detalhes do cliente','fa-address-card'],
@@ -2030,7 +2046,7 @@ function layout(string $body,?array $u,string $page=''): void{
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-list"></i><span>Clientes Geral</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
+     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Base de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
      <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
@@ -2050,10 +2066,7 @@ function layout(string $body,?array $u,string $page=''): void{
       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-handshake"></i>Comercial</span><i class="fa-solid fa-chevron-down"></i></button>
       <div class="tdcrm-nav-group-links">
        <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
-       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes Geral</span></a>
-       <a href="<?=APP_URL?>/clients-ead-reciclagem"><i class="fa-solid fa-graduation-cap"></i><span>Clientes EAD Reciclagem</span></a>
-       <a href="<?=APP_URL?>/clients-suporte-pet"><i class="fa-solid fa-paw"></i><span>Clientes Suporte PET</span></a>
-       <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span>Auditoria de clientes</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
        <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
        <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
        <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
