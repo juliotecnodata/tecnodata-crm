@@ -14,12 +14,12 @@ function auditQuery(string $label, callable $query): void
     }
 }
 
-$tables = ['clients','orders','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions'];
+$tables = ['clients','client_tags','client_portfolio_assignments','orders','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions'];
 foreach ($tables as $table) {
     auditQuery('count '.$table, static fn() => (int) DB::scalar('SELECT COUNT(*) FROM '.$table));
 }
 
-foreach (['clients','activities','tasks','collection_cases','collection_actions','orders','service_orders'] as $table) {
+foreach (['clients','client_tags','client_portfolio_assignments','activities','tasks','collection_cases','collection_actions','orders','service_orders'] as $table) {
     $indexes = DB::all('SHOW INDEX FROM '.$table);
     $summary = [];
     foreach ($indexes as $index) {
@@ -32,8 +32,11 @@ foreach (['clients','activities','tasks','collection_cases','collection_actions'
 $plans = [
     'latest activity by client' => "SELECT id FROM activities WHERE client_id=1 ORDER BY created_at DESC,id DESC LIMIT 1",
     'pending task by client' => "SELECT id FROM tasks WHERE client_id=1 AND type IN ('sales','collection') AND status='pending' ORDER BY due_at,id LIMIT 1",
-    'admin overdue notifications' => "SELECT COUNT(*) FROM tasks WHERE status='pending' AND DATE(due_at)<CURDATE()",
-    'seller overdue notifications' => "SELECT COUNT(*) FROM tasks WHERE assigned_user_id=1 AND status='pending' AND DATE(due_at)<CURDATE()",
+    'admin overdue notifications' => "SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<CURDATE()",
+    'seller overdue notifications' => "SELECT COUNT(*) FROM tasks WHERE assigned_user_id=1 AND status='pending' AND due_at<CURDATE()",
+    'orders by client' => "SELECT id FROM orders WHERE client_omie_code='1' ORDER BY order_date DESC,id DESC LIMIT 20",
+    'services by client' => "SELECT id FROM service_orders WHERE client_omie_code='1' ORDER BY service_date DESC,id DESC LIMIT 20",
+    'carrier tag lookup' => "SELECT c.id FROM client_tags t JOIN clients c ON c.id=t.client_id WHERE t.tag_key='transportadora' AND c.active=1 ORDER BY c.name LIMIT 50",
 ];
 foreach ($plans as $label => $sql) {
     $plan = DB::all('EXPLAIN '.$sql);
@@ -110,9 +113,26 @@ auditQuery('contact monitoring first 5', static fn() => DB::all(
     $participantParams
 ));
 
-auditQuery('client tag catalog', static fn() => count(DB::all(
-    "SELECT MIN(TRIM(client_tag.tag)) tag,COUNT(DISTINCT c.id) client_count
-     FROM clients c JOIN JSON_TABLE(c.raw_json, '$.tags[*]' COLUMNS(tag VARCHAR(190) PATH '$.tag')) client_tag
-     WHERE c.active=1 AND client_tag.tag IS NOT NULL AND TRIM(client_tag.tag)<>''
-     GROUP BY LOWER(TRIM(client_tag.tag))"
+auditQuery('client tag catalog indexed', static fn() => count(DB::all(
+    "SELECT MIN(t.tag) tag,COUNT(*) client_count
+     FROM client_tags t
+     JOIN clients c ON c.id=t.client_id
+     WHERE c.active=1
+     GROUP BY t.tag_key"
 )));
+
+auditQuery('orders first page server-side', static fn() => DB::all(
+    "SELECT o.id,o.order_date,c.name,s.name seller_name
+     FROM orders o
+     LEFT JOIN clients c ON c.omie_code=o.client_omie_code
+     LEFT JOIN sellers s ON s.omie_code=o.seller_omie_code
+     ORDER BY o.order_date DESC,o.id DESC LIMIT 10"
+));
+
+auditQuery('services first page server-side', static fn() => DB::all(
+    "SELECT so.id,so.service_date,c.name,s.name seller_name
+     FROM service_orders so
+     LEFT JOIN clients c ON c.omie_code=so.client_omie_code
+     LEFT JOIN sellers s ON s.omie_code=so.seller_omie_code
+     ORDER BY so.service_date DESC,so.id DESC LIMIT 10"
+));
