@@ -111,6 +111,24 @@ function client_audit_document_format(string $digits): string{
  if(strlen($digits)===14)return substr($digits,0,2).'.'.substr($digits,2,3).'.'.substr($digits,5,3).'/'.substr($digits,8,4).'-'.substr($digits,12,2);
  return $digits;
 }
+function crm_search_terms(string $query,int $limit=8): array{
+ $query=trim((string)(preg_replace('/\s+/u',' ',$query)??$query));if($query==='')return [];
+ $parts=preg_split('/[\s\-–—\/\\\\|,.;:()\[\]{}]+/u',$query,-1,PREG_SPLIT_NO_EMPTY)?:[$query];$terms=[];
+ foreach($parts as $part){$part=trim((string)$part);if($part==='')continue;$key=mb_strtolower($part,'UTF-8');if(!isset($terms[$key]))$terms[$key]=$part;if(count($terms)>=$limit)break;}
+ return array_values($terms);
+}
+function crm_search_filter(string $query,array $fields,int $limit=8): array{
+ $terms=crm_search_terms($query,$limit);if(!$terms||!$fields)return ['',[]];$groups=[];$params=[];
+ foreach($terms as $term){$or=[];foreach($fields as $field){$field=trim((string)$field);if($field==='')continue;$or[]='COALESCE('.$field.",'') LIKE ?";$params[]='%'.$term.'%';}if($or)$groups[]='('.implode(' OR ',$or).')';}
+ return $groups?['('.implode(' AND ',$groups).')',$params]:['',[]];
+}
+function client_search_fields(string $alias='c'): array{
+ if(!in_array($alias,['c','clients'],true))throw new InvalidArgumentException('Alias de cliente inválido.');$p=$alias.'.';
+ return [$p.'name',$p.'legal_name',$p.'document',$p.'phone',$p.'email',$p.'omie_code',$p.'city',$p.'uf',
+  "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.nome_fantasia'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.razao_social'))",
+  "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.codigo_cliente_integracao'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.nome_fantasia'))",
+  "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.razao_social'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.codigo_cliente_integracao'))"];
+}
 function task_result_catalog(): array{
  $defaults=[
   ['code'=>'contact','label'=>'Contato','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
@@ -385,7 +403,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  if($tag!==''){$w[]=client_tag_filter_sql('c');$p[]=$tag;}
  if($sellerFilter==='__none__')$w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  elseif($sellerFilter!==''){$w[]='('.$effectiveSellerSql.')=?';$p[]=$sellerFilter;}
- if($q!==''){$w[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ?)';$x='%'.$q.'%';array_push($p,$x,$x,$x);}
+ if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,client_search_fields('c'));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
  $where=implode(' AND ',$w);
  $summaryEffective="CASE WHEN pa_summary.id IS NOT NULL THEN pa_summary.seller_omie_code ELSE c.seller_omie_code END";
  $summaryWhere=str_replace($effectiveSellerSql,$summaryEffective,$where);
@@ -449,7 +467,7 @@ $router->get('/clients-sync',function(){
  $status=(string)($_GET['status']??'all');if(!in_array($status,['all','pending','local','divergent','error'],true))$status='all';
  $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
  [$syncSql,$syncParams]=client_sync_condition($status,'c');$where=['c.active=1',$syncSql];$params=$syncParams;
- if($q!==''){$like='%'.$q.'%';$where[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";array_push($params,$like,$like,$like,$like,$like,$like);}
+ if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('c'),['ps.name','os.name']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
  $summary=DB::one("SELECT
   SUM(CASE WHEN (c.omie_code LIKE 'LOCAL-%' OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update','error') OR COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')) THEN 1 ELSE 0 END) total,
   SUM(CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update') THEN 1 ELSE 0 END) pending,
@@ -482,7 +500,7 @@ $router->post('/api/clients-sync/bulk',function(){
   $ids=[];foreach((array)($input['client_ids']??[]) as $id){$id=(int)$id;if($id>0)$ids[$id]=$id;}$excluded=[];foreach((array)($input['excluded_ids']??[]) as $id){$id=(int)$id;if($id>0)$excluded[$id]=$id;}
   if($selection==='selected'&&!$ids)throw new RuntimeException('Selecione pelo menos um cliente.');
   [$syncSql,$syncParams]=client_sync_condition($status,'c');$where=['c.active=1',$syncSql];$params=$syncParams;
-  if($q!==''){$like='%'.$q.'%';$where[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";array_push($params,$like,$like,$like,$like,$like,$like);}
+  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('c'),['ps.name','os.name']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
   if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
   if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
   $baseWhere=$where;$baseParams=$params;$where[]='c.id>?';$params[]=$cursor;
@@ -554,8 +572,9 @@ $router->get('/clients-audit',function(){
    if($conflict==='mixed'&&$group['conflict_type']!=='mixed')return false;
    if($conflict==='invalid'&&!empty($group['document_valid']))return false;
    if($q==='')return true;
-   $haystack=mb_strtolower(implode(' ',[(string)$group['document_digits'],(string)$group['document_formatted'],(string)($group['search_blob']??'')]));
-   return str_contains($haystack,mb_strtolower($q));
+   $haystack=mb_strtolower(implode(' ',[(string)$group['document_digits'],(string)$group['document_formatted'],(string)($group['search_blob']??'')]),'UTF-8');
+   foreach(crm_search_terms($q) as $term)if(!str_contains($haystack,mb_strtolower($term,'UTF-8')))return false;
+   return true;
   }));
   $perPage=15;$total=count($filteredGroups);$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
   $visibleGroups=array_slice($filteredGroups,$offset,$perPage);$visibleDocuments=array_column($visibleGroups,'document_digits');
@@ -573,7 +592,7 @@ $router->get('/clients-audit',function(){
   }
  }elseif($tab==='inactive'){
   $inactiveWhere=['c.active=0'];$inactiveParams=[];
-  if($q!==''){$needle='%'.$q.'%';$inactiveWhere[]='(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ?)';$inactiveParams=array_fill(0,4,$needle);}
+  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,client_search_fields('c'));if($searchSql!==''){$inactiveWhere[]=$searchSql;array_push($inactiveParams,...$searchParams);}}
   $inactiveSql=implode(' AND ',$inactiveWhere);$total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".$inactiveSql,$inactiveParams)??0);
   $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
   $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
@@ -587,7 +606,7 @@ $router->get('/clients-audit',function(){
   );
  }else{
   $responsibilityWhere=["c.active=1","(COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'') OR pa_row.id IS NOT NULL)"];$responsibilityParams=[$auditMonth];
-  if($q!==''){$needle='%'.$q.'%';$responsibilityWhere[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";array_push($responsibilityParams,$needle,$needle,$needle,$needle,$needle,$needle);}
+  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('c'),['ps.name','os.name','es.name']));if($searchSql!==''){$responsibilityWhere[]=$searchSql;array_push($responsibilityParams,...$searchParams);}}
   $responsibilityFrom=" FROM clients c
     LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code
     LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
@@ -1774,9 +1793,11 @@ $router->get('/api/contact-monitoring/datatable',function(){
  $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin." WHERE ".$baseWhereSql,$baseParams)??0);
  $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
-  $needle='%'.$search.'%';
-  $where[]="(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR (".$effectiveSellerExpr.") LIKE ? OR EXISTS (SELECT 1 FROM sellers search_seller WHERE search_seller.omie_code=(".$effectiveSellerExpr.") AND search_seller.name LIKE ?) OR EXISTS (SELECT 1 FROM collection_cases search_case JOIN users search_user ON search_user.id=search_case.assigned_user_id WHERE search_case.client_id=c.id AND search_user.name LIKE ?))";
-  array_push($params,$needle,$needle,$needle,$needle,$needle,$needle,$needle);
+  $extraFields=['('.$effectiveSellerExpr.')',
+   "(SELECT search_seller.name FROM sellers search_seller WHERE search_seller.omie_code=(".$effectiveSellerExpr.") LIMIT 1)",
+   "(SELECT search_user.name FROM collection_cases search_case JOIN users search_user ON search_user.id=search_case.assigned_user_id WHERE search_case.client_id=c.id LIMIT 1)"];
+  [$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),$extraFields));
+  if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}
  }
  $whereSql=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin." WHERE ".$whereSql,$params)??0);
@@ -1837,7 +1858,7 @@ $router->post('/api/clients/bulk',function(){
   if($tag!==''){$where[]=client_tag_filter_sql('c');$params[]=$tag;}
    if($sellerFilter==='__none__')$where[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
    elseif($sellerFilter!==''){$where[]='('.$effectiveSellerSql.')=?';$params[]=$sellerFilter;}
-  if($search!==''){$like='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR search_effective.name LIKE ? OR ('.$effectiveSellerSql.') LIKE ?)';array_push($params,$like,$like,$like,$like,$like,$like,$like);}
+  if($search!==''){[$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['search_effective.name','('.$effectiveSellerSql.')']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
   if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
   if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
   $portfolioJoin=" LEFT JOIN client_portfolio_assignments pa_bulk ON pa_bulk.client_id=c.id AND pa_bulk.month_ref='".$portfolioMonth."'";
@@ -1913,9 +1934,8 @@ $router->get('/api/clients/datatable',function(){
  $searchInput=$_GET['search']??[];
  $search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
-  $like='%'.$search.'%';
-  $where[]='(c.name LIKE ? OR c.document LIKE ? OR c.phone LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR es.name LIKE ? OR ('.$effectiveSellerSql.') LIKE ?)';
-  array_push($params,$like,$like,$like,$like,$like,$like,$like);
+  [$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['es.name','('.$effectiveSellerSql.')']));
+  if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}
  }
  $sqlWhere=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
  $sellerJoin=" LEFT JOIN sellers es ON es.omie_code=(".$effectiveSellerExpr.")";
@@ -1987,7 +2007,7 @@ $router->get('/api/clients',function(){
  Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$q=trim((string)($_GET['q']??''));
  [$segmentSql,$segmentParams]=client_segment_filter('general','clients');$effective=client_effective_seller_sql('clients');$w=['active=1',$segmentSql];$p=$segmentParams;
  if($u['role']==='seller'){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
- if($q!==''){$w[]="(name LIKE ? OR document LIKE ? OR omie_code LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) LIKE ? OR CAST(id AS CHAR)=?)";$needle='%'.$q.'%';array_push($p,$needle,$needle,$needle,$needle,$q);}
+ if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('clients'),['CAST(clients.id AS CHAR)']));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
  json_response(['items'=>DB::all("SELECT id,omie_code,JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.codigo_cliente_integracao')) client_integration_code,name,document,email,city,uf,(SELECT assigned_user_id FROM collection_cases WHERE client_id=clients.id) collection_assigned_user_id FROM clients WHERE ".implode(' AND ',$w)." ORDER BY CASE WHEN (".$effective.")=? THEN 0 ELSE 1 END,name LIMIT 25",array_merge($p,[$u['role']==='seller'?$u['seller_omie_code']:'']))]);
 });
 
@@ -2008,9 +2028,8 @@ $router->get('/api/orders/datatable',function(){
 
  $searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
-  $needle='%'.$search.'%';
-  $where[]='(o.number LIKE ? OR o.omie_code LIKE ? OR c.name LIKE ? OR c.document LIKE ? OR s.name LIKE ? OR o.seller_omie_code LIKE ? OR os.name LIKE ? OR o.stage_code LIKE ? OR o.status LIKE ?)';
-  array_push($params,$needle,$needle,$needle,$needle,$needle,$needle,$needle,$needle,$needle);
+  [$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['o.number','o.omie_code','s.name','o.seller_omie_code','os.name','o.stage_code','o.status']));
+  if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}
  }
  $sqlWhere=$where?implode(' AND ',$where):'1=1';
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
@@ -2058,9 +2077,8 @@ $router->get('/api/services/datatable',function(){
 
  $searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
  if($search!==''){
-  $needle='%'.$search.'%';
-  $where[]='(so.omie_code LIKE ? OR c.name LIKE ? OR c.document LIKE ? OR s.name LIKE ? OR so.seller_omie_code LIKE ? OR so.status LIKE ?)';
-  array_push($params,$needle,$needle,$needle,$needle,$needle,$needle);
+  [$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['so.omie_code','s.name','so.seller_omie_code','so.status']));
+  if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}
  }
  $sqlWhere=$where?implode(' AND ',$where):'1=1';
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
@@ -2107,7 +2125,7 @@ $router->get('/api/collection/datatable',function(){
  $baseSql=implode(' AND ',$baseWhere);
  $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE ".$baseSql,$baseParams)??0);
  $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
- if($search!==''){$needle='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.city LIKE ? OR c.uf LIKE ? OR s.name LIKE ? OR u.name LIKE ?)';array_push($params,$needle,$needle,$needle,$needle,$needle,$needle);}
+ if($search!==''){[$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['s.name','u.name']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
  $whereSql=implode(' AND ',$where);
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
   "SELECT COUNT(*) FROM collection_cases cc
@@ -2159,7 +2177,7 @@ $router->get('/api/collection/recoveries/datatable',function(){
  if(!$period['all']){$baseWhere[]='ca.created_at>=?';$baseWhere[]='ca.created_at<?';$baseParams[]=$period['from'].' 00:00:00';$baseParams[]=$period['next'].' 00:00:00';}
  $baseSql=implode(' AND ',$baseWhere);$recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions ca WHERE ".$baseSql,$baseParams)??0);
  $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
- if($search!==''){$needle='%'.$search.'%';$where[]='(c.name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR assigned.name LIKE ? OR author.name LIKE ? OR ca.notes LIKE ?)';array_push($params,$needle,$needle,$needle,$needle,$needle,$needle);}
+ if($search!==''){[$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['assigned.name','author.name','ca.notes']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
  $whereSql=implode(' AND ',$where);
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
   "SELECT COUNT(*) FROM collection_actions ca
