@@ -58,21 +58,20 @@ function client_segment_filter(string $segment,string $alias='c'): array{
  $prefix=$alias!==''?$alias.'.':'';$sellerColumn=$prefix.'seller_omie_code';$catalog=client_segment_catalog();
  if($segment==='all')return ['1=1',[]];
  if(!isset($catalog[$segment]))$segment='general';
- if(in_array($segment,['supplier','carrier'],true)){
-  $tag=$segment==='supplier'?'Fornecedor':'Transportadora';
-  return [client_tag_filter_sql($alias),[$tag]];
- }
+ $tagSql=client_tag_filter_sql($alias);
+ if($segment==='carrier')return [$tagSql,['Transportadora']];
+ if($segment==='supplier')return ['('.$tagSql.') AND NOT ('.$tagSql.')',['Fornecedor','Transportadora']];
  $codes=$segment==='general'?client_virtual_seller_codes():array_values(array_filter(array_map('strval',(array)($catalog[$segment]['seller_codes']??[]))));
+ $parts=[];$params=[];
  if($segment==='general'){
-  $parts=[];$params=[];
   if($codes){$parts[]='('.$sellerColumn.' IS NULL OR '.$sellerColumn."='' OR ".$sellerColumn.' NOT IN ('.implode(',',array_fill(0,count($codes),'?')).'))';array_push($params,...$codes);}
-  $parts[]='NOT ('.client_tag_filter_sql($alias).')';$params[]='Fornecedor';
-  $parts[]='NOT ('.client_tag_filter_sql($alias).')';$params[]='Transportadora';
-  return [implode(' AND ',$parts),$params];
+ }else{
+  if(!$codes)return ['1=0',[]];
+  $parts[]=$sellerColumn.' IN ('.implode(',',array_fill(0,count($codes),'?')).')';array_push($params,...$codes);
  }
- if(!$codes)return ['1=0',[]];
- $placeholders=implode(',',array_fill(0,count($codes),'?'));
- return [$sellerColumn.' IN ('.$placeholders.')',$codes];
+ $parts[]='NOT ('.$tagSql.')';$params[]='Fornecedor';
+ $parts[]='NOT ('.$tagSql.')';$params[]='Transportadora';
+ return [implode(' AND ',$parts),$params];
 }
 function client_sync_condition(string $status='all',string $alias='c'): array{
  if(!in_array($alias,['c','clients'],true))throw new InvalidArgumentException('Alias de cliente inválido.');
