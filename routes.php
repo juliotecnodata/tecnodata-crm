@@ -2140,64 +2140,123 @@ $router->get('/api/services/datatable',function(){
 $router->get('/api/collection/datatable',function(){
  Auth::requireRole('admin','supervisor','collector');
  $u=Auth::user();$draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
- $view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
- $assigned=max(0,(int)($_GET['assigned_user_id']??0));$uf=mb_strtoupper(trim((string)($_GET['uf']??'')));$delay=(string)($_GET['delay']??'all');
- $collectionTagsSelected=client_filter_tags($_GET['tags']??[]);
- if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';if(($u['role']??'')==='collector')$assigned=0;
- $baseWhere=['cc.status=?'];$baseParams=[$view];
- if($assigned>0){$baseWhere[]='cc.assigned_user_id=?';$baseParams[]=$assigned;}
- if($uf!==''){$baseWhere[]='c.uf=?';$baseParams[]=$uf;}
- if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$baseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($baseParams,...$tagKeys);}
- if($delay==='current')$baseWhere[]='cc.max_overdue_days<=0';
- elseif($delay==='1_30')$baseWhere[]='cc.max_overdue_days BETWEEN 1 AND 30';
- elseif($delay==='31_60')$baseWhere[]='cc.max_overdue_days BETWEEN 31 AND 60';
- elseif($delay==='60_plus')$baseWhere[]='cc.max_overdue_days>60';
- $baseSql=implode(' AND ',$baseWhere);
- $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE ".$baseSql,$baseParams)??0);
- $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
- if($search!==''){[$searchSql,$searchParams]=crm_search_filter($search,array_merge(client_search_fields('c'),['s.name','u.name']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
- $whereSql=implode(' AND ',$where);
- $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
-  "SELECT COUNT(*) FROM collection_cases cc
-   JOIN clients c ON c.id=cc.client_id
-   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
-   LEFT JOIN users u ON u.id=cc.assigned_user_id
-   WHERE ".$whereSql,$params
- )??0);
- $orderInput=$_GET['order'][0]??[];$orderIndex=max(0,(int)(is_array($orderInput)?($orderInput['column']??4):4));$orderDir=strtolower((string)(is_array($orderInput)?($orderInput['dir']??'desc'):'desc'))==='asc'?'ASC':'DESC';
- $orderColumns=['c.name','s.name','u.name','cc.max_overdue_days','cc.open_amount','la.created_at','nt.due_at','cc.max_overdue_days','cc.id'];$orderBy=$orderColumns[$orderIndex]??'cc.open_amount';
- $rows=DB::all(
-  "SELECT cc.*,c.name,c.document,c.uf,c.city,c.seller_omie_code,s.name seller_name,u.name assigned_name,
-          la.result last_result,la.channel last_channel,la.amount last_amount,la.created_at last_contact_at,
-          COALESCE((SELECT SUM(cp.amount) FROM collection_actions cp WHERE cp.client_id=cc.client_id AND cp.result='payment' AND cp.local_status='pending'),0) pending_local,
-          nt.id next_task_id,nt.title next_title,nt.due_at next_due_at
-   FROM collection_cases cc
-   JOIN clients c ON c.id=cc.client_id
-   LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
-   LEFT JOIN users u ON u.id=cc.assigned_user_id
-   LEFT JOIN collection_actions la ON la.id=(SELECT ca.id FROM collection_actions ca WHERE ca.client_id=cc.client_id AND ca.local_status<>'cancelled' ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1)
-   LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND ".collection_task_condition_sql('t')." AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1)
-   WHERE ".$whereSql."
-   ORDER BY ".$orderBy." ".$orderDir.",cc.id DESC
-   LIMIT ".$length." OFFSET ".$start,
-  $params
- );
- $data=[];
- foreach($rows as $row){
-  $days=(int)($row['max_overdue_days']??0);$pendingLocal=(float)($row['pending_local']??0);$available=max(0,(float)$row['open_amount']-$pendingLocal);
-  $hasAgreement=($row['last_result']??'')==='agreement'&&(float)($row['last_amount']??0)>0;
-  $statusClass=$pendingLocal>0?'local-paid':($hasAgreement?'agreement':($days>60?'danger':($days>30?'warning':($days>0?'today':'ok'))));
-  $statusText=$pendingLocal>0?'Baixa local pendente':($hasAgreement?'Acordo '.money($row['last_amount']):($days>60?'Crítico':($days>30?'Atenção':($days>0?'Em atraso':'Em dia'))));
-  $client='<div class="tdcob4-client"><span>'.e(mb_strtoupper(mb_substr((string)$row['name'],0,1))).'</span><div><strong>'.e($row['name']).'</strong><small>'.e(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:'')).'</small></div></div>';
-  $daysCell='<strong class="'.($days>30?'danger':'').'">'.($days>0?$days.' dias':'Em dia').'</strong>';
-  $amount='<strong>'.money($available).'</strong><small>Omie '.money($row['open_amount']).($pendingLocal>0?' · baixa '.money($pendingLocal):'').'</small>';
-  $last=!empty($row['last_contact_at'])?'<strong>'.date('d/m/Y',strtotime((string)$row['last_contact_at'])).'</strong><small>'.e($row['last_channel']??'contato').'</small>':'—';
-  $next=!empty($row['next_due_at'])?'<strong>'.e($row['next_title']??'Retorno').'</strong><small>'.date('d/m H:i',strtotime((string)$row['next_due_at'])).'</small>':'—';
-  $status='<span class="tdcob4-status '.$statusClass.'"><i></i>'.$statusText.'</span>';
-  $action='<a class="tdcob4-open" href="'.APP_URL.'/collection/'.(int)$row['client_id'].'" title="Abrir cobrança"><i class="fa-regular fa-folder-open"></i></a>';
-  $data[]=[$client,e($row['seller_name']??'—'),'<strong>'.e($row['assigned_name']??'Não atribuído').'</strong>',$daysCell,$amount,$last,$next,$status,$action];
+ try{
+  $view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
+  $assigned=max(0,(int)($_GET['assigned_user_id']??0));$uf=mb_strtoupper(trim((string)($_GET['uf']??'')));$delay=(string)($_GET['delay']??'all');
+  $collectionTagsSelected=client_filter_tags($_GET['tags']??[]);
+  if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';if(($u['role']??'')==='collector')$assigned=0;
+
+  // Compatibilidade com bases que ainda não receberam todas as colunas novas de cobrança.
+  $caseHasAssigned=db_column_exists('collection_cases','assigned_user_id');
+  $actionHasLocalStatus=db_column_exists('collection_actions','local_status');
+  $actionHasCore=db_column_exists('collection_actions','client_id')
+   &&db_column_exists('collection_actions','result')
+   &&db_column_exists('collection_actions','channel')
+   &&db_column_exists('collection_actions','amount')
+   &&db_column_exists('collection_actions','created_at');
+  $taskHasCore=db_column_exists('tasks','id')
+   &&db_column_exists('tasks','client_id')
+   &&db_column_exists('tasks','title')
+   &&db_column_exists('tasks','due_at')
+   &&db_column_exists('tasks','status');
+
+  $baseWhere=['cc.status=?'];$baseParams=[$view];
+  if($assigned>0){
+   if(!$caseHasAssigned)throw new RuntimeException('Estrutura de cobrança desatualizada: responsável da carteira ainda não existe no banco.');
+   $baseWhere[]='cc.assigned_user_id=?';$baseParams[]=$assigned;
+  }
+  if($uf!==''){$baseWhere[]='c.uf=?';$baseParams[]=$uf;}
+  if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$baseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($baseParams,...$tagKeys);}
+  if($delay==='current')$baseWhere[]='cc.max_overdue_days<=0';
+  elseif($delay==='1_30')$baseWhere[]='cc.max_overdue_days BETWEEN 1 AND 30';
+  elseif($delay==='31_60')$baseWhere[]='cc.max_overdue_days BETWEEN 31 AND 60';
+  elseif($delay==='60_plus')$baseWhere[]='cc.max_overdue_days>60';
+
+  $baseSql=implode(' AND ',$baseWhere);
+  $recordsTotal=(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE ".$baseSql,$baseParams)??0);
+
+  $where=$baseWhere;$params=$baseParams;$searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
+  $searchFields=client_search_fields('c');if($caseHasAssigned)$searchFields[]='u.name';
+  $searchFields[]='s.name';
+  if($search!==''){[$searchSql,$searchParams]=crm_search_filter($search,$searchFields);if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
+  $whereSql=implode(' AND ',$where);
+
+  $userJoin=$caseHasAssigned?' LEFT JOIN users u ON u.id=cc.assigned_user_id ':'';
+  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar(
+   "SELECT COUNT(*) FROM collection_cases cc
+    JOIN clients c ON c.id=cc.client_id
+    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code".
+    $userJoin."
+    WHERE ".$whereSql,$params
+  )??0);
+
+  $lastActionJoin='';$lastResultSelect='NULL last_result,NULL last_channel,0 last_amount,NULL last_contact_at';
+  $pendingLocalSelect='0 pending_local';
+  if($actionHasCore){
+   $activeAction=$actionHasLocalStatus?" AND ca.local_status<>'cancelled'":'';
+   $lastActionJoin=" LEFT JOIN collection_actions la ON la.id=(SELECT ca.id FROM collection_actions ca WHERE ca.client_id=cc.client_id".$activeAction." ORDER BY ca.created_at DESC,ca.id DESC LIMIT 1) ";
+   $lastResultSelect='la.result last_result,la.channel last_channel,la.amount last_amount,la.created_at last_contact_at';
+   if($actionHasLocalStatus)$pendingLocalSelect="COALESCE((SELECT SUM(cp.amount) FROM collection_actions cp WHERE cp.client_id=cc.client_id AND cp.result='payment' AND cp.local_status='pending'),0) pending_local";
+  }
+
+  $taskJoin='';$nextTaskSelect='NULL next_task_id,NULL next_title,NULL next_due_at';
+  if($taskHasCore){
+   $taskJoin=" LEFT JOIN tasks nt ON nt.id=(SELECT t.id FROM tasks t WHERE t.client_id=cc.client_id AND ".collection_task_condition_sql('t')." AND t.status='pending' ORDER BY t.due_at,t.id LIMIT 1) ";
+   $nextTaskSelect='nt.id next_task_id,nt.title next_title,nt.due_at next_due_at';
+  }
+
+  $orderInput=$_GET['order'][0]??[];$orderIndex=max(0,(int)(is_array($orderInput)?($orderInput['column']??4):4));$orderDir=strtolower((string)(is_array($orderInput)?($orderInput['dir']??'desc'):'desc'))==='asc'?'ASC':'DESC';
+  $orderColumns=[
+   0=>'c.name',
+   1=>'s.name',
+   2=>$caseHasAssigned?'u.name':'c.name',
+   3=>'cc.max_overdue_days',
+   4=>'cc.open_amount',
+   5=>$actionHasCore?'la.created_at':'cc.client_id',
+   6=>$taskHasCore?'nt.due_at':'cc.client_id',
+   7=>'cc.max_overdue_days',
+   8=>'cc.client_id'
+  ];
+  $orderBy=$orderColumns[$orderIndex]??'cc.open_amount';
+  $assignedSelect=$caseHasAssigned?'u.name assigned_name':'NULL assigned_name';
+
+  $rows=DB::all(
+   "SELECT cc.client_id,cc.open_amount,cc.max_overdue_days,cc.status,
+           c.name,c.document,c.uf,c.city,c.seller_omie_code,s.name seller_name,".$assignedSelect.",
+           ".$lastResultSelect.",
+           ".$pendingLocalSelect.",
+           ".$nextTaskSelect."
+    FROM collection_cases cc
+    JOIN clients c ON c.id=cc.client_id
+    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code".
+    $userJoin.$lastActionJoin.$taskJoin."
+    WHERE ".$whereSql."
+    ORDER BY ".$orderBy." ".$orderDir.",cc.client_id DESC
+    LIMIT ".$length." OFFSET ".$start,
+   $params
+  );
+
+  $data=[];
+  foreach($rows as $row){
+   $days=(int)($row['max_overdue_days']??0);$pendingLocal=(float)($row['pending_local']??0);$available=max(0,(float)$row['open_amount']-$pendingLocal);
+   $hasAgreement=($row['last_result']??'')==='agreement'&&(float)($row['last_amount']??0)>0;
+   $statusClass=$pendingLocal>0?'local-paid':($hasAgreement?'agreement':($days>60?'danger':($days>30?'warning':($days>0?'today':'ok'))));
+   $statusText=$pendingLocal>0?'Baixa local pendente':($hasAgreement?'Acordo '.money($row['last_amount']):($days>60?'Crítico':($days>30?'Atenção':($days>0?'Em atraso':'Em dia'))));
+   $client='<div class="tdcob4-client"><span>'.e(mb_strtoupper(mb_substr((string)$row['name'],0,1))).'</span><div><strong>'.e($row['name']).'</strong><small>'.e(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:'')).'</small></div></div>';
+   $daysCell='<strong class="'.($days>30?'danger':'').'">'.($days>0?$days.' dias':'Em dia').'</strong>';
+   $amount='<strong>'.money($available).'</strong><small>Omie '.money($row['open_amount']).($pendingLocal>0?' · baixa '.money($pendingLocal):'').'</small>';
+   $last=!empty($row['last_contact_at'])?'<strong>'.date('d/m/Y',strtotime((string)$row['last_contact_at'])).'</strong><small>'.e($row['last_channel']??'contato').'</small>':'—';
+   $next=!empty($row['next_due_at'])?'<strong>'.e($row['next_title']??'Retorno').'</strong><small>'.date('d/m H:i',strtotime((string)$row['next_due_at'])).'</small>':'—';
+   $status='<span class="tdcob4-status '.$statusClass.'"><i></i>'.$statusText.'</span>';
+   $action='<a class="tdcob4-open" href="'.APP_URL.'/collection/'.(int)$row['client_id'].'" title="Abrir cobrança"><i class="fa-regular fa-folder-open"></i></a>';
+   $data[]=[$client,e($row['seller_name']??'—'),'<strong>'.e($row['assigned_name']??'Não atribuído').'</strong>',$daysCell,$amount,$last,$next,$status,$action];
+  }
+  json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
+ }catch(Throwable $e){
+  $errorRef='COL-'.date('YmdHis').'-'.strtoupper(substr(sha1($e->getMessage()),0,6));
+  error_log('['.$errorRef.'] collection datatable: '.$e->getMessage());
+  json_response(['draw'=>$draw,'recordsTotal'=>0,'recordsFiltered'=>0,'data'=>[],'error'=>'['.$errorRef.'] '.$e->getMessage()],500);
  }
- json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
 });
 
 $router->get('/api/collection/recoveries/datatable',function(){
