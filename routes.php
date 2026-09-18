@@ -313,15 +313,15 @@ $router->post('/clients/{id}/omie-sync',function($p){
  redirect('/clients/'.$id);
 });
 
-$renderClients=function(bool $portfolioOnly=false,string $segment='general'){
+$renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  Auth::requireRole('admin','supervisor','seller');
  $u=Auth::user();
+ $segment=(string)($forcedSegment??($_GET['segment']??'general'));
  $segmentCatalog=client_segment_catalog();if(!isset($segmentCatalog[$segment]))$segment='general';
  if($portfolioOnly)$segment='general';
  if($segment!=='general'&&!in_array((string)$u['role'],['admin','supervisor'],true)){http_response_code(403);exit('Segmento restrito à gestão.');}
  $segmentMeta=(array)($segmentCatalog[$segment]??[]);
- $segmentPaths=['general'=>'clients','ead_reciclagem'=>'clients-ead-reciclagem','suporte_pet'=>'clients-suporte-pet'];
- $clientBasePath=(string)($segmentPaths[$segment]??'clients');
+ $clientBasePath='clients';
  if($portfolioOnly&&$u['role']!=='seller'){redirect('/clients');}
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
@@ -393,7 +393,7 @@ $renderClients=function(bool $portfolioOnly=false,string $segment='general'){
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
  $stateWhere='c.active=1 AND '.$stateSegmentSql;$stateParams=$stateSegmentParams;$stateEffectiveSql=client_effective_seller_sql('c',$portfolioMonth);
  if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.client_effective_seller_sql('c',$portfolioMonth).')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
- render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
+ render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
   'orders'=>(int)($summary['orders_12m']??0),
@@ -413,9 +413,9 @@ $renderClients=function(bool $portfolioOnly=false,string $segment='general'){
  ]);
 };
 $router->get('/clients',function()use($renderClients){$renderClients(false);});
-$router->get('/my-portfolio',function()use($renderClients){$renderClients(true);});
-$router->get('/clients-ead-reciclagem',function()use($renderClients){$renderClients(false,'ead_reciclagem');});
-$router->get('/clients-suporte-pet',function()use($renderClients){$renderClients(false,'suporte_pet');});
+$router->get('/my-portfolio',function()use($renderClients){$renderClients(true,'general');});
+$router->get('/clients-ead-reciclagem',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='ead_reciclagem';redirect('/clients?'.http_build_query($query));});
+$router->get('/clients-suporte-pet',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='suporte_pet';redirect('/clients?'.http_build_query($query));});
 $router->get('/clients-audit',function(){
  Auth::requireRole('admin','supervisor');
  $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','responsibility','inactive'],true))$tab='duplicates';
