@@ -536,6 +536,7 @@ function render(string $name,array $vars=[]): void{
      </div>
     </section>
 
+    <?php if($clientSegment==='general'):?>
     <section class="tdc-card">
      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-users-gear"></i></span><div><strong>Carteira provisória do mês</strong><small>Redistribua o atendimento sem alterar o vendedor principal nem a Omie. Sem exceção mensal, vale o vendedor principal.</small></div></div><span class="tdc-badge"><i class="fa-solid fa-shield-halved"></i> Provisória</span></div>
      <form method="post" action="<?=APP_URL?>/clients/portfolio/assign" class="tdc-portfolio-form">
@@ -548,6 +549,7 @@ function render(string $name,array $vars=[]): void{
       <button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="Atualizando carteira..." data-confirm="Confirmar a carteira provisória deste mês? O vendedor principal e a Omie não serão alterados."><i class="fa-solid fa-arrow-right-arrow-left"></i>Aplicar carteira</button>
      </form>
     </section>
+    <?php endif;?>
     <?php endif;?>
 
     <?php if(Auth::can('seller')&&!$portfolioMode):?>
