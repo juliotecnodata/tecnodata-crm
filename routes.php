@@ -27,8 +27,8 @@ function client_effective_seller_sql(string $alias='c',?string $month=null): str
 }
 function client_tag_filter_sql(string $alias='c'): string{
  if(!in_array($alias,['c','clients',''],true))throw new InvalidArgumentException('Alias de cliente inválido.');
- $column=($alias!==''?$alias.'.':'').'raw_json';
- return "EXISTS (SELECT 1 FROM JSON_TABLE(COALESCE(JSON_EXTRACT(".$column.", '$.request.tags'),JSON_EXTRACT(".$column.", '$.tags'),JSON_ARRAY()), '$[*]' COLUMNS(tag VARCHAR(190) PATH '$.tag')) client_tag WHERE LOWER(TRIM(client_tag.tag))=LOWER(TRIM(?)))";
+ $prefix=$alias!==''?$alias.'.':'';
+ return "EXISTS (SELECT 1 FROM client_tags indexed_tag WHERE indexed_tag.client_id=".$prefix."id AND indexed_tag.tag_key=LOWER(TRIM(?)))";
 }
 function client_tags_from_raw(mixed $rawJson): array{
  $raw=is_array($rawJson)?$rawJson:json_decode((string)$rawJson,true);if(!is_array($raw))return [];
@@ -39,7 +39,7 @@ function client_tags_from_raw(mixed $rawJson): array{
 function client_tag_catalog(): array{
  $cached=$_SESSION['client_tag_catalog_cache']??null;
  if(is_array($cached)&&time()-(int)($cached['at']??0)<300&&is_array($cached['items']??null))return $cached['items'];
- $items=DB::all("SELECT MIN(TRIM(client_tag.tag)) tag,COUNT(DISTINCT c.id) client_count FROM clients c JOIN JSON_TABLE(COALESCE(JSON_EXTRACT(c.raw_json, '$.request.tags'),JSON_EXTRACT(c.raw_json, '$.tags'),JSON_ARRAY()), '$[*]' COLUMNS(tag VARCHAR(190) PATH '$.tag')) client_tag WHERE c.active=1 AND client_tag.tag IS NOT NULL AND TRIM(client_tag.tag)<>'' GROUP BY LOWER(TRIM(client_tag.tag)) ORDER BY client_count DESC,tag");
+ $items=DB::all("SELECT MIN(t.tag) tag,COUNT(*) client_count FROM client_tags t JOIN clients c ON c.id=t.client_id WHERE c.active=1 GROUP BY t.tag_key ORDER BY client_count DESC,tag");
  $_SESSION['client_tag_catalog_cache']=['at'=>time(),'items'=>$items];
  return $items;
 }
