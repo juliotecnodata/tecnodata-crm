@@ -2159,10 +2159,12 @@ final class SyncService {
  }
  public static function overview(): array{
   $states=[];foreach(DB::all("SELECT * FROM sync_state ORDER BY module_key") as $row)$states[(string)$row['module_key']]=$row;
-  $tables=self::tableMap();$items=[];$errors=0;$synced=0;$totalLocal=0;$lastSuccess=null;
-  foreach(self::modules() as $key=>$label){
-   $state=$states[$key]??null;$table=$tables[$key]??null;$local=0;
-   if($table)$local=(int)(DB::scalar("SELECT COUNT(*) FROM ".$table)??0);
+  $tables=self::tableMap();$modules=self::modules();$countSql=[];$countKeys=[];
+  foreach($modules as $key=>$label){$table=$tables[$key]??null;if(!$table)continue;$idx=count($countKeys);$countKeys[$idx]=$key;$countSql[]="SELECT ".$idx." idx,COUNT(*) local_count FROM ".$table;}
+  $localCounts=[];if($countSql)foreach(DB::all(implode(" UNION ALL ",$countSql)) as $row){$idx=(int)($row['idx']??-1);if(isset($countKeys[$idx]))$localCounts[$countKeys[$idx]]=(int)($row['local_count']??0);}
+  $items=[];$errors=0;$synced=0;$totalLocal=0;$lastSuccess=null;
+  foreach($modules as $key=>$label){
+   $state=$states[$key]??null;$local=(int)($localCounts[$key]??0);
    $totalLocal+=$local;
    $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
    if(!is_array($ctx))$ctx=[];
