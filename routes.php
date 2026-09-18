@@ -500,81 +500,115 @@ $router->get('/clients-audit',function(){
  $auditMonth=ClientPortfolioService::monthRef($_GET['month']??null);
  $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
  $conflict=(string)($_GET['conflict']??'all');if(!in_array($conflict,['all','active','mixed','invalid'],true))$conflict='all';
+ $requestedPage=max(1,(int)($_GET['page']??1));
  $docSql="REGEXP_REPLACE(COALESCE(c.document,''),'[^0-9]','')";
- $groups=DB::all(
-  "SELECT {$docSql} document_digits,COUNT(*) records_count,SUM(c.active=1) active_count,SUM(c.active=0) inactive_count,
-          SUM(c.omie_code LIKE 'LOCAL-%') local_count,
-          GROUP_CONCAT(CONCAT_WS(' ',c.name,c.legal_name,c.omie_code,c.document) SEPARATOR ' ') search_blob
-   FROM clients c
-   WHERE CHAR_LENGTH({$docSql}) IN (11,14)
-   GROUP BY document_digits HAVING COUNT(*)>1
-   ORDER BY active_count DESC,records_count DESC,document_digits"
- );
- $auditStats=['duplicate_groups'=>count($groups),'duplicate_rows'=>0,'valid_groups'=>0,'invalid_groups'=>0,'active_groups'=>0,'mixed_groups'=>0];
- foreach($groups as &$group){
-  $digits=(string)$group['document_digits'];$valid=client_audit_document_valid($digits);$active=(int)$group['active_count'];$inactive=(int)$group['inactive_count'];
-  $group['document_formatted']=client_audit_document_format($digits);$group['document_type']=strlen($digits)===11?'CPF':'CNPJ';$group['document_valid']=$valid;
-  $group['conflict_type']=$active>1?'active':($active>0&&$inactive>0?'mixed':'inactive');
-  $auditStats['duplicate_rows']+=(int)$group['records_count'];$valid?$auditStats['valid_groups']++:$auditStats['invalid_groups']++;
-  if($active>1)$auditStats['active_groups']++;if($active>0&&$inactive>0)$auditStats['mixed_groups']++;
- }
- unset($group);
- $inactiveCount=(int)(DB::scalar('SELECT COUNT(*) FROM clients WHERE active=0')??0);
- $auditStats['total_clients']=(int)(DB::scalar('SELECT COUNT(*) FROM clients')??0);
- $auditStats['active_clients']=(int)(DB::scalar('SELECT COUNT(*) FROM clients WHERE active=1')??0);
- $auditStats['inactive_clients']=$inactiveCount;
- $auditStats['seller_divergences']=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE c.active=1 AND COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')")??0);
- $auditStats['monthly_overrides']=(int)(DB::scalar("SELECT COUNT(*) FROM client_portfolio_assignments pa JOIN clients c ON c.id=pa.client_id WHERE c.active=1 AND pa.month_ref=?",[$auditMonth])??0);
 
- $filteredGroups=array_values(array_filter($groups,static function(array $group)use($q,$conflict): bool{
-  if($conflict==='active'&&$group['conflict_type']!=='active')return false;
-  if($conflict==='mixed'&&$group['conflict_type']!=='mixed')return false;
-  if($conflict==='invalid'&&!empty($group['document_valid']))return false;
-  if($q==='')return true;
-  $haystack=mb_strtolower(implode(' ',[(string)$group['document_digits'],(string)$group['document_formatted'],(string)($group['search_blob']??'')]));
-  return str_contains($haystack,mb_strtolower($q));
- }));
- $perPage=15;$pages=max(1,(int)ceil(count($filteredGroups)/$perPage));$page=max(1,min($pages,(int)($_GET['page']??1)));$offset=($page-1)*$perPage;
- $visibleGroups=$tab==='duplicates'?array_slice($filteredGroups,$offset,$perPage):[];$visibleDocuments=array_column($visibleGroups,'document_digits');$duplicateRows=[];$duplicateRowsByDocument=[];
- if($visibleDocuments){
-  $placeholders=implode(',',array_fill(0,count($visibleDocuments),'?'));
-  $duplicateRows=DB::all(
-   "SELECT c.*,s.name seller_name,{$docSql} document_digits,
-           JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.crm_duplicate_of')) duplicate_of
-    FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
-    WHERE {$docSql} IN ({$placeholders})
-    ORDER BY document_digits,c.active DESC,(c.omie_code NOT LIKE 'LOCAL-%') DESC,c.updated_at DESC,c.id",
-   $visibleDocuments
-  );
- }
- $inactiveWhere='c.active=0';$inactiveParams=[];$inactiveRows=[];
- if($q!==''){$inactiveWhere.=' AND (c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ?)';$inactiveParams=array_fill(0,4,'%'.$q.'%');}
- if($tab==='inactive')$inactiveRows=DB::all(
-  "SELECT c.*,s.name seller_name,{$docSql} document_digits
-   FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
-   WHERE {$inactiveWhere}
-   ORDER BY c.updated_at DESC,c.name",
-  $inactiveParams
- );
- $responsibilityRows=[];
- if($tab==='responsibility'){
-  $effectiveAuditSql=client_effective_seller_sql('c',$auditMonth);
-  $responsibilityWhere=["c.active=1","(COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'') OR EXISTS (SELECT 1 FROM client_portfolio_assignments pa_check WHERE pa_check.client_id=c.id AND pa_check.month_ref='".$auditMonth."'))"];$responsibilityParams=[];
-  if($q!==''){$needle='%'.$q.'%';$responsibilityWhere[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";$responsibilityParams=array_fill(0,6,$needle);}
-  $responsibilityRows=DB::all(
-   "SELECT c.*,ps.name principal_seller_name,os.name omie_seller_name,(".$effectiveAuditSql.") effective_seller_code,
-           (SELECT es.name FROM sellers es WHERE es.omie_code=(".$effectiveAuditSql.") LIMIT 1) effective_seller_name,
-           (SELECT pa_row.id FROM client_portfolio_assignments pa_row WHERE pa_row.client_id=c.id AND pa_row.month_ref='".$auditMonth."' LIMIT 1) portfolio_assignment_id,
-           (SELECT pa_row.seller_omie_code FROM client_portfolio_assignments pa_row WHERE pa_row.client_id=c.id AND pa_row.month_ref='".$auditMonth."' LIMIT 1) portfolio_seller_code
+ // KPIs leves: não precisamos materializar todas as duplicidades só para exibir os totais.
+ $clientTotals=DB::one("SELECT COUNT(*) total_clients,SUM(active=1) active_clients,SUM(active=0) inactive_clients,
+                              SUM(active=1 AND COALESCE(seller_omie_code,'')<>COALESCE(omie_seller_code,'')) seller_divergences
+                       FROM clients")?:[];
+ $duplicateSummary=DB::one(
+  "SELECT COUNT(*) duplicate_groups,COALESCE(SUM(records_count),0) duplicate_rows
+   FROM (
+    SELECT COUNT(*) records_count
     FROM clients c
+    WHERE CHAR_LENGTH({$docSql}) IN (11,14)
+    GROUP BY {$docSql}
+    HAVING COUNT(*)>1
+   ) duplicate_docs"
+ )?:[];
+ $auditStats=[
+  'duplicate_groups'=>(int)($duplicateSummary['duplicate_groups']??0),
+  'duplicate_rows'=>(int)($duplicateSummary['duplicate_rows']??0),
+  'valid_groups'=>0,'invalid_groups'=>0,'active_groups'=>0,'mixed_groups'=>0,
+  'total_clients'=>(int)($clientTotals['total_clients']??0),
+  'active_clients'=>(int)($clientTotals['active_clients']??0),
+  'inactive_clients'=>(int)($clientTotals['inactive_clients']??0),
+  'seller_divergences'=>(int)($clientTotals['seller_divergences']??0),
+  'monthly_overrides'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_portfolio_assignments pa JOIN clients c ON c.id=pa.client_id WHERE c.active=1 AND pa.month_ref=?",[$auditMonth])??0),
+ ];
+
+ $visibleGroups=[];$duplicateRows=[];$duplicateRowsByDocument=[];$inactiveRows=[];$responsibilityRows=[];
+ $pagination=['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
+
+ if($tab==='duplicates'){
+  $groups=DB::all(
+   "SELECT {$docSql} document_digits,COUNT(*) records_count,SUM(c.active=1) active_count,SUM(c.active=0) inactive_count,
+           SUM(c.omie_code LIKE 'LOCAL-%') local_count,
+           GROUP_CONCAT(CONCAT_WS(' ',c.name,c.legal_name,c.omie_code,c.document) SEPARATOR ' ') search_blob
+    FROM clients c
+    WHERE CHAR_LENGTH({$docSql}) IN (11,14)
+    GROUP BY document_digits HAVING COUNT(*)>1
+    ORDER BY active_count DESC,records_count DESC,document_digits"
+  );
+  foreach($groups as &$group){
+   $digits=(string)$group['document_digits'];$valid=client_audit_document_valid($digits);$active=(int)$group['active_count'];$inactive=(int)$group['inactive_count'];
+   $group['document_formatted']=client_audit_document_format($digits);$group['document_type']=strlen($digits)===11?'CPF':'CNPJ';$group['document_valid']=$valid;
+   $group['conflict_type']=$active>1?'active':($active>0&&$inactive>0?'mixed':'inactive');
+   $valid?$auditStats['valid_groups']++:$auditStats['invalid_groups']++;
+   if($active>1)$auditStats['active_groups']++;if($active>0&&$inactive>0)$auditStats['mixed_groups']++;
+  }
+  unset($group);
+  $filteredGroups=array_values(array_filter($groups,static function(array $group)use($q,$conflict): bool{
+   if($conflict==='active'&&$group['conflict_type']!=='active')return false;
+   if($conflict==='mixed'&&$group['conflict_type']!=='mixed')return false;
+   if($conflict==='invalid'&&!empty($group['document_valid']))return false;
+   if($q==='')return true;
+   $haystack=mb_strtolower(implode(' ',[(string)$group['document_digits'],(string)$group['document_formatted'],(string)($group['search_blob']??'')]));
+   return str_contains($haystack,mb_strtolower($q));
+  }));
+  $perPage=15;$total=count($filteredGroups);$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
+  $visibleGroups=array_slice($filteredGroups,$offset,$perPage);$visibleDocuments=array_column($visibleGroups,'document_digits');
+  $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
+  if($visibleDocuments){
+   $placeholders=implode(',',array_fill(0,count($visibleDocuments),'?'));
+   $duplicateRows=DB::all(
+    "SELECT c.*,s.name seller_name,{$docSql} document_digits,
+            JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.crm_duplicate_of')) duplicate_of
+     FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+     WHERE {$docSql} IN ({$placeholders})
+     ORDER BY document_digits,c.active DESC,(c.omie_code NOT LIKE 'LOCAL-%') DESC,c.updated_at DESC,c.id",
+    $visibleDocuments
+   );
+  }
+ }elseif($tab==='inactive'){
+  $inactiveWhere=['c.active=0'];$inactiveParams=[];
+  if($q!==''){$needle='%'.$q.'%';$inactiveWhere[]='(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ?)';$inactiveParams=array_fill(0,4,$needle);}
+  $inactiveSql=implode(' AND ',$inactiveWhere);$total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".$inactiveSql,$inactiveParams)??0);
+  $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
+  $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
+  $inactiveRows=DB::all(
+   "SELECT c.*,s.name seller_name,{$docSql} document_digits
+    FROM clients c LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
+    WHERE ".$inactiveSql."
+    ORDER BY c.updated_at DESC,c.name
+    LIMIT ".$perPage." OFFSET ".$offset,
+   $inactiveParams
+  );
+ }else{
+  $responsibilityWhere=["c.active=1","(COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'') OR pa_row.id IS NOT NULL)"];$responsibilityParams=[$auditMonth];
+  if($q!==''){$needle='%'.$q.'%';$responsibilityWhere[]="(c.name LIKE ? OR c.legal_name LIKE ? OR c.document LIKE ? OR c.omie_code LIKE ? OR ps.name LIKE ? OR os.name LIKE ?)";array_push($responsibilityParams,$needle,$needle,$needle,$needle,$needle,$needle);}
+  $responsibilityFrom=" FROM clients c
     LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code
     LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
-    WHERE ".implode(' AND ',$responsibilityWhere)."
+    LEFT JOIN client_portfolio_assignments pa_row ON pa_row.client_id=c.id AND pa_row.month_ref=?
+    LEFT JOIN sellers es ON es.omie_code=(CASE WHEN pa_row.id IS NOT NULL THEN pa_row.seller_omie_code ELSE c.seller_omie_code END)";
+  $responsibilitySql=implode(' AND ',$responsibilityWhere);
+  $total=(int)(DB::scalar("SELECT COUNT(*)".$responsibilityFrom." WHERE ".$responsibilitySql,$responsibilityParams)??0);
+  $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
+  $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
+  $responsibilityRows=DB::all(
+   "SELECT c.*,ps.name principal_seller_name,os.name omie_seller_name,
+           (CASE WHEN pa_row.id IS NOT NULL THEN pa_row.seller_omie_code ELSE c.seller_omie_code END) effective_seller_code,
+           es.name effective_seller_name,pa_row.id portfolio_assignment_id,pa_row.seller_omie_code portfolio_seller_code".
+   $responsibilityFrom."
+    WHERE ".$responsibilitySql."
     ORDER BY (COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')) DESC,c.updated_at DESC,c.name
-    LIMIT 500",
+    LIMIT ".$perPage." OFFSET ".$offset,
    $responsibilityParams
   );
  }
+
  $allAuditRows=$duplicateRows;
  $auditCodes=array_values(array_unique(array_filter(array_map(static fn($row)=>trim((string)($row['omie_code']??'')),$allAuditRows))));
  $auditIds=array_values(array_unique(array_map(static fn($row)=>(int)$row['id'],$allAuditRows)));
@@ -610,7 +644,7 @@ $router->get('/clients-audit',function(){
  render('client_audit',[
   'auditTab'=>$tab,'auditQuery'=>$q,'auditConflict'=>$conflict,'auditMonth'=>$auditMonth,'auditStats'=>$auditStats,
   'auditGroups'=>$visibleGroups,'auditRowsByDocument'=>$duplicateRowsByDocument,'auditInactiveRows'=>$inactiveRows,'auditResponsibilityRows'=>$responsibilityRows,
-  'auditPagination'=>['page'=>$page,'pages'=>$pages,'total'=>count($filteredGroups),'from'=>count($filteredGroups)?$offset+1:0,'to'=>min($offset+$perPage,count($filteredGroups))]
+  'auditPagination'=>$pagination
  ]);
 });
 $router->get('/products',function(){
