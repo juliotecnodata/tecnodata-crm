@@ -1479,7 +1479,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
          <td data-order="<?=$due?>"><strong><?=date('d/m/Y H:i',$due)?></strong></td>
          <td><a class="tda-table-client" href="<?=APP_URL?>/<?=$isCollection?'collection':'clients'?>/<?=$r['client_id']?>"><?=e($r['name'])?></a></td>
          <td><span class="tda-description"><?=e($r['title'])?></span></td>
-         <td><span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-user-tie'?>"></i><?=$isCollection?'Cobrança':'Comercial'?></span></td>
+         <td><?php $taskTypeCode=(string)($r['task_type_code']??'');$taskTypeName=$taskTypeLabels[$taskTypeCode]??'Retorno / outro';?><span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-list-check'?>"></i><?=e($taskTypeName)?></span><small class="tda-type-context"><?=$isCollection?'Cobrança':'Comercial'?></small></td>
          <td><span class="tda-owner-cell"><i><?=$responsibleInitial?></i><b><?=e($r['assigned_name']??'Não identificado')?></b></span></td>
          <td><span class="tda-status <?=$isLate?'late':($isToday?'today':'upcoming')?>"><i class="fa-regular <?=$isLate?'fa-circle-xmark':($isToday?'fa-clock':'fa-calendar-check')?>"></i><?=$isLate?'Vencido':($isToday?'Hoje':'Agendado')?></span></td>
          <td><div class="tda-actions compact">
