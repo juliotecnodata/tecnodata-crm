@@ -42,6 +42,8 @@ final class MoodleImportService
             (new BiometricPolicyService())->ensureCoursePolicy($courseId);
 
             $root=$inspection['root'];
+            $fileImporter=new MoodleFileImporter();
+            $fileImport=$fileImporter->import($root,$courseId);
             $questionMaps=(new MoodleQuestionImporter())->import($root,$courseId);
 
             $sectionMap=[];
@@ -90,7 +92,7 @@ final class MoodleImportService
                 if(!$sectionId)continue;
 
                 $positions[$sectionId]=($positions[$sectionId]??0)+1;
-                [$type,$content,$settings]=$this->activityPayload($root,$a);
+                [$type,$content,$settings]=$this->activityPayload($root,$a,$fileImport,$fileImporter);
 
                 Database::execute(
                     "INSERT INTO course_activities(
@@ -131,6 +133,11 @@ final class MoodleImportService
 
             $analysis=$inspection;
             unset($analysis['root'],$analysis['work']);
+            $analysis['file_import']=[
+                'imported'=>$fileImport['imported'],
+                'reused'=>$fileImport['reused'],
+                'missing'=>$fileImport['missing'],
+            ];
             $analysis['question_import']=[
                 'categories'=>$questionMaps['categories'],
                 'questions'=>$questionMaps['questions'],
@@ -157,7 +164,7 @@ final class MoodleImportService
         }
     }
 
-    private function activityPayload(string $root,array $a): array
+    private function activityPayload(string $root,array $a,array $fileImport,MoodleFileImporter $fileImporter): array
     {
         $dir=$root.'/activities/'.$a['directory'];
         $type=$a['type'];
@@ -166,8 +173,10 @@ final class MoodleImportService
 
         if($type==='page'&&is_file($dir.'/page.xml')){
             $x=$this->loadXml($dir.'/page.xml');
-            $content['html']=(string)($x->page->content??$x->content??'');
-            $content['pluginfile_pending']=str_contains($content['html'],'@@PLUGINFILE@@');
+            $raw=(string)($x->page->content??$x->content??'');
+            $rewrite=$fileImporter->rewritePluginFileUrls($root,$a['directory'],$raw,$fileImport);
+            $content['html']=$rewrite['html'];
+            $content['pluginfile_unresolved']=$rewrite['unresolved'];
 
         }elseif($type==='url'&&is_file($dir.'/url.xml')){
             $x=$this->loadXml($dir.'/url.xml');
@@ -193,8 +202,19 @@ final class MoodleImportService
                     if($value!=='')$content[$field]=$value;
                 }
             }
-            if(in_array($type,['resource','book','lesson','h5pactivity','scorm','folder'],true)){
+            if($type==='resource'){
+                $content['file_id']=$fileImporter->firstActivityFileId($root,$a['directory'],$fileImport);
+                $settings['file_migration_pending']=$content['file_id']===null;
+            }elseif(in_array($type,['book','lesson','h5pactivity','scorm','folder'],true)){
                 $settings['file_migration_pending']=true;
+            }
+
+            foreach(['intro','content'] as $field){
+                if(!empty($content[$field])&&str_contains((string)$content[$field],'@@PLUGINFILE@@')){
+                    $rewrite=$fileImporter->rewritePluginFileUrls($root,$a['directory'],(string)$content[$field],$fileImport);
+                    $content[$field]=$rewrite['html'];
+                    $content[$field.'_pluginfile_unresolved']=$rewrite['unresolved'];
+                }
             }
         }
         return [$type,$content,$settings];
