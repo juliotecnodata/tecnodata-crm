@@ -21,5 +21,18 @@ $renderActivities=function(array $section,int $depth=0) use (&$renderActivities,
 <?php foreach($section['children'] as $child)$renderActivities($child,$depth+1);?>
 </section>
 <?php };?>
-<div class="page-heading"><div><span class="eyebrow">CURSO</span><h1><?=e($enrollment['name'])?></h1><div class="progress-track wide"><span style="width:<?=min(100,(float)$enrollment['progress_percent'])?>%"></span></div><small><?=e($enrollment['progress_percent'])?>% concluído · <?=e($enrollment['status'])?></small></div><a class="btn btn-outline-secondary" href="/student">Meus cursos</a></div>
+<div class="page-heading"><div><span class="eyebrow">CURSO</span><h1><?=e($enrollment['name'])?></h1><div class="progress-track wide"><span style="width:<?=min(100,(float)$enrollment['progress_percent'])?>%"></span></div><small><?=e($enrollment['progress_percent'])?>% concluído · <?=e($enrollment['status'])?><?php if($enrollment['expires_at']):?> · válido até <?=e($enrollment['expires_at'])?><?php endif;?></small></div><a class="btn btn-outline-secondary" href="/student">Meus cursos</a></div>
 <div class="learning-list"><?php foreach($sections as $s)$renderActivities($s);?></div>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+ const endpoint='/student/enrollment/<?=$enrollment['id']?>/heartbeat';
+ const csrf='<?=e(Csrf::token())?>';
+ async function beat(){
+  try{
+   const body=new URLSearchParams();body.set('_csrf',csrf);
+   await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString(),credentials:'same-origin',keepalive:true});
+  }catch(e){}
+ }
+ beat();setInterval(beat,60000);
+});
+</script>
