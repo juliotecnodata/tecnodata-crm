@@ -28,17 +28,17 @@ final class StudyController
         $key='study_session_'.(int)$enrollmentId;
         $token=(string)($_SESSION[$key]??'');
         $session=$token!==''?Database::fetch("SELECT * FROM study_sessions WHERE session_token=?",[$token]):null;
-
         $now=Clock::sql();
 
         if($session){
             $last=new DateTimeImmutable($session['last_seen_at']);
-            $delta=max(0,min(90,Clock::now()->getTimestamp()-$last->getTimestamp()));
+            $raw=max(0,Clock::now()->getTimestamp()-$last->getTimestamp());
 
-            if($delta>900){
+            if($raw>900){
                 Database::execute("UPDATE study_sessions SET ended_at=? WHERE id=?",[$now,$session['id']]);
                 $session=null;
             }else{
+                $delta=min(90,$raw);
                 Database::execute(
                     "UPDATE study_sessions SET active_seconds=active_seconds+?,last_seen_at=? WHERE id=?",
                     [$delta,$now,$session['id']]

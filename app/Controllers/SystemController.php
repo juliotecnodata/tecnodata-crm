@@ -15,12 +15,20 @@ final class SystemController
     {
         Auth::requireAdmin();
         $m=new MigrationService();
+        $pending=$m->pending();
+        $settings=[];
+
+        try{
+            $settings=Database::all("SELECT * FROM system_settings ORDER BY setting_key");
+        }catch(\Throwable){
+            // Em atualização de uma versão antiga, a tabela pode ainda não existir.
+        }
 
         View::render('system/index',[
-            'pending'=>$m->pending(),
-            'settings'=>Database::all("SELECT * FROM system_settings ORDER BY setting_key"),
+            'pending'=>$pending,
+            'settings'=>$settings,
             'bioConfigured'=>BiometricDatabase::configured(),
-            'bioReady'=>BiometricDatabase::configured() && BiometricDatabase::ping(),
+            'bioReady'=>BiometricDatabase::configured()&&BiometricDatabase::ping(),
             'message'=>$_SESSION['system_message']??null,
         ]);
         unset($_SESSION['system_message']);
@@ -30,7 +38,6 @@ final class SystemController
     {
         Auth::requireAdmin();
         Csrf::verify();
-
         $done=(new MigrationService())->runPending();
         $_SESSION['system_message']=$done
             ? 'Atualizações aplicadas: '.implode(', ',$done)
