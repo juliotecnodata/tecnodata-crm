@@ -14,20 +14,7 @@ final class StudentAdminController
     {
         Auth::requireAdmin();
 
-        $students=Database::all(
-            "SELECT u.*,COUNT(e.id) enrollments,
-                    SUM(e.status='active') active_enrollments,
-                    MAX(e.updated_at) last_activity
-               FROM users u
-               LEFT JOIN enrollments e ON e.user_id=u.id
-              WHERE u.user_type='student'
-              GROUP BY u.id
-              ORDER BY u.id DESC
-              LIMIT 2000"
-        );
-
         View::render('students/index',[
-            'students'=>$students,
             'message'=>$_SESSION['student_message']??null,
         ]);
         unset($_SESSION['student_message']);
@@ -140,7 +127,6 @@ final class StudentAdminController
         );
 
         Audit::log('student.updated','user',(int)$id);
-        $_SESSION['student_message']='Aluno atualizado.';
         $_SESSION['student_message']='Aluno atualizado.';
         redirect('/admin/students/'.$id);
     }
