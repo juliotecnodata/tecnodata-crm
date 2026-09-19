@@ -1,0 +1,4 @@
+<div class="page-heading"><div><span class="eyebrow">AUDITORIA</span><h1>Eventos administrativos</h1><p>Rastreabilidade das ações relevantes.</p></div></div>
+<section class="panel"><div class="table-responsive"><table class="table align-middle datatable"><thead><tr><th>Data</th><th>Usuário</th><th>Evento</th><th>Entidade</th><th>IP</th><th>Dados</th></tr></thead><tbody>
+<?php foreach($events as $e):?><tr><td><?=e($e['created_at'])?></td><td><?=e($e['user_name']?:'Sistema/API')?></td><td><strong><?=e($e['event_type'])?></strong></td><td><?=e($e['entity_type'])?> <?=$e['entity_id']?'#'.e($e['entity_id']):''?></td><td><?=e($e['ip_address'])?></td><td><small><?=e(mb_strimwidth((string)$e['data_json'],0,160,'…'))?></small></td></tr><?php endforeach;?>
+</tbody></table></div></section>

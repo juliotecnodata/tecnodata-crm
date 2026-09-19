@@ -1,0 +1,5 @@
+<div class="page-heading"><div><span class="eyebrow">RELATÓRIOS</span><h1>Operação acadêmica</h1><p>Matrículas, progresso e conclusão por curso.</p></div></div>
+<section class="panel mb-4"><h2>Por curso</h2><div class="table-responsive"><table class="table align-middle datatable"><thead><tr><th>Curso</th><th>Matrículas</th><th>Ativas</th><th>Concluídas</th><th>Progresso médio</th><th>Nota média</th></tr></thead><tbody>
+<?php foreach($byCourse as $r):?><tr><td><strong><?=e($r['name'])?></strong><small class="d-block text-secondary"><?=e($r['code'])?></small></td><td><?=$r['enrollments']?></td><td><?=$r['active_count']?></td><td><?=$r['completed_count']?></td><td><?=e($r['avg_progress']??0)?>%</td><td><?=e($r['avg_score']??'—')?></td></tr><?php endforeach;?>
+</tbody></table></div></section>
+<section class="panel"><h2>Matrículas nos últimos 30 dias</h2><div class="simple-bars"><?php foreach($byDay as $r):?><div class="simple-bar-row"><span><?=e($r['day'])?></span><div class="simple-bar"><i style="width:<?=min(100,max(3,(int)$r['total']*3))?>%"></i></div><strong><?=$r['total']?></strong></div><?php endforeach;?></div></section>
