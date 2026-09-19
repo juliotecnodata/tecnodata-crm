@@ -25,6 +25,57 @@ final class EnrollmentAdminController
         View::render('enrollments/index',['enrollments'=>$rows,'courses'=>$courses]);
     }
 
+
+    public function show(string $id): void
+    {
+        $this->admin();
+
+        $enrollment=Database::fetch(
+            "SELECT e.*,u.name student,u.cpf,u.email,c.name course,c.code course_code
+               FROM enrollments e
+               JOIN users u ON u.id=e.user_id
+               JOIN courses c ON c.id=e.course_id
+              WHERE e.id=?",
+            [(int)$id]
+        );
+        if(!$enrollment) throw new \RuntimeException('Matrícula não encontrada.');
+
+        $progress=Database::all(
+            "SELECT a.title,a.type,p.progress_percent,p.completed,p.seconds_spent,p.completed_at
+               FROM course_activities a
+               LEFT JOIN activity_progress p ON p.activity_id=a.id AND p.enrollment_id=?
+              WHERE a.course_id=?
+              ORDER BY a.section_id,a.position,a.id",
+            [$enrollment['id'],$enrollment['course_id']]
+        );
+
+        $history=Database::all(
+            "SELECT h.*,u.name changed_by_name
+               FROM enrollment_status_history h
+               LEFT JOIN users u ON u.id=h.changed_by
+              WHERE h.enrollment_id=?
+              ORDER BY h.id DESC",
+            [$enrollment['id']]
+        );
+
+        $attempts=Database::all(
+            "SELECT qa.*,a.title quiz_title
+               FROM quiz_attempts qa
+               JOIN quizzes q ON q.id=qa.quiz_id
+               JOIN course_activities a ON a.id=q.activity_id
+              WHERE qa.enrollment_id=?
+              ORDER BY qa.id DESC",
+            [$enrollment['id']]
+        );
+
+        $study=(int)(Database::fetch(
+            "SELECT COALESCE(SUM(active_seconds),0) s FROM study_sessions WHERE enrollment_id=?",
+            [$enrollment['id']]
+        )['s']??0);
+
+        View::render('enrollments/show',compact('enrollment','progress','history','attempts','study'));
+    }
+
     public function store(): void
     {
         $admin=$this->admin();Csrf::verify();

@@ -9,6 +9,7 @@ use Tecnodata\Lms\Controllers\QuestionBankController;
 use Tecnodata\Lms\Controllers\QuizAdminController;
 use Tecnodata\Lms\Controllers\StudentQuizController;
 use Tecnodata\Lms\Controllers\StudentAdminController;
+use Tecnodata\Lms\Controllers\AdminDataController;
 use Tecnodata\Lms\Controllers\EnrollmentAdminController;
 use Tecnodata\Lms\Controllers\StudentAreaController;
 use Tecnodata\Lms\Controllers\StudyController;
@@ -61,11 +62,16 @@ $router->post('/admin/activities/{id}/quiz/settings',[QuizAdminController::class
 $router->post('/admin/activities/{id}/quiz/slots',[QuizAdminController::class,'addSlot']);
 $router->post('/admin/quiz-slots/{id}/delete',[QuizAdminController::class,'deleteSlot']);
 
+$router->get('/admin/data/students',[AdminDataController::class,'students']);
+$router->get('/admin/data/enrollments',[AdminDataController::class,'enrollments']);
+
 $router->get('/admin/students',[StudentAdminController::class,'index']);
+$router->get('/admin/students/{id}',[StudentAdminController::class,'show']);
 $router->post('/admin/students',[StudentAdminController::class,'store']);
 $router->post('/admin/students/{id}',[StudentAdminController::class,'update']);
 $router->post('/admin/students/{id}/reset-password',[StudentAdminController::class,'resetPassword']);
 $router->get('/admin/enrollments',[EnrollmentAdminController::class,'index']);
+$router->get('/admin/enrollments/{id}',[EnrollmentAdminController::class,'show']);
 $router->post('/admin/enrollments',[EnrollmentAdminController::class,'store']);
 $router->post('/admin/enrollments/{id}/status',[EnrollmentAdminController::class,'status']);
 

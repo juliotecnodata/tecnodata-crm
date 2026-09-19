@@ -33,6 +33,46 @@ final class StudentAdminController
         unset($_SESSION['student_message']);
     }
 
+
+    public function show(string $id): void
+    {
+        Auth::requireAdmin();
+
+        $student=Database::fetch(
+            "SELECT * FROM users WHERE id=? AND user_type='student'",
+            [(int)$id]
+        );
+        if(!$student) throw new \RuntimeException('Aluno não encontrado.');
+
+        $enrollments=Database::all(
+            "SELECT e.*,c.name course,c.code course_code
+               FROM enrollments e
+               JOIN courses c ON c.id=e.course_id
+              WHERE e.user_id=?
+              ORDER BY e.id DESC",
+            [$student['id']]
+        );
+
+        $events=Database::all(
+            "SELECT se.*,c.name course
+               FROM study_events se
+               JOIN enrollments e ON e.id=se.enrollment_id
+               JOIN courses c ON c.id=e.course_id
+              WHERE e.user_id=?
+              ORDER BY se.id DESC
+              LIMIT 50",
+            [$student['id']]
+        );
+
+        View::render('students/show',[
+            'student'=>$student,
+            'enrollments'=>$enrollments,
+            'events'=>$events,
+            'message'=>$_SESSION['student_message']??null,
+        ]);
+        unset($_SESSION['student_message']);
+    }
+
     public function store(): void
     {
         Auth::requireAdmin();
@@ -101,7 +141,8 @@ final class StudentAdminController
 
         Audit::log('student.updated','user',(int)$id);
         $_SESSION['student_message']='Aluno atualizado.';
-        redirect('/admin/students');
+        $_SESSION['student_message']='Aluno atualizado.';
+        redirect('/admin/students/'.$id);
     }
 
     public function resetPassword(string $id): void
@@ -122,6 +163,6 @@ final class StudentAdminController
 
         Audit::log('student.password_reset','user',(int)$id);
         $_SESSION['student_message']='Senha redefinida para o CPF.';
-        redirect('/admin/students');
+        redirect('/admin/students/'.$id);
     }
 }
