@@ -3,6 +3,7 @@ use Tecnodata\Lms\Controllers\AuthController;
 use Tecnodata\Lms\Controllers\DashboardController;
 use Tecnodata\Lms\Controllers\CourseController;
 use Tecnodata\Lms\Controllers\StudentAdminController;
+use Tecnodata\Lms\Controllers\EnrollmentAdminController;
 use Tecnodata\Lms\Controllers\StudentAreaController;
 use Tecnodata\Lms\Controllers\ImportController;
 use Tecnodata\Lms\Controllers\ApiClientController;
@@ -21,6 +22,10 @@ $router->post('/admin/courses/{id}/sections',[CourseController::class,'section']
 $router->post('/admin/courses/{id}/activities',[CourseController::class,'activity']);
 
 $router->get('/admin/students',[StudentAdminController::class,'index']);
+
+$router->get('/admin/enrollments',[EnrollmentAdminController::class,'index']);
+$router->post('/admin/enrollments',[EnrollmentAdminController::class,'store']);
+$router->post('/admin/enrollments/{id}/status',[EnrollmentAdminController::class,'status']);
 
 $router->get('/admin/imports',[ImportController::class,'index']);
 $router->post('/admin/imports',[ImportController::class,'upload']);
