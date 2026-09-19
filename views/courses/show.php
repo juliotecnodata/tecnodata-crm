@@ -1,1 +1,104 @@
-<?php use Tecnodata\Lms\Core\Csrf; ?><div class="page-heading"><div><span class="eyebrow">CONSTRUTOR DE CURSO</span><h1><?=e($course['name'])?></h1><p><?=e($course['summary'])?></p></div><a class="btn btn-outline-secondary" href="/admin/courses">Voltar</a></div><div class="builder"><?php foreach($sections as $s):?><section class="builder-section"><div class="builder-section-head"><div><i class="bi bi-grip-vertical"></i><strong><?=e($s['title'])?></strong></div><span><?=count($s['activities'])?> itens</span></div><div class="activity-list"><?php foreach($s['activities'] as $a):?><div class="activity-row"><div class="activity-icon"><i class="bi <?= $a['type']==='video'?'bi-play-btn':($a['type']==='quiz'?'bi-ui-checks':'bi-file-earmark-text')?>"></i></div><div class="flex-grow-1"><strong><?=e($a['title'])?></strong><small><?=e($a['type'])?></small></div><span class="status-badge">Publicado</span></div><?php endforeach;?><form class="activity-add" method="post" action="/admin/courses/<?=$course['id']?>/activities"><?=Csrf::field()?><input type="hidden" name="section_id" value="<?=$s['id']?>"><select class="form-select" name="type"><option value="page">Página</option><option value="video">Vídeo</option><option value="quiz">Quiz</option></select><input class="form-control" name="title" placeholder="Título" required><input class="form-control" name="url" placeholder="URL Video Front (se vídeo)"><button class="btn btn-outline-secondary">Adicionar</button></form></div></section><?php endforeach;?></div><section class="panel mt-4"><h2>Adicionar seção</h2><form class="row g-2" method="post" action="/admin/courses/<?=$course['id']?>/sections"><?=Csrf::field()?><div class="col-md-9"><input class="form-control" name="title" placeholder="Nome da seção" required></div><div class="col-md-3"><button class="btn btn-brand w-100">Adicionar seção</button></div></form></section>
+<?php use Tecnodata\Lms\Core\Csrf; ?>
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">CONSTRUTOR DE CURSO</span>
+    <h1><?=e($course['name'])?></h1>
+    <p><?=e($course['summary'])?></p>
+  </div>
+  <div class="d-flex gap-2">
+    <span class="status-badge"><?=e($course['status'])?></span>
+    <a class="btn btn-outline-secondary" href="/admin/courses">Voltar</a>
+  </div>
+</div>
+
+<div class="builder">
+<?php foreach($sections as $s): ?>
+<section class="builder-section <?=$s['parent_id']?'builder-subsection':''?>">
+  <div class="builder-section-head">
+    <div>
+      <i class="bi bi-grip-vertical"></i>
+      <strong><?=e($s['title'])?></strong>
+      <?php if($s['parent_id']): ?><span class="type-pill">Subseção</span><?php endif; ?>
+    </div>
+    <span><?=count($s['activities'])?> itens</span>
+  </div>
+
+  <div class="activity-list">
+  <?php foreach($s['activities'] as $a): ?>
+    <div class="activity-row">
+      <div class="activity-icon">
+        <i class="bi <?= $a['type']==='video'?'bi-play-btn':($a['type']==='quiz'?'bi-ui-checks':'bi-file-earmark-text')?>"></i>
+      </div>
+      <div class="flex-grow-1">
+        <strong><?=e($a['title'])?></strong>
+        <small><?=e($a['type'])?></small>
+      </div>
+      <span class="status-badge"><?=$a['visible']?'Visível':'Oculto'?></span>
+    </div>
+  <?php endforeach; ?>
+
+  <details class="activity-editor">
+    <summary>+ Adicionar atividade</summary>
+    <form class="row g-2 mt-2" method="post" action="/admin/courses/<?=$course['id']?>/activities">
+      <?=Csrf::field()?>
+      <input type="hidden" name="section_id" value="<?=$s['id']?>">
+      <div class="col-md-3">
+        <label class="form-label">Tipo</label>
+        <select class="form-select" name="type">
+          <option value="page">Página / Texto</option>
+          <option value="video">Vídeo Video Front</option>
+          <option value="url">URL externa</option>
+          <option value="quiz">Quiz</option>
+          <option value="resource">Arquivo / Resource</option>
+          <option value="book">Livro</option>
+          <option value="lesson">Lição</option>
+          <option value="h5pactivity">H5P</option>
+          <option value="scorm">SCORM</option>
+          <option value="label">Rótulo</option>
+          <option value="folder">Pasta</option>
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label">Título</label>
+        <input class="form-control" name="title" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">URL, quando aplicável</label>
+        <input class="form-control" name="url" placeholder="https://...">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Conteúdo / observação</label>
+        <textarea class="form-control" rows="4" name="content"></textarea>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-brand">Adicionar atividade</button>
+      </div>
+    </form>
+  </details>
+  </div>
+</section>
+<?php endforeach; ?>
+</div>
+
+<section class="panel mt-4">
+<h2>Adicionar seção ou subseção</h2>
+<form class="row g-2" method="post" action="/admin/courses/<?=$course['id']?>/sections">
+<?=Csrf::field()?>
+<div class="col-md-5">
+  <label class="form-label">Nome</label>
+  <input class="form-control" name="title" required>
+</div>
+<div class="col-md-5">
+  <label class="form-label">Dentro de</label>
+  <select class="form-select" name="parent_id">
+    <option value="0">Seção principal</option>
+    <?php foreach($sections as $parent): if($parent['parent_id']) continue; ?>
+      <option value="<?=$parent['id']?>"><?=e($parent['title'])?></option>
+    <?php endforeach; ?>
+  </select>
+</div>
+<div class="col-md-2 d-flex align-items-end">
+  <button class="btn btn-brand w-100">Adicionar</button>
+</div>
+</form>
+</section>
