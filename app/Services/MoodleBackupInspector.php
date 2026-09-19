@@ -8,11 +8,15 @@ use SimpleXMLElement;
 
 final class MoodleBackupInspector
 {
-    private array $supported = ['page','url','quiz','subsection','resource','book','lesson','h5pactivity','scorm','label','folder'];
+    private array $supported = [
+        'page','url','quiz','subsection','resource','book','lesson',
+        'h5pactivity','scorm','label','folder'
+    ];
 
     public function inspect(string $mbz): array
     {
-        $root = $this->extract($mbz);
+        [$work,$root] = $this->extract($mbz);
+
         $manifest = $this->xml($root . '/moodle_backup.xml');
         $courseXml = $this->xml($root . '/course/course.xml');
 
@@ -32,20 +36,31 @@ final class MoodleBackupInspector
         }
 
         $sections = glob($root . '/sections/section_*/section.xml') ?: [];
-        $unknown = array_values(array_unique(array_column(array_filter($activities, fn($a)=>!$a['supported']), 'type')));
+        $unknown = array_values(array_unique(array_column(
+            array_filter($activities, fn($a)=>!$a['supported']),
+            'type'
+        )));
 
         $questions = 0;
         $qfile = $root . '/questions.xml';
         if (is_file($qfile)) {
             $qxml = $this->xml($qfile);
-            if (isset($qxml->question_bank->question_category)) {
-                foreach ($qxml->question_bank->question_category as $cat) {
-                    if (isset($cat->questions->question)) $questions += count($cat->questions->question);
-                }
-            }
+            $nodes = $qxml->xpath('//question');
+            $questions = is_array($nodes) ? count($nodes) : 0;
         }
 
+        $filesCount = 0;
+        $filesXml = $root . '/files.xml';
+        if (is_file($filesXml)) {
+            $fx = $this->xml($filesXml);
+            $nodes = $fx->xpath('//file');
+            $filesCount = is_array($nodes) ? count($nodes) : 0;
+        }
+
+        $hasUsers = is_file($root . '/users.xml');
+
         return [
+            'work' => $work,
             'root' => $root,
             'course' => [
                 'moodle_id' => (int) ($courseXml['id'] ?? 0),
@@ -58,52 +73,94 @@ final class MoodleBackupInspector
             'activities' => $activities,
             'activity_counts' => array_count_values(array_column($activities, 'type')),
             'questions_count' => $questions,
+            'files_count' => $filesCount,
+            'has_users' => $hasUsers,
             'unknown_types' => $unknown,
             'compatible' => $unknown === [],
         ];
     }
 
-    public function cleanup(string $root): void
+    public function cleanup(string $path): void
     {
-        if (!is_dir($root) || !str_contains($root, '/storage/import_tmp/')) return;
-        $it = new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS);
+        $work = $path;
+        if (str_ends_with($path, '/extracted')) {
+            $work = dirname($path);
+        }
+
+        if (!is_dir($work) || !str_contains(str_replace('\\','/',$work), '/storage/import_tmp/')) {
+            return;
+        }
+
+        $it = new \RecursiveDirectoryIterator($work, \FilesystemIterator::SKIP_DOTS);
         $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
-        foreach ($files as $file) $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
-        @rmdir($root);
+
+        foreach ($files as $file) {
+            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+        }
+
+        @rmdir($work);
     }
 
-    private function extract(string $mbz): string
+    private function extract(string $mbz): array
     {
         if (!is_file($mbz)) throw new RuntimeException('Backup não encontrado.');
+
         $work = base_path('storage/import_tmp/' . bin2hex(random_bytes(8)));
-        if (!is_dir($work) && !mkdir($work, 0775, true) && !is_dir($work)) throw new RuntimeException('Falha ao criar diretório temporário.');
-        $magic = file_get_contents($mbz, false, null, 0, 2);
+        if (!is_dir($work) && !mkdir($work,0775,true) && !is_dir($work)) {
+            throw new RuntimeException('Falha ao criar diretório temporário.');
+        }
+
+        $magic = file_get_contents($mbz,false,null,0,2);
         $archive = $work . (($magic === "\x1f\x8b") ? '/archive.tar.gz' : '/archive.tar');
-        copy($mbz, $archive);
-        if (str_ends_with($archive, '.gz')) {
+
+        if (!copy($mbz,$archive)) {
+            throw new RuntimeException('Falha ao preparar backup para análise.');
+        }
+
+        if (str_ends_with($archive,'.gz')) {
             $gz = new PharData($archive);
             $gz->decompress();
-            $archive = substr($archive, 0, -3);
+            $archive = substr($archive,0,-3);
         }
+
         $phar = new PharData($archive);
+
         foreach (new RecursiveIteratorIterator($phar) as $file) {
-            $name = str_replace('\\', '/', $file->getPathName());
-            $inside = preg_replace('#^phar://[^/]+/#', '', $name);
-            if ($inside === null || str_contains($inside, '../') || str_starts_with($inside, '/')) {
+            $name = str_replace('\\','/',$file->getPathName());
+            $inside = preg_replace('#^phar://[^/]+/#','',$name);
+            if (
+                $inside === null ||
+                str_contains($inside,'../') ||
+                str_starts_with($inside,'/')
+            ) {
+                $this->cleanup($work);
                 throw new RuntimeException('Caminho inseguro detectado no backup.');
             }
         }
+
         $dest = $work . '/extracted';
-        mkdir($dest, 0775, true);
-        $phar->extractTo($dest, null, true);
-        return $dest;
+        mkdir($dest,0775,true);
+        $phar->extractTo($dest,null,true);
+
+        return [$work,$dest];
     }
 
     private function xml(string $file): SimpleXMLElement
     {
-        if (!is_file($file)) throw new RuntimeException('XML obrigatório ausente: ' . basename($file));
-        $xml = simplexml_load_file($file, SimpleXMLElement::class, LIBXML_NONET | LIBXML_NOCDATA);
-        if (!$xml) throw new RuntimeException('XML inválido: ' . basename($file));
+        if (!is_file($file)) {
+            throw new RuntimeException('XML obrigatório ausente: ' . basename($file));
+        }
+
+        $xml = simplexml_load_file(
+            $file,
+            SimpleXMLElement::class,
+            LIBXML_NONET | LIBXML_NOCDATA
+        );
+
+        if (!$xml) {
+            throw new RuntimeException('XML inválido: ' . basename($file));
+        }
+
         return $xml;
     }
 }
