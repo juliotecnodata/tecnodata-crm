@@ -1,65 +1,66 @@
 <?php
 declare(strict_types=1);
 
-define('APP_ROOT',dirname(__DIR__));
+define('BASE_PATH', dirname(__DIR__));
 
-$configFile=APP_ROOT.'/config/config.php';
-if(!is_file($configFile)){
- http_response_code(500);
- exit('Arquivo config/config.php não encontrado. Copie config/config.example.php para config/config.php e configure o ambiente.');
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'Tecnodata\\Lms\\';
+    if (!str_starts_with($class, $prefix)) {
+        return;
+    }
+    $relative = substr($class, strlen($prefix));
+    $file = BASE_PATH . '/app/' . str_replace('\\', '/', $relative) . '.php';
+    if (is_file($file)) {
+        require $file;
+    }
+});
+
+use Tecnodata\Lms\Core\Env;
+use Tecnodata\Lms\Core\Database;
+use Tecnodata\Lms\Core\Clock;
+
+Env::load(BASE_PATH . '/.env');
+date_default_timezone_set((string) envv('APP_TIMEZONE', 'America/Sao_Paulo'));
+
+if (PHP_SAPI !== 'cli' && session_status() !== PHP_SESSION_ACTIVE) {
+    session_name((string) envv('SESSION_NAME', 'tecnodata_lms'));
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => filter_var(envv('SESSION_SECURE', 'true'), FILTER_VALIDATE_BOOL),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
 }
 
-$GLOBALS['config']=require $configFile;
-$cfg=$GLOBALS['config']['app']??[];
+Database::boot();
+Clock::boot();
 
-$host=strtolower((string)($_SERVER['HTTP_HOST']??'localhost'));
-$host=preg_replace('/:\\d+$/','',$host)?:'localhost';
-$isLocal=in_array($host,['localhost','127.0.0.1','::1'],true)
- || str_ends_with($host,'.local')
- || str_ends_with($host,'.test');
+set_exception_handler(static function (Throwable $e): void {
+    $line = sprintf("[%s] %s in %s:%d\n%s\n", date('Y-m-d H:i:s'), $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString());
+    @file_put_contents(BASE_PATH . '/storage/app.log', $line, FILE_APPEND);
+    http_response_code(500);
+    if (filter_var(envv('APP_DEBUG', 'false'), FILTER_VALIDATE_BOOL)) {
+        echo '<pre>' . htmlspecialchars($line, ENT_QUOTES, 'UTF-8') . '</pre>';
+    } else {
+        echo 'Erro interno. Consulte o log da aplicação.';
+    }
+});
 
-define('APP_ENV',$isLocal?'local':'production');
-define('APP_IS_LOCAL',$isLocal);
-
-date_default_timezone_set((string)($cfg['timezone']??'America/Sao_Paulo'));
-
-$envUrl=trim((string)(getenv('TDCRM_APP_URL')?:''));
-$configUrl=trim((string)($isLocal?($cfg['local_url']??''):($cfg['production_url']??'')));
-$appUrl=$envUrl!==''?$envUrl:$configUrl;
-
-// Compatibilidade com instalações antigas que ainda tinham /public configurado.
-$appUrl=preg_replace('#/public/?$#','',$appUrl)??$appUrl;
-
-if($appUrl===''){
- $https=(!$isLocal)&&(
-  (!empty($_SERVER['HTTPS'])&&strtolower((string)$_SERVER['HTTPS'])!=='off')
-  || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO']??''))==='https'
- );
- $scheme=$https?'https':'http';
- $scriptDir=str_replace('\\','/',dirname((string)($_SERVER['SCRIPT_NAME']??'/')));
- $scriptDir=preg_replace('#/public$#','',$scriptDir)?:'';
- $scriptDir=$scriptDir==='/'?'':rtrim($scriptDir,'/');
- $appUrl=$scheme.'://'.($_SERVER['HTTP_HOST']??'localhost').$scriptDir;
+function base_path(string $path = ''): string {
+    return BASE_PATH . ($path ? '/' . ltrim($path, '/') : '');
 }
 
-define('APP_URL',rtrim($appUrl,'/'));
-
-if(session_status()!==PHP_SESSION_ACTIVE){
- session_name((string)($cfg['session_name']??'tecnodata_crm'));
- $cookiePath=parse_url(APP_URL,PHP_URL_PATH)?:'/';
- if($cookiePath==='')$cookiePath='/';
- session_set_cookie_params([
-  'httponly'=>true,
-  'secure'=>!$isLocal,
-  'samesite'=>'Lax',
-  'path'=>rtrim($cookiePath,'/').'/' ,
- ]);
- session_start();
+function envv(string $key, mixed $default = null): mixed {
+    return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: $default;
 }
 
-require APP_ROOT.'/app/core.php';
-require APP_ROOT.'/app/google_auth.php';
-require APP_ROOT.'/app/services.php';
-require APP_ROOT.'/app/order_pdf.php';
-require APP_ROOT.'/app/opportunities.php';
-require APP_ROOT.'/app/views.php';
+function e(mixed $value): string {
+    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function redirect(string $url): never {
+    header('Location: ' . $url);
+    exit;
+}

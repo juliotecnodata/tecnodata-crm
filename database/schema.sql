@@ -1,104 +1,324 @@
-CREATE TABLE IF NOT EXISTS users(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,name VARCHAR(120) NOT NULL,email VARCHAR(190) NOT NULL,password_hash VARCHAR(255) NOT NULL,role ENUM('admin','supervisor','seller','collector') NOT NULL,seller_omie_code VARCHAR(80) NULL,active TINYINT(1) NOT NULL DEFAULT 1,last_login_at DATETIME NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_users_email(email));
-CREATE TABLE IF NOT EXISTS sellers(omie_code VARCHAR(80) PRIMARY KEY,name VARCHAR(160) NOT NULL,email VARCHAR(190) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS clients(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(80) NOT NULL,name VARCHAR(190) NOT NULL,legal_name VARCHAR(190) NULL,document VARCHAR(30) NULL,email VARCHAR(190) NULL,phone VARCHAR(40) NULL,city VARCHAR(100) NULL,uf CHAR(2) NULL,seller_omie_code VARCHAR(80) NULL,omie_seller_code VARCHAR(80) NULL,portfolio_locked TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_clients_omie(omie_code),INDEX idx_clients_name(name),INDEX idx_clients_seller(seller_omie_code,active),INDEX idx_clients_omie_seller(omie_seller_code,active),INDEX idx_clients_active(active,id),INDEX idx_clients_active_uf(active,uf));
-CREATE TABLE IF NOT EXISTS client_tags(client_id BIGINT UNSIGNED NOT NULL,tag_key VARCHAR(190) NOT NULL,tag VARCHAR(190) NOT NULL,PRIMARY KEY(client_id,tag_key),INDEX idx_client_tags_key(tag_key,client_id),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS client_portfolio_assignments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,month_ref CHAR(7) NOT NULL,client_id BIGINT UNSIGNED NOT NULL,seller_omie_code VARCHAR(80) NULL,created_by INT UNSIGNED NULL,updated_by INT UNSIGNED NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_client_portfolio_month(month_ref,client_id),INDEX idx_portfolio_month_seller(month_ref,seller_omie_code),INDEX idx_portfolio_client_month(client_id,month_ref),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS client_seller_audit(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,actor_user_id INT UNSIGNED NULL,change_type VARCHAR(40) NOT NULL,month_ref CHAR(7) NULL,previous_seller_omie_code VARCHAR(80) NULL,new_seller_omie_code VARCHAR(80) NULL,previous_omie_seller_code VARCHAR(80) NULL,new_omie_seller_code VARCHAR(80) NULL,notes VARCHAR(255) NULL,created_at DATETIME NOT NULL,INDEX idx_client_seller_audit_client(client_id,created_at),INDEX idx_client_seller_audit_month(month_ref,created_at),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL);
-CREATE TABLE IF NOT EXISTS client_metrics(client_id BIGINT UNSIGNED PRIMARY KEY,last_purchase_at DATE NULL,revenue_12m DECIMAL(15,2) NOT NULL DEFAULT 0,orders_12m INT NOT NULL DEFAULT 0,avg_ticket_12m DECIMAL(15,2) NOT NULL DEFAULT 0,avg_interval_days DECIMAL(10,2) NULL,updated_at DATETIME NOT NULL,FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS products(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(80) NOT NULL,sku VARCHAR(120) NULL,description VARCHAR(255) NOT NULL,unit VARCHAR(20) NULL,ncm VARCHAR(30) NULL,unit_price DECIMAL(15,4) NOT NULL DEFAULT 0,stock_qty DECIMAL(15,4) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_products_omie(omie_code),INDEX idx_products_description(description));
-CREATE TABLE IF NOT EXISTS categories(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS departments(code VARCHAR(80) PRIMARY KEY,description VARCHAR(255) NOT NULL,structure VARCHAR(255) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS financial_accounts(omie_code VARCHAR(80) PRIMARY KEY,name VARCHAR(160) NOT NULL,account_type VARCHAR(10) NULL,active TINYINT(1) NOT NULL DEFAULT 1,selected TINYINT(1) NOT NULL DEFAULT 0,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS order_stages(code VARCHAR(10) PRIMARY KEY,name VARCHAR(120) NOT NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS payment_terms(code VARCHAR(3) PRIMARY KEY,description VARCHAR(120) NOT NULL,installments INT NOT NULL DEFAULT 0,days_list VARCHAR(120) NULL,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS tax_scenarios(omie_code VARCHAR(80) PRIMARY KEY,name VARCHAR(120) NOT NULL,is_default TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS stock_locations(omie_code VARCHAR(80) PRIMARY KEY,name VARCHAR(250) NOT NULL,sale_enabled TINYINT(1) NOT NULL DEFAULT 0,is_default TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS payment_methods(code VARCHAR(4) PRIMARY KEY,description VARCHAR(100) NOT NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS document_types(code VARCHAR(8) PRIMARY KEY,description VARCHAR(100) NOT NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS orders(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(80) NOT NULL,number VARCHAR(30) NULL,client_omie_code VARCHAR(80) NULL,seller_omie_code VARCHAR(80) NULL,order_date DATE NULL,forecast_date DATE NULL,total DECIMAL(15,2) NOT NULL DEFAULT 0,status VARCHAR(30) NULL,stage_code VARCHAR(10) NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_orders_omie(omie_code),INDEX idx_orders_date(order_date),INDEX idx_orders_seller_date(seller_omie_code,order_date),INDEX idx_orders_client_date(client_omie_code,order_date));
-CREATE TABLE IF NOT EXISTS local_order_drafts(
+SET NAMES utf8mb4;
+SET SESSION time_zone='-03:00';
+
+CREATE TABLE IF NOT EXISTS organizations (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- request_token VARCHAR(80) NOT NULL,
- created_by INT UNSIGNED NOT NULL,
- client_id BIGINT UNSIGNED NULL,
- seller_omie_code VARCHAR(80) NULL,
- status ENUM('draft','sent') NOT NULL DEFAULT 'draft',
- total DECIMAL(15,2) NOT NULL DEFAULT 0,
- form_json JSON NOT NULL,
- omie_code VARCHAR(80) NULL,
- omie_number VARCHAR(30) NULL,
+ name VARCHAR(180) NOT NULL,
+ code VARCHAR(80) NULL UNIQUE,
+ status VARCHAR(20) NOT NULL DEFAULT 'active',
  created_at DATETIME NOT NULL,
- updated_at DATETIME NOT NULL,
- sent_at DATETIME NULL,
- UNIQUE KEY uq_local_order_draft_token(request_token),
- INDEX idx_local_order_draft_user_status(created_by,status),
- INDEX idx_local_order_draft_updated(updated_at)
-);
-CREATE TABLE IF NOT EXISTS service_orders(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(80) NOT NULL,client_omie_code VARCHAR(80) NULL,seller_omie_code VARCHAR(80) NULL,service_date DATE NULL,total DECIMAL(15,2) NOT NULL DEFAULT 0,status VARCHAR(40) NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_service_orders_omie(omie_code),INDEX idx_service_orders_date(service_date),INDEX idx_service_orders_seller_date(seller_omie_code,service_date),INDEX idx_service_orders_client_date(client_omie_code,service_date));
-CREATE TABLE IF NOT EXISTS financial_movements(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,omie_code VARCHAR(100) NOT NULL,client_omie_code VARCHAR(80) NULL,account_omie_code VARCHAR(80) NULL,seller_omie_code VARCHAR(80) NULL,due_date DATE NULL,open_amount DECIMAL(15,2) NOT NULL DEFAULT 0,paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,status VARCHAR(30) NOT NULL,last_seen_token VARCHAR(64) NULL,raw_json JSON NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_fin_omie(omie_code),INDEX idx_fin_client_status(client_omie_code,status),INDEX idx_fin_seen(last_seen_token));
-CREATE TABLE IF NOT EXISTS activities(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,user_id INT UNSIGNED NOT NULL,channel VARCHAR(30) NOT NULL,result VARCHAR(40) NOT NULL,notes TEXT NULL,next_at DATETIME NULL,created_at DATETIME NOT NULL,FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(user_id) REFERENCES users(id),INDEX idx_activities_client_date(client_id,created_at,id));
-CREATE TABLE IF NOT EXISTS tasks(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,assigned_user_id INT UNSIGNED NOT NULL,created_by_user_id INT UNSIGNED NULL,type ENUM('sales','collection') NOT NULL,task_type_code VARCHAR(50) NULL,title VARCHAR(180) NOT NULL,due_at DATETIME NOT NULL,status ENUM('pending','done','cancelled') NOT NULL DEFAULT 'pending',completion_result_code VARCHAR(40) NULL,completion_notes TEXT NULL,completed_by_user_id INT UNSIGNED NULL,created_at DATETIME NOT NULL,completed_at DATETIME NULL,updated_at DATETIME NULL,FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(assigned_user_id) REFERENCES users(id),INDEX idx_tasks_user_status_date(assigned_user_id,status,due_at),INDEX idx_tasks_client_status_due(client_id,status,type,due_at,id),INDEX idx_tasks_status_due(status,due_at),INDEX idx_tasks_created_user_type(created_at,assigned_user_id,type,status),INDEX idx_tasks_task_type(task_type_code));
-CREATE TABLE IF NOT EXISTS collection_cases(client_id BIGINT UNSIGNED PRIMARY KEY,open_amount DECIMAL(15,2) NOT NULL DEFAULT 0,partial_paid DECIMAL(15,2) NOT NULL DEFAULT 0,max_overdue_days INT NOT NULL DEFAULT 0,status ENUM('open','settled') NOT NULL DEFAULT 'open',assigned_user_id INT UNSIGNED NULL,assigned_at DATETIME NULL,updated_at DATETIME NOT NULL,FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(assigned_user_id) REFERENCES users(id) ON DELETE SET NULL,INDEX idx_collection_status_assigned_delay(status,assigned_user_id,max_overdue_days));
-CREATE TABLE IF NOT EXISTS collection_actions(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,author_user_id INT UNSIGNED NOT NULL,assigned_user_id INT UNSIGNED NOT NULL,channel VARCHAR(30) NOT NULL,result VARCHAR(40) NOT NULL,amount DECIMAL(15,2) NOT NULL DEFAULT 0,promise_date DATE NULL,local_status ENUM('none','pending','reconciled','cancelled') NOT NULL DEFAULT 'none',reconciled_at DATETIME NULL,recorded_at DATETIME NULL,notes TEXT NULL,created_at DATETIME NOT NULL,FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(author_user_id) REFERENCES users(id),FOREIGN KEY(assigned_user_id) REFERENCES users(id),INDEX idx_ca_client_date(client_id,created_at,id),INDEX idx_ca_result_date_user(result,created_at,assigned_user_id),INDEX idx_ca_created_assigned(created_at,assigned_user_id,client_id));
-CREATE TABLE IF NOT EXISTS settings(setting_key VARCHAR(80) PRIMARY KEY,value_json JSON NOT NULL,updated_at DATETIME NOT NULL);
-CREATE TABLE IF NOT EXISTS sync_state(module_key VARCHAR(40) PRIMARY KEY,last_page INT NOT NULL DEFAULT 0,total_pages INT NOT NULL DEFAULT 0,last_count INT NOT NULL DEFAULT 0,context_json JSON NULL,last_success_at DATETIME NULL,last_error TEXT NULL);
-CREATE TABLE IF NOT EXISTS omie_order_logs(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,integration_code VARCHAR(60) NOT NULL,omie_order_code VARCHAR(80) NULL,omie_order_number VARCHAR(30) NULL,client_id BIGINT UNSIGNED NOT NULL,seller_omie_code VARCHAR(80) NOT NULL,user_id INT UNSIGNED NOT NULL,total DECIMAL(15,2) NOT NULL DEFAULT 0,request_json JSON NOT NULL,response_json JSON NULL,status ENUM('success','error') NOT NULL,error_message TEXT NULL,created_at DATETIME NOT NULL,UNIQUE KEY uq_omie_order_integration(integration_code));
+ updated_at DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS goals(
+CREATE TABLE IF NOT EXISTS users (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- user_id INT UNSIGNED NOT NULL,
- month_ref CHAR(7) NOT NULL,
- sales_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
- collection_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
- contact_goal INT NOT NULL DEFAULT 0,
- updated_by INT UNSIGNED NULL,
- updated_at DATETIME NOT NULL,
- UNIQUE KEY uq_goals_user_month(user_id,month_ref),
- FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
- FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
-);
-
-CREATE TABLE IF NOT EXISTS virtual_seller_goals(
- id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- seller_omie_code VARCHAR(80) NOT NULL,
- month_ref CHAR(7) NOT NULL,
- sales_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
- updated_by INT UNSIGNED NULL,
- updated_at DATETIME NOT NULL,
- UNIQUE KEY uq_virtual_seller_goal(seller_omie_code,month_ref),
- FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
-);
-
-CREATE TABLE IF NOT EXISTS collection_assignment_log(
- id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- client_id BIGINT UNSIGNED NOT NULL,
- from_user_id INT UNSIGNED NULL,
- to_user_id INT UNSIGNED NOT NULL,
- changed_by INT UNSIGNED NOT NULL,
+ organization_id BIGINT UNSIGNED NULL,
+ user_type VARCHAR(30) NOT NULL DEFAULT 'student',
+ cpf CHAR(11) NULL,
+ username VARCHAR(120) NULL,
+ name VARCHAR(180) NOT NULL,
+ email VARCHAR(190) NULL,
+ password_hash VARCHAR(255) NOT NULL,
+ status VARCHAR(20) NOT NULL DEFAULT 'active',
+ last_login_at DATETIME NULL,
  created_at DATETIME NOT NULL,
- FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,
- FOREIGN KEY(from_user_id) REFERENCES users(id) ON DELETE SET NULL,
- FOREIGN KEY(to_user_id) REFERENCES users(id),
- FOREIGN KEY(changed_by) REFERENCES users(id),
- INDEX idx_collection_assignment_client_date(client_id,created_at)
-);
+ updated_at DATETIME NULL,
+ UNIQUE KEY uq_users_cpf (cpf),
+ UNIQUE KEY uq_users_username (username),
+ KEY ix_users_email (email),
+ KEY ix_users_type_status (user_type,status),
+ CONSTRAINT fk_users_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS order_profiles(
- id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- code VARCHAR(40) NOT NULL,
+CREATE TABLE IF NOT EXISTS roles (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ slug VARCHAR(80) NOT NULL UNIQUE,
  name VARCHAR(120) NOT NULL,
- description VARCHAR(255) NULL,
- default_no_stock CHAR(1) NOT NULL DEFAULT 'N',
- default_no_finance CHAR(1) NOT NULL DEFAULT 'N',
- default_no_total CHAR(1) NOT NULL DEFAULT 'N',
- default_reserve_stock CHAR(1) NOT NULL DEFAULT 'N',
- active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO roles(slug,name) VALUES
+('super_admin','Super Administrador'),('admin','Administrador'),('manager','Gestor'),
+('coordinator','Coordenador'),('teacher_editor','Professor editor'),('teacher','Professor'),
+('tutor','Tutor/Monitor'),('support','Suporte'),('student','Aluno');
+
+CREATE TABLE IF NOT EXISTS permissions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ slug VARCHAR(120) NOT NULL UNIQUE,
+ name VARCHAR(180) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+ role_id BIGINT UNSIGNED NOT NULL,
+ permission_id BIGINT UNSIGNED NOT NULL,
+ PRIMARY KEY(role_id,permission_id),
+ CONSTRAINT fk_rp_role FOREIGN KEY(role_id) REFERENCES roles(id) ON DELETE CASCADE,
+ CONSTRAINT fk_rp_perm FOREIGN KEY(permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_role_assignments (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ role_id BIGINT UNSIGNED NOT NULL,
+ context_type VARCHAR(30) NOT NULL DEFAULT 'system',
+ context_id BIGINT UNSIGNED NULL,
  created_at DATETIME NOT NULL,
+ KEY ix_ura_user (user_id),
+ KEY ix_ura_context (context_type,context_id),
+ CONSTRAINT fk_ura_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ CONSTRAINT fk_ura_role FOREIGN KEY(role_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS courses (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ organization_id BIGINT UNSIGNED NULL,
+ code VARCHAR(100) NOT NULL,
+ name VARCHAR(220) NOT NULL,
+ shortname VARCHAR(120) NULL,
+ summary MEDIUMTEXT NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'draft',
+ navigation_mode VARCHAR(30) NOT NULL DEFAULT 'linear',
+ source_system VARCHAR(40) NULL,
+ source_id VARCHAR(120) NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NULL,
+ UNIQUE KEY uq_course_code (code),
+ KEY ix_courses_status (status),
+ KEY ix_courses_source (source_system,source_id),
+ CONSTRAINT fk_course_org FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_sections (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ course_id BIGINT UNSIGNED NOT NULL,
+ parent_id BIGINT UNSIGNED NULL,
+ title VARCHAR(220) NOT NULL,
+ summary MEDIUMTEXT NULL,
+ position INT NOT NULL DEFAULT 0,
+ visible TINYINT(1) NOT NULL DEFAULT 1,
+ availability_json JSON NULL,
+ source_id VARCHAR(120) NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NULL,
+ KEY ix_sections_course_pos (course_id,position),
+ CONSTRAINT fk_section_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+ CONSTRAINT fk_section_parent FOREIGN KEY(parent_id) REFERENCES course_sections(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_activities (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ course_id BIGINT UNSIGNED NOT NULL,
+ section_id BIGINT UNSIGNED NOT NULL,
+ type VARCHAR(60) NOT NULL,
+ title VARCHAR(220) NOT NULL,
+ description MEDIUMTEXT NULL,
+ position INT NOT NULL DEFAULT 0,
+ visible TINYINT(1) NOT NULL DEFAULT 1,
+ completion_mode VARCHAR(40) NOT NULL DEFAULT 'manual',
+ content_json JSON NULL,
+ settings_json JSON NULL,
+ availability_json JSON NULL,
+ source_id VARCHAR(120) NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NULL,
+ KEY ix_activity_course (course_id),
+ KEY ix_activity_section_pos (section_id,position),
+ KEY ix_activity_type (type),
+ CONSTRAINT fk_activity_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+ CONSTRAINT fk_activity_section FOREIGN KEY(section_id) REFERENCES course_sections(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS question_categories (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ course_id BIGINT UNSIGNED NULL,
+ parent_id BIGINT UNSIGNED NULL,
+ name VARCHAR(220) NOT NULL,
+ source_id VARCHAR(120) NULL,
+ created_at DATETIME NOT NULL,
+ KEY ix_qcat_course (course_id),
+ CONSTRAINT fk_qcat_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+ CONSTRAINT fk_qcat_parent FOREIGN KEY(parent_id) REFERENCES question_categories(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS questions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ category_id BIGINT UNSIGNED NULL,
+ type VARCHAR(60) NOT NULL,
+ name VARCHAR(255) NULL,
+ question_html MEDIUMTEXT NOT NULL,
+ default_mark DECIMAL(10,4) NOT NULL DEFAULT 1,
+ settings_json JSON NULL,
+ source_id VARCHAR(120) NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NULL,
+ KEY ix_question_cat (category_id),
+ KEY ix_question_type (type),
+ CONSTRAINT fk_question_cat FOREIGN KEY(category_id) REFERENCES question_categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS question_answers (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ question_id BIGINT UNSIGNED NOT NULL,
+ answer_html MEDIUMTEXT NOT NULL,
+ fraction DECIMAL(10,6) NOT NULL DEFAULT 0,
+ feedback_html MEDIUMTEXT NULL,
+ position INT NOT NULL DEFAULT 0,
+ source_id VARCHAR(120) NULL,
+ CONSTRAINT fk_answer_question FOREIGN KEY(question_id) REFERENCES questions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS quizzes (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ activity_id BIGINT UNSIGNED NOT NULL UNIQUE,
+ grade_max DECIMAL(10,4) NOT NULL DEFAULT 100,
+ grade_pass DECIMAL(10,4) NULL,
+ attempts_allowed INT NOT NULL DEFAULT 0,
+ settings_json JSON NULL,
+ CONSTRAINT fk_quiz_activity FOREIGN KEY(activity_id) REFERENCES course_activities(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS quiz_slots (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ quiz_id BIGINT UNSIGNED NOT NULL,
+ question_id BIGINT UNSIGNED NULL,
+ category_id BIGINT UNSIGNED NULL,
+ random_count INT NOT NULL DEFAULT 0,
+ position INT NOT NULL DEFAULT 0,
+ CONSTRAINT fk_slot_quiz FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
+ CONSTRAINT fk_slot_question FOREIGN KEY(question_id) REFERENCES questions(id) ON DELETE CASCADE,
+ CONSTRAINT fk_slot_category FOREIGN KEY(category_id) REFERENCES question_categories(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS enrollments (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ course_id BIGINT UNSIGNED NOT NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'active',
+ progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+ final_score DECIMAL(7,2) NULL,
+ started_at DATETIME NULL,
+ expires_at DATETIME NULL,
+ completed_at DATETIME NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NULL,
+ KEY ix_enrollment_user_status (user_id,status),
+ KEY ix_enrollment_course_status (course_id,status),
+ CONSTRAINT fk_enrollment_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ CONSTRAINT fk_enrollment_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS enrollment_external_refs (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ enrollment_id BIGINT UNSIGNED NOT NULL,
+ source_system VARCHAR(80) NOT NULL,
+ external_id VARCHAR(160) NOT NULL,
+ created_at DATETIME NOT NULL,
+ UNIQUE KEY uq_external_ref(source_system,external_id),
+ CONSTRAINT fk_external_enrollment FOREIGN KEY(enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS activity_progress (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ enrollment_id BIGINT UNSIGNED NOT NULL,
+ activity_id BIGINT UNSIGNED NOT NULL,
+ progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+ completed TINYINT(1) NOT NULL DEFAULT 0,
+ seconds_spent INT UNSIGNED NOT NULL DEFAULT 0,
+ last_position INT UNSIGNED NULL,
+ completed_at DATETIME NULL,
  updated_at DATETIME NOT NULL,
- UNIQUE KEY uq_order_profiles_code(code)
-);
-INSERT IGNORE INTO order_profiles(code,name,description,default_no_stock,default_no_finance,default_no_total,default_reserve_stock,active,created_at,updated_at) VALUES
-('NORMAL','Venda normal','Movimenta estoque e gera financeiro normalmente.','N','N','N','N',1,NOW(),NOW()),
-('SEM_ESTOQUE','Venda sem movimento de estoque','Gera financeiro, mas não baixa estoque ao faturar.','S','N','N','N',1,NOW(),NOW()),
-('SEM_FINANCEIRO','Remessa sem financeiro','Movimenta estoque, mas o item não gera conta a receber.','N','S','N','N',1,NOW(),NOW()),
-('INFORMATIVO','Item informativo','Não movimenta estoque, não gera financeiro e não soma no total da NF-e.','S','S','S','N',1,NOW(),NOW());
+ UNIQUE KEY uq_activity_progress(enrollment_id,activity_id),
+ KEY ix_progress_activity(activity_id),
+ CONSTRAINT fk_progress_enrollment FOREIGN KEY(enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
+ CONSTRAINT fk_progress_activity FOREIGN KEY(activity_id) REFERENCES course_activities(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS study_sessions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ enrollment_id BIGINT UNSIGNED NOT NULL,
+ session_token CHAR(64) NOT NULL,
+ ip_address VARCHAR(45) NULL,
+ user_agent VARCHAR(500) NULL,
+ started_at DATETIME NOT NULL,
+ last_seen_at DATETIME NOT NULL,
+ ended_at DATETIME NULL,
+ UNIQUE KEY uq_study_token(session_token),
+ KEY ix_study_enrollment(enrollment_id),
+ CONSTRAINT fk_study_enrollment FOREIGN KEY(enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS study_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ enrollment_id BIGINT UNSIGNED NOT NULL,
+ activity_id BIGINT UNSIGNED NULL,
+ event_type VARCHAR(80) NOT NULL,
+ event_data JSON NULL,
+ ip_address VARCHAR(45) NULL,
+ created_at DATETIME NOT NULL,
+ KEY ix_event_enrollment_time(enrollment_id,created_at),
+ KEY ix_event_type(event_type),
+ CONSTRAINT fk_event_enrollment FOREIGN KEY(enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
+ CONSTRAINT fk_event_activity FOREIGN KEY(activity_id) REFERENCES course_activities(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_clients (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(180) NOT NULL,
+ token_hash CHAR(64) NOT NULL UNIQUE,
+ scopes_json JSON NOT NULL,
+ enabled TINYINT(1) NOT NULL DEFAULT 1,
+ last_used_at DATETIME NULL,
+ created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ api_client_id BIGINT UNSIGNED NOT NULL,
+ idem_key VARCHAR(190) NOT NULL,
+ response_json JSON NOT NULL,
+ created_at DATETIME NOT NULL,
+ UNIQUE KEY uq_idempotency(api_client_id,idem_key),
+ CONSTRAINT fk_idem_client FOREIGN KEY(api_client_id) REFERENCES api_clients(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS imports (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ source_system VARCHAR(40) NOT NULL,
+ original_name VARCHAR(255) NOT NULL,
+ stored_path VARCHAR(500) NOT NULL,
+ sha256 CHAR(64) NOT NULL,
+ status VARCHAR(30) NOT NULL,
+ analysis_json JSON NULL,
+ target_course_id BIGINT UNSIGNED NULL,
+ created_at DATETIME NOT NULL,
+ completed_at DATETIME NULL,
+ UNIQUE KEY uq_import_hash(sha256),
+ KEY ix_import_status(status),
+ CONSTRAINT fk_import_course FOREIGN KEY(target_course_id) REFERENCES courses(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS legacy_mappings (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ source_system VARCHAR(40) NOT NULL,
+ source_type VARCHAR(80) NOT NULL,
+ source_id VARCHAR(160) NOT NULL,
+ target_type VARCHAR(80) NOT NULL,
+ target_id BIGINT UNSIGNED NOT NULL,
+ created_at DATETIME NOT NULL,
+ UNIQUE KEY uq_legacy(source_system,source_type,source_id),
+ KEY ix_legacy_target(target_type,target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NULL,
+ event_type VARCHAR(100) NOT NULL,
+ entity_type VARCHAR(80) NULL,
+ entity_id BIGINT UNSIGNED NULL,
+ ip_address VARCHAR(45) NULL,
+ user_agent VARCHAR(500) NULL,
+ data_json JSON NULL,
+ created_at DATETIME NOT NULL,
+ KEY ix_audit_event_time(event_type,created_at),
+ KEY ix_audit_entity(entity_type,entity_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

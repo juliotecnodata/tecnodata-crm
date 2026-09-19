@@ -1,69 +1,59 @@
-# Tecnodata CRM
+# Tecnodata LMS v0.1
 
-CRM comercial da Tecnodata Educacional.
+Base funcional do novo LMS Tecnodata, construída em PHP 8.3+, Bootstrap 5, JavaScript e DataTables, com arquitetura API-first e importador Moodle integrado.
 
-## Ambientes
+## Objetivo
 
-### Desenvolvimento — XAMPP
+- experiência moderna e mobile-first para aluno, professor e administração;
+- cursos com seções, subseções e atividades;
+- matrículas recebidas por múltiplos sistemas externos;
+- REST API versionada em /api/v1;
+- importação progressiva de backups Moodle .mbz;
+- rastreabilidade por IDs legados;
+- horário oficial da aplicação: America/Sao_Paulo.
 
-Clone o projeto em:
+## Requisitos
 
-```
-C:\\xampp\\htdocs\\tecnodata-crm
-```
+- PHP 8.3 ou superior
+- MySQL/MariaDB 10.6+
+- extensões PDO MySQL, mbstring, SimpleXML/XML, Phar, JSON
+- Apache com mod_rewrite ou Nginx equivalente
 
-A URL do projeto é:
+## Instalação na Hostinger
 
-```
-http://localhost/tecnodata-crm
-```
+1. Envie o conteúdo deste projeto para a pasta do domínio.
+2. Copie .env.example para .env.
+3. Configure DB_HOST=127.0.0.1, DB_DATABASE e DB_USERNAME conforme o banco de produção.
+4. Preencha DB_PASSWORD diretamente no servidor. A senha não está embutida no projeto.
+5. Garanta permissão de escrita em storage/.
+6. Abra /public/install.php ou /install.php conforme o document root.
+7. Crie o primeiro administrador.
+8. Ao concluir, o instalador cria storage/installed.lock e deixa de aceitar nova instalação.
 
-Não use `/public` na URL.
+Banco de produção previsto:
+- host: 127.0.0.1
+- database: u695906402_lms_tecnodata
+- user: u695906402_lms_tecnodata
+- timezone: America/Sao_Paulo / sessão SQL -03:00
 
-O banco local padrão é MySQL/MariaDB no próprio computador:
+## Segurança
 
-- host: `127.0.0.1`
-- porta: `3306`
-- usuário padrão XAMPP: `root`
+Nunca versione .env. Troque a senha do banco antes da entrada oficial em produção, porque ela foi compartilhada em conversa durante a implantação.
 
-Copie `config/config.example.php` para `config/config.php` e informe o nome do seu banco local.
+## Estrutura
 
-### Produção
+app/
+  Core/
+  Controllers/
+  Services/
+config/
+database/
+docs/
+public/
+routes/
+storage/
+views/
 
-URL oficial:
+## Estado desta versão
 
-```
-https://tecnodataeducacional.com.br/crm
-```
-
-O projeto deve ficar dentro do diretório público correspondente a `/crm`. O `.htaccess` da raiz envia apenas as rotas e assets públicos para `public/` e bloqueia acesso web direto a `app/`, `config/` e `database/`.
-
-No `config/config.php`, mantenha:
-
-```php
-'production_url' => 'https://tecnodataeducacional.com.br/crm'
-```
-
-Quando PHP e MariaDB estiverem na mesma hospedagem, use banco com host `127.0.0.1` (ou `localhost`, caso o provedor exija).
-
-Nunca versione `config/config.php`: ele está no `.gitignore`.
-
-## Banco e segurança
-
-- Todas as tabelas do CRM usam prefixo `tdcrm_`.
-- Credenciais de produção ficam somente em `config/config.php` ou variáveis de ambiente.
-- O código também aceita:
-  - `TDCRM_APP_URL`
-  - `TDCRM_DB_LOCAL_HOST`, `PORT`, `NAME`, `USER`, `PASS`
-  - `TDCRM_DB_PROD_HOST`, `PORT`, `NAME`, `USER`, `PASS`
-- Sessão usa cookie `HttpOnly`, `SameSite=Lax` e `Secure` em produção.
-- O cookie é limitado ao caminho do CRM (`/crm/` em produção).
-
-## Stack
-
-- PHP 8.2+
-- MySQL/MariaDB
-- Bootstrap 5
-- JavaScript nativo
-- Omie como ERP
-- Navegação operacional usando banco local
+Esta é uma fundação funcional para desenvolvimento e homologação. Já contém autenticação, papéis básicos, painel, cursos, estrutura, alunos, matrículas, API, clientes de API, progresso, auditoria e importador Moodle estrutural para os componentes já mapeados. A migração 100% fiel de todos os plugins Moodle será ampliada por conversores, sempre bloqueando importações desconhecidas em vez de descartá-las silenciosamente.

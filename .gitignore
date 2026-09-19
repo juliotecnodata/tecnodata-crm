@@ -1,8 +1,5 @@
-/config/config.php
-/.idea
-/.vscode
-/vendor
-/storage/logs/*.log
-/storage/cache/*
-/storage/sess_*
-/storage/*.tmp
+.env
+/storage/*
+!/storage/.gitkeep
+/vendor/
+*.log
