@@ -52,6 +52,8 @@ $router->post('/admin/courses/{id}/question-categories',[QuestionBankController:
 $router->post('/admin/courses/{id}/questions',[QuestionBankController::class,'store']);
 $router->get('/admin/courses/{id}/questions/export',[QuestionBankController::class,'export']);
 $router->post('/admin/courses/{id}/questions/import',[QuestionBankController::class,'import']);
+$router->get('/admin/questions/{id}/edit',[QuestionBankController::class,'edit']);
+$router->post('/admin/questions/{id}',[QuestionBankController::class,'update']);
 $router->post('/admin/questions/{id}/delete',[QuestionBankController::class,'delete']);
 
 $router->get('/admin/activities/{id}/quiz',[QuizAdminController::class,'show']);

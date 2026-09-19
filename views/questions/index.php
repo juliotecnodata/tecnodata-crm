@@ -61,7 +61,7 @@
 </div>
 
 <section class="panel mt-3"><h2>Questões cadastradas</h2><div class="table-responsive"><table class="table align-middle datatable"><thead><tr><th>ID</th><th>Questão</th><th>Categoria</th><th>Tipo</th><th>Respostas</th><th></th></tr></thead><tbody>
-<?php foreach($questions as $q):?><tr><td><?=$q['id']?></td><td><strong><?=e($q['name']?:'Sem nome')?></strong><small class="d-block text-secondary"><?=e(mb_strimwidth(strip_tags($q['question_html']),0,100,'…'))?></small></td><td><?=e($q['category_name'])?></td><td><span class="type-pill"><?=e($q['type'])?></span></td><td><?=$q['answer_count']?></td><td class="text-end"><form method="post" action="/admin/questions/<?=$q['id']?>/delete" onsubmit="return confirm('Excluir esta questão?')"><?=Csrf::field()?><button class="btn btn-sm btn-outline-danger">Excluir</button></form></td></tr><?php endforeach;?>
+<?php foreach($questions as $q):?><tr><td><?=$q['id']?></td><td><strong><?=e($q['name']?:'Sem nome')?></strong><small class="d-block text-secondary"><?=e(mb_strimwidth(strip_tags($q['question_html']),0,100,'…'))?></small></td><td><?=e($q['category_name'])?></td><td><span class="type-pill"><?=e($q['type'])?></span></td><td><?=$q['answer_count']?></td><td class="text-end"><div class="d-flex gap-1 justify-content-end"><a class="btn btn-sm btn-outline-secondary" href="/admin/questions/<?=$q['id']?>/edit">Editar</a><form method="post" action="/admin/questions/<?=$q['id']?>/delete" onsubmit="return confirm('Excluir esta questão?')"><?=Csrf::field()?><button class="btn btn-sm btn-outline-danger">Excluir</button></form></div></td></tr><?php endforeach;?>
 </tbody></table></div></section>
 
 <script>

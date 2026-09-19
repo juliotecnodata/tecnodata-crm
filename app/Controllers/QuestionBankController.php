@@ -130,6 +130,122 @@ final class QuestionBankController
         redirect('/admin/courses/'.$course['id'].'/questions');
     }
 
+
+    public function edit(string $id): void
+    {
+        Auth::requireAdmin();
+
+        $question=Database::fetch(
+            "SELECT q.*,qc.course_id,qc.name category_name
+               FROM questions q
+               JOIN question_categories qc ON qc.id=q.category_id
+              WHERE q.id=?",
+            [(int)$id]
+        );
+        if(!$question) throw new \RuntimeException('Questão não encontrada.');
+
+        $categories=Database::all(
+            "SELECT * FROM question_categories WHERE course_id=? ORDER BY name",
+            [$question['course_id']]
+        );
+        $answers=Database::all(
+            "SELECT * FROM question_answers WHERE question_id=? ORDER BY position,id",
+            [$question['id']]
+        );
+
+        View::render('questions/edit',compact('question','categories','answers'));
+    }
+
+    public function update(string $id): void
+    {
+        Auth::requireAdmin();
+        Csrf::verify();
+
+        $question=Database::fetch(
+            "SELECT q.*,qc.course_id
+               FROM questions q
+               JOIN question_categories qc ON qc.id=q.category_id
+              WHERE q.id=?",
+            [(int)$id]
+        );
+        if(!$question) throw new \RuntimeException('Questão não encontrada.');
+
+        $hasAttempts=Database::fetch(
+            "SELECT 1 FROM quiz_attempt_answers WHERE question_id=? LIMIT 1",
+            [(int)$id]
+        );
+        if($hasAttempts){
+            throw new \RuntimeException(
+                'Esta questão já possui respostas de alunos e não pode ser alterada. Crie uma nova versão para preservar o histórico.'
+            );
+        }
+
+        $categoryId=(int)($_POST['category_id']??0);
+        if(!Database::fetch(
+            "SELECT 1 FROM question_categories WHERE id=? AND course_id=?",
+            [$categoryId,$question['course_id']]
+        )){
+            throw new \RuntimeException('Categoria inválida.');
+        }
+
+        $text=trim((string)($_POST['question_html']??''));
+        if($text==='') throw new \RuntimeException('Enunciado é obrigatório.');
+
+        $type=(string)$question['type'];
+        $settings=json_decode($question['settings_json']?:'{}',true)?:[];
+        $settings['shuffle_answers']=isset($_POST['shuffle_answers']);
+        $settings['single']=isset($_POST['single']);
+        $settings['case_sensitive']=isset($_POST['case_sensitive']);
+
+        if($type==='numerical'){
+            $settings['tolerance']=(float)($_POST['tolerance']??0);
+        }
+
+        if($type==='matching'){
+            $left=(array)($_POST['match_left']??[]);
+            $right=(array)($_POST['match_right']??[]);
+            $pairs=[];
+            foreach($left as $i=>$l){
+                $l=trim((string)$l);
+                $r=trim((string)($right[$i]??''));
+                if($l!==''&&$r!=='') $pairs[]=['left'=>$l,'right'=>$r];
+            }
+            if(count($pairs)<2) throw new \RuntimeException('Informe pelo menos dois pares.');
+            $settings['pairs']=$pairs;
+        }
+
+        $pdo=Database::pdo();
+        $pdo->beginTransaction();
+        try{
+            Database::execute(
+                "UPDATE questions
+                    SET category_id=?,name=?,question_html=?,default_mark=?,settings_json=?,updated_at=?
+                  WHERE id=?",
+                [
+                    $categoryId,
+                    trim((string)($_POST['name']??'')),
+                    $text,
+                    max(.01,(float)($_POST['default_mark']??1)),
+                    json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                    Clock::sql(),
+                    (int)$id
+                ]
+            );
+
+            Database::execute("DELETE FROM question_answers WHERE question_id=?",[(int)$id]);
+            $this->storeAnswers((int)$id,$type);
+
+            $pdo->commit();
+        }catch(\Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+
+        Audit::log('question.updated','question',(int)$id);
+        $_SESSION['question_message']='Questão atualizada.';
+        redirect('/admin/courses/'.$question['course_id'].'/questions');
+    }
+
     public function delete(string $id): void
     {
         Auth::requireAdmin();
