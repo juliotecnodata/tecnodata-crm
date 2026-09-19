@@ -2,6 +2,7 @@
   "name": "tecnodata/lms",
   "description": "Tecnodata LMS",
   "type": "project",
+  "license": "proprietary",
   "require": {
     "php": ">=8.3"
   },
