@@ -9,92 +9,274 @@ final class MoodleImportService
     public function execute(array $inspection, int $importId): int
     {
         if (!$inspection['compatible']) {
-            throw new \RuntimeException('Importação bloqueada: existem componentes Moodle sem conversor.');
+            throw new \RuntimeException(
+                'Importação bloqueada: existem componentes Moodle sem conversor estrutural.'
+            );
         }
 
         $course = $inspection['course'];
-        Database::execute(
-            "INSERT INTO courses(code,name,shortname,summary,status,source_system,source_id,created_at,updated_at)
-             VALUES(?,?,?,?, 'draft','moodle',?,?,?)",
-            [
-                $course['shortname'] ?: 'MDL-' . $course['moodle_id'],
-                $course['fullname'],
-                $course['shortname'],
-                $course['summary'],
-                (string)$course['moodle_id'],
-                Clock::sql(),
-                Clock::sql()
-            ]
+
+        $existing = Database::fetch(
+            "SELECT target_id FROM legacy_mappings
+              WHERE source_system='moodle' AND source_type='course' AND source_id=?",
+            [(string)$course['moodle_id']]
         );
-        $courseId = Database::id();
-        $this->legacy('course', (string)$course['moodle_id'], 'course', $courseId);
-
-        $root = $inspection['root'];
-        $sectionMap = [];
-        $sectionFiles = glob($root . '/sections/section_*/section.xml') ?: [];
-        usort($sectionFiles, fn($a,$b)=>strcmp($a,$b));
-        foreach ($sectionFiles as $position => $file) {
-            $x = simplexml_load_file($file, \SimpleXMLElement::class, LIBXML_NONET|LIBXML_NOCDATA);
-            if (!$x) continue;
-            $moodleId = (int)($x['id'] ?? 0);
-            $name = trim((string)($x->name ?? '')) ?: ('Seção ' . ($position + 1));
-            Database::execute(
-                "INSERT INTO course_sections(course_id,parent_id,title,summary,position,visible,availability_json,source_id,created_at,updated_at)
-                 VALUES(?,?,?,?,?,?,?,?,?,?)",
-                [$courseId,null,$name,(string)($x->summary??''),$position+1,(int)($x->visible??1),(string)($x->availabilityjson??''),(string)$moodleId,Clock::sql(),Clock::sql()]
+        if ($existing) {
+            throw new \RuntimeException(
+                'Este curso Moodle já foi importado. Curso Tecnodata ID ' . $existing['target_id'] . '.'
             );
-            $sectionMap[$moodleId] = Database::id();
-            $this->legacy('section',(string)$moodleId,'course_section',$sectionMap[$moodleId]);
         }
 
-        foreach ($inspection['activities'] as $position => $a) {
-            $sectionId = $sectionMap[$a['sectionid']] ?? null;
-            if (!$sectionId) continue;
-            [$type,$content,$settings] = $this->activityPayload($root, $a);
-            Database::execute(
-                "INSERT INTO course_activities(course_id,section_id,type,title,description,position,visible,content_json,settings_json,source_id,created_at,updated_at)
-                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                [$courseId,$sectionId,$type,$a['title'],'',$position+1,1,json_encode($content,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(string)$a['moduleid'],Clock::sql(),Clock::sql()]
-            );
-            $this->legacy('cmid',(string)$a['moduleid'],'course_activity',Database::id());
+        $code = trim((string)$course['shortname']);
+        if ($code === '') {
+            $code = 'MDL-' . $course['moodle_id'];
+        }
+        if (Database::fetch("SELECT 1 FROM courses WHERE code=?",[$code])) {
+            $code .= '-MDL' . $course['moodle_id'];
         }
 
-        Database::execute("UPDATE imports SET status='completed', target_course_id=?, completed_at=? WHERE id=?", [$courseId,Clock::sql(),$importId]);
-        return $courseId;
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+
+        try {
+            Database::execute(
+                "INSERT INTO courses(
+                    code,name,shortname,summary,status,navigation_mode,
+                    source_system,source_id,created_at,updated_at
+                 ) VALUES(?,?,?,?, 'draft','linear','moodle',?,?,?)",
+                [
+                    $code,
+                    $course['fullname'],
+                    $course['shortname'],
+                    $course['summary'],
+                    (string)$course['moodle_id'],
+                    Clock::sql(),
+                    Clock::sql()
+                ]
+            );
+
+            $courseId = Database::id();
+            $this->legacy('course',(string)$course['moodle_id'],'course',$courseId);
+
+            $root = $inspection['root'];
+            $sectionMap = [];
+            $sectionFiles = glob($root . '/sections/section_*/section.xml') ?: [];
+
+            usort($sectionFiles,'strnatcmp');
+
+            foreach ($sectionFiles as $position => $file) {
+                $x = simplexml_load_file(
+                    $file,
+                    \SimpleXMLElement::class,
+                    LIBXML_NONET|LIBXML_NOCDATA
+                );
+                if (!$x) continue;
+
+                $moodleId = (int)($x['id'] ?? 0);
+                $name = trim((string)($x->name ?? '')) ?: ('Seção ' . ($position + 1));
+                $availability = trim((string)($x->availabilityjson ?? ''));
+
+                Database::execute(
+                    "INSERT INTO course_sections(
+                        course_id,parent_id,title,summary,position,visible,
+                        availability_json,source_id,created_at,updated_at
+                     ) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    [
+                        $courseId,
+                        null,
+                        $name,
+                        (string)($x->summary??''),
+                        $position+1,
+                        (int)($x->visible??1),
+                        $availability !== '' ? $availability : null,
+                        (string)$moodleId,
+                        Clock::sql(),
+                        Clock::sql()
+                    ]
+                );
+
+                $sectionMap[$moodleId] = Database::id();
+                $this->legacy(
+                    'section',
+                    (string)$moodleId,
+                    'course_section',
+                    $sectionMap[$moodleId]
+                );
+            }
+
+            // Moodle 5: mod_subsection representa uma seção filha.
+            foreach ($inspection['activities'] as $a) {
+                if ($a['type'] !== 'subsection') continue;
+
+                $parentSection = $sectionMap[$a['sectionid']] ?? null;
+                if (!$parentSection) continue;
+
+                $dir = $root . '/activities/' . $a['directory'];
+                $xmlFile = $dir . '/subsection.xml';
+                if (!is_file($xmlFile)) continue;
+
+                $x = simplexml_load_file(
+                    $xmlFile,
+                    \SimpleXMLElement::class,
+                    LIBXML_NONET|LIBXML_NOCDATA
+                );
+                if (!$x) continue;
+
+                $candidate = (int)(
+                    $x->subsection->section ??
+                    $x->section ??
+                    $x->subsection->sectionid ??
+                    $x->sectionid ??
+                    0
+                );
+
+                if ($candidate && isset($sectionMap[$candidate])) {
+                    Database::execute(
+                        "UPDATE course_sections SET parent_id=?,updated_at=? WHERE id=?",
+                        [$parentSection,Clock::sql(),$sectionMap[$candidate]]
+                    );
+                }
+            }
+
+            $positions = [];
+
+            foreach ($inspection['activities'] as $a) {
+                // Subsection já foi convertida para hierarquia; não vira item visível.
+                if ($a['type'] === 'subsection') continue;
+
+                $sectionId = $sectionMap[$a['sectionid']] ?? null;
+                if (!$sectionId) continue;
+
+                $positions[$sectionId] = ($positions[$sectionId] ?? 0) + 1;
+                [$type,$content,$settings] = $this->activityPayload($root,$a);
+
+                Database::execute(
+                    "INSERT INTO course_activities(
+                        course_id,section_id,type,title,description,position,visible,
+                        completion_mode,content_json,settings_json,source_id,created_at,updated_at
+                     ) VALUES(?,?,?,?,?,?,1,'manual',?,?,?,?,?)",
+                    [
+                        $courseId,
+                        $sectionId,
+                        $type,
+                        $a['title'],
+                        '',
+                        $positions[$sectionId],
+                        json_encode($content,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                        json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                        (string)$a['moduleid'],
+                        Clock::sql(),
+                        Clock::sql()
+                    ]
+                );
+
+                $activityId = Database::id();
+                $this->legacy('cmid',(string)$a['moduleid'],'course_activity',$activityId);
+
+                if ($type === 'quiz') {
+                    Database::execute(
+                        "INSERT IGNORE INTO quizzes(
+                            activity_id,grade_max,grade_pass,attempts_allowed,settings_json
+                         ) VALUES(?,?,?,?,?)",
+                        [
+                            $activityId,
+                            (float)($settings['grade'] ?? 100),
+                            isset($settings['grade_pass']) ? (float)$settings['grade_pass'] : null,
+                            (int)($settings['attempts'] ?? 0),
+                            json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+                        ]
+                    );
+                }
+            }
+
+            Database::execute(
+                "UPDATE imports
+                    SET status='completed',target_course_id=?,completed_at=?
+                  WHERE id=?",
+                [$courseId,Clock::sql(),$importId]
+            );
+
+            $pdo->commit();
+            return $courseId;
+
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
     }
 
-    private function activityPayload(string $root, array $a): array
+    private function activityPayload(string $root,array $a): array
     {
         $dir = $root . '/activities/' . $a['directory'];
         $type = $a['type'];
-        $content = [];
+        $content = ['source_directory'=>$a['directory']];
         $settings = ['moodle_type'=>$a['type']];
 
         if ($type === 'page' && is_file($dir.'/page.xml')) {
-            $x=simplexml_load_file($dir.'/page.xml',\SimpleXMLElement::class,LIBXML_NONET|LIBXML_NOCDATA);
-            $content=['html'=>(string)($x->page->content??$x->content??'')];
+            $x=$this->loadXml($dir.'/page.xml');
+            $content['html']=(string)($x->page->content??$x->content??'');
+            $content['pluginfile_pending']=str_contains($content['html'],'@@PLUGINFILE@@');
+
         } elseif ($type === 'url' && is_file($dir.'/url.xml')) {
-            $x=simplexml_load_file($dir.'/url.xml',\SimpleXMLElement::class,LIBXML_NONET|LIBXML_NOCDATA);
+            $x=$this->loadXml($dir.'/url.xml');
             $url=(string)($x->url->externalurl??$x->externalurl??'');
-            $content=['url'=>$url];
-            if (stripos($url,'videofront')!==false || stripos($url,'videoteca')!==false) {
+            $content=['url'=>$url,'source_directory'=>$a['directory']];
+
+            if (
+                stripos($url,'videofront')!==false ||
+                stripos($url,'videoteca')!==false
+            ) {
                 $type='video';
                 $settings['provider']='videofront';
             }
+
         } elseif ($type === 'quiz' && is_file($dir.'/quiz.xml')) {
-            $x=simplexml_load_file($dir.'/quiz.xml',\SimpleXMLElement::class,LIBXML_NONET|LIBXML_NOCDATA);
-            $content=['intro'=>(string)($x->quiz->intro??$x->intro??'')];
-            $settings['grade']=(float)($x->quiz->grade??$x->grade??0);
+            $x=$this->loadXml($dir.'/quiz.xml');
+            $content['intro']=(string)($x->quiz->intro??$x->intro??'');
+            $settings['grade']=(float)($x->quiz->grade??$x->grade??100);
             $settings['attempts']=(int)($x->quiz->attempts_number??$x->attempts_number??0);
+            $settings['question_engine_pending']=true;
+
+        } else {
+            $candidate=$dir.'/'.$a['type'].'.xml';
+            if(is_file($candidate)){
+                $x=$this->loadXml($candidate);
+                $node=$x->{$a['type']} ?? $x;
+                foreach(['intro','content','externalurl','reference','name'] as $field){
+                    $value=trim((string)($node->{$field}??''));
+                    if($value!=='') $content[$field]=$value;
+                }
+            }
+
+            if(in_array($type,['resource','book','lesson','h5pactivity','scorm','folder'],true)){
+                $settings['file_migration_pending']=true;
+            }
         }
+
         return [$type,$content,$settings];
     }
 
-    private function legacy(string $sourceType,string $sourceId,string $targetType,int $targetId): void
+    private function loadXml(string $file): \SimpleXMLElement
     {
+        $x=simplexml_load_file(
+            $file,
+            \SimpleXMLElement::class,
+            LIBXML_NONET|LIBXML_NOCDATA
+        );
+        if(!$x) throw new \RuntimeException('XML inválido: '.basename($file));
+        return $x;
+    }
+
+    private function legacy(
+        string $sourceType,
+        string $sourceId,
+        string $targetType,
+        int $targetId
+    ): void {
         Database::execute(
-            "INSERT INTO legacy_mappings(source_system,source_type,source_id,target_type,target_id,created_at)
-             VALUES('moodle',?,?,?,?,?)",
+            "INSERT INTO legacy_mappings(
+                source_system,source_type,source_id,target_type,target_id,created_at
+             ) VALUES('moodle',?,?,?,?,?)",
             [$sourceType,$sourceId,$targetType,$targetId,Clock::sql()]
         );
     }
