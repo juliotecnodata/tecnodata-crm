@@ -1,0 +1,2 @@
+<div class="page-heading"><div><span class="eyebrow">ENSINO</span><h1>Meus cursos</h1><p>Cursos em que você atua como professor, tutor, coordenador ou suporte.</p></div></div>
+<div class="course-card-grid"><?php foreach($courses as $c):?><a class="student-course-card" href="/teaching/course/<?=$c['id']?>"><div><span class="type-pill"><?=e($c['role_name'])?></span><h2><?=e($c['name'])?></h2><p><?=e(mb_strimwidth(strip_tags($c['summary']??''),0,130,'…'))?></p></div><div class="continue">Acompanhar curso <i class="bi bi-arrow-right"></i></div></a><?php endforeach;?></div>
