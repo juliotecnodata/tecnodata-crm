@@ -1,87 +1,90 @@
-# Tecnodata LMS v0.2
+# Tecnodata LMS 1.0
 
-Base funcional do novo LMS Tecnodata em PHP 8.3+, Bootstrap 5, JavaScript e DataTables, com arquitetura API-first, perfis por contexto e importador Moodle com validação antes da importação.
+LMS próprio da Tecnodata Educacional em PHP 8.3+, MariaDB, Bootstrap 5, JavaScript e DataTables.
 
-## URLs oficiais
+Produção: `https://lms.tecnodataeducacional.com.br`
 
-Produção:
-- https://lms.tecnodataeducacional.com.br
-- API: https://lms.tecnodataeducacional.com.br/api/v1
-- Administração: https://lms.tecnodataeducacional.com.br/admin
-- Área do aluno: https://lms.tecnodataeducacional.com.br/student
+Local recomendado: `http://lms.local`
 
-Desenvolvimento recomendado:
-- http://lms.local
+## Módulos incluídos
 
-O VirtualHost local e o subdomínio de produção devem apontar diretamente para a pasta `public/`.
-
-## Banco
-
-Produção e XAMPP usam o mesmo banco:
-- database: `u695906402_lms_tecnodata`
-- user: `u695906402_lms_tecnodata`
-- produção: `DB_HOST=127.0.0.1`
-- XAMPP: `DB_HOST=srv1530.hstgr.io`
-- timezone da aplicação: `America/Sao_Paulo`
-- sessão SQL: `-03:00`
-
-A senha não é versionada. Preencha somente no arquivo `.env` de cada ambiente.
-
-## O que já funciona
-
-- instalação inicial e criação do primeiro Super Admin;
 - autenticação por e-mail, usuário ou CPF;
-- papéis e permissões por contexto, no modelo inspirado no Moodle;
-- painel administrativo;
-- cadastro e estrutura de cursos;
-- seções, subseções lógicas e atividades;
-- alunos e matrículas;
+- papéis e permissões;
+- equipe interna;
+- alunos;
+- matrículas e histórico de status;
+- cursos, seções, subseções e atividades;
+- regras de conclusão, prazo e navegação;
+- arquivos protegidos por matrícula;
+- banco de questões por curso;
+- múltipla escolha, verdadeiro/falso, resposta curta, numérica e associação;
+- criação/configuração de quizzes;
+- questões fixas ou sorteio por categoria;
+- tentativas, correção automática, nota e aprovação;
+- progresso e conclusão;
 - área do aluno mobile-first;
-- progresso e conclusão manual de atividades;
-- vídeos externos, incluindo Video Front por URL;
-- clientes de API com tokens e scopes;
-- API v1 para alunos, matrículas, progresso e elegibilidade;
-- idempotência em integrações;
+- dashboard e relatórios;
 - auditoria;
-- importador Moodle .mbz com análise, bloqueio de tipos desconhecidos e mapeamento legado;
-- modo seguro no XAMPP para evitar disparos externos no banco real;
-- horário operacional do Brasil em toda a aplicação.
+- clientes API com scopes;
+- idempotência;
+- API de aluno, matrícula, progresso, elegibilidade e política biométrica;
+- importador Moodle .mbz;
+- mapeamento de IDs Moodle;
+- perfis biométricos por curso/papel/checkpoint;
+- conexão para banco biométrico separado;
+- atualizações de banco pelo próprio painel;
+- modo seguro para XAMPP usando o mesmo banco da produção.
 
-## Instalação em produção
+## Bancos
+
+Acadêmico:
+`u695906402_lms_tecnodata`
+
+Produção conecta com:
+`DB_HOST=127.0.0.1`
+
+XAMPP conecta com:
+`DB_HOST=srv1530.hstgr.io`
+
+O banco biométrico é independente e só precisa ser criado quando a validação facial for ativada.
+
+## Instalação de produção
 
 1. Faça upload do projeto.
-2. Aponte o Document Root de `lms.tecnodataeducacional.com.br` para `/public`.
+2. Aponte o Document Root do subdomínio para a pasta `public/`.
 3. Copie `.env.example` para `.env`.
 4. Preencha `DB_PASSWORD`.
 5. Garanta escrita em `storage/`.
 6. Abra `https://lms.tecnodataeducacional.com.br/install.php`.
-7. Crie o primeiro administrador.
+7. Crie o Super Administrador.
 8. Entre em `/login`.
 
-## Instalação no XAMPP
+## Atualizações
 
-1. Coloque o projeto, por exemplo, em `C:\xampp\htdocs\tecnodata-lms`.
-2. Configure um VirtualHost `lms.local` apontando para `C:\xampp\htdocs\tecnodata-lms\public`.
-3. Copie `.env.local.example` para `.env`.
-4. Preencha a mesma senha do banco.
-5. Autorize o IP da máquina no acesso remoto ao MySQL da hospedagem.
-6. Não execute `install.php` novamente se o banco já foi instalado em produção.
-7. O banner vermelho `AMBIENTE LOCAL · BANCO COMPARTILHADO` deve aparecer.
+Não rode o instalador novamente. Use:
 
-## Importação Moodle
+`Administração → Sistema → Aplicar atualizações`
 
-Fluxo:
-1. upload do `.mbz`;
-2. inventário de curso, seções e atividades;
-3. identificação de componentes suportados e desconhecidos;
-4. importação bloqueada quando houver componente sem conversor;
-5. criação do curso em rascunho;
-6. preservação de IDs Moodle em `legacy_mappings`.
+As migrations ficam em `database/*.sql`.
 
-A v0.2 importa estrutura e metadados dos componentes já suportados. Migração de histórico de alunos/progresso será feita separadamente por API/banco, não dentro do .mbz.
+## XAMPP
+
+Configure um VirtualHost apontando diretamente para:
+
+`C:\xampp\htdocs\tecnodata-lms\public`
+
+Copie `.env.local.example` para `.env`.
+
+O modo local exibe um banner porque as alterações feitas localmente atingem o mesmo banco de produção.
+
+## Moodle
+
+O importador nunca descarta silenciosamente um tipo desconhecido. O curso é criado como rascunho e precisa ser revisado antes de publicação.
+
+## Biometria
+
+O banco acadêmico guarda regras, não selfies. Evidências e tentativas biométricas ficam em banco separado. Capturas, quando realmente necessárias, devem ficar em storage privado e não como BLOB no MariaDB.
 
 ## Segurança
 
-Nunca versione `.env`. Como uma credencial de banco foi compartilhada durante a implantação, troque a senha antes da entrada oficial em produção e atualize apenas os arquivos `.env`.
-
-Veja `docs/DEPLOY.md`, `docs/API.md` e `docs/ARCHITECTURE.md`.
+Não versione `.env`. Troque a senha do banco que foi compartilhada durante a implantação antes da abertura oficial ao público.
