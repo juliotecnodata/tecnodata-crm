@@ -88,3 +88,28 @@ O banco acadêmico guarda regras, não selfies. Evidências e tentativas biomét
 ## Segurança
 
 Não versione `.env`. Troque a senha do banco que foi compartilhada durante a implantação antes da abertura oficial ao público.
+
+
+## Cron
+
+O LMS possui manutenção própria em `cli/cron.php`. Execute a cada 5 minutos em produção, usando PHP 8.3:
+
+```bash
+/opt/alt/php83/usr/bin/php /CAMINHO/DO/LMS/cli/cron.php
+```
+
+O cron:
+- aplica migrations pendentes;
+- expira matrículas cujo prazo terminou;
+- fecha sessões de estudo abandonadas;
+- limpa chaves de idempotência antigas;
+- reduz telemetria antiga da API;
+- remove arquivos .mbz temporários após a retenção configurada.
+
+Configure `IMPORT_FILE_RETENTION_DAYS=7` no `.env` se desejar outro prazo.
+
+Para diagnóstico por terminal:
+
+```bash
+php cli/health.php
+```

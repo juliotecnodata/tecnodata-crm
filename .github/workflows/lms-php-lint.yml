@@ -1,0 +1,32 @@
+name: Tecnodata LMS PHP lint
+
+on:
+  push:
+    branches:
+      - tecnodata-lms-v1.0
+  workflow_dispatch:
+
+jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, simplexml, xml, phar, json, fileinfo
+          coverage: none
+
+      - name: Lint PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          find app public routes config views cli -type f -name '*.php' -print0 \
+            | sort -z \
+            | xargs -0 -n1 php -l
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish --strict
