@@ -23,6 +23,7 @@ $localSafe=safe_mode();
 <link href="https://cdn.datatables.net/2.3.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/admin-v1.css">
+<link rel="stylesheet" href="/assets/css/course-editor.css">
 </head>
 <body>
 <?php if($localSafe):?><div class="environment-banner"><strong>AMBIENTE LOCAL</strong><span>Banco compartilhado com produção · disparos externos bloqueados</span></div><?php endif;?>
