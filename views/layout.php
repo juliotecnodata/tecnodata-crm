@@ -2,9 +2,9 @@
 use Tecnodata\Lms\Core\Auth;
 use Tecnodata\Lms\Core\Csrf;
 
-$user = Auth::user();
-$isAdmin = Auth::isAdmin();
-$localSafe = safe_mode();
+$user=Auth::user();
+$isAdmin=Auth::isAdmin();
+$localSafe=safe_mode();
 ?><!doctype html>
 <html lang="pt-BR">
 <head>
@@ -15,54 +15,46 @@ $localSafe = safe_mode();
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/2.3.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/app.css">
+<link rel="stylesheet" href="/assets/css/admin-v1.css">
 </head>
 <body>
-<?php if ($localSafe): ?>
-<div class="environment-banner">
-    <strong>AMBIENTE LOCAL</strong>
-    <span>Banco compartilhado com produção · disparos externos bloqueados</span>
-</div>
-<?php endif; ?>
+<?php if($localSafe):?>
+<div class="environment-banner"><strong>AMBIENTE LOCAL</strong><span>Banco compartilhado com produção · disparos externos bloqueados</span></div>
+<?php endif;?>
 <div class="app-shell <?=$localSafe?'with-env-banner':''?>">
 <aside class="sidebar" id="sidebar">
-    <a class="brand" href="/">
-        <span class="brand-mark">T</span>
-        <span><strong>Tecnodata</strong><small>LMS</small></span>
-    </a>
-    <nav>
-        <?php if ($isAdmin): ?>
-            <a href="/"><i class="bi bi-grid"></i> Visão geral</a>
-            <a href="/admin/courses"><i class="bi bi-journal-richtext"></i> Cursos</a>
-            <a href="/admin/students"><i class="bi bi-people"></i> Alunos</a>
-            <a href="/admin/enrollments"><i class="bi bi-person-check"></i> Matrículas</a>
-            <a href="/admin/imports"><i class="bi bi-cloud-arrow-up"></i> Importar Moodle</a>
-            <a href="/admin/api-clients"><i class="bi bi-plug"></i> Integrações API</a>
-        <?php endif; ?>
-        <a href="/student"><i class="bi bi-mortarboard"></i> Meus cursos</a>
-    </nav>
+<a class="brand" href="/"><span class="brand-mark">T</span><span><strong>Tecnodata</strong><small>LMS</small></span></a>
+<nav>
+<?php if($isAdmin):?>
+<span class="nav-label">GESTÃO</span>
+<a href="/"><i class="bi bi-grid"></i> Visão geral</a>
+<a href="/admin/courses"><i class="bi bi-journal-richtext"></i> Cursos</a>
+<a href="/admin/students"><i class="bi bi-people"></i> Alunos</a>
+<a href="/admin/enrollments"><i class="bi bi-person-check"></i> Matrículas</a>
+<a href="/admin/reports"><i class="bi bi-bar-chart"></i> Relatórios</a>
+<span class="nav-label">CONFIGURAÇÃO</span>
+<a href="/admin/staff"><i class="bi bi-person-badge"></i> Equipe</a>
+<a href="/admin/roles"><i class="bi bi-shield-check"></i> Papéis e permissões</a>
+<a href="/admin/biometric-profiles"><i class="bi bi-person-bounding-box"></i> Biometria</a>
+<a href="/admin/api-clients"><i class="bi bi-plug"></i> Integrações API</a>
+<a href="/admin/imports"><i class="bi bi-cloud-arrow-up"></i> Importar Moodle</a>
+<a href="/admin/audit"><i class="bi bi-clock-history"></i> Auditoria</a>
+<a href="/admin/system"><i class="bi bi-gear"></i> Sistema</a>
+<?php endif;?>
+<span class="nav-label">APRENDIZAGEM</span>
+<a href="/student"><i class="bi bi-mortarboard"></i> Meus cursos</a>
+</nav>
 </aside>
-
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 <div class="app-main">
 <header class="topbar">
-    <button class="btn btn-light d-lg-none" id="menuToggle" type="button">
-        <i class="bi bi-list"></i>
-    </button>
-    <div class="topbar-context">
-        <span><?=e(envv('APP_ENV','production')==='local'?'Desenvolvimento':'Produção')?></span>
-    </div>
-    <div class="user-chip">
-        <span><?=e($user['name']??'')?></span>
-        <form method="post" action="/logout">
-            <?=Csrf::field()?>
-            <button class="btn btn-sm btn-outline-secondary">Sair</button>
-        </form>
-    </div>
+<button class="btn btn-light d-lg-none" id="menuToggle" type="button"><i class="bi bi-list"></i></button>
+<div class="topbar-context"><span><?=e(envv('APP_ENV','production')==='local'?'Desenvolvimento':'Produção')?></span></div>
+<div class="user-chip"><span><?=e($user['name']??'')?></span><form method="post" action="/logout"><?=Csrf::field()?><button class="btn btn-sm btn-outline-secondary">Sair</button></form></div>
 </header>
-
 <main class="page-content"><?=$content?></main>
 </div>
 </div>
-
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/2.3.4/js/dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/2.3.4/js/dataTables.bootstrap5.min.js"></script>
