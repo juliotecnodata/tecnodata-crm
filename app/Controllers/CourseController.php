@@ -10,12 +10,17 @@ use Tecnodata\Lms\Services\Audit;
 
 final class CourseController
 {
-    private function admin(): array { $u=Auth::requireLogin(); if(!Auth::isAdmin()) { http_response_code(403); exit('Acesso negado.'); } return $u; }
+    private function admin(): array
+    {
+        return Auth::requireAdmin();
+    }
 
     public function index(): void
     {
         $this->admin();
-        View::render('courses/index',['courses'=>Database::all("SELECT * FROM courses ORDER BY id DESC")]);
+        View::render('courses/index',[
+            'courses'=>Database::all("SELECT * FROM courses ORDER BY id DESC")
+        ]);
     }
 
     public function create(): void
@@ -26,42 +31,154 @@ final class CourseController
 
     public function store(): void
     {
-        $this->admin(); Csrf::verify();
-        Database::execute("INSERT INTO courses(code,name,shortname,summary,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",[
-            trim($_POST['code']??''),trim($_POST['name']??''),trim($_POST['shortname']??''),trim($_POST['summary']??''),'draft',Clock::sql(),Clock::sql()
-        ]);
-        $id=Database::id(); Audit::log('course.created','course',$id);
+        $this->admin();
+        Csrf::verify();
+
+        $code = strtoupper(trim((string)($_POST['code']??'')));
+        $name = trim((string)($_POST['name']??''));
+
+        if ($code === '' || $name === '') {
+            throw new \RuntimeException('Código e nome são obrigatórios.');
+        }
+
+        if (Database::fetch("SELECT 1 FROM courses WHERE code=?",[$code])) {
+            throw new \RuntimeException('Já existe um curso com este código.');
+        }
+
+        Database::execute(
+            "INSERT INTO courses(code,name,shortname,summary,status,created_at,updated_at)
+             VALUES(?,?,?,?,?,?,?)",
+            [
+                $code,
+                $name,
+                trim((string)($_POST['shortname']??'')),
+                trim((string)($_POST['summary']??'')),
+                'draft',
+                Clock::sql(),
+                Clock::sql()
+            ]
+        );
+
+        $id=Database::id();
+        Audit::log('course.created','course',$id);
         redirect('/admin/courses/'.$id);
     }
 
     public function show(string $id): void
     {
         $this->admin();
+
         $course=Database::fetch("SELECT * FROM courses WHERE id=?",[(int)$id]);
-        if(!$course){http_response_code(404);exit('Curso não encontrado.');}
-        $sections=Database::all("SELECT * FROM course_sections WHERE course_id=? ORDER BY position,id",[(int)$id]);
-        foreach($sections as &$s){
-            $s['activities']=Database::all("SELECT * FROM course_activities WHERE section_id=? ORDER BY position,id",[$s['id']]);
+        if(!$course){
+            http_response_code(404);
+            exit('Curso não encontrado.');
         }
+
+        $sections=Database::all(
+            "SELECT * FROM course_sections WHERE course_id=? ORDER BY parent_id IS NOT NULL,parent_id,position,id",
+            [(int)$id]
+        );
+
+        foreach($sections as &$s){
+            $s['activities']=Database::all(
+                "SELECT * FROM course_activities WHERE section_id=? ORDER BY position,id",
+                [$s['id']]
+            );
+        }
+        unset($s);
+
         View::render('courses/show',['course'=>$course,'sections'=>$sections]);
     }
 
     public function section(string $id): void
     {
-        $this->admin(); Csrf::verify();
-        $position=(int)(Database::fetch("SELECT COALESCE(MAX(position),0)+1 p FROM course_sections WHERE course_id=?",[(int)$id])['p']??1);
-        Database::execute("INSERT INTO course_sections(course_id,title,summary,position,visible,created_at,updated_at) VALUES(?,?,?,?,1,?,?)",[(int)$id,trim($_POST['title']??'Nova seção'),trim($_POST['summary']??''),$position,Clock::sql(),Clock::sql()]);
+        $this->admin();
+        Csrf::verify();
+
+        $parentId=(int)($_POST['parent_id']??0);
+        if($parentId>0){
+            $parent=Database::fetch(
+                "SELECT id FROM course_sections WHERE id=? AND course_id=?",
+                [$parentId,(int)$id]
+            );
+            if(!$parent) throw new \RuntimeException('Seção pai inválida.');
+        }
+
+        $position=(int)(Database::fetch(
+            "SELECT COALESCE(MAX(position),0)+1 p
+               FROM course_sections
+              WHERE course_id=? AND " . ($parentId>0 ? "parent_id=?" : "parent_id IS NULL"),
+            $parentId>0 ? [(int)$id,$parentId] : [(int)$id]
+        )['p']??1);
+
+        Database::execute(
+            "INSERT INTO course_sections(
+                course_id,parent_id,title,summary,position,visible,created_at,updated_at
+             ) VALUES(?,?,?,?,?,1,?,?)",
+            [
+                (int)$id,
+                $parentId ?: null,
+                trim((string)($_POST['title']??'Nova seção')),
+                trim((string)($_POST['summary']??'')),
+                $position,
+                Clock::sql(),
+                Clock::sql()
+            ]
+        );
+
         redirect('/admin/courses/'.$id);
     }
 
     public function activity(string $id): void
     {
-        $this->admin(); Csrf::verify();
+        $this->admin();
+        Csrf::verify();
+
         $section=(int)($_POST['section_id']??0);
-        $position=(int)(Database::fetch("SELECT COALESCE(MAX(position),0)+1 p FROM course_activities WHERE section_id=?",[$section])['p']??1);
+        $sectionRow=Database::fetch(
+            "SELECT id FROM course_sections WHERE id=? AND course_id=?",
+            [$section,(int)$id]
+        );
+        if(!$sectionRow) throw new \RuntimeException('Seção inválida.');
+
+        $position=(int)(Database::fetch(
+            "SELECT COALESCE(MAX(position),0)+1 p FROM course_activities WHERE section_id=?",
+            [$section]
+        )['p']??1);
+
         $type=(string)($_POST['type']??'page');
-        $payload=$type==='video'?['url'=>trim($_POST['url']??'')]:['html'=>(string)($_POST['content']??'')];
-        Database::execute("INSERT INTO course_activities(course_id,section_id,type,title,position,visible,content_json,settings_json,created_at,updated_at) VALUES(?,?,?,?,?,1,?,'{}',?,?)",[(int)$id,$section,$type,trim($_POST['title']??'Atividade'),$position,json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),Clock::sql(),Clock::sql()]);
+        $allowed=['page','video','url','quiz','resource','book','lesson','h5pactivity','scorm','label','folder'];
+        if(!in_array($type,$allowed,true)) throw new \RuntimeException('Tipo de atividade inválido.');
+
+        $payload=[];
+        $settings=[];
+
+        if(in_array($type,['video','url'],true)){
+            $payload=['url'=>trim((string)($_POST['url']??''))];
+            if($type==='video') $settings=['provider'=>'videofront'];
+        }else{
+            $payload=['html'=>(string)($_POST['content']??'')];
+        }
+
+        Database::execute(
+            "INSERT INTO course_activities(
+                course_id,section_id,type,title,description,position,visible,
+                completion_mode,content_json,settings_json,created_at,updated_at
+             ) VALUES(?,?,?,?,?,?,1,'manual',?,?,?,?)",
+            [
+                (int)$id,
+                $section,
+                $type,
+                trim((string)($_POST['title']??'Atividade')),
+                trim((string)($_POST['description']??'')),
+                $position,
+                json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                Clock::sql(),
+                Clock::sql()
+            ]
+        );
+
         redirect('/admin/courses/'.$id);
     }
 }
