@@ -88,6 +88,9 @@ $router->post('/admin/imports/{id}/execute',[ImportController::class,'execute'])
 
 $router->get('/admin/api-clients',[ApiClientController::class,'index']);
 $router->post('/admin/api-clients',[ApiClientController::class,'store']);
+$router->post('/admin/api-clients/{id}',[ApiClientController::class,'update']);
+$router->post('/admin/api-clients/{id}/status',[ApiClientController::class,'status']);
+$router->post('/admin/api-clients/{id}/rotate',[ApiClientController::class,'rotate']);
 $router->get('/admin/system',[SystemController::class,'index']);
 $router->post('/admin/system/update',[SystemController::class,'update']);
 $router->post('/admin/system/settings',[SystemController::class,'saveSettings']);
