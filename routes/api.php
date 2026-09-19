@@ -1,7 +1,9 @@
 <?php
+use Tecnodata\Lms\Controllers\Api\HealthApiController;
 use Tecnodata\Lms\Controllers\Api\StudentApiController;
 use Tecnodata\Lms\Controllers\Api\EnrollmentApiController;
 
+$router->get('/api/v1/health',[HealthApiController::class,'show']);
 $router->post('/api/v1/students/upsert',[StudentApiController::class,'upsert']);
 $router->post('/api/v1/enrollments/upsert',[EnrollmentApiController::class,'upsert']);
 $router->get('/api/v1/enrollments/{id}/progress',[EnrollmentApiController::class,'progress']);
