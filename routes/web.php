@@ -4,12 +4,14 @@ use Tecnodata\Lms\Controllers\DashboardController;
 use Tecnodata\Lms\Controllers\CourseController;
 use Tecnodata\Lms\Controllers\CourseSettingsController;
 use Tecnodata\Lms\Controllers\CourseFileController;
+use Tecnodata\Lms\Controllers\CourseParticipantController;
 use Tecnodata\Lms\Controllers\QuestionBankController;
 use Tecnodata\Lms\Controllers\QuizAdminController;
 use Tecnodata\Lms\Controllers\StudentQuizController;
 use Tecnodata\Lms\Controllers\StudentAdminController;
 use Tecnodata\Lms\Controllers\EnrollmentAdminController;
 use Tecnodata\Lms\Controllers\StudentAreaController;
+use Tecnodata\Lms\Controllers\TeachingController;
 use Tecnodata\Lms\Controllers\ImportController;
 use Tecnodata\Lms\Controllers\ApiClientController;
 use Tecnodata\Lms\Controllers\BiometricProfileController;
@@ -22,7 +24,6 @@ use Tecnodata\Lms\Controllers\SystemController;
 $router->get('/login',[AuthController::class,'form']);
 $router->post('/login',[AuthController::class,'login']);
 $router->post('/logout',[AuthController::class,'logout']);
-
 $router->get('/',[DashboardController::class,'index']);
 
 /* Cursos */
@@ -34,6 +35,9 @@ $router->post('/admin/courses/{id}/sections',[CourseController::class,'section']
 $router->post('/admin/courses/{id}/activities',[CourseController::class,'activity']);
 $router->get('/admin/courses/{id}/settings',[CourseSettingsController::class,'show']);
 $router->post('/admin/courses/{id}/settings',[CourseSettingsController::class,'save']);
+$router->get('/admin/courses/{id}/participants',[CourseParticipantController::class,'index']);
+$router->post('/admin/courses/{id}/participants',[CourseParticipantController::class,'store']);
+$router->post('/admin/course-participants/{id}/delete',[CourseParticipantController::class,'delete']);
 
 /* Arquivos protegidos */
 $router->post('/admin/courses/{id}/files',[CourseFileController::class,'upload']);
@@ -59,20 +63,17 @@ $router->get('/admin/students',[StudentAdminController::class,'index']);
 $router->post('/admin/students',[StudentAdminController::class,'store']);
 $router->post('/admin/students/{id}',[StudentAdminController::class,'update']);
 $router->post('/admin/students/{id}/reset-password',[StudentAdminController::class,'resetPassword']);
-
 $router->get('/admin/enrollments',[EnrollmentAdminController::class,'index']);
 $router->post('/admin/enrollments',[EnrollmentAdminController::class,'store']);
 $router->post('/admin/enrollments/{id}/status',[EnrollmentAdminController::class,'status']);
 
-/* Equipe, papéis e auditoria */
+/* Equipe e segurança */
 $router->get('/admin/staff',[StaffController::class,'index']);
 $router->post('/admin/staff',[StaffController::class,'store']);
 $router->post('/admin/staff/{id}/status',[StaffController::class,'status']);
 $router->post('/admin/staff/{id}/role',[StaffController::class,'role']);
-
 $router->get('/admin/roles',[RoleController::class,'index']);
 $router->post('/admin/roles/{id}',[RoleController::class,'save']);
-
 $router->get('/admin/reports',[ReportController::class,'index']);
 $router->get('/admin/audit',[AuditController::class,'index']);
 
@@ -86,20 +87,21 @@ $router->get('/admin/imports',[ImportController::class,'index']);
 $router->post('/admin/imports',[ImportController::class,'upload']);
 $router->post('/admin/imports/{id}/execute',[ImportController::class,'execute']);
 
-/* API */
+/* API e sistema */
 $router->get('/admin/api-clients',[ApiClientController::class,'index']);
 $router->post('/admin/api-clients',[ApiClientController::class,'store']);
-
-/* Sistema */
 $router->get('/admin/system',[SystemController::class,'index']);
 $router->post('/admin/system/update',[SystemController::class,'update']);
 $router->post('/admin/system/settings',[SystemController::class,'saveSettings']);
+
+/* Visão professor/tutor */
+$router->get('/teaching',[TeachingController::class,'index']);
+$router->get('/teaching/course/{id}',[TeachingController::class,'course']);
 
 /* Área do aluno */
 $router->get('/student',[StudentAreaController::class,'home']);
 $router->get('/student/course/{id}',[StudentAreaController::class,'course']);
 $router->post('/student/activity/{id}/complete',[StudentAreaController::class,'complete']);
-
 $router->get('/student/enrollment/{enrollmentId}/quiz/{activityId}',[StudentQuizController::class,'show']);
 $router->post('/student/enrollment/{enrollmentId}/quiz/{activityId}/submit',[StudentQuizController::class,'submit']);
 $router->get('/student/enrollment/{enrollmentId}/quiz/{activityId}/result/{attemptId}',[StudentQuizController::class,'result']);

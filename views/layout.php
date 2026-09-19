@@ -4,6 +4,13 @@ use Tecnodata\Lms\Core\Csrf;
 
 $user=Auth::user();
 $isAdmin=Auth::isAdmin();
+$roles=Auth::roles();
+$hasTeaching=false;
+foreach($roles as $r){
+    if($r['context_type']==='course' && in_array($r['slug'],['manager','coordinator','teacher_editor','teacher','tutor','support'],true)){
+        $hasTeaching=true;break;
+    }
+}
 $localSafe=safe_mode();
 ?><!doctype html>
 <html lang="pt-BR">
@@ -18,9 +25,7 @@ $localSafe=safe_mode();
 <link rel="stylesheet" href="/assets/css/admin-v1.css">
 </head>
 <body>
-<?php if($localSafe):?>
-<div class="environment-banner"><strong>AMBIENTE LOCAL</strong><span>Banco compartilhado com produção · disparos externos bloqueados</span></div>
-<?php endif;?>
+<?php if($localSafe):?><div class="environment-banner"><strong>AMBIENTE LOCAL</strong><span>Banco compartilhado com produção · disparos externos bloqueados</span></div><?php endif;?>
 <div class="app-shell <?=$localSafe?'with-env-banner':''?>">
 <aside class="sidebar" id="sidebar">
 <a class="brand" href="/"><span class="brand-mark">T</span><span><strong>Tecnodata</strong><small>LMS</small></span></a>
@@ -41,6 +46,10 @@ $localSafe=safe_mode();
 <a href="/admin/audit"><i class="bi bi-clock-history"></i> Auditoria</a>
 <a href="/admin/system"><i class="bi bi-gear"></i> Sistema</a>
 <?php endif;?>
+<?php if($hasTeaching||$isAdmin):?>
+<span class="nav-label">ENSINO</span>
+<a href="/teaching"><i class="bi bi-easel2"></i> Cursos que acompanho</a>
+<?php endif;?>
 <span class="nav-label">APRENDIZAGEM</span>
 <a href="/student"><i class="bi bi-mortarboard"></i> Meus cursos</a>
 </nav>
@@ -53,8 +62,7 @@ $localSafe=safe_mode();
 <div class="user-chip"><span><?=e($user['name']??'')?></span><form method="post" action="/logout"><?=Csrf::field()?><button class="btn btn-sm btn-outline-secondary">Sair</button></form></div>
 </header>
 <main class="page-content"><?=$content?></main>
-</div>
-</div>
+</div></div>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/2.3.4/js/dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/2.3.4/js/dataTables.bootstrap5.min.js"></script>
