@@ -67,7 +67,7 @@ final class ClientSegmentPolicy {
  private static bool $schemaReady=false;
  public static function ensureSchema(): void{
   if(self::$schemaReady)return;
-  $schemaVersion=5;$stateRaw=null;
+  $schemaVersion=6;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='client_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$schemaReady=true;return;}
@@ -78,6 +78,7 @@ final class ClientSegmentPolicy {
   if(!isset($columns['crm_inactive']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactive TINYINT(1) NOT NULL DEFAULT 0 AFTER active");
   if(!isset($columns['crm_inactivated_at']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactivated_at DATETIME NULL AFTER crm_inactive");
   if(!isset($columns['crm_inactivated_by']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactivated_by INT UNSIGNED NULL AFTER crm_inactivated_at");
+  DB::exec("ALTER TABLE clients MODIFY COLUMN email VARCHAR(1000) NULL");
   $indexes=[];foreach(DB::all("SHOW INDEX FROM clients") as $index)$indexes[(string)($index['Key_name']??'')]=true;
   if(!isset($indexes['idx_clients_active']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active(active,id)");
   if(!isset($indexes['idx_clients_active_uf']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active_uf(active,uf)");
@@ -472,11 +473,34 @@ final class BrasilApiService {
 }
 
 final class ClientService {
+ public static function emailList(mixed $input): array{
+  $raw=trim((string)$input);if($raw==='')return [];
+  $parts=preg_split('/[,;\r\n]+/u',$raw)?:[];
+  $emails=[];
+  foreach($parts as $part){
+   $email=mb_strtolower(trim((string)$part),'UTF-8');if($email==='')continue;
+   $emails[$email]=$email;
+  }
+  return array_values($emails);
+ }
+ public static function normalizeEmails(mixed $input,bool $required=true): string{
+  $emails=self::emailList($input);
+  if(!$emails){
+   if($required)throw new RuntimeException('E-mail é obrigatório.');
+   return '';
+  }
+  foreach($emails as $email){
+   if(!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-mail inválido: "'.$email.'". Para informar mais de um, separe os endereços por vírgula.');
+  }
+  $normalized=implode(',',$emails);
+  if(mb_strlen($normalized,'UTF-8')>1000)throw new RuntimeException('A lista de e-mails deve ter no máximo 1.000 caracteres.');
+  return $normalized;
+ }
  public static function buildOmiePreview(array $i,array $u,?string $sellerOverride=null): array{
   $legalName=trim((string)($i['legal_name']??''));
   $tradeName=trim((string)($i['trade_name']??''));
   $document=preg_replace('/\D+/','',(string)($i['document']??''));
-  $email=mb_strtolower(trim((string)($i['email']??'')));
+  $email=self::normalizeEmails($i['email']??'',true);
   $contactName=trim((string)($i['contact_name']??''));
   $phoneDdd=preg_replace('/\D+/','',(string)($i['phone_ddd']??''));
   $phoneNumber=preg_replace('/\D+/','',(string)($i['phone_number']??''));
@@ -501,7 +525,6 @@ final class ClientService {
   if($legalName==='')throw new RuntimeException('Razão social / Nome é obrigatório.');
   if($tradeName==='')throw new RuntimeException('Nome fantasia é obrigatório.');
   if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('CPF / CNPJ é obrigatório e deve conter 11 ou 14 dígitos.');
-  if($email===''||!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-mail é obrigatório e deve ser válido.');
   if($contactName==='')throw new RuntimeException('Nome do contato é obrigatório.');
   if(strlen($phoneDdd)!==2)throw new RuntimeException('DDD é obrigatório e deve conter 2 dígitos.');
   if(!in_array(strlen($phoneNumber),[8,9],true))throw new RuntimeException('Telefone é obrigatório e deve conter 8 ou 9 dígitos.');
@@ -839,7 +862,7 @@ final class ClientService {
    'legal_name'=>(string)($src['razao_social']??$client['legal_name']??$client['name']??''),
    'trade_name'=>(string)($src['nome_fantasia']??$client['name']??''),
    'document'=>(string)($src['cnpj_cpf']??$client['document']??''),
-   'email'=>(string)($src['email']??$client['email']??''),
+   'email'=>implode(', ',self::emailList((string)($src['email']??$client['email']??''))),
    'contact_name'=>$contactName,
    'phone_ddd'=>$phoneDdd,
    'phone_number'=>$phoneNumber,
