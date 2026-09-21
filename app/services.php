@@ -348,9 +348,9 @@ final class CRMService {
    return compact('sales','orders','orders_without_freight','services','clients','tasks');
   }
   if($u['role']==='collector'){
-   $debt=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
-   $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(amount),0) FROM collection_actions WHERE assigned_user_id=? AND result='payment' AND local_status<>'cancelled' AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);
-   $worked=(int)(DB::scalar("SELECT COUNT(DISTINCT client_id) FROM collection_actions WHERE assigned_user_id=? AND local_status<>'cancelled' AND created_at>=? AND created_at<?",[(int)$u['id'],$start,$next])??0);return compact('debt','recovered','worked');
+   $debt=(float)(DB::scalar("SELECT COALESCE(SUM(cc.open_amount),0) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND c.crm_inactive=0")??0);
+   $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(ca.amount),0) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ca.assigned_user_id=? AND ca.result='payment' AND ca.local_status<>'cancelled' AND ca.created_at>=? AND ca.created_at<? AND c.crm_inactive=0",[(int)$u['id'],$start,$next])??0);
+   $worked=(int)(DB::scalar("SELECT COUNT(DISTINCT ca.client_id) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ca.assigned_user_id=? AND ca.local_status<>'cancelled' AND ca.created_at>=? AND ca.created_at<? AND c.crm_inactive=0",[(int)$u['id'],$start,$next])??0);return compact('debt','recovered','worked');
   }
   $management=GoalService::managementMonth(date('Y-m'));
   $sales=(float)$management['sales'];
@@ -700,7 +700,8 @@ final class ClientService {
   DB::exec("UPDATE clients SET raw_json=?,updated_at=NOW() WHERE id=?",[json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$id]);
  }
  public static function syncLocalWithOmie(int $id,array $u): array{
-  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
+  ClientSegmentPolicy::ensureSchema();
+  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   $rawCurrent=json_decode((string)($client['raw_json']??''),true);
   if(!is_array($rawCurrent))$rawCurrent=[];
@@ -857,7 +858,7 @@ final class ClientService {
 
  public static function updateInOmie(int $id,array $i,array $u): array{
   ClientSegmentPolicy::ensureSchema();
-  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
+  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   $requestedSeller=trim((string)($i['seller_omie_code']??$client['seller_omie_code']??''));
   $built=self::buildOmiePreview($i,$u,$requestedSeller);
