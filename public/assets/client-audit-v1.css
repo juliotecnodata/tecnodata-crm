@@ -40,3 +40,28 @@ body[data-page="client_audit"] .tdcrm-content,body[data-page="client-audit"] .td
  .tdaudit-omie-check{width:100%}
  .tdaudit-row-actions{min-width:170px}
 }
+
+
+/* Filtros avançados e saneamento rápido */
+.tdaudit-filter.duplicates{
+ display:grid;grid-template-columns:minmax(280px,2fr) repeat(3,minmax(150px,1fr));align-items:end
+}
+.tdaudit-filter.duplicates label{min-width:0}
+.tdaudit-filter.duplicates .tdaudit-search{min-width:0}
+.tdaudit-filter input.form-control{width:100%;height:38px;border:1px solid #dbe5e9;border-radius:9px;background:#fbfcfd;color:#25434f;font-size:11px;padding:0 10px}
+.tdaudit-filter input.form-control:focus{outline:0;border-color:#69b5d1}
+.tdaudit-filter-actions{display:flex;align-items:center;gap:8px;grid-column:1/-1;justify-content:flex-end}
+.tdaudit-action.deactivate{border-color:#e7cfb2;background:#fff8ed;color:#a45c12}
+.tdaudit-action.deactivate:hover{border-color:#ea9d44;background:#fff0da;color:#87470b}
+.tdaudit-group .tdaudit-table{min-width:1280px}
+.tdaudit-group .tdaudit-table td:last-child{min-width:260px}
+@media(max-width:1180px){
+ .tdaudit-filter.duplicates{grid-template-columns:repeat(3,minmax(150px,1fr))}
+ .tdaudit-filter.duplicates .tdaudit-search{grid-column:1/-1}
+}
+@media(max-width:760px){
+ .tdaudit-filter.duplicates{grid-template-columns:1fr}
+ .tdaudit-filter.duplicates .tdaudit-search,.tdaudit-filter-actions{grid-column:1}
+ .tdaudit-filter-actions{display:grid;grid-template-columns:1fr}
+ .tdaudit-filter-actions .tdaudit-btn{width:100%;justify-content:center}
+}
