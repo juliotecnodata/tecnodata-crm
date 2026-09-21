@@ -758,37 +758,12 @@ final class ClientService {
  }
 
  private static function omieClientUpsertPayloadFromConsult(array $remoteRow,string $code,string $inactive='S'): array{
-  // Usa o retorno fresco de ConsultarCliente somente como fonte dos valores,
-  // mas NÃO amplia o payload enviado à Omie. Mantemos uma lista fechada dos
-  // campos que o CRM já utilizava e alteramos somente inativo.
-  $payload=['codigo_cliente_omie'=>(int)$code];
-  $fields=[
-   'codigo_cliente_integracao','razao_social','cnpj_cpf','nome_fantasia',
-   'telefone1_ddd','telefone1_numero','contato','endereco','endereco_numero',
-   'bairro','complemento','estado','cidade','cep','codigo_pais','separar_endereco',
-   'pesquisar_cep','telefone2_ddd','telefone2_numero','fax_ddd','fax_numero',
-   'email','homepage','inscricao_estadual','inscricao_municipal','inscricao_suframa',
-   'optante_simples_nacional','tipo_atividade','cnae','produtor_rural','contribuinte',
-   'observacao','obs_detalhadas','recomendacao_atraso','tags','cidade_ibge',
-   'valor_limite_credito','bloquear_faturamento','recomendacoes','enderecoEntrega',
-   'nif','documento_exterior','dadosBancarios','caracteristicas','enviar_anexos',
-   'bloquear_exclusao'
+  // Operação pontual: não reenviar dados cadastrais. A decisão é apenas alterar
+  // o indicador de inatividade do código Omie escolhido no CRM.
+  return [
+   'codigo_cliente_omie'=>(int)$code,
+   'inativo'=>$inactive,
   ];
-  foreach($fields as $field){
-   if(!array_key_exists($field,$remoteRow))continue;
-   $value=$remoteRow[$field];
-   if($value===null)continue;
-
-   // A Omie valida vários campos opcionais mesmo quando chegam vazios.
-   // Como esta rotina só precisa alterar o status, valores vazios são omitidos
-   // para preservar o cadastro remoto sem provocar validações como tipo_atividade="".
-   if(is_string($value)&&trim($value)==='')continue;
-   if(is_array($value)&&$value===[])continue;
-
-   $payload[$field]=$value;
-  }
-  $payload['inativo']=$inactive;
-  return $payload;
  }
 
  private static function rawOmieRowsByCode(string $document): array{
