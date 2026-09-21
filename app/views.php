@@ -421,7 +421,7 @@ function render(string $name,array $vars=[]): void{
     </nav>
     <header class="tdaudit-head">
      <div class="tdaudit-head-main"><span class="tdaudit-head-icon"><i class="fa-solid fa-user-shield"></i></span><div><span class="tdaudit-kicker">QUALIDADE DA BASE / CLIENTES</span><h1>Auditoria de cadastros</h1><p>Revise duplicidades, responsabilidade comercial, divergências com a Omie e registros preservados.</p></div></div>
-     <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
+     <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><?php if(($u['role']??'')==='admin'):?><a class="tdaudit-btn" href="<?=APP_URL?>/omie-client-lab"><i class="fa-solid fa-flask-vial"></i>Laboratório Omie</a><?php endif;?><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
     </header>
 
     <div class="tdaudit-note"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Fila de saneamento com conferência na Omie</strong><p>Consulte a Omie em tempo real, identifique o código ativo e o inativo e remova somente o duplicado inativo do CRM. A exclusão nunca é enviada para a Omie.</p></div></div>
