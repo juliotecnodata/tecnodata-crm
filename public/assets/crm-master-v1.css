@@ -887,3 +887,39 @@ body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="clie
 body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-keep-target.selected{
  border-color:#8ACDAA!important;background:#EAF8F0!important;color:#007847!important
 }
+
+
+/* Duplicidades — seleção e processamento em lote */
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-batchbar{
+ display:grid!important;grid-template-columns:auto auto minmax(0,1fr)!important;align-items:center!important;gap:8px 12px!important;
+ margin:0 0 12px!important;padding:10px 12px!important;border:1px solid #CFE2EA!important;border-radius:10px!important;background:#F7FBFD!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-batchbar label{
+ display:inline-flex!important;align-items:center!important;gap:7px!important;margin:0!important;color:#244554!important;font-size:9px!important;font-weight:800!important;cursor:pointer!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-batchbar input,
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-select input{
+ width:15px!important;height:15px!important;margin:0!important;accent-color:#009657!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-batchbar>strong{
+ color:#007847!important;font-size:9px!important;font-weight:800!important;white-space:nowrap!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-batchbar>small{
+ color:#748892!important;font-size:8px!important;line-height:1.35!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-select{
+ display:inline-flex!important;align-items:center!important;gap:5px!important;margin-left:4px!important;padding:3px 6px!important;
+ border:1px solid #D1E3DA!important;border-radius:6px!important;background:#F2FAF6!important;color:#087647!important;font-size:8px!important;font-weight:800!important;cursor:pointer!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-btn-danger{
+ border-color:#E4BFB5!important;background:#FFF3F0!important;color:#B83F25!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-btn-danger:hover:not(:disabled){
+ border-color:#EA5127!important;background:#FCE7E1!important;color:#9E321C!important
+}
+body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-btn-danger:disabled{
+ opacity:.5!important;cursor:not-allowed!important
+}
+@media(max-width:760px){
+ body:is([data-page="client-detail"],[data-page="client-editor"],[data-page="client-audit"]) .tdc-omie-batchbar{grid-template-columns:1fr!important}
+}
