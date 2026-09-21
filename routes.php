@@ -750,7 +750,10 @@ $router->post('/api/clients-sync/bulk',function(){
 
 $router->get('/clients-duplicates',function(){
  Auth::requireRole('admin','supervisor');
- redirect('/clients-audit?tab=duplicates');
+ $params=['tab'=>'duplicates'];
+ $q=trim((string)($_GET['q']??''));if($q!=='')$params['q']=mb_substr($q,0,120);
+ $conflict=(string)($_GET['conflict']??'');if(in_array($conflict,['active','mixed','invalid'],true))$params['conflict']=$conflict;
+ redirect('/clients-audit?'.http_build_query($params));
 });
 $router->get('/clients-audit',function(){
  Auth::requireRole('admin','supervisor');
