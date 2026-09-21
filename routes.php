@@ -592,8 +592,9 @@ $router->post('/clients/save-local',function(){
 });
 
 $router->post('/clients/{id}/omie-sync',function($p){
- Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
+  $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de sincronizar com a Omie.');
   $result=ClientService::syncLocalWithOmie($id,Auth::user());
   $_SESSION['client_flash']=['type'=>'success','message'=>$result['message']];
  }catch(Throwable $e){
@@ -950,8 +951,8 @@ $router->post('/clients/portfolio/assign',function(){
  $redirect=['uf'=>$uf,'month'=>$month];if($ddds)$redirect['ddds']=$ddds;redirect('/clients?'.http_build_query($redirect));
 });
 $router->get('/clients/{id}/edit',function($p){
- Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];
- $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();$u=Auth::user();$id=(int)$p['id'];
+ $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
  if(!$client){http_response_code(404);exit('Cliente não encontrado.');}
  if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client))){http_response_code(403);exit('Cliente pertencente a uma operação virtual.');}
  $old=$_SESSION['client_edit_old']??ClientService::formFromClient($client);
@@ -967,8 +968,9 @@ $router->get('/clients/{id}/edit',function($p){
  ]);
 });
 $router->post('/clients/{id}/update',function($p){
- Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];
  try{
+  $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de editar.');
   ClientService::updateInOmie($id,$_POST,Auth::user());
   $_SESSION['client_flash']=['type'=>'success','message'=>'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.'];
   redirect('/clients/'.$id);
