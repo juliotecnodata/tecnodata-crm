@@ -1040,26 +1040,6 @@ $router->post('/api/clients/omie-batch-delete-inactive',function(){
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
-$router->post('/api/clients/omie-batch-inactivate-delete',function(){
- Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
- try{
-  $raw=$_POST['source_ids']??[];
-  if(!is_array($raw))$raw=preg_split('/[,;\s]+/',(string)$raw,-1,PREG_SPLIT_NO_EMPTY)?:[];
-  $result=ClientService::inactivateOmieBatchAndDeleteFromCrm($raw,(int)($_POST['target_client_id']??0),Auth::user());
-  $targetId=(int)($result['target']['id']??0);
-  json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients-duplicates']);
- }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
-});
-
-$router->post('/api/clients/{id}/omie-inactivate-delete',function($p){
- Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
- try{
-  $result=ClientService::inactivateOmieAndDeleteFromCrm((int)$p['id'],(int)($_POST['target_client_id']??0),Auth::user());
-  $targetId=(int)($result['target']['id']??0);
-  json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients-duplicates']);
- }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
-});
-
 $router->post('/api/clients/{id}/delete-inactive-omie-local',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
