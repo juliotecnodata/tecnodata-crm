@@ -67,7 +67,7 @@ final class ClientSegmentPolicy {
  private static bool $schemaReady=false;
  public static function ensureSchema(): void{
   if(self::$schemaReady)return;
-  $schemaVersion=4;$stateRaw=null;
+  $schemaVersion=5;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='client_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$schemaReady=true;return;}
@@ -75,9 +75,13 @@ final class ClientSegmentPolicy {
   $upgrading=!isset($columns['omie_seller_code'])||!isset($columns['portfolio_locked']);
   if(!isset($columns['omie_seller_code']))DB::exec("ALTER TABLE clients ADD COLUMN omie_seller_code VARCHAR(80) NULL AFTER seller_omie_code, ADD INDEX idx_clients_omie_seller(omie_seller_code,active)");
   if(!isset($columns['portfolio_locked']))DB::exec("ALTER TABLE clients ADD COLUMN portfolio_locked TINYINT(1) NOT NULL DEFAULT 0 AFTER omie_seller_code");
+  if(!isset($columns['crm_inactive']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactive TINYINT(1) NOT NULL DEFAULT 0 AFTER active");
+  if(!isset($columns['crm_inactivated_at']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactivated_at DATETIME NULL AFTER crm_inactive");
+  if(!isset($columns['crm_inactivated_by']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactivated_by INT UNSIGNED NULL AFTER crm_inactivated_at");
   $indexes=[];foreach(DB::all("SHOW INDEX FROM clients") as $index)$indexes[(string)($index['Key_name']??'')]=true;
   if(!isset($indexes['idx_clients_active']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active(active,id)");
   if(!isset($indexes['idx_clients_active_uf']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active_uf(active,uf)");
+  if(!isset($indexes['idx_clients_crm_active']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_crm_active(crm_inactive,active,id)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_portfolio_assignments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,month_ref CHAR(7) NOT NULL,client_id BIGINT UNSIGNED NOT NULL,seller_omie_code VARCHAR(80) NULL,created_by INT UNSIGNED NULL,updated_by INT UNSIGNED NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE KEY uq_client_portfolio_month(month_ref,client_id),INDEX idx_portfolio_month_seller(month_ref,seller_omie_code),INDEX idx_portfolio_client_month(client_id,month_ref),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_seller_audit(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,client_id BIGINT UNSIGNED NOT NULL,actor_user_id INT UNSIGNED NULL,change_type VARCHAR(40) NOT NULL,month_ref CHAR(7) NULL,previous_seller_omie_code VARCHAR(80) NULL,new_seller_omie_code VARCHAR(80) NULL,previous_omie_seller_code VARCHAR(80) NULL,new_omie_seller_code VARCHAR(80) NULL,notes VARCHAR(255) NULL,created_at DATETIME NOT NULL,INDEX idx_client_seller_audit_client(client_id,created_at),INDEX idx_client_seller_audit_month(month_ref,created_at),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL)");
   DB::exec("CREATE TABLE IF NOT EXISTS client_tags(client_id BIGINT UNSIGNED NOT NULL,tag_key VARCHAR(190) NOT NULL,tag VARCHAR(190) NOT NULL,PRIMARY KEY(client_id,tag_key),INDEX idx_client_tags_key(tag_key,client_id),FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE)");
@@ -128,7 +132,7 @@ final class ClientPortfolioService {
  }
  public static function setAssignment(int $clientId,?string $month,?string $sellerCode,int $actorId,string $notes=''): void{
   ClientSegmentPolicy::ensureSchema();$month=self::monthRef($month);$sellerCode=trim((string)$sellerCode);$sellerCode=$sellerCode!==''?$sellerCode:null;
-  $client=DB::one("SELECT id,seller_omie_code,omie_seller_code FROM clients WHERE id=? AND active=1",[$clientId]);if(!$client)throw new RuntimeException('Cliente não encontrado.');
+  $client=DB::one("SELECT id,seller_omie_code,omie_seller_code FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if($sellerCode!==null&&!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$sellerCode]))throw new RuntimeException('Vendedor inválido ou inativo.');
   $previous=self::effectiveSellerCode($clientId,$month);
   DB::exec("INSERT INTO client_portfolio_assignments(month_ref,client_id,seller_omie_code,created_by,updated_by,created_at,updated_at) VALUES(?,?,?,?,?,NOW(),NOW()) ON DUPLICATE KEY UPDATE seller_omie_code=VALUES(seller_omie_code),updated_by=VALUES(updated_by),updated_at=NOW()",[$month,$clientId,$sellerCode,$actorId?:null,$actorId?:null]);
@@ -143,7 +147,7 @@ final class ClientPortfolioService {
   try{
    foreach(array_chunk($ids,500) as $chunk){
     $ph=implode(',',array_fill(0,count($chunk),'?'));
-    $clients=DB::all("SELECT c.id,c.seller_omie_code,c.omie_seller_code,pa.id assignment_id,pa.seller_omie_code month_seller FROM clients c LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=? WHERE c.active=1 AND c.id IN (".$ph.")",array_merge([$month],$chunk));
+    $clients=DB::all("SELECT c.id,c.seller_omie_code,c.omie_seller_code,pa.id assignment_id,pa.seller_omie_code month_seller FROM clients c LEFT JOIN client_portfolio_assignments pa ON pa.client_id=c.id AND pa.month_ref=? WHERE c.active=1 AND c.crm_inactive=0 AND c.id IN (".$ph.")",array_merge([$month],$chunk));
     foreach($clients as $client){
      $id=(int)$client['id'];$previous=$client['assignment_id']!==null?trim((string)($client['month_seller']??'')):trim((string)($client['seller_omie_code']??''));$next=$sellerCode??'';
      DB::exec("INSERT INTO client_portfolio_assignments(month_ref,client_id,seller_omie_code,created_by,updated_by,created_at,updated_at) VALUES(?,?,?,?,?,NOW(),NOW()) ON DUPLICATE KEY UPDATE seller_omie_code=VALUES(seller_omie_code),updated_by=VALUES(updated_by),updated_at=NOW()",[$month,$id,$sellerCode,$actorId?:null,$actorId?:null]);
@@ -338,7 +342,7 @@ final class CRMService {
    $orders_without_freight=(float)(DB::scalar("SELECT COALESCE(SUM(".$orderWithoutFreightSql."),0) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$u['seller_omie_code'],$start,$next],$validOrderParams))??0);
    $services=(float)(DB::scalar("SELECT COALESCE(SUM(total),0) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$u['seller_omie_code'],$start,$next])??0);
    $sales=$orders+$services;
-   $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE seller_omie_code=? AND active=1",[$u['seller_omie_code']])??0);
+   $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE seller_omie_code=? AND active=1 AND crm_inactive=0",[$u['seller_omie_code']])??0);
    $tasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending'",[(int)$u['id']])??0);
    return compact('sales','orders','orders_without_freight','services','clients','tasks');
   }
@@ -1379,7 +1383,7 @@ final class OrderService {
  }
  public static function carrierCandidates(): array{
   ClientSegmentPolicy::ensureSchema();$selected=array_flip(self::selectedCarrierCodes());
-  $rows=DB::all("SELECT c.id,c.omie_code,c.name,c.legal_name,c.document,c.city,c.uf FROM clients c JOIN client_tags t ON t.client_id=c.id AND t.tag_key='transportadora' WHERE c.active=1 ORDER BY c.name");
+  $rows=DB::all("SELECT c.id,c.omie_code,c.name,c.legal_name,c.document,c.city,c.uf FROM clients c JOIN client_tags t ON t.client_id=c.id AND t.tag_key='transportadora' WHERE c.active=1 AND c.crm_inactive=0 ORDER BY c.name");
   foreach($rows as &$row){$code=trim((string)($row['omie_code']??''));$row['selected']=$code!==''&&ctype_digit($code)&&isset($selected[$code]);}unset($row);
   return array_values(array_filter($rows,static fn($row)=>ctype_digit(trim((string)($row['omie_code']??'')))));
  }
