@@ -67,7 +67,7 @@ final class ClientSegmentPolicy {
  private static bool $schemaReady=false;
  public static function ensureSchema(): void{
   if(self::$schemaReady)return;
-  $schemaVersion=6;$stateRaw=null;
+  $schemaVersion=7;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='client_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$schemaReady=true;return;}
@@ -78,6 +78,9 @@ final class ClientSegmentPolicy {
   if(!isset($columns['crm_inactive']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactive TINYINT(1) NOT NULL DEFAULT 0 AFTER active");
   if(!isset($columns['crm_inactivated_at']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactivated_at DATETIME NULL AFTER crm_inactive");
   if(!isset($columns['crm_inactivated_by']))DB::exec("ALTER TABLE clients ADD COLUMN crm_inactivated_by INT UNSIGNED NULL AFTER crm_inactivated_at");
+  if(!isset($columns['created_at']))DB::exec("ALTER TABLE clients ADD COLUMN created_at DATETIME NULL AFTER crm_inactivated_by");
+  if(!isset($columns['omie_created_at']))DB::exec("ALTER TABLE clients ADD COLUMN omie_created_at DATETIME NULL AFTER created_at");
+  DB::exec("UPDATE clients SET created_at=updated_at WHERE created_at IS NULL");
   DB::exec("ALTER TABLE clients MODIFY COLUMN email VARCHAR(1000) NULL");
   $indexes=[];foreach(DB::all("SHOW INDEX FROM clients") as $index)$indexes[(string)($index['Key_name']??'')]=true;
   if(!isset($indexes['idx_clients_active']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active(active,id)");
@@ -473,6 +476,28 @@ final class BrasilApiService {
 }
 
 final class ClientService {
+ public static function omieCreatedAtFromRaw(mixed $input): ?string{
+  $raw=is_array($input)?$input:json_decode((string)$input,true);if(!is_array($raw))return null;
+  $candidates=[$raw,$raw['remote_snapshot']??null,$raw['request']??null];
+  foreach($candidates as $candidate){
+   if(!is_array($candidate))continue;
+   $info=is_array($candidate['info']??null)?$candidate['info']:[];
+   foreach([
+    [$info['dInc']??null,$info['hInc']??null],
+    [$info['dInclusao']??null,$info['hInclusao']??null],
+    [$candidate['dInc']??null,$candidate['hInc']??null],
+    [$candidate['data_inclusao']??null,$candidate['hora_inclusao']??null],
+   ] as [$date,$time]){
+    $date=trim((string)$date);if($date==='')continue;$time=trim((string)$time);
+    foreach(['d/m/Y H:i:s','d/m/Y H:i','Y-m-d H:i:s','Y-m-d H:i','d/m/Y','Y-m-d'] as $format){
+     $value=trim($date.' '.($time!==''?$time:'00:00:00'));
+     $dt=DateTimeImmutable::createFromFormat($format,$value);
+     if($dt instanceof DateTimeImmutable)return $dt->format('Y-m-d H:i:s');
+    }
+   }
+  }
+  return null;
+ }
  public static function emailList(mixed $input): array{
   $raw=trim((string)$input);if($raw==='')return [];
   $parts=preg_split('/[,;\r\n]+/u',$raw)?:[];
@@ -824,8 +849,8 @@ final class ClientService {
   $seller=(string)($p['recomendacoes']['codigo_vendedor']??'');
   $raw=['request'=>$p,'source'=>'local_pending','omie_status'=>'pending'];
 
-  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW())",
+  DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,NOW(),NOW())",
    [$localCode,$name,(string)($p['razao_social']??''),$document,(string)($p['email']??''),$phone,(string)($p['cidade']??''),(string)($p['estado']??''),$seller!==''?$seller:null,null,json_encode($raw,JSON_UNESCAPED_UNICODE)]);
 
   $client=DB::one("SELECT * FROM clients WHERE omie_code=?",[$localCode]);
@@ -2714,14 +2739,14 @@ final class SyncService {
     DB::exec("UPDATE clients SET active=1,omie_seller_code=?,raw_json=? WHERE id=?",[$seller!==''?$seller:null,json_encode($existingRaw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$existing['id']]);
     $activeCount++;$processed++;continue;
    }
-   $raw=json_encode($r,JSON_UNESCAPED_UNICODE);
-   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,updated_at)
-             VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,NOW())
+   $raw=json_encode($r,JSON_UNESCAPED_UNICODE);$omieCreatedAt=ClientService::omieCreatedAtFromRaw($r);
+   DB::exec("INSERT INTO clients(omie_code,name,legal_name,document,email,phone,city,uf,seller_omie_code,omie_seller_code,portfolio_locked,active,raw_json,created_at,omie_created_at,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,NOW(),?,NOW())
              ON DUPLICATE KEY UPDATE name=VALUES(name),legal_name=VALUES(legal_name),document=VALUES(document),email=VALUES(email),phone=VALUES(phone),city=VALUES(city),uf=VALUES(uf),
              omie_seller_code=VALUES(omie_seller_code),seller_omie_code=IF(portfolio_locked=1,seller_omie_code,VALUES(seller_omie_code)),
-             active=1,raw_json=VALUES(raw_json),
-             updated_at=NOW()",
-    [$c,(string)($r['nome_fantasia']??$r['razao_social']??$c),$r['razao_social']??null,$r['cnpj_cpf']??null,$r['email']??null,$phone,$r['cidade']??null,$r['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,$active,$raw]);
+             active=1,raw_json=VALUES(raw_json),omie_created_at=COALESCE(VALUES(omie_created_at),omie_created_at),
+             created_at=COALESCE(created_at,VALUES(created_at)),updated_at=NOW()",
+    [$c,(string)($r['nome_fantasia']??$r['razao_social']??$c),$r['razao_social']??null,$r['cnpj_cpf']??null,$r['email']??null,$phone,$r['cidade']??null,$r['estado']??null,$seller!==''?$seller:null,$seller!==''?$seller:null,$active,$raw,$omieCreatedAt]);
    $clientId=$existing?(int)$existing['id']:(int)(DB::scalar("SELECT id FROM clients WHERE omie_code=? LIMIT 1",[$c])??0);
    if($clientId>0)ClientTagIndex::replaceFromRaw($clientId,$r);
    $activeCount++;$processed++;
