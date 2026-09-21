@@ -274,10 +274,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       showNotice('success','Cadastro inativo removido',data.message||'O cadastro foi removido somente do CRM.');
       const currentId=Number(clientOmieModal?.dataset?.clientId||0);
       if(targetId===currentId){setTimeout(()=>{location.href=data.redirect||(window.APP_URL||'')+'/clients';},450);return;}
-      if(clientOmieModal&&clientOmieModal.open){
-        const openButton=document.querySelector('[data-client-omie-check]');
-        if(openButton)openButton.click();
-      }else setTimeout(()=>location.reload(),450);
+      setTimeout(()=>location.reload(),450);
     }catch(error){
       button.disabled=false;button.innerHTML=previous;
       showNotice('danger','Não foi possível excluir',error.message||'Tente novamente.');
