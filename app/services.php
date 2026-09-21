@@ -1073,9 +1073,11 @@ final class ClientService {
    if($code===''||str_starts_with($code,'LOCAL-'))throw new RuntimeException('Todos os cadastros selecionados precisam estar vinculados à Omie.');
   }
 
-  // UMA ÚNICA consulta ListarClientes para todo o grupo. Se o chamador já consultou a Omie,
-  // reutilizamos o mesmo snapshot para evitar uma chamada redundante.
-  $audit=is_array($preloadedAudit)?$preloadedAudit:self::inspectOmieDocument((int)$sources[0]['id'],true);
+  // Exclusão local NUNCA consulta a Omie. Ela exige o snapshot já obtido
+  // pelo clique explícito em "Consultar Omie" na tela.
+  if(!is_array($preloadedAudit))throw new RuntimeException('Consulte a Omie nesta linha antes de excluir do CRM.');
+  $audit=$preloadedAudit;
+  if((string)($audit['document']??'')!==$document)throw new RuntimeException('A consulta Omie salva não corresponde a este CPF/CNPJ. Consulte novamente a linha.');
   $remoteByCode=[];$activeRemoteCodes=[];
   foreach((array)($audit['remote']??[]) as $remote){
    $code=trim((string)($remote['omie_code']??''));if($code==='')continue;
@@ -1217,8 +1219,8 @@ final class ClientService {
   ];
  }
 
- public static function deleteInactiveOmieFromCrm(int $id,array $u,int $preferredTargetId=0): array{
-  $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u);
+ public static function deleteInactiveOmieFromCrm(int $id,array $u,int $preferredTargetId=0,?array $preloadedAudit=null): array{
+  $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u,[],$preloadedAudit);
   if(!empty($result['requires_target']))return $result;
   $removed=(array)($result['removed'][0]??[]);
   return array_merge($result,[
