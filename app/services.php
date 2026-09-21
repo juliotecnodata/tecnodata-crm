@@ -333,6 +333,7 @@ final class CRMService {
   return ['status'=>'inactive12plus','label'=>'Inativo + 12 Meses','date'=>$lastDate,'delta'=>null,'days'=>$days];
  }
  public static function dashboard(array $u): array{
+  ClientSegmentPolicy::ensureSchema();
   $start=date('Y-m-01');$next=date('Y-m-d',strtotime($start.' +1 month'));
   if($u['role']==='seller'){
    [$validOrders,$validOrderParams]=OrderPolicy::validReportSql();
@@ -357,7 +358,7 @@ final class CRMService {
   $sales_percent=(float)$management['sales_percent'];
   $collection_percent=(float)$management['collection_percent'];
   $debt=(float)(DB::scalar("SELECT COALESCE(SUM(open_amount),0) FROM collection_cases WHERE status='open'")??0);
-  $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1")??0);
+  $clients=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0")??0);
   $late=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<NOW()")??0);
   return compact('sales','recovered','sales_percent','collection_percent','debt','clients','late','management');
  }
@@ -366,14 +367,15 @@ final class CRMService {
 
 final class NotificationService {
  public static function forUser(array $u): array{
+  ClientSegmentPolicy::ensureSchema();
   $items=[];$total=0;$uid=(int)($u['id']??0);$role=(string)($u['role']??'');
   try{
    if(in_array($role,['seller','collector'],true)){
     $counts=DB::one(
      "SELECT
-       (SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND due_at<CURDATE()) late_count,
-       (SELECT COUNT(*) FROM tasks WHERE assigned_user_id=? AND status='pending' AND due_at>=CURDATE() AND due_at<CURDATE()+INTERVAL 1 DAY) today_count".
-       ($role==='collector' ? ", (SELECT COUNT(*) FROM collection_cases WHERE status='open' AND max_overdue_days>0 AND assigned_user_id=?) overdue_count" : ''),
+       (SELECT COUNT(*) FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.assigned_user_id=? AND t.status='pending' AND t.due_at<CURDATE() AND c.crm_inactive=0) late_count,
+       (SELECT COUNT(*) FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.assigned_user_id=? AND t.status='pending' AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY AND c.crm_inactive=0) today_count".
+       ($role==='collector' ? ", (SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND cc.max_overdue_days>0 AND cc.assigned_user_id=? AND c.crm_inactive=0) overdue_count" : ''),
      $role==='collector'?[$uid,$uid,$uid]:[$uid,$uid]
     )?:[];
     $late=(int)($counts['late_count']??0);
@@ -383,9 +385,9 @@ final class NotificationService {
    }else{
     $counts=DB::one(
      "SELECT
-       (SELECT COUNT(*) FROM tasks WHERE status='pending' AND due_at<CURDATE()) late_count,
-       (SELECT COUNT(*) FROM collection_cases WHERE status='open' AND max_overdue_days>0) overdue_count".
-       ($role==='admin' ? ", (SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>'') sync_error_count, (SELECT COUNT(*) FROM clients WHERE active=1 AND (seller_omie_code IS NULL OR TRIM(seller_omie_code)='')) unassigned_count" : '')
+       (SELECT COUNT(*) FROM tasks t JOIN clients c ON c.id=t.client_id WHERE t.status='pending' AND t.due_at<CURDATE() AND c.crm_inactive=0) late_count,
+       (SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND cc.max_overdue_days>0 AND c.crm_inactive=0) overdue_count".
+       ($role==='admin' ? ", (SELECT COUNT(*) FROM sync_state WHERE last_error IS NOT NULL AND TRIM(last_error)<>'') sync_error_count, (SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND (seller_omie_code IS NULL OR TRIM(seller_omie_code)='')) unassigned_count" : '')
     )?:[];
     $late=(int)($counts['late_count']??0);
     if($late>0){$total+=$late;$items[]=['type'=>'danger','icon'=>'fa-clock-rotate-left','title'=>$late.' retorno(s) vencido(s)','text'=>'A equipe possui compromissos atrasados.','href'=>'/agenda?period=late'];}
