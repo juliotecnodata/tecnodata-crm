@@ -438,6 +438,12 @@ function render(string $name,array $vars=[]): void{
      <a class="<?=$auditTab==='inactive'?'active':''?>" href="<?=e($auditUrl(['tab'=>'inactive','page'=>1]))?>"><span><i class="fa-solid fa-box-archive"></i><b>Registros preservados</b></span><em><?=number_format((int)($auditStats['inactive_clients']??0),0,',','.')?> inativos</em></a>
     </nav>
 
+    <?php if(in_array($auditTab,['duplicates','inactive'],true)):?><dialog class="tdc-omie-check-modal tdaudit-omie-modal" data-client-omie-modal data-audit-omie-modal data-client-id="0" data-csrf="<?=e(CSRF::token())?>">
+     <header><span><i class="fa-solid fa-cloud"></i></span><div><small>OMIE / DUPLICIDADES</small><strong>Conferir CPF/CNPJ na Omie</strong><p>Confirme qual código está ativo e qual está inativo antes de limpar o CRM.</p></div><button type="button" data-client-omie-close><i class="fa-solid fa-xmark"></i></button></header>
+     <div class="tdc-omie-check-body" data-client-omie-body><div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Selecione um cadastro para consultar.</span></div></div>
+     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-primary" type="button" data-client-omie-reconcile><i class="fa-solid fa-arrows-rotate"></i>Aplicar situação da Omie no CRM</button></div></footer>
+    </dialog><?php endif;?>
+
     <form class="tdaudit-filter" method="get" action="<?=APP_URL?>/clients-audit">
      <input type="hidden" name="tab" value="<?=e($auditTab)?>">
      <label class="tdaudit-search"><span>Buscar cadastro</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="<?=e($auditQuery)?>" placeholder="Nome, CPF/CNPJ ou código Omie"></div></label>
