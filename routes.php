@@ -61,18 +61,24 @@ function client_tags_from_raw(mixed $rawJson): array{
  return array_values($tags);
 }
 function client_tag_catalog(): array{
+ ClientSegmentPolicy::ensureSchema();
  $cached=$_SESSION['client_tag_catalog_cache']??null;
  if(is_array($cached)&&time()-(int)($cached['at']??0)<300&&is_array($cached['items']??null))return $cached['items'];
- $items=DB::all("SELECT MIN(t.tag) tag,COUNT(*) client_count FROM client_tags t JOIN clients c ON c.id=t.client_id WHERE c.active=1 GROUP BY t.tag_key ORDER BY client_count DESC,tag");
+ $items=DB::all("SELECT MIN(t.tag) tag,COUNT(*) client_count FROM client_tags t JOIN clients c ON c.id=t.client_id WHERE c.active=1 AND c.crm_inactive=0 GROUP BY t.tag_key ORDER BY client_count DESC,tag");
  $_SESSION['client_tag_catalog_cache']=['at'=>time(),'items'=>$items];
  return $items;
 }
 function client_base_counts_cached(): array{
+ ClientSegmentPolicy::ensureSchema();
  $cached=$_SESSION['client_base_counts_cache']??null;
  if(is_array($cached)&&time()-(int)($cached['at']??0)<60&&is_array($cached['counts']??null))return $cached['counts'];
- $counts=['all'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1")??0),'inactive'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=0")??0)];
- $counts['stored']=$counts['all']+$counts['inactive'];
- foreach(['general','ead_reciclagem','suporte_pet','supplier','carrier'] as $segment){[$sql,$params]=client_segment_filter($segment,'clients');$counts[$segment]=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND ".$sql,$params)??0);}
+ $counts=[
+  'all'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0")??0),
+  'crm_inactive'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=1")??0),
+  'inactive'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=0")??0)
+ ];
+ $counts['stored']=$counts['all']+$counts['crm_inactive']+$counts['inactive'];
+ foreach(['general','ead_reciclagem','suporte_pet','supplier','carrier'] as $segment){[$sql,$params]=client_segment_filter($segment,'clients');$counts[$segment]=(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND ".$sql,$params)??0);}
  $_SESSION['client_base_counts_cache']=['at'=>time(),'counts'=>$counts];
  return $counts;
 }
@@ -415,7 +421,7 @@ function contact_monitoring_context(array $query): array{
  if(is_array($monitorUserIds)){$sellerSql.=' AND id IN ('.($monitorUserIds?implode(',',array_fill(0,count($monitorUserIds),'?')):'0').')';$sellerParams=$monitorUserIds;}
  $sellers=DB::all($sellerSql.' ORDER BY name',$sellerParams);
  [$generalClientSql,$generalClientParams]=client_segment_filter('general','c');
- $where=['c.active=1',$generalClientSql];$params=$generalClientParams;$effectiveSellerSql=client_effective_seller_sql('c');
+ $where=['c.active=1','c.crm_inactive=0',$generalClientSql];$params=$generalClientParams;$effectiveSellerSql=client_effective_seller_sql('c');
  $codes=array_values(array_unique(array_filter(array_map(static fn($seller)=>$seller['role']==='seller'?trim((string)$seller['seller_omie_code']):'',$sellers))));
  $collectorIds=array_values(array_map(static fn($seller)=>(int)$seller['id'],array_filter($sellers,static fn($seller)=>$seller['role']==='collector')));$participantWhere=[];$participantParams=[];
  if($codes){$participantWhere[]='('.$effectiveSellerSql.') IN ('.implode(',',array_fill(0,count($codes),'?')).')';array_push($participantParams,...$codes);}
