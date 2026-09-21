@@ -756,7 +756,7 @@ $router->get('/clients-duplicates',function(){
  redirect('/clients-audit?'.http_build_query($params));
 });
 $router->get('/clients-audit',function(){
- Auth::requireRole('admin','supervisor');
+ Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();
  $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','responsibility','inactive'],true))$tab='duplicates';
  $auditMonth=ClientPortfolioService::monthRef($_GET['month']??null);
  $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
