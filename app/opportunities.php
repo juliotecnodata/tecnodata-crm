@@ -189,9 +189,10 @@ function register_opportunity_routes(Router $router): void{
   if($clientFilter>0){$scope.=' AND o.client_id=?';$params[]=$clientFilter;}
   $types=sales_activity_types();
   $labels=[];foreach($types as $t)$labels[$t['code']]=$t['name'];
-  $rows=DB::all("SELECT o.*,c.name client_name,u.name owner_name,s.name stage_name FROM opportunities o JOIN clients c ON c.id=o.client_id JOIN users u ON u.id=o.owner_user_id JOIN pipeline_stages s ON s.id=o.stage_id WHERE o.status='open' AND ".$scope." ORDER BY s.position,o.next_action_at IS NULL,o.next_action_at,o.updated_at DESC",$params);
+  $clientVisibility=in_array((string)($u['role']??''),['admin','supervisor'],true)?'1=1':'c.crm_inactive=0';
+  $rows=DB::all("SELECT o.*,c.name client_name,u.name owner_name,s.name stage_name FROM opportunities o JOIN clients c ON c.id=o.client_id JOIN users u ON u.id=o.owner_user_id JOIN pipeline_stages s ON s.id=o.stage_id WHERE o.status='open' AND ".$scope." AND ".$clientVisibility." ORDER BY s.position,o.next_action_at IS NULL,o.next_action_at,o.updated_at DESC",$params);
   foreach($rows as &$r)$r['next_action_label']=$labels[$r['next_action_type']]??'Definir ação';unset($r);
-  $clientWhere="c.active=1";$clientParams=[];if($u['role']==='seller'){$clientWhere.=" AND c.seller_omie_code=?";$clientParams[]=(string)($u['seller_omie_code']??'');}
+  $clientWhere="c.active=1 AND c.crm_inactive=0";$clientParams=[];if($u['role']==='seller'){$clientWhere.=" AND c.seller_omie_code=?";$clientParams[]=(string)($u['seller_omie_code']??'');}
   $clients=DB::all("SELECT c.id,c.name,c.uf FROM clients c WHERE ".$clientWhere." ORDER BY c.name LIMIT 250",$clientParams);
   $month=date('Y-m-01');$next=date('Y-m-01',strtotime('+1 month'));
   $stats=['due'=>(int)(DB::scalar("SELECT COUNT(*) FROM opportunities o WHERE o.status='open' AND ".$scope." AND o.next_action_at IS NOT NULL AND o.next_action_at<=NOW()", $params)??0),'won'=>(int)(DB::scalar("SELECT COUNT(*) FROM opportunities o WHERE o.status='won' AND ".$scope." AND o.closed_at>=? AND o.closed_at<?",array_merge($params,[$month,$next]))??0),'pipeline'=>(float)(DB::scalar("SELECT COALESCE(SUM(o.estimated_value),0) FROM opportunities o WHERE o.status='open' AND ".$scope,$params)??0)];
@@ -199,7 +200,7 @@ function register_opportunity_routes(Router $router): void{
  });
  $router->post('/opportunities/create',function(){
   Auth::requireRole('admin','supervisor','seller');sales_flow_require_enabled();CSRF::require($_POST['_token']??null);ensure_sales_flow_tables();$u=Auth::user();
-  $clientId=(int)($_POST['client_id']??0);$client=DB::one("SELECT * FROM clients WHERE id=?",[$clientId]);if(!$client)throw new RuntimeException('Cliente inválido.');
+  $clientId=(int)($_POST['client_id']??0);$client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);if(!$client)throw new RuntimeException('Cliente inválido ou inativo no CRM.');
   if($u['role']==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??'')){http_response_code(403);exit('Cliente fora da sua carteira.');}
   $stage=DB::one("SELECT * FROM pipeline_stages WHERE active=1 ORDER BY position,id LIMIT 1");if(!$stage)throw new RuntimeException('Nenhuma etapa ativa.');
   $type=(string)($_POST['next_action_type']??'');$valid=array_column(sales_activity_types(),'code');if(!in_array($type,$valid,true))throw new RuntimeException('Tipo de ação inválido.');
@@ -213,7 +214,8 @@ function register_opportunity_routes(Router $router): void{
  $router->get('/opportunities/{id}',function($p){
   Auth::requireRole('admin','supervisor','seller');sales_flow_require_enabled();ensure_sales_flow_tables();$u=Auth::user();$id=(int)$p['id'];
   [$scope,$params]=opportunity_scope_where($u);
-  $opp=DB::one("SELECT o.*,c.name client_name,u.name owner_name,s.name stage_name FROM opportunities o JOIN clients c ON c.id=o.client_id JOIN users u ON u.id=o.owner_user_id JOIN pipeline_stages s ON s.id=o.stage_id WHERE o.id=? AND ".$scope,array_merge([$id],$params));if(!$opp){http_response_code(404);exit('Oportunidade não encontrada.');}
+  $visibility=in_array((string)($u['role']??''),['admin','supervisor'],true)?'1=1':'c.crm_inactive=0';
+  $opp=DB::one("SELECT o.*,c.name client_name,u.name owner_name,s.name stage_name FROM opportunities o JOIN clients c ON c.id=o.client_id JOIN users u ON u.id=o.owner_user_id JOIN pipeline_stages s ON s.id=o.stage_id WHERE o.id=? AND ".$scope." AND ".$visibility,array_merge([$id],$params));if(!$opp){http_response_code(404);exit('Oportunidade não encontrada.');}
   $history=DB::all("SELECT h.*,u.name user_name FROM opportunity_history h JOIN users u ON u.id=h.user_id WHERE h.opportunity_id=? ORDER BY h.created_at DESC,h.id DESC",[$id]);
   opportunity_render('opportunity_detail',['opp'=>$opp,'history'=>$history,'activityTypes'=>sales_activity_types(),'stages'=>sales_flow_stages()]);
  });
