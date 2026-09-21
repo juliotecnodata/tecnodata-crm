@@ -423,7 +423,7 @@ function render(string $name,array $vars=[]): void{
      <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
     </header>
 
-    <div class="tdaudit-note"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Tela segura para conferência</strong><p>Nenhum cadastro é alterado ou excluído aqui. Primeiro identificamos o código correto; a correção será feita em uma etapa separada e controlada.</p></div></div>
+    <div class="tdaudit-note"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Fila de saneamento com conferência na Omie</strong><p>Consulte a Omie em tempo real, identifique o código ativo e o inativo e remova somente o duplicado inativo do CRM. A exclusão nunca é enviada para a Omie.</p></div></div>
 
     <div class="tdaudit-kpis">
      <article><span class="blue"><i class="fa-solid fa-address-book"></i></span><div><small>Total no CRM</small><strong><?=number_format((int)($auditStats['total_clients']??0),0,',','.')?></strong><p><?=number_format((int)($auditStats['active_clients']??0),0,',','.')?> ativos</p></div></article>
