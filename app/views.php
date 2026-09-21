@@ -2047,16 +2047,16 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    </section>
   <?php break;
   case 'omie_client_lab':
-   $lab=$lab??[];$original=is_array($lab['original']??null)?$lab['original']:null;$payload=is_array($lab['payload']??null)?$lab['payload']:null;$alterResponse=is_array($lab['alter_response']??null)?$lab['alter_response']:null;$confirmed=is_array($lab['confirmed']??null)?$lab['confirmed']:null;
+   $lab=$lab??[];$original=is_array($lab['original']??null)?$lab['original']:null;$rawPayload=is_array($lab['raw_payload']??null)?$lab['raw_payload']:null;$payload=is_array($lab['payload']??null)?$lab['payload']:null;$omitted=is_array($lab['omitted']??null)?$lab['omitted']:[];$alterResponse=is_array($lab['alter_response']??null)?$lab['alter_response']:null;$confirmed=is_array($lab['confirmed']??null)?$lab['confirmed']:null;$lastError=(string)($lab['last_error']??'');
    $jsonFlags=JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES;
    ?>
    <section class="tdomie-lab-page">
     <header class="tdomie-lab-head">
-     <div class="tdomie-lab-head-main"><span class="tdomie-lab-head-icon"><i class="fa-solid fa-flask-vial"></i></span><div><span class="tdomie-lab-kicker">OMIE / LABORATÓRIO CONTROLADO</span><h1>Teste de cadastro completo</h1><p>Consulta um cliente diretamente na Omie, preserva o JSON completo em sessão e testa o AlterarCliente mudando somente <code>inativo</code> para <code>S</code>.</p></div></div>
+     <div class="tdomie-lab-head-main"><span class="tdomie-lab-head-icon"><i class="fa-solid fa-flask-vial"></i></span><div><span class="tdomie-lab-kicker">OMIE / LABORATÓRIO CONTROLADO</span><h1>Teste de cadastro completo</h1><p>Consulta um cliente diretamente na Omie, preserva o JSON completo e compara o retorno bruto com um payload compatível para escrita, alterando somente <code>inativo</code> para <code>S</code>.</p></div></div>
      <div class="tdomie-lab-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-arrow-left"></i>Auditoria</a><?php if($original):?><form method="post" action="<?=APP_URL?>/omie-client-lab/clear"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-btn" type="submit"><i class="fa-solid fa-eraser"></i>Limpar teste</button></form><?php endif;?></div>
     </header>
 
-    <div class="tdomie-lab-warning"><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Teste com efeito real na Omie</strong><p>A consulta não altera nada. O botão de alteração envia o cadastro completo retornado pela Omie e muda somente <b>inativo</b> para <b>S</b>. Esta página não altera nem exclui registros do CRM.</p></div></div>
+    <div class="tdomie-lab-warning"><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Teste com efeito real na Omie</strong><p>A consulta não altera nada. Como a Omie devolve campos vazios que ela própria rejeita na escrita, o laboratório preserva o JSON original para comparação e omite somente valores vazios no envio. Nenhum valor existente é modificado; apenas <b>inativo</b> muda para <b>S</b>. Esta página não altera nem exclui registros do CRM.</p></div></div>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'info')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
@@ -2079,12 +2079,20 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 
     <div class="tdomie-lab-json-grid">
      <section class="tdomie-lab-json-card">
-      <header><div><span class="blue"><i class="fa-solid fa-download"></i></span><div><strong>1. Retorno original</strong><small>JSON completo de ConsultarCliente</small></div></div><b><?=count($original)?> campos raiz</b></header>
+      <header><div><span class="blue"><i class="fa-solid fa-download"></i></span><div><strong>1. Retorno original</strong><small>JSON completo de ConsultarCliente, sem qualquer alteração</small></div></div><b><?=count($original)?> campos raiz</b></header>
       <pre><?=e((string)json_encode($original,$jsonFlags))?></pre>
      </section>
      <section class="tdomie-lab-json-card">
-      <header><div><span class="orange"><i class="fa-solid fa-arrow-right-arrow-left"></i></span><div><strong>2. Payload preparado</strong><small>Mesmo JSON, somente <code>inativo</code> alterado para <code>S</code></small></div></div><b><?=count($payload??[])?> campos raiz</b></header>
+      <header><div><span class="orange"><i class="fa-solid fa-code"></i></span><div><strong>2. Payload bruto</strong><small>JSON original com somente <code>inativo = S</code>; referência do teste que falhou</small></div></div><b><?=count($rawPayload??[])?> campos raiz</b></header>
+      <pre><?=e((string)json_encode($rawPayload,$jsonFlags))?></pre>
+     </section>
+     <section class="tdomie-lab-json-card">
+      <header><div><span class="green"><i class="fa-solid fa-filter-circle-xmark"></i></span><div><strong>3. Payload efetivamente enviado</strong><small>Mesmos valores existentes, omitindo somente campos vazios incompatíveis com escrita</small></div></div><b><?=count($payload??[])?> campos raiz</b></header>
       <pre><?=e((string)json_encode($payload,$jsonFlags))?></pre>
+     </section>
+     <section class="tdomie-lab-json-card">
+      <header><div><span class="purple"><i class="fa-solid fa-list-check"></i></span><div><strong>Campos vazios omitidos</strong><small>Omissão não altera o valor armazenado na Omie; evita validação de vazio na escrita</small></div></div><b><?=count($omitted)?> campo(s)</b></header>
+      <pre><?=e($omitted?implode("\n",$omitted):'Nenhum campo vazio precisou ser omitido.')?></pre>
      </section>
     </div>
 
@@ -2093,20 +2101,22 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      <form class="tdomie-lab-confirm" method="post" action="<?=APP_URL?>/omie-client-lab/inactivate">
       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
       <input type="hidden" name="codigo_cliente_omie" value="<?=e((string)$lab['code'])?>">
-      <label><input type="checkbox" name="confirm" value="1" required><span>Confirmo que quero testar este cadastro específico e enviar o cadastro completo com <code>inativo = "S"</code>.</span></label>
+      <label><input type="checkbox" name="confirm" value="1" required><span>Confirmo que quero testar este cadastro específico. O laboratório enviará os valores atuais da Omie, omitirá somente campos vazios e mudará apenas <code>inativo</code> para <code>S</code>.</span></label>
       <button class="tdc-btn tdc-btn-danger" type="submit"><i class="fa-solid fa-flask"></i>Enviar AlterarCliente agora</button>
      </form>
     </section>
     <?php endif;?>
 
+    <?php if($lastError!==''):?><div class="tdomie-lab-warning"><span><i class="fa-solid fa-circle-xmark"></i></span><div><strong>Última tentativa recusada pela Omie</strong><p><?=e($lastError)?></p></div></div><?php endif;?>
+
     <?php if($alterResponse||$confirmed):?>
     <div class="tdomie-lab-json-grid result">
      <section class="tdomie-lab-json-card">
-      <header><div><span class="green"><i class="fa-solid fa-reply"></i></span><div><strong>3. Resposta do AlterarCliente</strong><small>Resposta direta recebida da Omie</small></div></div></header>
+      <header><div><span class="green"><i class="fa-solid fa-reply"></i></span><div><strong>4. Resposta do AlterarCliente</strong><small>Resposta direta recebida da Omie</small></div></div></header>
       <pre><?=e((string)json_encode($alterResponse,$jsonFlags))?></pre>
      </section>
      <section class="tdomie-lab-json-card">
-      <header><div><span class="purple"><i class="fa-solid fa-magnifying-glass"></i></span><div><strong>4. Consulta após alteração</strong><small>ConsultarCliente executado logo após o teste</small></div></div><b>inativo = <?=e((string)($confirmed['inativo']??'—'))?></b></header>
+      <header><div><span class="purple"><i class="fa-solid fa-magnifying-glass"></i></span><div><strong>5. Consulta após alteração</strong><small>ConsultarCliente executado logo após o teste</small></div></div><b>inativo = <?=e((string)($confirmed['inativo']??'—'))?></b></header>
       <pre><?=e((string)json_encode($confirmed,$jsonFlags))?></pre>
      </section>
     </div>
