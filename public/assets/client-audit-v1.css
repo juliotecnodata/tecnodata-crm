@@ -27,8 +27,8 @@ body[data-page="client_audit"] .tdcrm-content,body[data-page="client-audit"] .td
 
 /* Fluxo de saneamento de duplicidades */
 .tdaudit-group-tools{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
-.tdaudit-omie-check,.tdaudit-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #c8dde7;border-radius:8px;background:#f5fbfe;color:#18769c;font-size:8px;font-weight:800;min-height:30px;padding:0 9px}
-.tdaudit-omie-check:hover,.tdaudit-action.omie:hover{border-color:#7bb9d2;background:#eaf6fb;color:#0f6285}
+.tdaudit-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #c8dde7;border-radius:8px;background:#f5fbfe;color:#18769c;font-size:8px;font-weight:800;min-height:30px;padding:0 9px}
+.tdaudit-action.omie:hover{border-color:#7bb9d2;background:#eaf6fb;color:#0f6285}
 .tdaudit-row-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:190px}
 .tdaudit-action.remove{border-color:#e7c7be;background:#fff5f2;color:#b8442a}
 .tdaudit-action.remove:hover{border-color:#ea5127;background:#fce9e3;color:#9f321d}
@@ -37,7 +37,6 @@ body[data-page="client_audit"] .tdcrm-content,body[data-page="client-audit"] .td
 @media(max-width:760px){
  .tdaudit-group-tools{width:100%;justify-content:flex-start}
  .tdaudit-group>header{align-items:flex-start;flex-direction:column}
- .tdaudit-omie-check{width:100%}
  .tdaudit-row-actions{min-width:170px}
 }
 
