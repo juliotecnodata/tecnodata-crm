@@ -51,8 +51,6 @@ body[data-page="client_audit"] .tdcrm-content,body[data-page="client-audit"] .td
 .tdaudit-filter input.form-control{width:100%;height:38px;border:1px solid #dbe5e9;border-radius:9px;background:#fbfcfd;color:#25434f;font-size:11px;padding:0 10px}
 .tdaudit-filter input.form-control:focus{outline:0;border-color:#69b5d1}
 .tdaudit-filter-actions{display:flex;align-items:center;gap:8px;grid-column:1/-1;justify-content:flex-end}
-.tdaudit-action.deactivate{border-color:#e7cfb2;background:#fff8ed;color:#a45c12}
-.tdaudit-action.deactivate:hover{border-color:#ea9d44;background:#fff0da;color:#87470b}
 .tdaudit-group .tdaudit-table{min-width:1280px}
 .tdaudit-group .tdaudit-table td:last-child{min-width:260px}
 @media(max-width:1180px){
@@ -73,8 +71,6 @@ body[data-page="client_audit"] .tdcrm-content,body[data-page="client-audit"] .td
 .tdc-omie-batchbar>div>i{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:#fff0e6;color:#c96a2d}
 .tdc-omie-batchbar>div>span b,.tdc-omie-batchbar>div>span small{display:block}.tdc-omie-batchbar>div>span b{color:#6f421f;font-size:10px}.tdc-omie-batchbar>div>span small{margin-top:2px;color:#8d735f;font-size:8px}
 .tdc-omie-batchbar>strong{padding:5px 8px;border-radius:999px;background:#edf3f5;color:#526a74;font-size:8px}
-.tdc-omie-inactivatebar{border-color:#efd3bd;background:#fff8f2}.tdc-omie-inactivatebar>strong{background:#ffe9d8;color:#a3531f}
 .tdc-omie-select{display:inline-flex!important;align-items:center;gap:5px;padding:4px 7px;border:1px solid #dce6ea;border-radius:999px;background:#fff;color:#58707a;font-size:8px;font-weight:800;cursor:pointer}
-.tdc-omie-select input{width:13px;height:13px;margin:0;accent-color:#238bb3}.tdc-omie-select.deactivate{border-color:#efceb4;background:#fff7ef;color:#a85c23}.tdc-omie-select.deactivate input{accent-color:#ea5127}.tdc-omie-select input:disabled{cursor:not-allowed}.tdc-omie-select:has(input:disabled){opacity:.7;cursor:not-allowed}
-.tdaudit-batch-inactivate{border-color:#ea9a61!important;background:#fff0e5!important;color:#a84f18!important}.tdaudit-batch-inactivate:not(:disabled):hover{border-color:#ea5127!important;background:#ea5127!important;color:#fff!important}.tdaudit-batch-inactivate:disabled{opacity:.45;cursor:not-allowed}
+.tdc-omie-select input{width:13px;height:13px;margin:0;accent-color:#238bb3}
 @media(max-width:760px){.tdc-omie-batchbar{align-items:flex-start;flex-direction:column}.tdc-omie-batchbar>label,.tdc-omie-batchbar>div{min-width:0;width:100%}}
