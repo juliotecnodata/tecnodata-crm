@@ -465,7 +465,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($auditTab==='duplicates'):?>
      <div class="tdaudit-section-head"><div><span>DUPLICIDADES ENCONTRADAS</span><h2>Compare os registros do mesmo documento</h2><p>Exibindo <?=$auditPagination['from']?>–<?=$auditPagination['to']?> de <?=number_format((int)$auditPagination['total'],0,',','.')?> grupos filtrados.</p></div><div class="tdaudit-legend"><span><i class="active"></i>Ativo</span><span><i class="inactive"></i>Inativo</span><span><i class="local"></i>Cadastro local</span></div></div>
      <div class="tdaudit-groups">
-      <?php foreach($auditGroups as $group):$groupRows=$auditRowsByDocument[(string)$group['document_digits']]??[];$conflictLabel=$group['conflict_type']==='active'?'Múltiplos ativos':($group['conflict_type']==='mixed'?'Ativo + inativo':'Múltiplos inativos');$omieSeed=null;foreach($groupRows as $candidate){if(!str_starts_with((string)$candidate['omie_code'],'LOCAL-')){$omieSeed=$candidate;break;}}?>
+      <?php foreach($auditGroups as $group):$groupRows=$auditRowsByDocument[(string)$group['document_digits']]??[];$conflictLabel=$group['conflict_type']==='active'?'Múltiplos ativos':($group['conflict_type']==='mixed'?'Ativo + inativo':'Múltiplos inativos');?>
        <article class="tdaudit-group">
         <header>
          <div class="tdaudit-document"><span class="<?=!empty($group['document_valid'])?'valid':'invalid'?>"><i class="fa-solid <?=!empty($group['document_valid'])?'fa-id-card':'fa-circle-exclamation'?>"></i></span><div><small><?=e($group['document_type'])?> · GRUPO DUPLICADO</small><strong><?=e($group['document_formatted'])?></strong></div></div>
