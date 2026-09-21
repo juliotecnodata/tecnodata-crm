@@ -198,6 +198,9 @@ function contact_channel_icon(string $code): string{
 function save_contact_channel_catalog(array $catalog): void{
  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('contact_channel_catalog',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(array_values($catalog),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
 }
+function task_description_limit(): int{return 2000;}
+function task_observation_limit(): int{return 10000;}
+function crm_note_limit(): int{return 10000;}
 function task_result_catalog(): array{
  $defaults=[
   ['code'=>'contact','label'=>'Contato','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
@@ -291,6 +294,12 @@ function ensure_task_detail_columns(): void{
   'updated_at'=>"ALTER TABLE tasks ADD COLUMN updated_at DATETIME NULL AFTER completed_at"
  ];
  foreach($changes as $name=>$sql){if(isset($have[$name]))continue;try{DB::exec($sql);}catch(Throwable $e){$check=DB::all("SHOW COLUMNS FROM tasks");$names=array_map(static fn($row)=>(string)($row['Field']??''),$check);if(!in_array($name,$names,true))throw $e;}}
+ foreach($columns as $column){
+  if((string)($column['Field']??'')!=='title')continue;
+  $type=mb_strtolower((string)($column['Type']??''),'UTF-8');
+  if(!str_contains($type,'text'))DB::exec("ALTER TABLE tasks MODIFY COLUMN title TEXT NOT NULL");
+  break;
+ }
  $ready=true;
 }
 function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?array{
@@ -1012,8 +1021,9 @@ $router->post('/clients/{id}/activity',function($p){
  if(!in_array($result,$allowed,true))$result='contact';
  $channel=(string)($_POST['channel']??'phone');$allowedChannels=array_column(contact_channel_options('sales'),'code');
  if(!in_array($channel,$allowedChannels,true))$channel=in_array('phone',$allowedChannels,true)?'phone':(string)($allowedChannels[0]??'phone');
+ $notes=trim((string)($_POST['notes']??''));if(mb_strlen($notes)>crm_note_limit())throw new RuntimeException('A anotação deve ter até 10.000 caracteres.');
  $nextAt=trim((string)($_POST['next_at']??''));
- DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$channel,$result,trim((string)($_POST['notes']??'')),$nextAt!==''?$nextAt:null]);
+ DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$channel,$result,$notes!==''?$notes:null,$nextAt!==''?$nextAt:null]);
  if($nextAt!==''){ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,'sales','return',?,?,'pending',NOW(),NOW())",[$id,(int)$u['id'],(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);}
  redirect('/clients/'.$id);
 });
@@ -1065,7 +1075,7 @@ $router->post('/contact-monitoring/{id}/schedule',function($p){
   $seller=DB::one("SELECT id,name,role FROM users WHERE id=? AND role IN ('seller','collector') AND active=1",[$assignedId]);
   if(!$seller)throw new RuntimeException('Selecione um usuário ativo de vendas ou cobrança para o próximo contato.');
   $monitorUserIds=contact_monitoring_user_ids();if(is_array($monitorUserIds)&&!in_array($assignedId,$monitorUserIds,true))throw new RuntimeException('Este vendedor não participa do acompanhamento conforme a regra das configurações.');
-  if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
+  if($title===''||mb_strlen($title)>task_description_limit())throw new RuntimeException('Informe uma descrição de até 2.000 caracteres.');
   $date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
   if(!$date||$date->format('Y-m-d\TH:i')!==$value)throw new RuntimeException('Informe uma data e hora válidas.');
   if($date->getTimestamp()<time()-60)throw new RuntimeException('O próximo contato precisa ser agendado para um horário futuro.');
@@ -1549,6 +1559,7 @@ $router->post('/collection/{id}/action',function($p){
  if(!in_array($result,$allowedResults,true))$result='contact';
  $channel=(string)($_POST['channel']??'phone');$allowedChannels=array_column(contact_channel_options('collection'),'code');
  if(!in_array($channel,$allowedChannels,true))$channel=in_array('phone',$allowedChannels,true)?'phone':(string)($allowedChannels[0]??'phone');
+ $notes=trim((string)($_POST['notes']??''));if(mb_strlen($notes)>crm_note_limit()){$_SESSION['collection_case_flash']=['type'=>'danger','message'=>'A anotação deve ter até 10.000 caracteres.'];redirect('/collection/'.$id);}
  $rawAmount=trim((string)($_POST['amount']??''));$normalizedAmount=str_contains($rawAmount,',')?str_replace(',','.',str_replace('.','',$rawAmount)):str_replace(' ','',$rawAmount);$amount=(float)$normalizedAmount;
  if(in_array($result,['agreement','payment'],true)&&$amount<=0){$_SESSION['collection_case_flash']=['type'=>'danger','message'=>'Informe o valor do '.($result==='payment'?'pagamento':'acordo').'.'];redirect('/collection/'.$id);}
 
@@ -1565,7 +1576,7 @@ $router->post('/collection/{id}/action',function($p){
  DB::conn()->beginTransaction();
  try{
   DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);
-  DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,local_status,reconciled_at,recorded_at,notes,created_at) VALUES(?,?,?,?,?,?,?, ?,NULL,NOW(),?,NOW())",[$id,(int)$u['id'],$assigned,$channel,$result,$amount,$promiseDate,$result==='payment'?'pending':'none',trim((string)($_POST['notes']??''))]);
+  DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,local_status,reconciled_at,recorded_at,notes,created_at) VALUES(?,?,?,?,?,?,?, ?,NULL,NOW(),?,NOW())",[$id,(int)$u['id'],$assigned,$channel,$result,$amount,$promiseDate,$result==='payment'?'pending':'none',$notes!==''?$notes:null]);
   if($promiseDueAt!==null){ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,'collection','return',?,?,'pending',NOW(),NOW())",[$id,$assigned,(int)$u['id'],'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);}
   DB::conn()->commit();
   $_SESSION['collection_case_flash']=['type'=>'success','message'=>$promiseDueAt?'Ação salva e retorno agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.':'Ação de cobrança salva com sucesso.'];
@@ -1718,7 +1729,7 @@ $router->post('/api/tasks',function(){
   if($context==='collection'&&!in_array($assignedRole,['collector','supervisor','admin'],true))throw new RuntimeException('Tarefas de cobrança devem ser atribuídas à cobrança, supervisor ou administrador.');
   $allowed=array_column(task_type_options($context),'code');if(!in_array($taskTypeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa válido.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
-  if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição com até 180 caracteres.');
+  if($title===''||mb_strlen($title)>task_description_limit())throw new RuntimeException('Informe uma descrição com até 2.000 caracteres.');
   ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId,$assignedId,(int)$u['id'],$context,$taskTypeCode,$title,$date->format('Y-m-d H:i:00')]);
   json_response(['ok'=>true,'message'=>'Tarefa criada para '.$assigned['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'.','task'=>['client_name'=>$client['name'],'assigned_name'=>$assigned['name'],'task_type'=>task_type_label($taskTypeCode)]]);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
@@ -1750,7 +1761,7 @@ $router->post('/api/tasks/{id}',function($p){
  try{
   $task=task_access_row($id,$u,true);if(!$task)throw new RuntimeException('Tarefa não encontrada, encerrada ou sem permissão.');
   $mode=(string)($_POST['mode']??'edit');if(!in_array($mode,['edit','reschedule'],true))$mode='edit';
-  $title=trim((string)($_POST['title']??''));if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
+  $title=trim((string)($_POST['title']??''));if($title===''||mb_strlen($title)>task_description_limit())throw new RuntimeException('Informe uma descrição de até 2.000 caracteres.');
   $value=trim((string)($_POST['due_at']??''));$date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
   if(!$date||$date->format('Y-m-d\TH:i')!==$value)throw new RuntimeException('Informe uma data e hora válidas.');
   $formatted=$date->format('Y-m-d H:i:00');$original=(string)$task['due_at'];
@@ -1778,10 +1789,10 @@ $router->post('/api/tasks/{id}/complete',function($p){
  Auth::requireLogin();CSRF::require($_POST['_token']??null);$u=Auth::user();$id=(int)$p['id'];
  try{
   $task=task_access_row($id,$u,true);if(!$task)throw new RuntimeException('Tarefa não encontrada, já encerrada ou sem permissão.');
-  $title=trim((string)($_POST['title']??$task['title']));if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
+  $title=trim((string)($_POST['title']??$task['title']));if($title===''||mb_strlen($title)>task_description_limit())throw new RuntimeException('Informe uma descrição de até 2.000 caracteres.');
   $result=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['completion_result_code']??''))));
   if($result!==''){$allowed=array_column(task_result_options((string)$task['type']),'code');if(!in_array($result,$allowed,true))throw new RuntimeException('Resultado de conclusão inválido.');}
-  $notes=trim((string)($_POST['completion_notes']??''));if(mb_strlen($notes)>4000)throw new RuntimeException('A observação final deve ter até 4.000 caracteres.');
+  $notes=trim((string)($_POST['completion_notes']??''));if(mb_strlen($notes)>task_observation_limit())throw new RuntimeException('A observação final deve ter até 10.000 caracteres.');
   DB::exec("UPDATE tasks SET title=?,status='done',completion_result_code=?,completion_notes=?,completed_by_user_id=?,completed_at=NOW(),updated_at=NOW() WHERE id=? AND status='pending'",[$title,$result!==''?$result:null,$notes!==''?$notes:null,(int)$u['id'],$id]);
   json_response(['ok'=>true,'message'=>'Tarefa concluída com sucesso.']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
@@ -1817,7 +1828,7 @@ $router->post('/agenda/create',function(){
    if($type==='collection'&&(string)$assignedUser['role']==='seller')throw new RuntimeException('Para compromisso de cobrança, selecione um usuário da cobrança.');
   }
 
-  if($title===''||mb_strlen($title)>180)throw new RuntimeException('Informe uma descrição de até 180 caracteres.');
+  if($title===''||mb_strlen($title)>task_description_limit())throw new RuntimeException('Informe uma descrição de até 2.000 caracteres.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
 
   ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId,$assignedId,(int)$u['id'],$type,'return',$title,$date->format('Y-m-d H:i:00')]);
@@ -1865,8 +1876,8 @@ $router->post('/agenda/{id}/edit',function($p){
  Auth::requireLogin();CSRF::require($_POST['_token']??null);
  $u=Auth::user();$id=(int)$p['id'];$teamAgenda=in_array((string)$u['role'],['admin','supervisor'],true);
  $title=trim((string)($_POST['title']??''));
- if($title===''||mb_strlen($title)>180){
-  $_SESSION['agenda_flash']=['type'=>'danger','message'=>'Informe uma descrição de até 180 caracteres.'];
+ if($title===''||mb_strlen($title)>task_description_limit()){
+  $_SESSION['agenda_flash']=['type'=>'danger','message'=>'Informe uma descrição de até 2.000 caracteres.'];
  }else{
   $allowed=$teamAgenda
    ?DB::one("SELECT id FROM tasks WHERE id=? AND status='pending'",[$id])
