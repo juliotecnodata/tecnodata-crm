@@ -1225,6 +1225,118 @@ final class ClientService {
   ];
  }
 
+ public static function inactivateOmieBatchAndDeleteFromCrm(array $sourceIds,int $preferredTargetId,array $u): array{
+  ClientSegmentPolicy::ensureSchema();
+  $sourceIds=array_values(array_unique(array_filter(array_map('intval',$sourceIds),static fn($id)=>$id>0)));
+  if(!$sourceIds)throw new RuntimeException('Selecione pelo menos um cadastro para processar.');
+  if(count($sourceIds)>100)throw new RuntimeException('Selecione no máximo 100 cadastros por operação.');
+
+  $placeholders=implode(',',array_fill(0,count($sourceIds),'?'));
+  $sources=DB::all("SELECT * FROM clients WHERE id IN (".$placeholders.") ORDER BY id",$sourceIds);
+  if(count($sources)!==count($sourceIds))throw new RuntimeException('Um ou mais cadastros selecionados não foram encontrados.');
+
+  $document='';$codesById=[];
+  foreach($sources as $source){
+   $digits=preg_replace('/\D+/','',(string)($source['document']??''));
+   if(!in_array(strlen($digits),[11,14],true))throw new RuntimeException('Um dos cadastros selecionados não possui CPF/CNPJ válido.');
+   if($document==='')$document=$digits;
+   elseif($document!==$digits)throw new RuntimeException('Todos os cadastros do lote precisam pertencer ao mesmo CPF/CNPJ.');
+   $code=trim((string)($source['omie_code']??''));
+   if($code===''||str_starts_with($code,'LOCAL-'))throw new RuntimeException('Todos os cadastros do lote precisam estar vinculados à Omie.');
+   $codesById[(int)$source['id']]=$code;
+  }
+
+  $audit=self::inspectOmieDocument((int)$sources[0]['id']);
+  $remoteByCode=[];
+  foreach((array)($audit['remote']??[]) as $remote){
+   $code=trim((string)($remote['omie_code']??''));
+   if($code!=='')$remoteByCode[$code]=$remote;
+  }
+
+  $selectedMap=array_fill_keys($sourceIds,true);
+  $activeSources=[];$alreadyInactive=[];$notFound=[];
+  foreach($sources as $source){
+   $id=(int)$source['id'];$code=$codesById[$id];$remote=$remoteByCode[$code]??null;
+   if(!$remote){$notFound[]=['id'=>$id,'omie_code'=>$code,'name'=>(string)$source['name']];continue;}
+   if(!empty($remote['inactive'])){$alreadyInactive[]=['id'=>$id,'omie_code'=>$code,'name'=>(string)$source['name']];continue;}
+   $activeSources[]=['id'=>$id,'omie_code'=>$code,'name'=>(string)$source['name']];
+  }
+
+  $eligibleTargets=[];
+  foreach((array)($audit['remote']??[]) as $candidate){
+   if(!empty($candidate['inactive']))continue;
+   $candidateCode=trim((string)($candidate['omie_code']??''));
+   $local=is_array($candidate['local']??null)?$candidate['local']:null;
+   if($candidateCode===''||!$local||isset($selectedMap[(int)$local['id']])||!empty($local['crm_inactive']))continue;
+   $eligibleTargets[]=[
+    'id'=>(int)$local['id'],'omie_code'=>$candidateCode,
+    'name'=>(string)($local['name']??$candidate['name']??$candidateCode),
+   ];
+  }
+
+  $target=null;
+  if($preferredTargetId>0){
+   foreach($eligibleTargets as $candidate)if((int)$candidate['id']===$preferredTargetId){$target=$candidate;break;}
+   if(!$target)throw new RuntimeException('O cadastro escolhido para permanecer não está ativo na Omie, foi marcado para inativação ou não pertence ao mesmo CPF/CNPJ.');
+  }elseif(count($eligibleTargets)===1)$target=$eligibleTargets[0];
+  elseif(count($eligibleTargets)>1){
+   return [
+    'status'=>'target_required','requires_target'=>true,'audit'=>$audit,'candidates'=>$eligibleTargets,
+    'selected_ids'=>$sourceIds,
+    'message'=>'Há mais de um cadastro ativo que pode permanecer. Escolha o principal e depois envie o lote inteiro de uma vez.',
+   ];
+  }
+
+  if($activeSources&&!$target){
+   throw new RuntimeException('O lote removeria todos os cadastros ativos deste CPF/CNPJ. Deixe pelo menos um cadastro ativo fora da seleção para permanecer como principal.');
+  }
+
+  $omie=new OmieClient();$inactivated=[];
+  foreach($activeSources as $source){
+   $code=(string)$source['omie_code'];
+   $omie->call('clients','AlterarCliente',['codigo_cliente_omie'=>(int)$code,'inativo'=>'S']);
+   $inactivated[]=$source;
+  }
+
+  // Depois das alterações, uma única consulta confere o documento inteiro.
+  $confirmedAudit=$activeSources?self::inspectOmieDocument((int)$sources[0]['id']):$audit;
+  $confirmedByCode=[];
+  foreach((array)($confirmedAudit['remote']??[]) as $remote){
+   $code=trim((string)($remote['omie_code']??''));
+   if($code!=='')$confirmedByCode[$code]=$remote;
+  }
+  foreach($activeSources as $source){
+   $code=(string)$source['omie_code'];
+   $confirmed=$confirmedByCode[$code]??null;
+   if($confirmed&&empty($confirmed['inactive'])){
+    throw new RuntimeException('A Omie não confirmou a inativação do código '.$code.'. Nenhum cadastro do lote foi removido do CRM.');
+   }
+  }
+
+  $result=self::deleteInactiveOmieBatchFromCrm(
+   $sourceIds,
+   $target?(int)$target['id']:0,
+   $u,
+   [],
+   $confirmedAudit
+  );
+  if(!empty($result['requires_target']))return $result;
+
+  $result['status']='omie_batch_inactivated_and_removed';
+  $result['remote_action']='batch';
+  $result['omie_inactivated']=$inactivated;
+  $result['omie_inactivated_count']=count($inactivated);
+  $result['already_inactive']=$alreadyInactive;
+  $result['already_inactive_count']=count($alreadyInactive);
+  $result['not_found_before_processing']=$notFound;
+  $result['message']=count($sourceIds).' cadastro(s) processado(s) em um único envio do CRM: '
+   .count($inactivated).' inativado(s) na Omie, '
+   .count($alreadyInactive).' já estava(m) inativo(s) e '
+   .count($notFound).' não foi/foram encontrado(s) na Omie. '
+   .'Os registros selecionados foram removidos somente do CRM após a conferência final.';
+  return $result;
+ }
+
  public static function inactivateOmieAndDeleteFromCrm(int $id,int $preferredTargetId,array $u): array{
   ClientSegmentPolicy::ensureSchema();
   $client=DB::one("SELECT * FROM clients WHERE id=?",[$id]);

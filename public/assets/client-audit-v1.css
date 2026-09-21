@@ -65,3 +65,16 @@ body[data-page="client_audit"] .tdcrm-content,body[data-page="client-audit"] .td
  .tdaudit-filter-actions{display:grid;grid-template-columns:1fr}
  .tdaudit-filter-actions .tdaudit-btn{width:100%;justify-content:center}
 }
+
+
+/* Seleção em lote antes de enviar alterações para a Omie */
+.tdc-omie-batchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin:0 0 10px;border:1px solid #dbe7ec;border-radius:10px;background:#f8fbfc;color:#526a74;font-size:9px}
+.tdc-omie-batchbar>label,.tdc-omie-batchbar>div{display:flex;align-items:center;gap:8px;flex:1;min-width:230px}
+.tdc-omie-batchbar>div>i{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:#fff0e6;color:#c96a2d}
+.tdc-omie-batchbar>div>span b,.tdc-omie-batchbar>div>span small{display:block}.tdc-omie-batchbar>div>span b{color:#6f421f;font-size:10px}.tdc-omie-batchbar>div>span small{margin-top:2px;color:#8d735f;font-size:8px}
+.tdc-omie-batchbar>strong{padding:5px 8px;border-radius:999px;background:#edf3f5;color:#526a74;font-size:8px}
+.tdc-omie-inactivatebar{border-color:#efd3bd;background:#fff8f2}.tdc-omie-inactivatebar>strong{background:#ffe9d8;color:#a3531f}
+.tdc-omie-select{display:inline-flex!important;align-items:center;gap:5px;padding:4px 7px;border:1px solid #dce6ea;border-radius:999px;background:#fff;color:#58707a;font-size:8px;font-weight:800;cursor:pointer}
+.tdc-omie-select input{width:13px;height:13px;margin:0;accent-color:#238bb3}.tdc-omie-select.deactivate{border-color:#efceb4;background:#fff7ef;color:#a85c23}.tdc-omie-select.deactivate input{accent-color:#ea5127}.tdc-omie-select input:disabled{cursor:not-allowed}.tdc-omie-select:has(input:disabled){opacity:.7;cursor:not-allowed}
+.tdaudit-batch-inactivate{border-color:#ea9a61!important;background:#fff0e5!important;color:#a84f18!important}.tdaudit-batch-inactivate:not(:disabled):hover{border-color:#ea5127!important;background:#ea5127!important;color:#fff!important}.tdaudit-batch-inactivate:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:760px){.tdc-omie-batchbar{align-items:flex-start;flex-direction:column}.tdc-omie-batchbar>label,.tdc-omie-batchbar>div{min-width:0;width:100%}}
