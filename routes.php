@@ -1064,7 +1064,6 @@ $router->post('/api/clients/omie-batch-delete-inactive',function(){
   if(!is_array($raw))$raw=preg_split('/[,;\s]+/',(string)$raw,-1,PREG_SPLIT_NO_EMPTY)?:[];
   $audit=client_omie_verified_audit($raw);
   $result=ClientService::deleteInactiveOmieBatchFromCrm($raw,(int)($_POST['target_client_id']??0),Auth::user(),[],$audit);
-  $targetId=(int)($result['target']['id']??0);
   json_response(['ok'=>true]+$result);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
@@ -1075,7 +1074,6 @@ $router->post('/api/clients/{id}/delete-inactive-omie-local',function($p){
   $id=(int)$p['id'];
   $audit=client_omie_verified_audit([$id]);
   $result=ClientService::deleteInactiveOmieFromCrm($id,Auth::user(),(int)($_POST['target_client_id']??0),$audit);
-  $targetId=(int)($result['target']['id']??0);
   json_response(['ok'=>true]+$result);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
