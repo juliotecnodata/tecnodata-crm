@@ -757,14 +757,14 @@ final class ClientService {
   }
  }
 
- public static function inspectOmieDocument(int $clientId): array{
+ public static function inspectOmieDocument(int $clientId,bool $forceRefresh=false): array{
   ClientSegmentPolicy::ensureSchema();
   $current=DB::one("SELECT id,omie_code,name,legal_name,document,email,active,crm_inactive FROM clients WHERE id=?",[$clientId]);
   if(!$current)throw new RuntimeException('Cliente não encontrado.');
   $document=preg_replace('/\D+/','',(string)($current['document']??''));
   if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('O cliente não possui CPF/CNPJ válido para consultar na Omie.');
 
-  $rows=self::recentOmieDocumentRows($document);
+  $rows=$forceRefresh?null:self::recentOmieDocumentRows($document);
   if($rows===null){
    $omie=new OmieClient();$rows=[];
    try{
@@ -831,49 +831,6 @@ final class ClientService {
    'local'=>$localRows,
    'remote_active_count'=>count(array_filter($remote,static fn($row)=>empty($row['inactive']))),
    'remote_inactive_count'=>count(array_filter($remote,static fn($row)=>!empty($row['inactive']))),
-  ];
- }
-
- public static function reconcileOmieDocument(int $clientId,array $user): array{
-  $audit=self::inspectOmieDocument($clientId);
-  if(!$audit['remote'])throw new RuntimeException('Nenhum cadastro com este CPF/CNPJ foi localizado na Omie. Nenhum status local foi alterado.');
-  $remoteByCode=[];foreach($audit['remote'] as $remote)$remoteByCode[(string)$remote['omie_code']]=$remote;
-  $changed=[];$unchanged=[];
-
-  foreach($audit['local'] as $local){
-   $code=trim((string)$local['omie_code']);
-   if($code===''||str_starts_with($code,'LOCAL-')||!isset($remoteByCode[$code])){$unchanged[]=$local;continue;}
-   $remote=$remoteByCode[$code];$nextActive=empty($remote['inactive'])?1:0;
-   $db=DB::one("SELECT id,active,raw_json FROM clients WHERE id=?",[(int)$local['id']]);if(!$db)continue;
-   $raw=json_decode((string)($db['raw_json']??''),true);if(!is_array($raw))$raw=[];
-   $raw['remote_snapshot_status_check']=[
-    'checked_at'=>date('Y-m-d H:i:s'),'checked_by'=>(int)($user['id']??0),
-    'omie_code'=>$code,'inativo'=>!empty($remote['inactive'])?'S':'N'
-   ];
-   $raw['remote_inactive']=!empty($remote['inactive']);
-   if(!$nextActive)$raw['omie_status']='inactive_remote';
-   elseif(($raw['omie_status']??'')==='inactive_remote')$raw['omie_status']='linked';
-   DB::exec("UPDATE clients SET active=?,raw_json=?,updated_at=NOW() WHERE id=?",[
-    $nextActive,json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$local['id']
-   ]);
-   $changed[]=['id'=>(int)$local['id'],'name'=>(string)$local['name'],'omie_code'=>$code,'active'=>(bool)$nextActive,'remote_inactive'=>!empty($remote['inactive'])];
-  }
-  unset($_SESSION['client_base_counts_cache'],$_SESSION['client_tag_catalog_cache']);
-
-  $document=(string)$audit['document'];
-  $remaining=DB::all("SELECT id,omie_code,name,active,crm_inactive FROM clients
-                      WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 AND crm_inactive=0
-                      ORDER BY id",[$document]);
-
-  return [
-   'audit'=>self::inspectOmieDocument($clientId),
-   'changed'=>$changed,
-   'unchanged'=>$unchanged,
-   'remaining_operational'=>$remaining,
-   'resolved'=>count($remaining)<=1,
-   'message'=>count($remaining)<=1
-    ?'Situação da Omie aplicada ao CRM. Cadastros inativos na Omie deixaram de interferir nas validações e na operação.'
-    :'A situação da Omie foi aplicada, mas ainda existem '.count($remaining).' cadastros operacionais com o mesmo CPF/CNPJ. Revise os registros indicados antes de editar.',
   ];
  }
 
@@ -1118,7 +1075,7 @@ final class ClientService {
 
   // UMA ÚNICA consulta ListarClientes para todo o grupo. Se o chamador já consultou a Omie,
   // reutilizamos o mesmo snapshot para evitar uma chamada redundante.
-  $audit=is_array($preloadedAudit)?$preloadedAudit:self::inspectOmieDocument((int)$sources[0]['id']);
+  $audit=is_array($preloadedAudit)?$preloadedAudit:self::inspectOmieDocument((int)$sources[0]['id'],true);
   $remoteByCode=[];$activeRemoteCodes=[];
   foreach((array)($audit['remote']??[]) as $remote){
    $code=trim((string)($remote['omie_code']??''));if($code==='')continue;
