@@ -732,3 +732,15 @@ body[data-page="client-detail"] .tdc-contact-locked.crm-inactive{border-color:#E
  body[data-page="client-detail"] .tdc-head-actions form{width:100%!important}
  body[data-page="client-detail"] .tdc-head-actions form .tdc-btn{width:100%!important}
 }
+
+
+/* ===== CLIENTES — múltiplos e-mails ===== */
+body[data-page="client-detail"] .tdc-email-list{
+ display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;margin-top:2px!important
+}
+body[data-page="client-detail"] .tdc-email-list a{
+ display:inline-flex!important;align-items:center!important;gap:6px!important;max-width:100%!important;color:#0B5F8A!important;
+ font-size:10px!important;font-weight:700!important;line-height:1.35!important;text-decoration:none!important;overflow-wrap:anywhere!important
+}
+body[data-page="client-detail"] .tdc-email-list a:hover{text-decoration:underline!important}
+body[data-page="client-detail"] .tdc-email-list i{font-size:9px!important;color:#007FC7!important}
