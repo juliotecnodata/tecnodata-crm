@@ -1065,7 +1065,7 @@ $router->post('/api/clients/omie-batch-delete-inactive',function(){
   $audit=client_omie_verified_audit($raw);
   $result=ClientService::deleteInactiveOmieBatchFromCrm($raw,(int)($_POST['target_client_id']??0),Auth::user(),[],$audit);
   $targetId=(int)($result['target']['id']??0);
-  json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients-duplicates']);
+  json_response(['ok'=>true]+$result);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
@@ -1076,7 +1076,7 @@ $router->post('/api/clients/{id}/delete-inactive-omie-local',function($p){
   $audit=client_omie_verified_audit([$id]);
   $result=ClientService::deleteInactiveOmieFromCrm($id,Auth::user(),(int)($_POST['target_client_id']??0),$audit);
   $targetId=(int)($result['target']['id']??0);
-  json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients']);
+  json_response(['ok'=>true]+$result);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
