@@ -987,7 +987,7 @@ $router->post('/clients/{id}/update',function($p){
 $router->post('/api/clients/{id}/delete-inactive-omie-local',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
-  $result=ClientService::deleteInactiveOmieFromCrm((int)$p['id'],Auth::user());
+  $result=ClientService::deleteInactiveOmieFromCrm((int)$p['id'],Auth::user(),(int)($_POST['target_client_id']??0));
   $targetId=(int)($result['target']['id']??0);
   json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
