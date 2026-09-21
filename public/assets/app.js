@@ -172,7 +172,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(clientOmieModal&&clientOmieOpeners.length){
     const body=clientOmieModal.querySelector('[data-client-omie-body]');
     const summary=clientOmieModal.querySelector('[data-client-omie-summary]');
-    const reconcile=clientOmieModal.querySelector('[data-client-omie-reconcile]');
     const batchDelete=clientOmieModal.querySelector('[data-client-omie-batch-delete]');
     let clientId=Number(clientOmieModal.dataset.clientId||clientOmieOpeners[0]?.dataset.clientId||0);
     let selectedInactiveOmieIds=new Set();
@@ -241,16 +240,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         html+='</section>';
       }
       if(Number(audit?.remote_active_count||0)>1){
-        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>O CRM não tenta alterar o status desses registros. Escolha o principal apenas para consolidar histórico; a limpeza local fica disponível somente para códigos já inativos ou não encontrados na Omie.</p></div></div>';
+        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>Inative manualmente no Omie o código que será descartado e consulte novamente esta linha. O CRM só libera a exclusão quando a Omie retornar o código como inativo.</p></div></div>';
       }
       body.innerHTML=html;
       summary.textContent=Number(audit?.remote_active_count||0)+' ativo(s) · '+Number(audit?.remote_inactive_count||0)+' inativo(s) na Omie';
-      reconcile.disabled=remote.length===0;
     };
     const load=async(targetId=clientId)=>{
       clientId=Number(targetId||0);preferredOmieTargetId=0;selectedInactiveOmieIds=new Set();clientOmieModal.dataset.clientId=String(clientId);
       body.innerHTML='<div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie em tempo real...</span></div>';
-      summary.textContent='';reconcile.disabled=true;
+      summary.textContent='';
       if(!clientId){body.innerHTML='<div class="tdc-omie-empty error"><i class="fa-solid fa-triangle-exclamation"></i><strong>Cliente não identificado</strong><p>Não foi possível determinar qual cadastro consultar.</p></div>';return;}
       try{
         const response=await fetch((window.APP_URL||'')+'/api/clients/'+clientId+'/omie-check',{headers:{'Accept':'application/json'}});
@@ -326,25 +324,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
     });
 
-    reconcile.addEventListener('click',async()=>{
-      if(reconcile.disabled)return;
-      if(!window.confirm('Aplicar no CRM exatamente a situação encontrada na Omie? Cadastros marcados como inativos na Omie ficarão inativos também no CRM, sem excluir histórico.'))return;
-      const previous=reconcile.innerHTML;reconcile.disabled=true;reconcile.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Conferindo e aplicando...';
-      try{
-        const payload=new URLSearchParams({_token:String(clientOmieModal.dataset.csrf||'')});
-        const response=await fetch((window.APP_URL||'')+'/api/clients/'+clientId+'/omie-reconcile',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:payload.toString()});
-        const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
-        if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível aplicar a situação da Omie.');
-        render(data.audit);
-        const remaining=Array.isArray(data.remaining_operational)?data.remaining_operational.length:0;
-        showNotice(data.resolved?'success':'warning',data.resolved?'Duplicidade tratada':'Ainda há duplicidade',data.message||'Situação atualizada.');
-        summary.textContent+=(remaining?' · '+remaining+' registros operacionais restantes':' · duplicidade operacional resolvida');
-        reconcile.innerHTML='<i class="fa-solid fa-check"></i>Situação aplicada';
-      }catch(error){
-        reconcile.disabled=false;reconcile.innerHTML=previous;
-        showNotice('danger','Não foi possível corrigir',error.message||'Tente novamente.');
-      }
-    });
   }
 
 
