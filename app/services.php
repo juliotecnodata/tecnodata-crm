@@ -726,6 +726,45 @@ final class ClientService {
  }
 
 
+ private static function recentOmieDocumentRows(string $document): ?array{
+  $document=preg_replace('/\D+/','',$document);
+  if($document==='')return null;
+  $entry=$_SESSION['client_omie_document_cache'][$document]??null;
+  if(!is_array($entry)||!array_key_exists('rows',$entry))return null;
+  $at=(int)($entry['at']??0);
+  if($at<=0||time()-$at>65){
+   unset($_SESSION['client_omie_document_cache'][$document]);
+   return null;
+  }
+  return is_array($entry['rows'])?$entry['rows']:[];
+ }
+
+ private static function cacheOmieDocumentRows(string $document,array $rows): void{
+  $document=preg_replace('/\D+/','',$document);
+  if($document==='')return;
+  if(!isset($_SESSION['client_omie_document_cache'])||!is_array($_SESSION['client_omie_document_cache']))$_SESSION['client_omie_document_cache']=[];
+  $_SESSION['client_omie_document_cache'][$document]=['at'=>time(),'rows'=>array_values($rows)];
+  if(count($_SESSION['client_omie_document_cache'])>20){
+   uasort($_SESSION['client_omie_document_cache'],static fn($a,$b)=>(int)($a['at']??0)<=>(int)($b['at']??0));
+   while(count($_SESSION['client_omie_document_cache'])>20)array_shift($_SESSION['client_omie_document_cache']);
+  }
+ }
+
+ private static function markCachedOmieDocumentInactive(string $document,array $codes): void{
+  $document=preg_replace('/\D+/','',$document);
+  $entry=$_SESSION['client_omie_document_cache'][$document]??null;
+  if(!is_array($entry)||!is_array($entry['rows']??null))return;
+  $codes=array_fill_keys(array_values(array_unique(array_filter(array_map(static fn($code)=>trim((string)$code),$codes),static fn($code)=>$code!==''))),true);
+  if(!$codes)return;
+  foreach($entry['rows'] as &$row){
+   if(!is_array($row))continue;
+   $code=trim((string)($row['codigo_cliente_omie']??$row['codigo_cliente']??''));
+   if(isset($codes[$code]))$row['inativo']='S';
+  }
+  unset($row);
+  $_SESSION['client_omie_document_cache'][$document]=$entry;
+ }
+
  public static function inspectOmieDocument(int $clientId): array{
   ClientSegmentPolicy::ensureSchema();
   $current=DB::one("SELECT id,omie_code,name,legal_name,document,email,active,crm_inactive FROM clients WHERE id=?",[$clientId]);
@@ -733,20 +772,24 @@ final class ClientService {
   $document=preg_replace('/\D+/','',(string)($current['document']??''));
   if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('O cliente não possui CPF/CNPJ válido para consultar na Omie.');
 
-  $omie=new OmieClient();$rows=[];
-  try{
-   $data=$omie->call('clients','ListarClientes',[
-    'pagina'=>1,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','exibir_caracteristicas'=>'S','exibir_obs'=>'S',
-    'clientesFiltro'=>['cnpj_cpf'=>$document],
-   ]);
-   foreach((array)($data['clientes_cadastro']??[]) as $row){
-    if(!is_array($row))continue;
-    if(preg_replace('/\D+/','',(string)($row['cnpj_cpf']??''))!==$document)continue;
-    $rows[]=$row;
+  $rows=self::recentOmieDocumentRows($document);
+  if($rows===null){
+   $omie=new OmieClient();$rows=[];
+   try{
+    $data=$omie->call('clients','ListarClientes',[
+     'pagina'=>1,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','exibir_caracteristicas'=>'S','exibir_obs'=>'S',
+     'clientesFiltro'=>['cnpj_cpf'=>$document],
+    ]);
+    foreach((array)($data['clientes_cadastro']??[]) as $row){
+     if(!is_array($row))continue;
+     if(preg_replace('/\D+/','',(string)($row['cnpj_cpf']??''))!==$document)continue;
+     $rows[]=$row;
+    }
+   }catch(Throwable $e){
+    $message=mb_strtolower($e->getMessage(),'UTF-8');
+    if(!(str_contains($message,'5113')||str_contains($message,'não existem registros para a página')||str_contains($message,'nao existem registros para a pagina')))throw $e;
    }
-  }catch(Throwable $e){
-   $message=mb_strtolower($e->getMessage(),'UTF-8');
-   if(!(str_contains($message,'5113')||str_contains($message,'não existem registros para a página')||str_contains($message,'nao existem registros para a pagina')))throw $e;
+   self::cacheOmieDocumentRows($document,$rows);
   }
 
   $locals=DB::all("SELECT id,omie_code,name,legal_name,document,email,active,crm_inactive,updated_at
@@ -1298,27 +1341,21 @@ final class ClientService {
    $inactivated[]=$source;
   }
 
-  // Depois das alterações, uma única consulta confere o documento inteiro.
-  $confirmedAudit=$activeSources?self::inspectOmieDocument((int)$sources[0]['id']):$audit;
-  $confirmedByCode=[];
-  foreach((array)($confirmedAudit['remote']??[]) as $remote){
-   $code=trim((string)($remote['omie_code']??''));
-   if($code!=='')$confirmedByCode[$code]=$remote;
-  }
-  foreach($activeSources as $source){
-   $code=(string)$source['omie_code'];
-   $confirmed=$confirmedByCode[$code]??null;
-   if($confirmed&&empty($confirmed['inactive'])){
-    throw new RuntimeException('A Omie não confirmou a inativação do código '.$code.'. Nenhum cadastro do lote foi removido do CRM.');
-   }
-  }
+  // Não repete ListarClientes depois das alterações: a Omie bloqueia consultas idênticas
+  // por aproximadamente 60 segundos. Uma resposta sem fault de AlterarCliente confirma cada código.
+  $inactivatedCodes=array_map(static fn($source)=>(string)$source['omie_code'],$inactivated);
+  $verifiedInactiveCodes=array_merge(
+   $inactivatedCodes,
+   array_map(static fn($source)=>(string)$source['omie_code'],$alreadyInactive)
+  );
+  self::markCachedOmieDocumentInactive($document,$inactivatedCodes);
 
   $result=self::deleteInactiveOmieBatchFromCrm(
    $sourceIds,
    $target?(int)$target['id']:0,
    $u,
-   [],
-   $confirmedAudit
+   $verifiedInactiveCodes,
+   $audit
   );
   if(!empty($result['requires_target']))return $result;
 
