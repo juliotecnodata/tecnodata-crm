@@ -77,6 +77,13 @@ foreach(preg_split('/;\s*(?:\r?\n|$)/',$schema)?:[] as $statement){
 // 2) Normaliza tabelas que podem ter vindo do CRM legado.
 $t=$prefix.'clients';
 addCol($pdo,$log,$t,'seller_omie_code','VARCHAR(80) NULL AFTER uf');
+addCol($pdo,$log,$t,'crm_inactive','TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
+addCol($pdo,$log,$t,'crm_inactivated_at','DATETIME NULL AFTER crm_inactive');
+addCol($pdo,$log,$t,'crm_inactivated_by','INT UNSIGNED NULL AFTER crm_inactivated_at');
+$c=cols($pdo,$t);
+if(isset($c['crm_inactive'])&&isset($c['active'])&&!idxExists($pdo,$t,'idx_clients_crm_active')){
+ execStep($pdo,$log,'índice de clientes ativos no CRM','ALTER TABLE '.qi($t).' ADD INDEX idx_clients_crm_active(crm_inactive,active,id)');
+}
 
 $t=$prefix.'products';
 addCol($pdo,$log,$t,'sku','VARCHAR(120) NULL AFTER omie_code');
