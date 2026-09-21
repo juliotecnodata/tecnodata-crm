@@ -199,7 +199,10 @@ document.addEventListener('DOMContentLoaded',()=>{
              '<div><small>E-mail</small><strong>'+esc(item.email||'—')+'</strong></div>'+
              '<div><small>Localização</small><strong>'+esc([item.city,item.uf].filter(Boolean).join(' / ')||'—')+'</strong></div>'+
             '</div>'+
-            '<footer>'+localStatus(linked)+(linked?'<a href="'+(window.APP_URL||'')+'/clients/'+Number(linked.id)+'"><i class="fa-regular fa-folder-open"></i>Abrir '+esc(linked.name||'cadastro')+'</a>':'')+'</footer>'+
+            '<footer>'+localStatus(linked)+'<div class="tdc-omie-result-actions">'+
+              (linked?'<a href="'+(window.APP_URL||'')+'/clients/'+Number(linked.id)+'"><i class="fa-regular fa-folder-open"></i>Abrir '+esc(linked.name||'cadastro')+'</a>':'')+
+              (item.inactive&&linked?'<button type="button" data-client-omie-delete="'+Number(linked.id)+'"><i class="fa-solid fa-trash-can"></i>Excluir só do CRM</button>':'')+
+            '</div></footer>'+
           '</article>';
         });
         html+='</div>';
@@ -251,13 +254,39 @@ document.addEventListener('DOMContentLoaded',()=>{
         showNotice(data.resolved?'success':'warning',data.resolved?'Duplicidade tratada':'Ainda há duplicidade',data.message||'Situação atualizada.');
         summary.textContent+=(remaining?' · '+remaining+' registros operacionais restantes':' · duplicidade operacional resolvida');
         reconcile.innerHTML='<i class="fa-solid fa-check"></i>Situação aplicada';
-        setTimeout(()=>location.reload(),900);
       }catch(error){
         reconcile.disabled=false;reconcile.innerHTML=previous;
         showNotice('danger','Não foi possível corrigir',error.message||'Tente novamente.');
       }
     });
   }
+
+  const removeInactiveOmieLocal=async button=>{
+    const targetId=Number(button?.dataset?.clientOmieDelete||0);if(!targetId)return;
+    if(!window.confirm('Excluir este cadastro SOMENTE do CRM? A Omie não será alterada. Se houver histórico local e existir um único cadastro ativo equivalente, o histórico será transferido para ele antes da remoção.'))return;
+    const previous=button.innerHTML;button.disabled=true;button.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Excluindo...';
+    try{
+      const token=String(clientOmieModal?.dataset?.csrf||window.CSRF||'');
+      const payload=new URLSearchParams({_token:token});
+      const response=await fetch((window.APP_URL||'')+'/api/clients/'+targetId+'/delete-inactive-omie-local',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},credentials:'same-origin',body:payload.toString()});
+      const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
+      if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível remover o cadastro inativo.');
+      showNotice('success','Cadastro inativo removido',data.message||'O cadastro foi removido somente do CRM.');
+      const currentId=Number(clientOmieModal?.dataset?.clientId||0);
+      if(targetId===currentId){setTimeout(()=>{location.href=data.redirect||(window.APP_URL||'')+'/clients';},450);return;}
+      if(clientOmieModal&&clientOmieModal.open){
+        const openButton=document.querySelector('[data-client-omie-check]');
+        if(openButton)openButton.click();
+      }else setTimeout(()=>location.reload(),450);
+    }catch(error){
+      button.disabled=false;button.innerHTML=previous;
+      showNotice('danger','Não foi possível excluir',error.message||'Tente novamente.');
+    }
+  };
+  document.addEventListener('click',event=>{
+    const button=event.target.closest?.('[data-client-omie-delete]');
+    if(button)removeInactiveOmieLocal(button);
+  });
 
   const productDetailModal=document.querySelector('[data-product-detail-modal]');
   if(productDetailModal){
