@@ -2046,6 +2046,73 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     </div>
    </section>
   <?php break;
+  case 'omie_client_lab':
+   $lab=$lab??[];$original=is_array($lab['original']??null)?$lab['original']:null;$payload=is_array($lab['payload']??null)?$lab['payload']:null;$alterResponse=is_array($lab['alter_response']??null)?$lab['alter_response']:null;$confirmed=is_array($lab['confirmed']??null)?$lab['confirmed']:null;
+   $jsonFlags=JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES;
+   ?>
+   <section class="tdomie-lab-page">
+    <header class="tdomie-lab-head">
+     <div class="tdomie-lab-head-main"><span class="tdomie-lab-head-icon"><i class="fa-solid fa-flask-vial"></i></span><div><span class="tdomie-lab-kicker">OMIE / LABORATÓRIO CONTROLADO</span><h1>Teste de cadastro completo</h1><p>Consulta um cliente diretamente na Omie, preserva o JSON completo em sessão e testa o AlterarCliente mudando somente <code>inativo</code> para <code>S</code>.</p></div></div>
+     <div class="tdomie-lab-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-arrow-left"></i>Auditoria</a><?php if($original):?><form method="post" action="<?=APP_URL?>/omie-client-lab/clear"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-btn" type="submit"><i class="fa-solid fa-eraser"></i>Limpar teste</button></form><?php endif;?></div>
+    </header>
+
+    <div class="tdomie-lab-warning"><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Teste com efeito real na Omie</strong><p>A consulta não altera nada. O botão de alteração envia o cadastro completo retornado pela Omie e muda somente <b>inativo</b> para <b>S</b>. Esta página não altera nem exclui registros do CRM.</p></div></div>
+
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'info')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <section class="tdomie-lab-card">
+     <div class="tdomie-lab-card-head"><span>1</span><div><strong>Consultar cadastro completo</strong><small>Informe somente o código interno do cliente na Omie.</small></div></div>
+     <form class="tdomie-lab-form" method="post" action="<?=APP_URL?>/omie-client-lab/consult">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <label><span>Código cliente Omie</span><input class="form-control" name="codigo_cliente_omie" inputmode="numeric" pattern="[0-9]+" value="<?=e((string)($lab['code']??''))?>" placeholder="Ex.: 2512309115" required></label>
+      <button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-cloud-arrow-down"></i>ConsultarCliente</button>
+     </form>
+    </section>
+
+    <?php if($original):?>
+    <div class="tdomie-lab-summary">
+     <article><small>Código Omie</small><strong><?=e((string)($original['codigo_cliente_omie']??'—'))?></strong></article>
+     <article><small>Nome fantasia</small><strong><?=e((string)($original['nome_fantasia']??'—'))?></strong></article>
+     <article><small>CPF/CNPJ</small><strong><?=e((string)($original['cnpj_cpf']??'—'))?></strong></article>
+     <article><small>Inativo atual</small><strong class="<?=mb_strtoupper((string)($original['inativo']??''),'UTF-8')==='S'?'is-inactive':'is-active'?>"><?=e((string)($original['inativo']??'não informado'))?></strong></article>
+    </div>
+
+    <div class="tdomie-lab-json-grid">
+     <section class="tdomie-lab-json-card">
+      <header><div><span class="blue"><i class="fa-solid fa-download"></i></span><div><strong>1. Retorno original</strong><small>JSON completo de ConsultarCliente</small></div></div><b><?=count($original)?> campos raiz</b></header>
+      <pre><?=e((string)json_encode($original,$jsonFlags))?></pre>
+     </section>
+     <section class="tdomie-lab-json-card">
+      <header><div><span class="orange"><i class="fa-solid fa-arrow-right-arrow-left"></i></span><div><strong>2. Payload preparado</strong><small>Mesmo JSON, somente <code>inativo</code> alterado para <code>S</code></small></div></div><b><?=count($payload??[])?> campos raiz</b></header>
+      <pre><?=e((string)json_encode($payload,$jsonFlags))?></pre>
+     </section>
+    </div>
+
+    <section class="tdomie-lab-card danger-zone">
+     <div class="tdomie-lab-card-head"><span>2</span><div><strong>Executar AlterarCliente</strong><small>Este passo altera realmente o cadastro na Omie.</small></div></div>
+     <form class="tdomie-lab-confirm" method="post" action="<?=APP_URL?>/omie-client-lab/inactivate">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <input type="hidden" name="codigo_cliente_omie" value="<?=e((string)$lab['code'])?>">
+      <label><input type="checkbox" name="confirm" value="1" required><span>Confirmo que quero testar este cadastro específico e enviar o cadastro completo com <code>inativo = "S"</code>.</span></label>
+      <button class="tdc-btn tdc-btn-danger" type="submit"><i class="fa-solid fa-flask"></i>Enviar AlterarCliente agora</button>
+     </form>
+    </section>
+    <?php endif;?>
+
+    <?php if($alterResponse||$confirmed):?>
+    <div class="tdomie-lab-json-grid result">
+     <section class="tdomie-lab-json-card">
+      <header><div><span class="green"><i class="fa-solid fa-reply"></i></span><div><strong>3. Resposta do AlterarCliente</strong><small>Resposta direta recebida da Omie</small></div></div></header>
+      <pre><?=e((string)json_encode($alterResponse,$jsonFlags))?></pre>
+     </section>
+     <section class="tdomie-lab-json-card">
+      <header><div><span class="purple"><i class="fa-solid fa-magnifying-glass"></i></span><div><strong>4. Consulta após alteração</strong><small>ConsultarCliente executado logo após o teste</small></div></div><b>inativo = <?=e((string)($confirmed['inativo']??'—'))?></b></header>
+      <pre><?=e((string)json_encode($confirmed,$jsonFlags))?></pre>
+     </section>
+    </div>
+    <?php endif;?>
+   </section>
+  <?php break;
   case 'test_data':?>
    <section class="tdtest-page">
     <header class="tdtest-head"><div class="tdtest-head-main"><span class="tdtest-head-icon"><i class="fa-solid fa-flask"></i></span><div><span class="tdtest-kicker">SISTEMA / TESTE CONTROLADO</span><h1>Carga mínima da Omie</h1><p>Valide o fluxo com apenas 1 cliente e até 2 produtos, sem carregar toda a base.</p></div></div><a class="tdtest-btn" href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-cart-plus"></i>Ir para novo pedido</a></header>
