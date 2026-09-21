@@ -32,6 +32,13 @@ final class OmieClient {
   if($raw===false||$err)throw new RuntimeException('Falha de comunicação Omie: '.$err);
   $data=json_decode($raw,true);if(!is_array($data))throw new RuntimeException('Resposta inválida Omie HTTP '.$http.'.');
   if($http>=400||isset($data['faultstring']))throw new RuntimeException((string)($data['faultstring']??$data['message']??('Erro Omie HTTP '.$http)));
+  // Algumas operações da Omie retornam HTTP 200 mesmo quando o processamento falha.
+  // Nesses casos codigo_status/cCodigoStatus > 0 representa erro de negócio.
+  $statusRaw=$data['codigo_status']??$data['cCodigoStatus']??null;
+  if($statusRaw!==null&&$statusRaw!==''&&(string)$statusRaw!=='0'){
+   $description=(string)($data['descricao_status']??$data['cDesStatus']??$data['message']??('Erro Omie código '.$statusRaw));
+   throw new RuntimeException($description.' (Omie status '.$statusRaw.')');
+  }
   return $data;
  }
 }
@@ -1337,12 +1344,32 @@ final class ClientService {
   $omie=new OmieClient();$inactivated=[];
   foreach($activeSources as $source){
    $code=(string)$source['omie_code'];
-   $omie->call('clients','AlterarCliente',['codigo_cliente_omie'=>(int)$code,'inativo'=>'S']);
+
+   $change=$omie->call('clients','AlterarCliente',[
+    'codigo_cliente_omie'=>(int)$code,
+    'inativo'=>'S',
+   ]);
+
+   $changeStatus=(string)($change['codigo_status']??$change['cCodigoStatus']??'0');
+   if($changeStatus!=='0'){
+    $description=(string)($change['descricao_status']??$change['cDesStatus']??'A Omie recusou a alteração.');
+    throw new RuntimeException('Não foi possível inativar o código Omie '.$code.': '.$description);
+   }
+
+   // Verificação pontual por código. É uma operação diferente de ListarClientes e evita
+   // o bloqueio REDUNDANT da consulta por CPF/CNPJ.
+   $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
+   $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
+   $confirmedInactive=mb_strtoupper(trim((string)($confirmed['inativo']??'N')),'UTF-8');
+   if($confirmedCode!==$code||$confirmedInactive!=='S'){
+    throw new RuntimeException('A Omie não confirmou a inativação do código '.$code.'. O CRM não removeu este lote.');
+   }
+
    $inactivated[]=$source;
   }
 
-  // Não repete ListarClientes depois das alterações: a Omie bloqueia consultas idênticas
-  // por aproximadamente 60 segundos. Uma resposta sem fault de AlterarCliente confirma cada código.
+  // Não repete ListarClientes do CPF/CNPJ. Só os códigos efetivamente confirmados
+  // por ConsultarCliente entram como inativos e podem ser removidos localmente.
   $inactivatedCodes=array_map(static fn($source)=>(string)$source['omie_code'],$inactivated);
   $verifiedInactiveCodes=array_merge(
    $inactivatedCodes,
@@ -1433,9 +1460,14 @@ final class ClientService {
   }
 
   $omie=new OmieClient();
-  $omie->call('clients','AlterarCliente',['codigo_cliente_omie'=>(int)$code,'inativo'=>'S']);
+  $change=$omie->call('clients','AlterarCliente',['codigo_cliente_omie'=>(int)$code,'inativo'=>'S']);
+  $changeStatus=(string)($change['codigo_status']??$change['cCodigoStatus']??'0');
+  if($changeStatus!=='0'){
+   $description=(string)($change['descricao_status']??$change['cDesStatus']??'A Omie recusou a alteração.');
+   throw new RuntimeException('Não foi possível inativar o código Omie '.$code.': '.$description);
+  }
   $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
-  if(mb_strtoupper(trim((string)($confirmed['inativo']??'N')),'UTF-8')!=='S')throw new RuntimeException('A Omie não confirmou a inativação do cadastro '.$code.'. Nada foi removido do CRM.');
+  if((string)($confirmed['codigo_cliente_omie']??'')!==$code||mb_strtoupper(trim((string)($confirmed['inativo']??'N')),'UTF-8')!=='S')throw new RuntimeException('A Omie não confirmou a inativação do cadastro '.$code.'. Nada foi removido do CRM.');
 
   $result=self::deleteInactiveOmieBatchFromCrm([$id],(int)$target['id'],$u,[$code],$audit);
   $result['remote_action']='inactivated';
