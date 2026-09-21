@@ -615,6 +615,9 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  if($portfolioOnly&&$u['role']!=='seller'){redirect('/clients');}
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
+ $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
+ $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
+ if($portfolioOnly)$crmStatus='active';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
  $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
  $uf=count($clientUfs)===1?$clientUfs[0]:'';
@@ -624,6 +627,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
  $w=['c.active=1',$segmentSql];$p=$segmentParams;
+ if($crmStatus==='active')$w[]='c.crm_inactive=0';elseif($crmStatus==='inactive')$w[]='c.crm_inactive=1';
  if($u['role']==='seller'){
   if($portfolioOnly){$w[]='('.$effectiveSellerSql.')=?';$p[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
   elseif($clientScope==='unassigned')$w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
@@ -659,17 +663,18 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $rows=[]; // A tabela é carregada exclusivamente pela API server-side para evitar consulta duplicada.
  [$generalSql,$generalParams]=client_segment_filter('general','clients');
  $availableEffectiveSql=client_effective_seller_sql('clients',$portfolioMonth);
- $availableClients=$u['role']==='seller'?(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND ((".$availableEffectiveSql.") IS NULL OR TRIM((".$availableEffectiveSql."))='') AND ".$generalSql,$generalParams)??0):0;
+ $availableClients=$u['role']==='seller'?(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND ((".$availableEffectiveSql.") IS NULL OR TRIM((".$availableEffectiveSql."))='') AND ".$generalSql,$generalParams)??0):0;
  $virtualCodes=client_virtual_seller_codes();$realSellerSql=$virtualCodes?' AND omie_code NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'';
  $crmPortfolioCodes=ClientSegmentPolicy::crmPortfolioSellerCodes();$crmPortfolioSql=$crmPortfolioCodes?' AND omie_code IN ('.implode(',',array_fill(0,count($crmPortfolioCodes),'?')).')':' AND 1=0';
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
  $stateWhere='c.active=1 AND '.$stateSegmentSql;$stateParams=$stateSegmentParams;$stateEffectiveSql=client_effective_seller_sql('c',$portfolioMonth);
+ if($crmStatus==='active')$stateWhere.=' AND c.crm_inactive=0';elseif($crmStatus==='inactive')$stateWhere.=' AND c.crm_inactive=1';
  $statePortfolioJoin=" LEFT JOIN client_portfolio_assignments pa_state ON pa_state.client_id=c.id AND pa_state.month_ref='".$portfolioMonth."'";
  $stateEffectiveExpr="CASE WHEN pa_state.id IS NOT NULL THEN pa_state.seller_omie_code ELSE c.seller_omie_code END";
  $baseCounts=client_base_counts_cached();
  if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.$stateEffectiveSql.')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
  $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
- render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
+ render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
   'orders'=>(int)($summary['orders_12m']??0),
@@ -682,7 +687,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
   'from'=>$totalClients?($offset+1):0,'to'=>min($offset+$perPage,$totalClients),
  ],'baseCounts'=>$baseCounts,'portfolioSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".$crmPortfolioSql." ORDER BY name",$crmPortfolioCodes):[],
  'bulkSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
- 'portfolioSourceSellers'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE c.active=1 AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>''".($virtualCodes?' AND ('.$stateEffectiveExpr.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
+ 'portfolioSourceSellers'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE c.active=1 AND c.crm_inactive=0 AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>''".($virtualCodes?' AND ('.$stateEffectiveExpr.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
  'clientSellerFilters'=>DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE ".$stateWhereJoined." AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>'' ORDER BY active DESC,name",$stateParams),
  'portfolioStates'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams):[],
  'clientStates'=>DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams)
