@@ -1028,7 +1028,7 @@ $router->post('/clients/{id}/crm-status',function($p){
 });
 
 $router->get('/clients/{id}',function($p){
- Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
  $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
  if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&!empty($c['crm_inactive'])){http_response_code(404);exit('Cliente não encontrado.');}
@@ -1044,7 +1044,7 @@ $router->get('/clients/{id}',function($p){
  render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code'),'contactChannels'=>contact_channel_options('sales')]);
 });
 $router->post('/clients/{id}/activity',function($p){
- Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');
  if(!empty($c['crm_inactive'])){http_response_code(422);exit('Cliente inativo no CRM. Reative o cadastro antes de registrar novos atendimentos.');}
  $effectiveSeller=ClientPortfolioService::effectiveSellerCode($id);$unassigned=$effectiveSeller==='';if($u['role']==='seller'&&!$unassigned&&$effectiveSeller!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão para registrar atendimento fora da carteira efetiva do mês.');}
@@ -1547,7 +1547,7 @@ $router->post('/collection/recoveries',function(){
  }catch(Throwable $e){$_SESSION['collection_recovery_old']=$_POST;$_SESSION['collection_recovery_flash']=['type'=>'danger','message'=>$e->getMessage()];redirect('/collection/recoveries');}
 });
 $router->get('/collection/{id}',function($p){
- Auth::requireRole('admin','supervisor','collector');
+ Auth::requireRole('admin','supervisor','collector');ClientSegmentPolicy::ensureSchema();
  $id=(int)$p['id'];
  $c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,c.crm_inactive,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}
@@ -1579,7 +1579,7 @@ $router->post('/collection/{id}/assign',function($p){
  redirect('/collection/'.$id);
 });
 $router->post('/collection/{id}/action',function($p){
- Auth::requireRole('admin','supervisor','collector');CSRF::require($_POST['_token']??null);
+ Auth::requireRole('admin','supervisor','collector');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();
  $case=DB::one("SELECT cc.*,c.crm_inactive FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.client_id=?",[$id]);
  if(!$case){$_SESSION['collection_case_flash']=['type'=>'danger','message'=>'Cobrança inválida.'];redirect('/collection');}
@@ -1646,7 +1646,7 @@ $router->post('/collection/{id}/actions/delete',function($p){
 });
 
 $router->get('/agenda',function(){
- Auth::requireLogin();
+ Auth::requireLogin();ClientSegmentPolicy::ensureSchema();
  $u=Auth::user();$role=(string)$u['role'];$teamAgenda=in_array($role,['admin','supervisor'],true);
  $filterUser=$teamAgenda?max(0,(int)($_GET['user_id']??0)):(int)$u['id'];
  $agendaType=(string)($_GET['type']??'all');if(!in_array($agendaType,['all','sales','collection'],true))$agendaType='all';
@@ -1740,7 +1740,7 @@ $router->get('/agenda',function(){
  ]);
 });
 $router->get('/api/tasks/form-context',function(){
- Auth::requireLogin();$u=Auth::user();$role=(string)($u['role']??'');$context=$role==='collector'?'collection':'sales';$clientId=max(0,(int)($_GET['client_id']??0));$client=null;
+ Auth::requireLogin();ClientSegmentPolicy::ensureSchema();$u=Auth::user();$role=(string)($u['role']??'');$context=$role==='collector'?'collection':'sales';$clientId=max(0,(int)($_GET['client_id']??0));$client=null;
  if($clientId>0)$client=DB::one("SELECT id,name,document,city,uf FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
  if($role==='seller')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor'),name",[(int)$u['id']]);
  elseif($role==='collector')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'collector','supervisor'),name",[(int)$u['id']]);
@@ -1749,7 +1749,7 @@ $router->get('/api/tasks/form-context',function(){
  json_response(['ok'=>true,'current_user_id'=>(int)$u['id'],'role'=>$role,'default_context'=>$context,'users'=>$users,'types'=>task_type_catalog(),'client'=>$client]);
 });
 $router->post('/api/tasks',function(){
- Auth::requireLogin();CSRF::require($_POST['_token']??null);$u=Auth::user();$role=(string)($u['role']??'');
+ Auth::requireLogin();ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);$u=Auth::user();$role=(string)($u['role']??'');
  try{
   $clientId=max(0,(int)($_POST['client_id']??0));$assignedId=max(0,(int)($_POST['assigned_user_id']??0));
   $context=(string)($_POST['context']??($role==='collector'?'collection':'sales'));if(!in_array($context,['sales','collection'],true))$context='sales';
@@ -2567,7 +2567,7 @@ $router->get('/api/services/datatable',function(){
 
 
 $router->get('/api/collection/datatable',function(){
- Auth::requireRole('admin','supervisor','collector');
+ Auth::requireRole('admin','supervisor','collector');ClientSegmentPolicy::ensureSchema();
  $u=Auth::user();$draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(100,(int)($_GET['length']??10)));
  try{
   $view=(string)($_GET['view']??'open');if(!in_array($view,['open','settled'],true))$view='open';
