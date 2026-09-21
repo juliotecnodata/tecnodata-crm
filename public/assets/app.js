@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   const clientOmieModal=document.querySelector('[data-client-omie-modal]');
   const clientOmieOpeners=[...document.querySelectorAll('[data-client-omie-check]')];
-  let preferredOmieTargetId=0,openClientOmieAudit=null;
+  let preferredOmieTargetId=0,openClientOmieAudit=null,renderClientOmieAudit=null;
   if(clientOmieModal&&clientOmieOpeners.length){
     const body=clientOmieModal.querySelector('[data-client-omie-body]');
     const summary=clientOmieModal.querySelector('[data-client-omie-summary]');
@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded',()=>{
              '<div><small>Localização</small><strong>'+esc([item.city,item.uf].filter(Boolean).join(' / ')||'—')+'</strong></div>'+
             '</div>'+
             '<footer>'+localStatus(linked)+'<div class="tdc-omie-result-actions">'+
-              (linked?'<a href="'+(window.APP_URL||'')+'/clients/'+linkedId+'"><i class="fa-regular fa-folder-open"></i>Abrir '+esc(linked.name||'cadastro')+'</a>':'')+
+
               (!item.inactive&&linked?'<button type="button" class="tdc-omie-keep-target '+(principal?'selected':'')+'" data-client-omie-keep-target="'+linkedId+'"><i class="fa-solid '+(principal?'fa-circle-check':'fa-thumbtack')+'"></i>'+(principal?'Principal escolhido':'Manter este no CRM')+'</button>':'')+
               (item.inactive&&linked?'<button type="button" data-client-omie-delete="'+linkedId+'"><i class="fa-solid fa-trash-can"></i>Excluir só do CRM</button>':'')+
             '</div></footer>'+
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           const id=Number(item.id||0);
           html+='<div class="'+(deletable?'can-remove':'')+'"><span><strong>'+esc(item.name||'Cliente')+'</strong><small>'+esc(item.omie_code||'Sem código Omie')+'</small></span>'+
             (deletable?'<label class="tdc-omie-select missing"><input type="checkbox" data-client-omie-select-inactive="'+id+'" checked><span>Excluir do CRM</span></label>':localStatus(item))+
-            '<div class="tdc-omie-local-actions"><a href="'+(window.APP_URL||'')+'/clients/'+id+'">Abrir</a>'+
+            '<div class="tdc-omie-local-actions">'+
             (deletable?'<button type="button" data-client-omie-delete="'+id+'"><i class="fa-solid fa-trash-can"></i>Excluir só do CRM</button>':'')+
             '</div></div>';
         });
@@ -255,6 +255,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       body.innerHTML=html;
       summary.textContent=Number(audit?.remote_active_count||0)+' ativo(s) · '+Number(audit?.remote_inactive_count||0)+' inativo(s) na Omie';
     };
+    renderClientOmieAudit=render;
     const load=async(targetId=clientId)=>{
       clientId=Number(targetId||0);preferredOmieTargetId=0;selectedInactiveOmieIds=new Set();clientOmieModal.dataset.clientId=String(clientId);
       body.innerHTML='<div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie em tempo real...</span></div>';
@@ -354,11 +355,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(data.requires_target){
         button.disabled=false;button.innerHTML=previous;
         showNotice('warning','Escolha o cadastro que ficará',data.message||'Há mais de um cadastro ativo. Selecione qual deve permanecer no CRM.');
-        if(data.audit&&clientOmieModal){
+        if(data.audit&&clientOmieModal&&renderClientOmieAudit){
           clientOmieModal.dataset.clientId=String(targetId);
           if(!clientOmieModal.open)clientOmieModal.showModal();
-          const modalBody=clientOmieModal.querySelector('[data-client-omie-body]');
-          if(modalBody&&typeof render==='function')render(data.audit);
+          renderClientOmieAudit(data.audit);
         }
         return;
       }
