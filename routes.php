@@ -184,6 +184,17 @@ function contact_channel_label(string $code): string{
  foreach(contact_channel_catalog() as $item)if((string)$item['code']===$code)return (string)$item['label'];
  return $code!==''?$code:'Canal não informado';
 }
+function contact_channel_icon(string $code): string{
+ return match($code){
+  'whatsapp'=>'fa-brands fa-whatsapp',
+  'email'=>'fa-solid fa-envelope',
+  'presential'=>'fa-solid fa-user-group',
+  'video'=>'fa-solid fa-video',
+  'chat'=>'fa-solid fa-comments',
+  'manual'=>'fa-solid fa-file-pen',
+  default=>'fa-solid fa-phone'
+ };
+}
 function save_contact_channel_catalog(array $catalog): void{
  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('contact_channel_catalog',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(array_values($catalog),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
 }
@@ -423,7 +434,7 @@ function contact_monitoring_row_cells(array $row): array{
  }else $row['last_contact_flow']='sales';
  $nextDue=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):null;
  $nextClass=$nextDue&&$nextDue<time()?'late':($nextDue&&date('Y-m-d',$nextDue)===date('Y-m-d')?'today':'upcoming');
- $channelIcon=($row['last_channel']??'')==='whatsapp'?'fa-brands fa-whatsapp':(($row['last_channel']??'')==='email'?'fa-solid fa-envelope':(($row['last_contact_flow']??'sales')==='collection'?'fa-solid fa-hand-holding-dollar':'fa-solid fa-phone'));
+ $channelIcon=contact_channel_icon((string)($row['last_channel']??''));
  $defaultResponsible=(int)($row['next_user_id']??0);if($defaultResponsible<=0)$defaultResponsible=(int)((($row['last_contact_flow']??'sales')==='collection'?($row['collection_user_id']??0):($row['portfolio_user_id']??0)));if($defaultResponsible<=0)$defaultResponsible=(int)($row['collection_user_id']??$row['portfolio_user_id']??0);
  $schedulePayload=['client_id'=>(int)$row['id'],'client_name'=>(string)$row['name'],'task_id'=>(int)($row['next_task_id']??0),'assigned_user_id'=>$defaultResponsible,'title'=>(string)($row['next_title']??'Próximo contato'),'due_at'=>$nextDue?date('Y-m-d\TH:i',$nextDue):''];
  $lastTs=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):null;$daysWithout=$lastTs?(int)floor((time()-$lastTs)/86400):null;
@@ -1964,10 +1975,16 @@ $router->post('/settings/contact-channels',function(){
 });
 $router->post('/settings/contact-channels/{code}/toggle',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
- $code=(string)($p['code']??'');$catalog=contact_channel_catalog();$found=false;
- foreach($catalog as &$item)if((string)$item['code']===$code){$item['active']=empty($item['active']);$found=true;break;}unset($item);
- if($found){save_contact_channel_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Disponibilidade do canal atualizada.'];}
- else $_SESSION['settings_flash']=['type'=>'danger','message'=>'Canal não encontrado.'];
+ $code=(string)($p['code']??'');$catalog=contact_channel_catalog();$found=false;$turningOff=false;
+ foreach($catalog as &$item)if((string)$item['code']===$code){$turningOff=!empty($item['active']);$item['active']=empty($item['active']);$found=true;break;}unset($item);
+ if(!$found){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Canal não encontrado.'];redirect('/settings#contact-channels');}
+ if($turningOff){
+  foreach(['sales'=>'Comercial','collection'=>'Cobrança'] as $context=>$label){
+   $active=array_filter($catalog,static fn($item)=>!empty($item['active'])&&in_array($context,(array)($item['contexts']??[]),true));
+   if(!$active){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Mantenha pelo menos um canal ativo para '.$label.'.'];redirect('/settings#contact-channels');}
+  }
+ }
+ save_contact_channel_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Disponibilidade do canal atualizada.'];
  redirect('/settings#contact-channels');
 });
 
