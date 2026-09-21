@@ -778,6 +778,13 @@ final class ClientService {
    if(!array_key_exists($field,$remoteRow))continue;
    $value=$remoteRow[$field];
    if($value===null)continue;
+
+   // A Omie valida vários campos opcionais mesmo quando chegam vazios.
+   // Como esta rotina só precisa alterar o status, valores vazios são omitidos
+   // para preservar o cadastro remoto sem provocar validações como tipo_atividade="".
+   if(is_string($value)&&trim($value)==='')continue;
+   if(is_array($value)&&$value===[])continue;
+
    $payload[$field]=$value;
   }
   $payload['inativo']=$inactive;
