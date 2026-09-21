@@ -528,6 +528,7 @@ function render(string $name,array $vars=[]): void{
      <a class="<?=$clientSegment==='supplier'&&$crmStatus==='active'?'active':''?> operational supplier" href="<?=APP_URL?>/clients?segment=supplier"><i class="fa-solid fa-boxes-packing"></i><span><strong>Fornecedores</strong><small><?=number_format((int)($baseCounts['supplier']??0),0,',','.')?> ativos</small></span></a>
      <a class="<?=$clientSegment==='carrier'&&$crmStatus==='active'?'active':''?> operational carrier" href="<?=APP_URL?>/clients?segment=carrier"><i class="fa-solid fa-truck-fast"></i><span><strong>Transportadoras</strong><small><?=number_format((int)($baseCounts['carrier']??0),0,',','.')?> ativos</small></span></a>
      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Sincronização</strong><small>Pendências e envios</small></span></a>
+     <a href="<?=APP_URL?>/clients-duplicates"><i class="fa-solid fa-clone"></i><span><strong>Duplicados</strong><small>Conferir e corrigir</small></span></a>
      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-user-shield"></i><span><strong>Auditoria</strong><small>Qualidade e consistência</small></span></a>
     </nav>
     <?php endif;?>
