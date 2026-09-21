@@ -693,11 +693,128 @@ final class ClientService {
   return self::selectOmieClientByDocument($rows,$document,$expectedOmieCode);
  }
 
+
+ public static function inspectOmieDocument(int $clientId): array{
+  ClientSegmentPolicy::ensureSchema();
+  $current=DB::one("SELECT id,omie_code,name,legal_name,document,email,active,crm_inactive FROM clients WHERE id=?",[$clientId]);
+  if(!$current)throw new RuntimeException('Cliente não encontrado.');
+  $document=preg_replace('/\D+/','',(string)($current['document']??''));
+  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('O cliente não possui CPF/CNPJ válido para consultar na Omie.');
+
+  $omie=new OmieClient();$rows=[];
+  try{
+   $data=$omie->call('clients','ListarClientes',[
+    'pagina'=>1,'registros_por_pagina'=>100,'apenas_importado_api'=>'N','exibir_caracteristicas'=>'S','exibir_obs'=>'S',
+    'clientesFiltro'=>['cnpj_cpf'=>$document],
+   ]);
+   foreach((array)($data['clientes_cadastro']??[]) as $row){
+    if(!is_array($row))continue;
+    if(preg_replace('/\D+/','',(string)($row['cnpj_cpf']??''))!==$document)continue;
+    $rows[]=$row;
+   }
+  }catch(Throwable $e){
+   $message=mb_strtolower($e->getMessage(),'UTF-8');
+   if(!(str_contains($message,'5113')||str_contains($message,'não existem registros para a página')||str_contains($message,'nao existem registros para a pagina')))throw $e;
+  }
+
+  $locals=DB::all("SELECT id,omie_code,name,legal_name,document,email,active,crm_inactive,updated_at
+                    FROM clients
+                    WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=?
+                    ORDER BY active DESC,crm_inactive ASC,id",[$document]);
+  $localByCode=[];foreach($locals as $local){$code=trim((string)($local['omie_code']??''));if($code!=='')$localByCode[$code]=$local;}
+
+  $remote=[];
+  foreach($rows as $row){
+   $code=trim((string)($row['codigo_cliente_omie']??$row['codigo_cliente']??''));
+   $inactive=mb_strtoupper(trim((string)($row['inativo']??'N')),'UTF-8')==='S';
+   $local=$localByCode[$code]??null;
+   $remote[]=[
+    'omie_code'=>$code,
+    'name'=>(string)($row['nome_fantasia']??$row['razao_social']??('Cliente Omie '.$code)),
+    'legal_name'=>(string)($row['razao_social']??''),
+    'document'=>(string)($row['cnpj_cpf']??''),
+    'email'=>(string)($row['email']??''),
+    'city'=>(string)($row['cidade']??''),
+    'uf'=>(string)($row['estado']??''),
+    'inactive'=>$inactive,
+    'status_label'=>$inactive?'Inativo na Omie':'Ativo na Omie',
+    'seller_code'=>trim((string)($row['codigo_vendedor']??($row['recomendacoes']['codigo_vendedor']??''))),
+    'is_current_code'=>$code!==''&&$code===(string)$current['omie_code'],
+    'local'=>$local?[
+      'id'=>(int)$local['id'],'name'=>(string)$local['name'],'active'=>(bool)$local['active'],
+      'crm_inactive'=>(bool)$local['crm_inactive'],'is_current'=>(int)$local['id']===$clientId,
+    ]:null,
+   ];
+  }
+  usort($remote,static function($a,$b){
+   if($a['inactive']!==$b['inactive'])return $a['inactive']?1:-1;
+   return strcmp((string)$a['omie_code'],(string)$b['omie_code']);
+  });
+
+  $localRows=array_map(static fn($local)=>[
+   'id'=>(int)$local['id'],'omie_code'=>(string)$local['omie_code'],'name'=>(string)$local['name'],
+   'active'=>(bool)$local['active'],'crm_inactive'=>(bool)$local['crm_inactive'],
+   'is_current'=>(int)$local['id']===$clientId,
+  ],$locals);
+
+  return [
+   'client'=>['id'=>(int)$current['id'],'omie_code'=>(string)$current['omie_code'],'name'=>(string)$current['name'],'document'=>(string)$current['document']],
+   'document'=>$document,
+   'remote'=>$remote,
+   'local'=>$localRows,
+   'remote_active_count'=>count(array_filter($remote,static fn($row)=>empty($row['inactive']))),
+   'remote_inactive_count'=>count(array_filter($remote,static fn($row)=>!empty($row['inactive']))),
+  ];
+ }
+
+ public static function reconcileOmieDocument(int $clientId,array $user): array{
+  $audit=self::inspectOmieDocument($clientId);
+  if(!$audit['remote'])throw new RuntimeException('Nenhum cadastro com este CPF/CNPJ foi localizado na Omie. Nenhum status local foi alterado.');
+  $remoteByCode=[];foreach($audit['remote'] as $remote)$remoteByCode[(string)$remote['omie_code']]=$remote;
+  $changed=[];$unchanged=[];
+
+  foreach($audit['local'] as $local){
+   $code=trim((string)$local['omie_code']);
+   if($code===''||str_starts_with($code,'LOCAL-')||!isset($remoteByCode[$code])){$unchanged[]=$local;continue;}
+   $remote=$remoteByCode[$code];$nextActive=empty($remote['inactive'])?1:0;
+   $db=DB::one("SELECT id,active,raw_json FROM clients WHERE id=?",[(int)$local['id']]);if(!$db)continue;
+   $raw=json_decode((string)($db['raw_json']??''),true);if(!is_array($raw))$raw=[];
+   $raw['remote_snapshot_status_check']=[
+    'checked_at'=>date('Y-m-d H:i:s'),'checked_by'=>(int)($user['id']??0),
+    'omie_code'=>$code,'inativo'=>!empty($remote['inactive'])?'S':'N'
+   ];
+   $raw['remote_inactive']=!empty($remote['inactive']);
+   if(!$nextActive)$raw['omie_status']='inactive_remote';
+   elseif(($raw['omie_status']??'')==='inactive_remote')$raw['omie_status']='linked';
+   DB::exec("UPDATE clients SET active=?,raw_json=?,updated_at=NOW() WHERE id=?",[
+    $nextActive,json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$local['id']
+   ]);
+   $changed[]=['id'=>(int)$local['id'],'name'=>(string)$local['name'],'omie_code'=>$code,'active'=>(bool)$nextActive,'remote_inactive'=>!empty($remote['inactive'])];
+  }
+  client_cache_invalidate();
+
+  $document=(string)$audit['document'];
+  $remaining=DB::all("SELECT id,omie_code,name,active,crm_inactive FROM clients
+                      WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 AND crm_inactive=0
+                      ORDER BY id",[$document]);
+
+  return [
+   'audit'=>self::inspectOmieDocument($clientId),
+   'changed'=>$changed,
+   'unchanged'=>$unchanged,
+   'remaining_operational'=>$remaining,
+   'resolved'=>count($remaining)<=1,
+   'message'=>count($remaining)<=1
+    ?'Situação da Omie aplicada ao CRM. Cadastros inativos na Omie deixaram de interferir nas validações e na operação.'
+    :'A situação da Omie foi aplicada, mas ainda existem '.count($remaining).' cadastros operacionais com o mesmo CPF/CNPJ. Revise os registros indicados antes de editar.',
+  ];
+ }
+
  public static function createLocal(array $i,array $u): array{
   ClientSegmentPolicy::ensureSchema();
   $built=self::buildOmiePreview($i,$u);
   $document=(string)$built['summary']['document'];
-  $existing=DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 LIMIT 1",[$document]);
+  $existing=DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 AND crm_inactive=0 LIMIT 1",[$document]);
   if($existing)throw new RuntimeException('Este CPF/CNPJ já existe no CRM como cliente "'.$existing['name'].'".');
 
   $p=$built['payload'];
@@ -812,7 +929,7 @@ final class ClientService {
   ClientSegmentPolicy::ensureSchema();
   $built=self::buildOmiePreview($i,$u);
   $document=(string)$built['summary']['document'];
-  $existing=$document!==''?DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? LIMIT 1",[$document]):null;
+  $existing=$document!==''?DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 AND crm_inactive=0 LIMIT 1",[$document]):null;
   if($existing)throw new RuntimeException('Este CPF/CNPJ já existe no CRM como cliente "'.$existing['name'].'".');
 
   // Confirma também diretamente na Omie. A base local pode estar desatualizada entre sincronizações.
@@ -885,8 +1002,8 @@ final class ClientService {
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   $requestedSeller=trim((string)($i['seller_omie_code']??$client['seller_omie_code']??''));
   $built=self::buildOmiePreview($i,$u,$requestedSeller);
-  $duplicate=DB::one("SELECT id,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND id<>? AND active=1 LIMIT 1",[(string)$built['summary']['document'],$id]);
-  if($duplicate)throw new RuntimeException('Este CPF/CNPJ já pertence ao cliente "'.$duplicate['name'].'".');
+  $duplicate=DB::one("SELECT id,name,omie_code FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND id<>? AND active=1 AND crm_inactive=0 LIMIT 1",[(string)$built['summary']['document'],$id]);
+  if($duplicate)throw new RuntimeException('Este CPF/CNPJ já pertence ao cliente "'.$duplicate['name'].'" (Omie '.$duplicate['omie_code'].'). Use “Consultar Omie” na ficha do cliente para verificar qual cadastro está ativo ou inativo antes de continuar.');
 
   $p=$built['payload'];
   $name=(string)($p['nome_fantasia']??$p['razao_social']??$client['name']);
