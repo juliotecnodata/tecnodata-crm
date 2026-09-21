@@ -167,12 +167,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   window.appNotify=showNotice;
 
   const clientOmieModal=document.querySelector('[data-client-omie-modal]');
-  const clientOmieOpen=document.querySelector('[data-client-omie-check]');
-  if(clientOmieModal&&clientOmieOpen){
+  const clientOmieOpeners=[...document.querySelectorAll('[data-client-omie-check]')];
+  if(clientOmieModal&&clientOmieOpeners.length){
     const body=clientOmieModal.querySelector('[data-client-omie-body]');
     const summary=clientOmieModal.querySelector('[data-client-omie-summary]');
     const reconcile=clientOmieModal.querySelector('[data-client-omie-reconcile]');
-    const clientId=Number(clientOmieModal.dataset.clientId||clientOmieOpen.dataset.clientId||0);
+    let clientId=Number(clientOmieModal.dataset.clientId||clientOmieOpeners[0]?.dataset.clientId||0);
     const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
     const localStatus=local=>{
       if(!local)return '<span class="tdc-omie-local none">Não vinculado no CRM</span>';
@@ -223,9 +223,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       summary.textContent=Number(audit?.remote_active_count||0)+' ativo(s) · '+Number(audit?.remote_inactive_count||0)+' inativo(s) na Omie';
       reconcile.disabled=remote.length===0;
     };
-    const load=async()=>{
+    const load=async(targetId=clientId)=>{
+      clientId=Number(targetId||0);clientOmieModal.dataset.clientId=String(clientId);
       body.innerHTML='<div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie em tempo real...</span></div>';
       summary.textContent='';reconcile.disabled=true;
+      if(!clientId){body.innerHTML='<div class="tdc-omie-empty error"><i class="fa-solid fa-triangle-exclamation"></i><strong>Cliente não identificado</strong><p>Não foi possível determinar qual cadastro consultar.</p></div>';return;}
       try{
         const response=await fetch((window.APP_URL||'')+'/api/clients/'+clientId+'/omie-check',{headers:{'Accept':'application/json'}});
         const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida da Omie.'}));
@@ -237,7 +239,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         showNotice('danger','Consulta Omie não concluída',error.message||'Tente novamente.');
       }
     };
-    clientOmieOpen.addEventListener('click',()=>{clientOmieModal.showModal();load();});
+    clientOmieOpeners.forEach(button=>button.addEventListener('click',()=>{
+      const targetId=Number(button.dataset.clientId||button.dataset.clientOmieCheck||clientId||0);
+      clientOmieModal.showModal();load(targetId);
+    }));
     clientOmieModal.querySelectorAll('[data-client-omie-close]').forEach(button=>button.addEventListener('click',()=>clientOmieModal.close()));
     clientOmieModal.addEventListener('click',event=>{if(event.target===clientOmieModal)clientOmieModal.close();});
     reconcile.addEventListener('click',async()=>{
