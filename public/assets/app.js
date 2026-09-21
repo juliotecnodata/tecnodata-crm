@@ -198,13 +198,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       selectedInactiveOmieIds=new Set(removableLinked);
       selectedActiveOmieIds=new Set([...selectedActiveOmieIds].filter(id=>activeLinked.includes(id)&&id!==preferredOmieTargetId));
       if(batchDelete){batchDelete.disabled=removableLinked.length===0;batchDelete.innerHTML='<i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM'+(removableLinked.length?' ('+removableLinked.length+')':'');}
-      if(batchInactivate){const count=selectedActiveOmieIds.size;batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-circle-check"></i>Conferir Omie + concluir'+(count?' ('+count+')':'');}
+      if(batchInactivate){const count=selectedActiveOmieIds.size;batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-user-slash"></i>Inativar selecionados + excluir CRM'+(count?' ('+count+')':'');}
       let html='<section class="tdc-omie-document"><span>CPF / CNPJ consultado</span><strong>'+esc(audit?.client?.document||audit?.document||'—')+'</strong><small>'+remote.length+' cadastro(s) retornado(s) pela Omie</small></section>';
       if(removableLinked.length){
         html+='<section class="tdc-omie-batchbar"><label><input type="checkbox" data-client-omie-select-all checked><span>Selecionar todos para limpeza</span></label><strong>'+removableLinked.length+' selecionado(s)</strong><small>Inclui cadastros inativos e também códigos locais que não foram encontrados na Omie. Todos serão processados em uma única chamada.</small></section>';
       }
       if(activeLinked.length>1){
-        html+='<section class="tdc-omie-batchbar tdc-omie-inactivatebar"><div><i class="fa-solid fa-list-check"></i><span><b>Prepare a limpeza com segurança</b><small>Marque abaixo os códigos que você pretende remover. Inative esses mesmos registros em lote no Omie e depois clique em “Conferir Omie + concluir”. O CRM não tenta mais alterar o status pela API.</small></span></div><strong>'+selectedActiveOmieIds.size+' marcado(s)</strong></section>';
+        html+='<section class="tdc-omie-batchbar tdc-omie-inactivatebar"><div><i class="fa-solid fa-list-check"></i><span><b>Monte o lote antes de enviar</b><small>Escolha o cadastro principal e marque todos os demais que deverão ser inativados. O CRM só envia as alterações depois do clique final.</small></span></div><strong>'+selectedActiveOmieIds.size+' marcado(s)</strong></section>';
       }
       if(remote.length){
         html+='<div class="tdc-omie-results">';
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           html+='<article class="tdc-omie-result '+status+(item.is_current_code?' current':'')+'">'+
             '<header><div><span class="tdc-omie-status '+status+'"><i class="fa-solid '+(item.inactive?'fa-circle-xmark':'fa-circle-check')+'"></i>'+esc(item.status_label)+'</span>'+(item.is_current_code?'<b>Cadastro desta ficha</b>':'')+
             (item.inactive&&linked?'<label class="tdc-omie-select"><input type="checkbox" data-client-omie-select-inactive="'+linkedId+'" checked><span>Selecionado</span></label>':'')+
-            (canStageDeactivate?'<label class="tdc-omie-select deactivate"><input type="checkbox" data-client-omie-select-deactivate="'+linkedId+'" '+(principal?'disabled ':'')+(staged?'checked ':'')+'><span>'+(principal?'Principal protegido':(staged?'Marcado para conferir':'Marcar para conferir'))+'</span></label>':'')+
+            (canStageDeactivate?'<label class="tdc-omie-select deactivate"><input type="checkbox" data-client-omie-select-deactivate="'+linkedId+'" '+(principal?'disabled ':'')+(staged?'checked ':'')+'><span>'+(principal?'Principal protegido':(staged?'Marcado para inativar':'Marcar para inativar'))+'</span></label>':'')+
             '</div><strong>Omie '+esc(item.omie_code||'—')+'</strong></header>'+
             '<div class="tdc-omie-result-grid">'+
              '<div><small>Nome fantasia</small><strong>'+esc(item.name||'—')+'</strong></div>'+
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         html+='</section>';
       }
       if(Number(audit?.remote_active_count||0)>1){
-        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>Escolha qual deve permanecer, marque os demais, inative-os em lote no Omie e use o botão de conferência para concluir a limpeza no CRM.</p></div></div>';
+        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>Escolha qual deve permanecer, marque todos os demais e envie o lote pelo CRM. O principal fica ativo; somente os selecionados serão inativados.</p></div></div>';
       }
       body.innerHTML=html;
       summary.textContent=Number(audit?.remote_active_count||0)+' ativo(s) · '+Number(audit?.remote_inactive_count||0)+' inativo(s) na Omie';
@@ -294,20 +294,20 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(protectedRow)input.checked=false;
         input.disabled=protectedRow;
         const label=input.closest('label')?.querySelector('span');
-        if(label)label.textContent=protectedRow?'Principal protegido':(input.checked?'Marcado para conferir':'Marcar para conferir');
+        if(label)label.textContent=protectedRow?'Principal protegido':(input.checked?'Marcado para inativar':'Marcar para inativar');
       });
-      if(batchInactivate){const count=selectedActiveOmieIds.size;batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-circle-check"></i>Conferir Omie + concluir'+(count?' ('+count+')':'');}
-      showNotice('success','Cadastro principal definido','Agora marque os códigos que serão removidos, inative-os em lote no Omie e depois faça a conferência final pelo CRM.');
+      if(batchInactivate){const count=selectedActiveOmieIds.size;batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-user-slash"></i>Inativar selecionados + excluir CRM'+(count?' ('+count+')':'');}
+      showNotice('success','Cadastro principal definido','Agora marque todos os códigos que serão inativados e envie o lote pelo CRM.');
     });
     body.addEventListener('change',event=>{
       const deactivate=event.target.closest?.('[data-client-omie-select-deactivate]');
       if(deactivate){
         const id=Number(deactivate.dataset.clientOmieSelectDeactivate||0);
         if(deactivate.checked)selectedActiveOmieIds.add(id);else selectedActiveOmieIds.delete(id);
-        const label=deactivate.closest('label')?.querySelector('span');if(label)label.textContent=deactivate.checked?'Marcado para conferir':'Marcar para conferir';
+        const label=deactivate.closest('label')?.querySelector('span');if(label)label.textContent=deactivate.checked?'Marcado para inativar':'Marcar para inativar';
         const count=selectedActiveOmieIds.size;
         const barCount=body.querySelector('.tdc-omie-inactivatebar>strong');if(barCount)barCount.textContent=count+' marcado(s)';
-        if(batchInactivate){batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-circle-check"></i>Conferir Omie + concluir'+(count?' ('+count+')':'');}
+        if(batchInactivate){batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-user-slash"></i>Inativar selecionados + excluir CRM'+(count?' ('+count+')':'');}
         return;
       }
       const item=event.target.closest?.('[data-client-omie-select-inactive]');
@@ -358,8 +358,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     batchInactivate?.addEventListener('click',async()=>{
       const ids=[...selectedActiveOmieIds].filter(Boolean);
       if(!ids.length)return;
-      if(!window.confirm('Conferir '+ids.length+' cadastro(s) marcados? O CRM NÃO altera mais o status na Omie. Ele apenas verifica cada código e remove do CRM somente aqueles que já estiverem inativos na Omie, preservando o cadastro principal.'))return;
-      const previous=batchInactivate.innerHTML;batchInactivate.disabled=true;batchInactivate.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Conferindo Omie...';
+      if(!window.confirm('Inativar na Omie e remover do CRM '+ids.length+' cadastro(s) selecionado(s)? O cadastro principal escolhido permanecerá ativo. O CRM só removerá localmente os códigos cuja inativação for confirmada pela Omie.'))return;
+      const previous=batchInactivate.innerHTML;batchInactivate.disabled=true;batchInactivate.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Inativando lote...';
       try{
         const payload=new URLSearchParams({_token:String(clientOmieModal.dataset.csrf||window.CSRF||'')});
         ids.forEach(id=>payload.append('source_ids[]',String(id)));
@@ -373,18 +373,12 @@ document.addEventListener('DOMContentLoaded',()=>{
           if(data.audit)render(data.audit);
           return;
         }
-        if(data.requires_manual_omie){
-          batchInactivate.disabled=false;
-          batchInactivate.innerHTML='<i class="fa-solid fa-arrows-rotate"></i>Conferir novamente ('+ids.length+')';
-          showNotice('warning','Ainda há cadastros ativos na Omie',data.message||'Inative os selecionados em lote no Omie e faça a conferência novamente.',14000);
-          return;
-        }
-        showNotice('success','Conferência concluída',data.message||ids.length+' cadastro(s) conferido(s) e tratados.');
+        showNotice('success','Lote concluído',data.message||ids.length+' cadastro(s) processado(s).');
         batchInactivate.innerHTML='<i class="fa-solid fa-check"></i>'+Number(data.removed_count||ids.length)+' processado(s)';
         setTimeout(()=>{location.href=data.redirect||(window.APP_URL||'')+'/clients-duplicates';},650);
       }catch(error){
         batchInactivate.disabled=false;batchInactivate.innerHTML=previous;
-        showNotice('danger','Não foi possível concluir a conferência',error.message||'Tente novamente.');
+        showNotice('danger','Não foi possível processar o lote',error.message||'Tente novamente.');
       }
     });
 
