@@ -1365,60 +1365,59 @@ final class ClientService {
    throw new RuntimeException('O lote removeria todos os cadastros ativos deste CPF/CNPJ. Deixe pelo menos um cadastro ativo fora da seleção para permanecer como principal.');
   }
 
-  $omie=new OmieClient();$inactivated=[];
-  $rawRemoteByCode=self::rawOmieRowsByCode($document);
-  $upsertBatch=[];
-  foreach($activeSources as $source){
+  // A API pública da Omie expõe o campo "inativo", porém a alteração de situação
+  // não é efetivada de forma confiável pelos métodos de cadastro. Não tentamos mais escrever
+  // esse status pela API. O operador inativa em lote na própria Omie e o CRM apenas confirma.
+  $omie=new OmieClient();$verifiedInactiveCodes=[];$freshInactive=[];$stillActive=[];$missingNow=[];
+
+  if($target){
+   $targetRemote=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$target['omie_code']]);
+   $targetInactive=mb_strtoupper(trim((string)($targetRemote['inativo']??'')),'UTF-8');
+   if($targetInactive==='S'){
+    throw new RuntimeException('O cadastro principal escolhido (Omie '.$target['omie_code'].') está inativo. Escolha outro cadastro ativo para permanecer.');
+   }
+  }
+
+  foreach($sources as $source){
    $code=(string)$source['omie_code'];
-   $remoteRow=$rawRemoteByCode[$code]??[];
-   if(!$remoteRow){
-    throw new RuntimeException('Não foi possível montar o cadastro Omie completo do código '.$code.'. Consulte novamente o CPF/CNPJ antes de processar o lote.');
+   try{
+    $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
+    $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
+    $confirmedInactive=mb_strtoupper(trim((string)($confirmed['inativo']??'')),'UTF-8');
+    if($confirmedCode!==$code){
+     $stillActive[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name'],'status'=>'Código retornado não corresponde'];
+     continue;
+    }
+    if($confirmedInactive==='S'){
+     $verifiedInactiveCodes[]=$code;
+     $freshInactive[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name']];
+     self::markCachedOmieDocumentInactive($document,[$code]);
+    }else{
+     $stillActive[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name'],'status'=>$confirmedInactive!==''?$confirmedInactive:'N'];
+    }
+   }catch(Throwable $e){
+    $message=mb_strtolower($e->getMessage(),'UTF-8');
+    if(str_contains($message,'5113')||str_contains($message,'não encontrado')||str_contains($message,'nao encontrado')){
+     $missingNow[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name']];
+     continue;
+    }
+    throw $e;
    }
-   $upsertBatch[]=self::omieClientCoreUpdatePayload($remoteRow,$code,'S');
   }
 
-  if($upsertBatch){
-   // A documentação atual da Omie recomenda UpsertCliente para alterações.
-   // Para o fluxo em massa usamos o método nativo de lote: uma única chamada de gravação.
-   $batchResponse=$omie->call('clients','UpsertClientesPorLote',[
-    'lote'=>1,
-    'clientes_cadastro'=>$upsertBatch,
-   ]);
-   $batchStatus=(string)($batchResponse['codigo_status']??$batchResponse['cCodigoStatus']??'0');
-   if($batchStatus!=='0'){
-    $description=(string)($batchResponse['descricao_status']??$batchResponse['cDesStatus']??'A Omie recusou o lote.');
-    throw new RuntimeException('A Omie não processou o lote de inativação: '.$description);
-   }
+  if($stillActive){
+   $codes=implode(', ',array_map(static fn($row)=>(string)$row['omie_code'],$stillActive));
+   return [
+    'status'=>'manual_omie_inactivation_required',
+    'requires_manual_omie'=>true,
+    'requires_target'=>false,
+    'audit'=>$audit,
+    'selected_ids'=>$sourceIds,
+    'pending'=>$stillActive,
+    'confirmed_inactive'=>$freshInactive,
+    'message'=>'Ainda ativo(s) na Omie: '.$codes.'. Inative esses cadastros em lote na tela de Clientes/Fornecedores do Omie e depois clique em “Conferir Omie + concluir” novamente. Nenhum registro foi removido do CRM.',
+   ];
   }
-
-  foreach($activeSources as $source){
-   $code=(string)$source['omie_code'];
-
-   // Confere cada código depois do único envio de gravação. Só o que voltar inativo=S
-   // poderá ser removido do CRM.
-   $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
-   $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
-   $confirmedInactive=mb_strtoupper(trim((string)($confirmed['inativo']??'')),'UTF-8');
-   if($confirmedCode!==$code||$confirmedInactive!=='S'){
-    $statusShown=$confirmedInactive!==''?$confirmedInactive:'não retornado';
-    throw new RuntimeException(
-     'O UpsertClientesPorLote foi enviado, mas o código Omie '.$code
-     .' retornou inativo='.$statusShown
-     .' na conferência. O CRM não removeu este lote.'
-    );
-   }
-
-   self::markCachedOmieDocumentInactive($document,[$code]);
-   $inactivated[]=$source;
-  }
-
-  // Não repete ListarClientes do CPF/CNPJ. Só os códigos efetivamente confirmados
-  // por ConsultarCliente entram como inativos e podem ser removidos localmente.
-  $inactivatedCodes=array_map(static fn($source)=>(string)$source['omie_code'],$inactivated);
-  $verifiedInactiveCodes=array_merge(
-   $inactivatedCodes,
-   array_map(static fn($source)=>(string)$source['omie_code'],$alreadyInactive)
-  );
 
   $result=self::deleteInactiveOmieBatchFromCrm(
    $sourceIds,
@@ -1429,18 +1428,13 @@ final class ClientService {
   );
   if(!empty($result['requires_target']))return $result;
 
-  $result['status']='omie_batch_inactivated_and_removed';
-  $result['remote_action']='batch';
-  $result['omie_inactivated']=$inactivated;
-  $result['omie_inactivated_count']=count($inactivated);
-  $result['already_inactive']=$alreadyInactive;
-  $result['already_inactive_count']=count($alreadyInactive);
+  $result['status']='omie_manual_batch_confirmed_and_removed';
+  $result['remote_action']='verified_only';
+  $result['confirmed_inactive']=$freshInactive;
+  $result['confirmed_inactive_count']=count($freshInactive);
   $result['not_found_before_processing']=$notFound;
-  $result['message']=count($sourceIds).' cadastro(s) processado(s) em um único envio do CRM: '
-   .count($inactivated).' inativado(s) na Omie, '
-   .count($alreadyInactive).' já estava(m) inativo(s) e '
-   .count($notFound).' não foi/foram encontrado(s) na Omie. '
-   .'Os registros selecionados foram removidos somente do CRM após a conferência final.';
+  $result['not_found_now']=$missingNow;
+  $result['message']=count($sourceIds).' cadastro(s) conferido(s). Todos os códigos selecionados estavam inativos ou não existiam mais na Omie; os registros foram removidos somente do CRM e o histórico foi preservado/consolidado conforme o cadastro principal.';
   return $result;
  }
 
