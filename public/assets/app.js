@@ -187,15 +187,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       const remote=Array.isArray(audit?.remote)?audit.remote:[];
       const locals=Array.isArray(audit?.local)?audit.local:[];
       const activeLinked=remote.filter(item=>!item.inactive&&item.local).map(item=>Number(item.local.id||0)).filter(Boolean);
-      const inactiveLinked=remote.filter(item=>item.inactive&&item.local).map(item=>Number(item.local.id||0)).filter(Boolean);
-      if(!activeLinked.includes(preferredOmieTargetId))preferredOmieTargetId=activeLinked.length===1?activeLinked[0]:0;
-      selectedInactiveOmieIds=new Set(inactiveLinked);
-      if(batchDelete){batchDelete.disabled=inactiveLinked.length===0;batchDelete.innerHTML='<i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM'+(inactiveLinked.length?' ('+inactiveLinked.length+')':'');}
       const remoteCodes=new Set(remote.map(item=>String(item.omie_code||'')));
       const localOnly=locals.filter(item=>!remoteCodes.has(String(item.omie_code||'')));
+      const missingLinked=localOnly.filter(item=>item.omie_code&&!String(item.omie_code).startsWith('LOCAL-')).map(item=>Number(item.id||0)).filter(Boolean);
+      const inactiveLinked=remote.filter(item=>item.inactive&&item.local).map(item=>Number(item.local.id||0)).filter(Boolean);
+      const removableLinked=[...new Set([...inactiveLinked,...missingLinked])];
+      if(!activeLinked.includes(preferredOmieTargetId))preferredOmieTargetId=activeLinked.length===1?activeLinked[0]:0;
+      selectedInactiveOmieIds=new Set(removableLinked);
+      if(batchDelete){batchDelete.disabled=removableLinked.length===0;batchDelete.innerHTML='<i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM'+(removableLinked.length?' ('+removableLinked.length+')':'');}
       let html='<section class="tdc-omie-document"><span>CPF / CNPJ consultado</span><strong>'+esc(audit?.client?.document||audit?.document||'—')+'</strong><small>'+remote.length+' cadastro(s) retornado(s) pela Omie</small></section>';
-      if(inactiveLinked.length){
-        html+='<section class="tdc-omie-batchbar"><label><input type="checkbox" data-client-omie-select-all checked><span>Selecionar todos os inativos</span></label><strong>'+inactiveLinked.length+' inativo(s) selecionado(s)</strong><small>Todos serão enviados ao CRM em uma única operação e validados com uma única consulta do grupo na Omie.</small></section>';
+      if(removableLinked.length){
+        html+='<section class="tdc-omie-batchbar"><label><input type="checkbox" data-client-omie-select-all checked><span>Selecionar todos para limpeza</span></label><strong>'+removableLinked.length+' selecionado(s)</strong><small>Inclui cadastros inativos e também códigos locais que não foram encontrados na Omie. Todos serão processados em uma única chamada.</small></section>';
       }
       if(remote.length){
         html+='<div class="tdc-omie-results">';
@@ -222,9 +224,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         html+='<div class="tdc-omie-empty"><i class="fa-solid fa-magnifying-glass"></i><strong>Nenhum cadastro encontrado na Omie</strong><p>O CRM não alterou nenhum registro local.</p></div>';
       }
       if(localOnly.length){
-        html+='<section class="tdc-omie-local-only"><header><i class="fa-solid fa-database"></i><div><strong>Registros locais sem correspondência nesta consulta</strong><small>Esses registros não serão inativados automaticamente porque a Omie não retornou o mesmo código.</small></div></header>';
+        html+='<section class="tdc-omie-local-only"><header><i class="fa-solid fa-database"></i><div><strong>Não encontrados na Omie</strong><small>Se o código não existir na consulta da Omie, ele pode ser excluído somente do CRM. A Omie não será alterada.</small></div></header>';
         localOnly.forEach(item=>{
-          html+='<div><span><strong>'+esc(item.name||'Cliente')+'</strong><small>'+esc(item.omie_code||'Sem código Omie')+'</small></span>'+localStatus(item)+'<a href="'+(window.APP_URL||'')+'/clients/'+Number(item.id)+'">Abrir</a></div>';
+          const deletable=item.omie_code&&!String(item.omie_code).startsWith('LOCAL-');
+          const id=Number(item.id||0);
+          html+='<div class="'+(deletable?'can-remove':'')+'"><span><strong>'+esc(item.name||'Cliente')+'</strong><small>'+esc(item.omie_code||'Sem código Omie')+'</small></span>'+
+            (deletable?'<label class="tdc-omie-select missing"><input type="checkbox" data-client-omie-select-inactive="'+id+'" checked><span>Excluir do CRM</span></label>':localStatus(item))+
+            '<div class="tdc-omie-local-actions"><a href="'+(window.APP_URL||'')+'/clients/'+id+'">Abrir</a>'+
+            (deletable?'<button type="button" data-client-omie-delete="'+id+'"><i class="fa-solid fa-trash-can"></i>Excluir só do CRM</button>':'')+
+            '</div></div>';
         });
         html+='</section>';
       }
@@ -282,7 +290,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(allBox)allBox.checked=boxes.length>0&&boxes.every(input=>input.checked);
       }else return;
       const count=selectedInactiveOmieIds.size;
-      const barCount=body.querySelector('.tdc-omie-batchbar>strong');if(barCount)barCount.textContent=count+' inativo(s) selecionado(s)';
+      const barCount=body.querySelector('.tdc-omie-batchbar>strong');if(barCount)barCount.textContent=count+' cadastro(s) selecionado(s)';
       if(batchDelete){batchDelete.disabled=count===0;batchDelete.innerHTML='<i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM'+(count?' ('+count+')':'');}
     });
     clientOmieModal.querySelectorAll('[data-client-omie-close]').forEach(button=>button.addEventListener('click',()=>clientOmieModal.close()));
@@ -290,7 +298,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     batchDelete?.addEventListener('click',async()=>{
       const ids=[...selectedInactiveOmieIds].filter(Boolean);
       if(!ids.length)return;
-      if(!window.confirm('Excluir '+ids.length+' cadastro(s) inativo(s) SOMENTE do CRM em uma única operação? A Omie não será alterada. O histórico será consolidado no cadastro principal escolhido.'))return;
+      if(!window.confirm('Excluir '+ids.length+' cadastro(s) SOMENTE do CRM em uma única operação? Entram os inativos e também os códigos não encontrados na Omie. A Omie não será alterada. Se houver cadastro principal escolhido, o histórico será consolidado nele; caso contrário, o histórico existente será arquivado antes da exclusão.'))return;
       const previous=batchDelete.innerHTML;batchDelete.disabled=true;batchDelete.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Processando '+ids.length+'...';
       try{
         const payload=new URLSearchParams({_token:String(clientOmieModal.dataset.csrf||window.CSRF||'')});
@@ -337,7 +345,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const removeInactiveOmieLocal=async button=>{
     const targetId=Number(button?.dataset?.clientOmieDelete||0);if(!targetId)return;
-    if(!window.confirm('Excluir este cadastro SOMENTE do CRM? A Omie não será alterada. Se houver histórico local e existir um único cadastro ativo equivalente, o histórico será transferido para ele antes da remoção.'))return;
+    if(!window.confirm('Excluir este cadastro SOMENTE do CRM? Se ele não for encontrado na Omie, a exclusão local continuará mesmo assim. A Omie não será alterada. O histórico será transferido para um cadastro principal quando houver; caso contrário, será arquivado antes da exclusão.'))return;
     const previous=button.innerHTML;button.disabled=true;button.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Excluindo...';
     try{
       const token=String(clientOmieModal?.dataset?.csrf||window.CSRF||'');
