@@ -758,19 +758,28 @@ final class ClientService {
  }
 
  private static function omieClientUpsertPayloadFromConsult(array $remoteRow,string $code,string $inactive='S'): array{
-  // Parte sempre do retorno fresco de ConsultarCliente. A documentação da Omie
-  // marca alguns campos como automáticos/somente retorno ou deprecated para alteração;
-  // esses campos não são reenviados.
-  $payload=$remoteRow;
-  foreach(['pessoa_fisica','exterior','logradouro','bloqueado','info','importado_api'] as $field)unset($payload[$field]);
-
-  // Garante que o Upsert identifique exatamente o cadastro escolhido no CRM,
-  // inclusive quando codigo_cliente_integracao estiver vazio.
-  $payload['codigo_cliente_omie']=(int)$code;
-  if(!array_key_exists('codigo_cliente_integracao',$payload))$payload['codigo_cliente_integracao']='';
-
-  // Mantém os valores vazios devolvidos pela própria Omie para não transformar
-  // o cadastro durante a operação. A única alteração intencional é inativo=S.
+  // Usa o retorno fresco de ConsultarCliente somente como fonte dos valores,
+  // mas NÃO amplia o payload enviado à Omie. Mantemos uma lista fechada dos
+  // campos que o CRM já utilizava e alteramos somente inativo.
+  $payload=['codigo_cliente_omie'=>(int)$code];
+  $fields=[
+   'codigo_cliente_integracao','razao_social','cnpj_cpf','nome_fantasia',
+   'telefone1_ddd','telefone1_numero','contato','endereco','endereco_numero',
+   'bairro','complemento','estado','cidade','cep','codigo_pais','separar_endereco',
+   'pesquisar_cep','telefone2_ddd','telefone2_numero','fax_ddd','fax_numero',
+   'email','homepage','inscricao_estadual','inscricao_municipal','inscricao_suframa',
+   'optante_simples_nacional','tipo_atividade','cnae','produtor_rural','contribuinte',
+   'observacao','obs_detalhadas','recomendacao_atraso','tags','cidade_ibge',
+   'valor_limite_credito','bloquear_faturamento','recomendacoes','enderecoEntrega',
+   'nif','documento_exterior','dadosBancarios','caracteristicas','enviar_anexos',
+   'bloquear_exclusao'
+  ];
+  foreach($fields as $field){
+   if(!array_key_exists($field,$remoteRow))continue;
+   $value=$remoteRow[$field];
+   if($value===null)continue;
+   $payload[$field]=$value;
+  }
   $payload['inativo']=$inactive;
   return $payload;
  }
