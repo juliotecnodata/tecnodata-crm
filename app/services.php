@@ -1365,6 +1365,9 @@ final class ClientService {
     throw new RuntimeException('A Omie não confirmou a inativação do código '.$code.'. O CRM não removeu este lote.');
    }
 
+   // Atualiza o snapshot assim que cada código é confirmado. Se um item posterior falhar,
+   // uma nova tentativa não trata novamente como ativo o que a Omie já inativou.
+   self::markCachedOmieDocumentInactive($document,[$code]);
    $inactivated[]=$source;
   }
 
@@ -1375,7 +1378,6 @@ final class ClientService {
    $inactivatedCodes,
    array_map(static fn($source)=>(string)$source['omie_code'],$alreadyInactive)
   );
-  self::markCachedOmieDocumentInactive($document,$inactivatedCodes);
 
   $result=self::deleteInactiveOmieBatchFromCrm(
    $sourceIds,
