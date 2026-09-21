@@ -153,6 +153,40 @@ function client_search_fields(string $alias='c'): array{
   "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.codigo_cliente_integracao'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.nome_fantasia'))",
   "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.razao_social'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.codigo_cliente_integracao'))"];
 }
+function contact_channel_catalog(): array{
+ $defaults=[
+  ['code'=>'phone','label'=>'Ligação','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'whatsapp','label'=>'WhatsApp','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'email','label'=>'E-mail','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
+  ['code'=>'presential','label'=>'Presencial','contexts'=>['sales','collection'],'active'=>false,'system'=>true],
+  ['code'=>'video','label'=>'Videoconferência','contexts'=>['sales','collection'],'active'=>false,'system'=>true],
+  ['code'=>'chat','label'=>'Chat / atendimento online','contexts'=>['sales','collection'],'active'=>false,'system'=>true],
+ ];
+ $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='contact_channel_catalog'");
+ $saved=$raw?json_decode((string)$raw,true):null;$map=[];foreach($defaults as $item)$map[$item['code']]=$item;
+ if(is_array($saved))foreach($saved as $item){
+  if(!is_array($item))continue;
+  $code=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($item['code']??''))));
+  $label=trim((string)($item['label']??''));if($code===''||$label==='')continue;
+  $contexts=array_values(array_intersect(['sales','collection'],array_map('strval',(array)($item['contexts']??[]))));if(!$contexts)continue;
+  $base=$map[$code]??['code'=>$code,'system'=>false];
+  $map[$code]=$base+[];$map[$code]['label']=$label;$map[$code]['contexts']=$contexts;
+  $map[$code]['active']=!array_key_exists('active',$item)||(bool)$item['active'];$map[$code]['system']=(bool)($base['system']??false);
+ }
+ return array_values($map);
+}
+function contact_channel_options(string $context,bool $activeOnly=true): array{
+ $context=in_array($context,['sales','collection'],true)?$context:'sales';
+ return array_values(array_filter(contact_channel_catalog(),static fn($item)=>in_array($context,(array)($item['contexts']??[]),true)&&(!$activeOnly||!empty($item['active']))));
+}
+function contact_channel_label(string $code): string{
+ if($code==='manual')return 'Lançamento manual';
+ foreach(contact_channel_catalog() as $item)if((string)$item['code']===$code)return (string)$item['label'];
+ return $code!==''?$code:'Canal não informado';
+}
+function save_contact_channel_catalog(array $catalog): void{
+ DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('contact_channel_catalog',?,NOW()) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",[json_encode(array_values($catalog),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+}
 function task_result_catalog(): array{
  $defaults=[
   ['code'=>'contact','label'=>'Contato','contexts'=>['sales','collection'],'active'=>true,'system'=>true],
@@ -383,7 +417,6 @@ function contact_monitoring_context(array $query): array{
  return ['sellers'=>$sellers,'seller_id'=>$sellerId,'status'=>$contactStatus,'where'=>$where,'params'=>$params];
 }
 function contact_monitoring_row_cells(array $row): array{
- $channelLabels=['phone'=>'Ligação','whatsapp'=>'WhatsApp','email'=>'E-mail','manual'=>'Lançamento manual'];
  $resultLabels=['contact'=>'Contato realizado','interested'=>'Cliente interessado','agreement'=>'Acordo encaminhado','promise'=>'Promessa de pagamento','payment'=>'Pagamento registrado','no_answer'=>'Não atendeu'];
  if(!empty($row['last_collection_action_id'])&&(empty($row['last_contact_at'])||strtotime((string)$row['collection_contact_at'])>strtotime((string)$row['last_contact_at']))){
   $row['last_activity_id']=$row['last_collection_action_id'];$row['last_channel']=$row['collection_channel'];$row['last_result']=$row['collection_result'];$row['last_notes']=$row['collection_notes'];$row['last_contact_at']=$row['collection_contact_at'];$row['last_contact_user']=$row['collection_contact_user'];$row['last_contact_flow']='collection';
@@ -958,7 +991,7 @@ $router->get('/clients/{id}',function($p){
  $form=ClientService::formFromClient($c);
  $sellerName=$c['seller_omie_code']?DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['seller_omie_code']]):null;
  $effectiveSellerName=$effectiveSellerCode!==''?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[$effectiveSellerCode])?:$effectiveSellerCode):null;$omieSellerName=!empty($c['omie_seller_code'])?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['omie_seller_code']])?:$c['omie_seller_code']):null;
- render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
+ render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code'),'contactChannels'=>contact_channel_options('sales')]);
 });
 $router->post('/clients/{id}/activity',function($p){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
@@ -966,8 +999,10 @@ $router->post('/clients/{id}/activity',function($p){
  $effectiveSeller=ClientPortfolioService::effectiveSellerCode($id);$unassigned=$effectiveSeller==='';if($u['role']==='seller'&&!$unassigned&&$effectiveSeller!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão para registrar atendimento fora da carteira efetiva do mês.');}
  $result=(string)($_POST['result']??'contact');$allowed=array_column(task_result_options('sales'),'code');
  if(!in_array($result,$allowed,true))$result='contact';
+ $channel=(string)($_POST['channel']??'phone');$allowedChannels=array_column(contact_channel_options('sales'),'code');
+ if(!in_array($channel,$allowedChannels,true))$channel=in_array('phone',$allowedChannels,true)?'phone':(string)($allowedChannels[0]??'phone');
  $nextAt=trim((string)($_POST['next_at']??''));
- DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],(string)($_POST['channel']??'phone'),$result,trim((string)($_POST['notes']??'')),$nextAt!==''?$nextAt:null]);
+ DB::exec("INSERT INTO activities(client_id,user_id,channel,result,notes,next_at,created_at) VALUES(?,?,?,?,?,?,NOW())",[$id,(int)$u['id'],$channel,$result,trim((string)($_POST['notes']??'')),$nextAt!==''?$nextAt:null]);
  if($nextAt!==''){ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,'sales','return',?,?,'pending',NOW(),NOW())",[$id,(int)$u['id'],(int)$u['id'],'Retorno comercial · '.task_result_label($result),$nextAt]);}
  redirect('/clients/'.$id);
 });
@@ -1472,7 +1507,7 @@ $router->get('/collection/{id}',function($p){
  }
  $c['available_amount']=max(0,(float)$c['open_amount']-(float)$c['pending_local']);
  $flash=$_SESSION['collection_case_flash']??null;unset($_SESSION['collection_case_flash']);
- render('collection_case',['case'=>$c,'actions'=>$a,'collectors'=>Auth::can('admin','supervisor')?DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name"):[],'flash'=>$flash,'taskResults'=>task_result_options('collection'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code')]);
+ render('collection_case',['case'=>$c,'actions'=>$a,'collectors'=>Auth::can('admin','supervisor')?DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name"):[],'flash'=>$flash,'taskResults'=>task_result_options('collection'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code'),'contactChannels'=>contact_channel_options('collection')]);
 });
 $router->post('/collection/{id}/assign',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
@@ -1501,6 +1536,8 @@ $router->post('/collection/{id}/action',function($p){
 
  $result=(string)($_POST['result']??'contact');$allowedResults=array_column(task_result_options('collection'),'code');
  if(!in_array($result,$allowedResults,true))$result='contact';
+ $channel=(string)($_POST['channel']??'phone');$allowedChannels=array_column(contact_channel_options('collection'),'code');
+ if(!in_array($channel,$allowedChannels,true))$channel=in_array('phone',$allowedChannels,true)?'phone':(string)($allowedChannels[0]??'phone');
  $rawAmount=trim((string)($_POST['amount']??''));$normalizedAmount=str_contains($rawAmount,',')?str_replace(',','.',str_replace('.','',$rawAmount)):str_replace(' ','',$rawAmount);$amount=(float)$normalizedAmount;
  if(in_array($result,['agreement','payment'],true)&&$amount<=0){$_SESSION['collection_case_flash']=['type'=>'danger','message'=>'Informe o valor do '.($result==='payment'?'pagamento':'acordo').'.'];redirect('/collection/'.$id);}
 
@@ -1517,7 +1554,7 @@ $router->post('/collection/{id}/action',function($p){
  DB::conn()->beginTransaction();
  try{
   DB::exec("UPDATE collection_cases SET assigned_user_id=?,assigned_at=IF(COALESCE(assigned_user_id,0)<>?,NOW(),assigned_at),updated_at=NOW() WHERE client_id=?",[$assigned,$assigned,$id]);
-  DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,local_status,reconciled_at,recorded_at,notes,created_at) VALUES(?,?,?,?,?,?,?, ?,NULL,NOW(),?,NOW())",[$id,(int)$u['id'],$assigned,(string)($_POST['channel']??'phone'),$result,$amount,$promiseDate,$result==='payment'?'pending':'none',trim((string)($_POST['notes']??''))]);
+  DB::exec("INSERT INTO collection_actions(client_id,author_user_id,assigned_user_id,channel,result,amount,promise_date,local_status,reconciled_at,recorded_at,notes,created_at) VALUES(?,?,?,?,?,?,?, ?,NULL,NOW(),?,NOW())",[$id,(int)$u['id'],$assigned,$channel,$result,$amount,$promiseDate,$result==='payment'?'pending':'none',trim((string)($_POST['notes']??''))]);
   if($promiseDueAt!==null){ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,'collection','return',?,?,'pending',NOW(),NOW())",[$id,$assigned,(int)$u['id'],'Retorno de cobrança · '.task_result_label($result),$promiseDueAt]);}
   DB::conn()->commit();
   $_SESSION['collection_case_flash']=['type'=>'success','message'=>$promiseDueAt?'Ação salva e retorno agendado para '.$date->format('d/m/Y').' às '.$date->format('H:i').'.':'Ação de cobrança salva com sucesso.'];
@@ -1889,7 +1926,7 @@ $router->get('/settings',function(){
  $data=[
   'flash'=>$flash,
   'settingsAdmin'=>$isAdmin,'monitorUsers'=>$monitorUsers,'monitorIds'=>$monitorIds,'monitorConfigured'=>$monitorConfigured,
-  'taskResults'=>task_result_catalog(),'taskTypes'=>task_type_catalog()
+  'taskResults'=>task_result_catalog(),'taskTypes'=>task_type_catalog(),'contactChannels'=>contact_channel_catalog()
  ];
  if($isAdmin)$data=array_merge($data,[
   'defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
@@ -1912,6 +1949,28 @@ $router->post('/settings/contact-monitoring',function(){
  }catch(Throwable $e){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível salvar a regra de acompanhamento: '.$e->getMessage()];}
  redirect('/settings');
 });
+$router->post('/settings/contact-channels',function(){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ try{
+  $label=trim((string)($_POST['label']??''));if($label===''||mb_strlen($label)>80)throw new RuntimeException('Informe um nome de canal com até 80 caracteres.');
+  $contexts=array_values(array_intersect(['sales','collection'],array_map('strval',(array)($_POST['contexts']??[]))));if(!$contexts)throw new RuntimeException('Selecione onde o canal será utilizado.');
+  $catalog=contact_channel_catalog();foreach($catalog as $item)if(mb_strtolower(trim((string)$item['label']))===mb_strtolower($label))throw new RuntimeException('Já existe um canal com esse nome.');
+  $code='custom_'.substr(hash('sha256',mb_strtolower($label).'|'.date('c').'|'.Auth::id()),0,12);
+  $catalog[]=['code'=>$code,'label'=>$label,'contexts'=>$contexts,'active'=>true,'system'=>false];
+  save_contact_channel_catalog($catalog);
+  $_SESSION['settings_flash']=['type'=>'success','message'=>'Canal “'.$label.'” criado e disponibilizado nos atendimentos selecionados.'];
+ }catch(Throwable $e){$_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível criar o canal: '.$e->getMessage()];}
+ redirect('/settings#contact-channels');
+});
+$router->post('/settings/contact-channels/{code}/toggle',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ $code=(string)($p['code']??'');$catalog=contact_channel_catalog();$found=false;
+ foreach($catalog as &$item)if((string)$item['code']===$code){$item['active']=empty($item['active']);$found=true;break;}unset($item);
+ if($found){save_contact_channel_catalog($catalog);$_SESSION['settings_flash']=['type'=>'success','message'=>'Disponibilidade do canal atualizada.'];}
+ else $_SESSION['settings_flash']=['type'=>'danger','message'=>'Canal não encontrado.'];
+ redirect('/settings#contact-channels');
+});
+
 $router->post('/settings/task-results',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
