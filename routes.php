@@ -1029,7 +1029,7 @@ $router->post('/clients/{id}/crm-status',function($p){
 
 $router->get('/clients/{id}',function($p){
  Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
- $c=DB::one("SELECT c.*,m.* FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=?",[$id]);
+ $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
  if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&!empty($c['crm_inactive'])){http_response_code(404);exit('Cliente não encontrado.');}
  if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($c))){http_response_code(403);exit('Cliente pertencente a uma operação virtual.');}
