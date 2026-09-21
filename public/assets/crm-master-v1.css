@@ -697,3 +697,38 @@ body[data-page="agenda"] .tda-task-submit.reschedule{border-color:#DDA700!import
  body[data-page="agenda"] .tda-task-modal footer{flex-direction:column-reverse!important}
  body[data-page="agenda"] .tda-task-modal footer .tda-btn{width:100%!important}
 }
+
+
+/* ===== CLIENTES — inativação local no CRM ===== */
+body[data-page="clients"] .client-crm-inactive-badge{
+ display:inline-flex!important;align-items:center!important;gap:5px!important;margin:3px 0 0!important;padding:3px 6px!important;
+ border:1px solid #E5D7A6!important;border-radius:7px!important;background:#FFF9E8!important;color:#806100!important;
+ font-size:8px!important;font-weight:800!important;line-height:1.2!important
+}
+body[data-page="clients"] .client-table-identity.is-inactive{opacity:.78!important}
+body[data-page="clients"] .client-table-identity.is-inactive>span{background:#F2F3F4!important;color:#7B878E!important;border-color:#E0E5E8!important}
+body[data-page="clients"] .client-action-inactivate{border-color:#E8D8A0!important;background:#FFF9E6!important;color:#806100!important}
+body[data-page="clients"] .client-action-inactivate:hover{border-color:#D9B92A!important;background:#FEF4C7!important;color:#5D4800!important}
+body[data-page="clients"] .client-action-reactivate{border-color:#BFDCCF!important;background:#F1FAF5!important;color:#007B49!important}
+body[data-page="clients"] .client-action-reactivate:hover{border-color:#009657!important;background:#E4F5EC!important;color:#00683D!important}
+
+body[data-page="client-detail"] .tdc-head-actions form{display:inline-flex!important;margin:0!important}
+body[data-page="client-detail"] .tdc-btn-inactivate{border-color:#E3D29A!important;background:#FFF9E4!important;color:#755900!important}
+body[data-page="client-detail"] .tdc-btn-inactivate:hover{border-color:#D4B624!important;background:#FEF3C2!important;color:#554100!important}
+body[data-page="client-detail"] .tdc-btn-reactivate{border-color:#B9DCCB!important;background:#F1FAF5!important;color:#007B49!important}
+body[data-page="client-detail"] .tdc-btn-reactivate:hover{border-color:#009657!important;background:#E3F5EB!important;color:#006A3F!important}
+body[data-page="client-detail"] .tdc-crm-inactive{
+ display:grid!important;grid-template-columns:42px minmax(0,1fr)!important;align-items:start!important;gap:12px!important;
+ margin:0 0 14px!important;padding:13px 14px!important;border:1px solid #E5D7A6!important;border-radius:10px!important;background:#FFF9E8!important
+}
+body[data-page="client-detail"] .tdc-crm-inactive>span{
+ display:grid!important;place-items:center!important;width:42px!important;height:42px!important;border-radius:9px!important;background:#FFF1B8!important;color:#7A5C00!important
+}
+body[data-page="client-detail"] .tdc-crm-inactive strong{display:block!important;color:#4E410C!important;font-size:12px!important;font-weight:800!important}
+body[data-page="client-detail"] .tdc-crm-inactive p{margin:3px 0 0!important;color:#6A6034!important;font-size:10px!important;line-height:1.45!important}
+body[data-page="client-detail"] .tdc-crm-inactive small{display:block!important;margin-top:5px!important;color:#85794A!important;font-size:9px!important}
+body[data-page="client-detail"] .tdc-contact-locked.crm-inactive{border-color:#E5D7A6!important;background:#FFFBEE!important}
+@media(max-width:760px){
+ body[data-page="client-detail"] .tdc-head-actions form{width:100%!important}
+ body[data-page="client-detail"] .tdc-head-actions form .tdc-btn{width:100%!important}
+}
