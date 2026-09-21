@@ -2335,6 +2335,9 @@ $router->get('/api/clients/datatable',function(){
  if($segment!=='general'&&!in_array((string)$u['role'],['admin','supervisor'],true)){http_response_code(403);json_response(['error'=>'Segmento restrito à gestão.']);}
  $portfolioOnly=$u['role']==='seller'&&(string)($_GET['portfolio']??'')==='mine';
  if($portfolioOnly)$segment='general';
+ $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
+ $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
+ if($portfolioOnly)$crmStatus='active';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
  $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
  $uf=count($clientUfs)===1?$clientUfs[0]:'';
@@ -2345,6 +2348,7 @@ $router->get('/api/clients/datatable',function(){
 
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
  $baseWhere=['c.active=1',$segmentSql];$baseParams=$segmentParams;
+ if($crmStatus==='active')$baseWhere[]='c.crm_inactive=0';elseif($crmStatus==='inactive')$baseWhere[]='c.crm_inactive=1';
  if(($u['role']??'')==='seller'){
   if($portfolioOnly){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
   elseif($clientScope==='unassigned')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
@@ -2369,7 +2373,6 @@ $router->get('/api/clients/datatable',function(){
  $sqlWhere=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
  $sellerJoin=" LEFT JOIN sellers es ON es.omie_code=(".$effectiveSellerExpr.")";
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$sqlWhere,$params)??0);
- $canManage=Auth::can('admin','supervisor');
  $lastContactOrder="GREATEST(COALESCE((SELECT MAX(a_order.created_at) FROM activities a_order WHERE a_order.client_id=c.id),'1000-01-01'),COALESCE((SELECT MAX(ca_order.created_at) FROM collection_actions ca_order WHERE ca_order.client_id=c.id),'1000-01-01'))";
  $orderColumns=$canManage?['c.id','c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id'];
  $orderInput=$_GET['order']??[];
@@ -2394,12 +2397,13 @@ $router->get('/api/clients/datatable',function(){
 
  $data=[];$token=CSRF::token();
  foreach($rows as $row){
-  $id=(int)$row['id'];$name=(string)$row['name'];$document=(string)($row['document']??'');
-  $canEdit=$canManage||$u['role']==='seller';
+  $id=(int)$row['id'];$name=(string)$row['name'];$document=(string)($row['document']??'');$crmInactive=!empty($row['crm_inactive']);
+  $canEdit=(!$crmInactive)&&($canManage||$u['role']==='seller');
   $effectiveSeller=trim((string)($row['effective_seller_code']??''));$unassigned=$effectiveSeller==='';
-  $canOpen=$canManage||$u['role']==='seller';
+  $canOpen=$canManage||(!$crmInactive&&$u['role']==='seller');
   $initial=mb_strtoupper(mb_substr($name,0,1));
-  $identity='<div class="client-table-identity"><span>'.e($initial).'</span><div>'.($canOpen?'<a href="'.APP_URL.'/clients/'.$id.'"><strong>'.e($name).'</strong></a>':'<strong>'.e($name).'</strong>').'<small>'.e($document!==''?$document:'Documento não informado').'</small></div></div>';
+  $inactiveBadge=$crmInactive?'<b class="client-crm-inactive-badge"><i class="fa-solid fa-user-slash"></i> Inativo no CRM</b>':'';
+  $identity='<div class="client-table-identity'.($crmInactive?' is-inactive':'').'"><span>'.e($initial).'</span><div>'.($canOpen?'<a href="'.APP_URL.'/clients/'.$id.'"><strong>'.e($name).'</strong></a>':'<strong>'.e($name).'</strong>').$inactiveBadge.'<small>'.e($document!==''?$document:'Documento não informado').'</small></div></div>';
   $location=trim((string)($row['city']??'').' / '.(string)($row['uf']??''),' /');
   $phoneDigits=preg_replace('/\D+/','',(string)($row['phone']??''));$rowDdd=strlen($phoneDigits)>=2?substr($phoneDigits,0,2):'';
   $locationHtml='<span class="client-location"><i class="fa-solid fa-location-dot"></i>'.e($location!==''?$location:'Não informado').($rowDdd!==''?'<b>DDD '.e($rowDdd).'</b>':'').'</span>';
@@ -2423,7 +2427,16 @@ $router->get('/api/clients/datatable',function(){
   $openLabel=$canEdit?'Abrir cliente':($unassigned?'Selecionar cliente disponível':'Cliente vinculado a outro vendedor');
   $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.APP_URL.'/clients/'.$id.'" title="'.e($openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
   if($canEdit)$actions.='<a class="client-action client-action-edit" href="'.APP_URL.'/clients/'.$id.'/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a>';
-  if($canManage){$actions.='<button class="client-action client-action-sync" type="button" data-client-omie-one="'.$id.'" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i><span>Omie</span></button>';if(str_starts_with((string)$row['omie_code'],'LOCAL-'))$actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete-local"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-local" type="submit" title="Remover apenas do CRM" data-confirm="Excluir somente do CRM local? Esta ação será bloqueada se houver histórico relacionado."><i class="fa-solid fa-database"></i><span>CRM</span></button></form>';$actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-delete" type="submit" title="Excluir ou arquivar preservando histórico" data-confirm="Excluir este cliente? Se houver histórico no CRM, ele será preservado em arquivo."><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form>';}
+  if($canManage){
+   if($crmInactive){
+    $actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/crm-status"><input type="hidden" name="_token" value="'.e($token).'"><input type="hidden" name="inactive" value="0"><button class="client-action client-action-reactivate" type="submit" title="Reativar no CRM" data-confirm="Reativar este cliente no CRM e devolvê-lo às carteiras e buscas operacionais?"><i class="fa-solid fa-user-check"></i><span>Reativar</span></button></form>';
+   }else{
+    $actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/crm-status"><input type="hidden" name="_token" value="'.e($token).'"><input type="hidden" name="inactive" value="1"><button class="client-action client-action-inactivate" type="submit" title="Inativar somente no CRM" data-confirm="Inativar este cliente somente no CRM? Ele deixará de aparecer para vendedores e cobrança, sem alterar a Omie."><i class="fa-solid fa-user-slash"></i><span>Inativar</span></button></form>';
+    $actions.='<button class="client-action client-action-sync" type="button" data-client-omie-one="'.$id.'" title="Atualizar este cadastro na Omie"><i class="fa-solid fa-cloud-arrow-up"></i><span>Omie</span></button>';
+    if(str_starts_with((string)$row['omie_code'],'LOCAL-'))$actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete-local"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-local" type="submit" title="Remover apenas do CRM" data-confirm="Excluir somente do CRM local? Esta ação será bloqueada se houver histórico relacionado."><i class="fa-solid fa-database"></i><span>CRM</span></button></form>';
+    $actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/delete"><input type="hidden" name="_token" value="'.e($token).'"><button class="client-action client-action-delete" type="submit" title="Excluir ou arquivar preservando histórico" data-confirm="Excluir este cliente? Se houver histórico no CRM, ele será preservado em arquivo."><i class="fa-regular fa-trash-can"></i><span>Excluir</span></button></form>';
+   }
+  }
   $actions.='</div>';
   $cells=[$identity,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$daysContactHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
   if($canManage)array_unshift($cells,'<label class="tdc-row-check" title="Selecionar cliente"><input type="checkbox" data-client-select value="'.$id.'"><span></span></label>');
@@ -2434,7 +2447,7 @@ $router->get('/api/clients/datatable',function(){
 
 $router->get('/api/clients',function(){
  Auth::requireRole('admin','supervisor','seller','collector');$u=Auth::user();$q=trim((string)($_GET['q']??''));$broadScope=in_array((string)($_GET['scope']??''),['agenda','task'],true);
- [$segmentSql,$segmentParams]=client_segment_filter('general','clients');$effective=client_effective_seller_sql('clients');$w=['active=1',$segmentSql];$p=$segmentParams;
+ [$segmentSql,$segmentParams]=client_segment_filter('general','clients');$effective=client_effective_seller_sql('clients');$w=['active=1','crm_inactive=0',$segmentSql];$p=$segmentParams;
  if($u['role']==='seller'&&!$broadScope){$w[]="((".$effective.")=? OR (".$effective.") IS NULL OR TRIM((".$effective."))='')";$p[]=$u['seller_omie_code'];}
  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('clients'),['CAST(clients.id AS CHAR)']));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
  $items=DB::all(
