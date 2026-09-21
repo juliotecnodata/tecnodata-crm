@@ -174,10 +174,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const summary=clientOmieModal.querySelector('[data-client-omie-summary]');
     const reconcile=clientOmieModal.querySelector('[data-client-omie-reconcile]');
     const batchDelete=clientOmieModal.querySelector('[data-client-omie-batch-delete]');
-    const batchInactivate=clientOmieModal.querySelector('[data-client-omie-batch-inactivate]');
     let clientId=Number(clientOmieModal.dataset.clientId||clientOmieOpeners[0]?.dataset.clientId||0);
     let selectedInactiveOmieIds=new Set();
-    let selectedActiveOmieIds=new Set();
     const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
     const localStatus=local=>{
       if(!local)return '<span class="tdc-omie-local none">Não vinculado no CRM</span>';
@@ -196,15 +194,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       const removableLinked=[...new Set([...inactiveLinked,...missingLinked])];
       if(!activeLinked.includes(preferredOmieTargetId))preferredOmieTargetId=activeLinked.length===1?activeLinked[0]:0;
       selectedInactiveOmieIds=new Set(removableLinked);
-      selectedActiveOmieIds=new Set([...selectedActiveOmieIds].filter(id=>activeLinked.includes(id)&&id!==preferredOmieTargetId));
       if(batchDelete){batchDelete.disabled=removableLinked.length===0;batchDelete.innerHTML='<i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM'+(removableLinked.length?' ('+removableLinked.length+')':'');}
-      if(batchInactivate){const count=selectedActiveOmieIds.size;batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-user-slash"></i>Inativar selecionados + excluir CRM'+(count?' ('+count+')':'');}
       let html='<section class="tdc-omie-document"><span>CPF / CNPJ consultado</span><strong>'+esc(audit?.client?.document||audit?.document||'—')+'</strong><small>'+remote.length+' cadastro(s) retornado(s) pela Omie</small></section>';
       if(removableLinked.length){
         html+='<section class="tdc-omie-batchbar"><label><input type="checkbox" data-client-omie-select-all checked><span>Selecionar todos para limpeza</span></label><strong>'+removableLinked.length+' selecionado(s)</strong><small>Inclui cadastros inativos e também códigos locais que não foram encontrados na Omie. Todos serão processados em uma única chamada.</small></section>';
-      }
-      if(activeLinked.length>1){
-        html+='<section class="tdc-omie-batchbar tdc-omie-inactivatebar"><div><i class="fa-solid fa-list-check"></i><span><b>Monte o lote antes de enviar</b><small>Escolha o cadastro principal e marque todos os demais que deverão ser inativados. O CRM só envia as alterações depois do clique final.</small></span></div><strong>'+selectedActiveOmieIds.size+' marcado(s)</strong></section>';
       }
       if(remote.length){
         html+='<div class="tdc-omie-results">';
@@ -213,12 +206,9 @@ document.addEventListener('DOMContentLoaded',()=>{
           const linked=item.local;
           const linkedId=Number(linked?.id||0);
           const principal=linkedId>0&&preferredOmieTargetId===linkedId;
-          const canStageDeactivate=!item.inactive&&linkedId>0&&activeLinked.length>1;
-          const staged=selectedActiveOmieIds.has(linkedId);
           html+='<article class="tdc-omie-result '+status+(item.is_current_code?' current':'')+'">'+
             '<header><div><span class="tdc-omie-status '+status+'"><i class="fa-solid '+(item.inactive?'fa-circle-xmark':'fa-circle-check')+'"></i>'+esc(item.status_label)+'</span>'+(item.is_current_code?'<b>Cadastro desta ficha</b>':'')+
             (item.inactive&&linked?'<label class="tdc-omie-select"><input type="checkbox" data-client-omie-select-inactive="'+linkedId+'" checked><span>Selecionado</span></label>':'')+
-            (canStageDeactivate?'<label class="tdc-omie-select deactivate"><input type="checkbox" data-client-omie-select-deactivate="'+linkedId+'" '+(principal?'disabled ':'')+(staged?'checked ':'')+'><span>'+(principal?'Principal protegido':(staged?'Marcado para inativar':'Marcar para inativar'))+'</span></label>':'')+
             '</div><strong>Omie '+esc(item.omie_code||'—')+'</strong></header>'+
             '<div class="tdc-omie-result-grid">'+
              '<div><small>Nome fantasia</small><strong>'+esc(item.name||'—')+'</strong></div>'+
@@ -251,14 +241,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         html+='</section>';
       }
       if(Number(audit?.remote_active_count||0)>1){
-        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>Escolha qual deve permanecer, marque todos os demais e envie o lote pelo CRM. O principal fica ativo; somente os selecionados serão inativados.</p></div></div>';
+        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>O CRM não tenta alterar o status desses registros. Escolha o principal apenas para consolidar histórico; a limpeza local fica disponível somente para códigos já inativos ou não encontrados na Omie.</p></div></div>';
       }
       body.innerHTML=html;
       summary.textContent=Number(audit?.remote_active_count||0)+' ativo(s) · '+Number(audit?.remote_inactive_count||0)+' inativo(s) na Omie';
       reconcile.disabled=remote.length===0;
     };
     const load=async(targetId=clientId)=>{
-      clientId=Number(targetId||0);preferredOmieTargetId=0;selectedActiveOmieIds=new Set();selectedInactiveOmieIds=new Set();clientOmieModal.dataset.clientId=String(clientId);
+      clientId=Number(targetId||0);preferredOmieTargetId=0;selectedInactiveOmieIds=new Set();clientOmieModal.dataset.clientId=String(clientId);
       body.innerHTML='<div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie em tempo real...</span></div>';
       summary.textContent='';reconcile.disabled=true;
       if(!clientId){body.innerHTML='<div class="tdc-omie-empty error"><i class="fa-solid fa-triangle-exclamation"></i><strong>Cliente não identificado</strong><p>Não foi possível determinar qual cadastro consultar.</p></div>';return;}
@@ -283,33 +273,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     body.addEventListener('click',event=>{
       const keep=event.target.closest?.('[data-client-omie-keep-target]');if(!keep)return;
       preferredOmieTargetId=Number(keep.dataset.clientOmieKeepTarget||0);
-      selectedActiveOmieIds.delete(preferredOmieTargetId);
       body.querySelectorAll('[data-client-omie-keep-target]').forEach(button=>{
         const selected=Number(button.dataset.clientOmieKeepTarget||0)===preferredOmieTargetId;
         button.classList.toggle('selected',selected);
         button.innerHTML='<i class="fa-solid '+(selected?'fa-circle-check':'fa-thumbtack')+'"></i>'+(selected?'Principal escolhido':'Manter este no CRM');
       });
-      body.querySelectorAll('[data-client-omie-select-deactivate]').forEach(input=>{
-        const protectedRow=Number(input.dataset.clientOmieSelectDeactivate||0)===preferredOmieTargetId;
-        if(protectedRow)input.checked=false;
-        input.disabled=protectedRow;
-        const label=input.closest('label')?.querySelector('span');
-        if(label)label.textContent=protectedRow?'Principal protegido':(input.checked?'Marcado para inativar':'Marcar para inativar');
-      });
-      if(batchInactivate){const count=selectedActiveOmieIds.size;batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-user-slash"></i>Inativar selecionados + excluir CRM'+(count?' ('+count+')':'');}
-      showNotice('success','Cadastro principal definido','Agora marque todos os códigos que serão inativados e envie o lote pelo CRM.');
+      showNotice('success','Cadastro principal definido','Este cadastro será usado como destino do histórico quando você remover duplicados já inativos ou inexistentes na Omie.');
     });
     body.addEventListener('change',event=>{
-      const deactivate=event.target.closest?.('[data-client-omie-select-deactivate]');
-      if(deactivate){
-        const id=Number(deactivate.dataset.clientOmieSelectDeactivate||0);
-        if(deactivate.checked)selectedActiveOmieIds.add(id);else selectedActiveOmieIds.delete(id);
-        const label=deactivate.closest('label')?.querySelector('span');if(label)label.textContent=deactivate.checked?'Marcado para inativar':'Marcar para inativar';
-        const count=selectedActiveOmieIds.size;
-        const barCount=body.querySelector('.tdc-omie-inactivatebar>strong');if(barCount)barCount.textContent=count+' marcado(s)';
-        if(batchInactivate){batchInactivate.disabled=count===0;batchInactivate.innerHTML='<i class="fa-solid fa-user-slash"></i>Inativar selecionados + excluir CRM'+(count?' ('+count+')':'');}
-        return;
-      }
       const item=event.target.closest?.('[data-client-omie-select-inactive]');
       const all=event.target.closest?.('[data-client-omie-select-all]');
       if(all){
@@ -323,7 +294,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(allBox)allBox.checked=boxes.length>0&&boxes.every(input=>input.checked);
       }else return;
       const count=selectedInactiveOmieIds.size;
-      const barCount=body.querySelector('.tdc-omie-batchbar:not(.tdc-omie-inactivatebar)>strong');if(barCount)barCount.textContent=count+' cadastro(s) selecionado(s)';
+      const barCount=body.querySelector('.tdc-omie-batchbar>strong');if(barCount)barCount.textContent=count+' cadastro(s) selecionado(s)';
       if(batchDelete){batchDelete.disabled=count===0;batchDelete.innerHTML='<i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM'+(count?' ('+count+')':'');}
     });
     clientOmieModal.querySelectorAll('[data-client-omie-close]').forEach(button=>button.addEventListener('click',()=>clientOmieModal.close()));
@@ -352,33 +323,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       }catch(error){
         batchDelete.disabled=false;batchDelete.innerHTML=previous;
         showNotice('danger','Não foi possível processar em lote',error.message||'Tente novamente.');
-      }
-    });
-
-    batchInactivate?.addEventListener('click',async()=>{
-      const ids=[...selectedActiveOmieIds].filter(Boolean);
-      if(!ids.length)return;
-      if(!window.confirm('Inativar na Omie e remover do CRM '+ids.length+' cadastro(s) selecionado(s)? O cadastro principal escolhido permanecerá ativo. O CRM só removerá localmente os códigos cuja inativação for confirmada pela Omie.'))return;
-      const previous=batchInactivate.innerHTML;batchInactivate.disabled=true;batchInactivate.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Inativando lote...';
-      try{
-        const payload=new URLSearchParams({_token:String(clientOmieModal.dataset.csrf||window.CSRF||'')});
-        ids.forEach(id=>payload.append('source_ids[]',String(id)));
-        if(preferredOmieTargetId>0)payload.set('target_client_id',String(preferredOmieTargetId));
-        const response=await fetch((window.APP_URL||'')+'/api/clients/omie-batch-inactivate-delete',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},credentials:'same-origin',body:payload.toString()});
-        const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
-        if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível processar o lote selecionado.');
-        if(data.requires_target){
-          batchInactivate.disabled=false;batchInactivate.innerHTML=previous;
-          showNotice('warning','Escolha o cadastro principal',data.message||'Há mais de um cadastro ativo que pode permanecer.');
-          if(data.audit)render(data.audit);
-          return;
-        }
-        showNotice('success','Lote concluído',data.message||ids.length+' cadastro(s) processado(s).');
-        batchInactivate.innerHTML='<i class="fa-solid fa-check"></i>'+Number(data.removed_count||ids.length)+' processado(s)';
-        setTimeout(()=>{location.href=data.redirect||(window.APP_URL||'')+'/clients-duplicates';},650);
-      }catch(error){
-        batchInactivate.disabled=false;batchInactivate.innerHTML=previous;
-        showNotice('danger','Não foi possível processar o lote',error.message||'Tente novamente.');
       }
     });
 
