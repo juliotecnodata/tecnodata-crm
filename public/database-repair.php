@@ -83,6 +83,12 @@ addCol($pdo,$log,$t,'crm_inactivated_by','INT UNSIGNED NULL AFTER crm_inactivate
 addCol($pdo,$log,$t,'created_at','DATETIME NULL AFTER crm_inactivated_by');
 addCol($pdo,$log,$t,'omie_created_at','DATETIME NULL AFTER created_at');
 execStep($pdo,$log,'preencher data inicial conhecida dos clientes','UPDATE '.qi($t).' SET created_at=updated_at WHERE created_at IS NULL');
+execStep($pdo,$log,'recuperar data de inclusão da Omie nos clientes',
+ "UPDATE ".qi($t)." SET omie_created_at=COALESCE(
+  STR_TO_DATE(CONCAT(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.info.dInc')),' ',COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.info.hInc')),''),'00:00:00')),'%d/%m/%Y %H:%i:%s'),
+  STR_TO_DATE(CONCAT(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.remote_snapshot.info.dInc')),' ',COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.remote_snapshot.info.hInc')),''),'00:00:00')),'%d/%m/%Y %H:%i:%s'),
+  STR_TO_DATE(CONCAT(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.info.dInc')),' ',COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.info.hInc')),''),'00:00:00')),'%d/%m/%Y %H:%i:%s')
+ ) WHERE omie_created_at IS NULL AND raw_json IS NOT NULL");
 execStep($pdo,$log,'ampliar e-mail de clientes para múltiplos endereços','ALTER TABLE '.qi($t).' MODIFY COLUMN email VARCHAR(1000) NULL');
 $c=cols($pdo,$t);
 if(isset($c['crm_inactive'])&&isset($c['active'])&&!idxExists($pdo,$t,'idx_clients_crm_active')){
