@@ -13,6 +13,7 @@ function sales_flow_enabled(): bool{
 }
 
 function ensure_sales_flow_tables(): void{
+ ClientSegmentPolicy::ensureSchema();
  static $ready=false;if($ready)return;
  $version=1;$raw=null;try{$raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='sales_flow_schema_version' LIMIT 1");}catch(Throwable){}
  $state=$raw?json_decode((string)$raw,true):null;
