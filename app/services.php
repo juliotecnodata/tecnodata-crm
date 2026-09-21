@@ -1057,10 +1057,11 @@ final class ClientService {
    if(empty($remote['inactive']))$activeRemoteCodes[$code]=true;
   }
 
+  $missingRemoteCodes=[];
   foreach($sources as $source){
    $code=trim((string)$source['omie_code']);
    $remote=$remoteByCode[$code]??null;
-   if(!$remote)throw new RuntimeException('A Omie não retornou o código '.$code.' nesta conferência. Nada foi excluído.');
+   if(!$remote){$missingRemoteCodes[$code]=true;continue;}
    if(empty($remote['inactive']))throw new RuntimeException('O cadastro “'.$source['name'].'” (Omie '.$code.') está ATIVO na Omie e não pode ser excluído do CRM por este fluxo.');
   }
 
@@ -1105,12 +1106,22 @@ final class ClientService {
    try{$counts['drafts']=(int)(DB::scalar("SELECT COUNT(*) FROM local_order_drafts WHERE client_id=?",[$id])??0);}catch(Throwable $e){$counts['drafts']=0;}
    $historyBySource[$id]=$counts;$totalHistory+=array_sum($counts);
   }
-  if($totalHistory>0&&$targetId<=0){
-   return [
-    'status'=>'target_missing','requires_target'=>true,'audit'=>$audit,'candidates'=>$eligibleTargets,
-    'selected_ids'=>$sourceIds,
-    'message'=>'Os cadastros selecionados possuem histórico no CRM. Escolha um cadastro ativo na Omie para receber todo o histórico antes da exclusão em lote.',
-   ];
+  $archiveWithoutTarget=$totalHistory>0&&$targetId<=0;
+  if($archiveWithoutTarget){
+   DB::exec("CREATE TABLE IF NOT EXISTS client_deleted_archive(
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    original_client_id BIGINT UNSIGNED NOT NULL,
+    omie_code VARCHAR(80) NULL,
+    document VARCHAR(30) NULL,
+    reason VARCHAR(60) NOT NULL,
+    client_json LONGTEXT NOT NULL,
+    history_json LONGTEXT NULL,
+    deleted_by INT UNSIGNED NULL,
+    deleted_at DATETIME NOT NULL,
+    INDEX idx_client_deleted_archive_document(document),
+    INDEX idx_client_deleted_archive_omie(omie_code),
+    INDEX idx_client_deleted_archive_date(deleted_at)
+   )");
   }
 
   $pdo=DB::conn();$pdo->beginTransaction();
@@ -1137,6 +1148,27 @@ final class ClientService {
      }
      DB::exec("DELETE FROM client_metrics WHERE client_id=?",[$sourceId]);
      DB::exec("DELETE FROM client_portfolio_assignments WHERE client_id=?",[$sourceId]);
+    }elseif($archiveWithoutTarget){
+     $snapshot=[
+      'activities'=>DB::all("SELECT * FROM activities WHERE client_id=? ORDER BY id",[$sourceId]),
+      'tasks'=>DB::all("SELECT * FROM tasks WHERE client_id=? ORDER BY id",[$sourceId]),
+      'collection_actions'=>DB::all("SELECT * FROM collection_actions WHERE client_id=? ORDER BY id",[$sourceId]),
+      'collection_cases'=>DB::all("SELECT * FROM collection_cases WHERE client_id=?",[$sourceId]),
+      'client_tags'=>DB::all("SELECT * FROM client_tags WHERE client_id=?",[$sourceId]),
+      'client_metrics'=>DB::all("SELECT * FROM client_metrics WHERE client_id=?",[$sourceId]),
+      'portfolio'=>DB::all("SELECT * FROM client_portfolio_assignments WHERE client_id=? ORDER BY id",[$sourceId]),
+     ];
+     try{$snapshot['opportunities']=DB::all("SELECT * FROM opportunities WHERE client_id=? ORDER BY id",[$sourceId]);}catch(Throwable $e){$snapshot['opportunities']=[];}
+     try{$snapshot['drafts']=DB::all("SELECT * FROM local_order_drafts WHERE client_id=? ORDER BY id",[$sourceId]);}catch(Throwable $e){$snapshot['drafts']=[];}
+     try{$snapshot['seller_audit']=DB::all("SELECT * FROM client_seller_audit WHERE client_id=? ORDER BY id",[$sourceId]);}catch(Throwable $e){$snapshot['seller_audit']=[];}
+     DB::exec("INSERT INTO client_deleted_archive(original_client_id,omie_code,document,reason,client_json,history_json,deleted_by,deleted_at)
+               VALUES(?,?,?,?,?,?,?,NOW())",[
+      $sourceId,(string)($source['omie_code']??''),(string)($source['document']??''),
+      isset($missingRemoteCodes[(string)($source['omie_code']??'')])?'not_found_in_omie':'inactive_in_omie',
+      json_encode($source,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+      json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+      (int)($u['id']??0)
+     ]);
     }
     DB::exec("DELETE FROM clients WHERE id=?",[$sourceId]);
    }
@@ -1151,133 +1183,20 @@ final class ClientService {
    'status'=>'inactive_omie_batch_removed_local','requires_target'=>false,'audit'=>$audit,
    'removed'=>array_map(static fn($source)=>['id'=>(int)$source['id'],'name'=>(string)$source['name'],'omie_code'=>(string)$source['omie_code']],$sources),
    'removed_count'=>count($sources),'target'=>$target,'history_moved'=>$targetId>0?$historyBySource:[],
+   'not_found_in_omie'=>array_keys($missingRemoteCodes),'archived_without_target'=>$archiveWithoutTarget,
    'message'=>$targetId>0
-    ?count($sources).' cadastro(s) inativo(s) da Omie removido(s) somente do CRM em uma única operação. Todo o histórico foi consolidado em “'.$target['name'].'” (Omie '.$target['omie_code'].').'
-    :count($sources).' cadastro(s) inativo(s) da Omie removido(s) somente do CRM em uma única operação.',
+    ?count($sources).' cadastro(s) removido(s) somente do CRM em uma única operação. O histórico foi consolidado em “'.$target['name'].'” (Omie '.$target['omie_code'].').'.($missingRemoteCodes?' '.count($missingRemoteCodes).' código(s) não foram encontrados na Omie e foram removidos localmente mesmo assim.':'')
+    :count($sources).' cadastro(s) removido(s) somente do CRM em uma única operação.'.($missingRemoteCodes?' '.count($missingRemoteCodes).' código(s) não foram encontrados na Omie e foram removidos localmente mesmo assim.':'').($archiveWithoutTarget?' O histórico existente foi arquivado antes da exclusão.':''),
   ];
  }
 
  public static function deleteInactiveOmieFromCrm(int $id,array $u,int $preferredTargetId=0): array{
-  ClientSegmentPolicy::ensureSchema();
-  $client=DB::one("SELECT * FROM clients WHERE id=?",[$id]);
-  if(!$client)throw new RuntimeException('Cliente não encontrado.');
-  $omieCode=trim((string)($client['omie_code']??''));
-  if($omieCode===''||str_starts_with($omieCode,'LOCAL-'))throw new RuntimeException('Este cadastro não está vinculado a um código válido da Omie.');
-
-  // Confirma o cadastro escolhido em tempo real. Esta rotina NUNCA chama ExcluirCliente.
-  $omie=new OmieClient();
-  $remote=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$omieCode]);
-  $remoteCode=trim((string)($remote['codigo_cliente_omie']??$remote['codigo_cliente']??''));
-  $localDocument=preg_replace('/\D+/','',(string)($client['document']??''));
-  $remoteDocument=preg_replace('/\D+/','',(string)($remote['cnpj_cpf']??''));
-  $remoteInactive=mb_strtoupper(trim((string)($remote['inativo']??'N')),'UTF-8')==='S';
-  if($remoteCode!==$omieCode||$localDocument===''||$remoteDocument!==$localDocument)throw new RuntimeException('A conferência com a Omie não corresponde ao CPF/CNPJ e código deste cadastro. Nada foi excluído.');
-  if(!$remoteInactive)throw new RuntimeException('A Omie informa que este cadastro está ATIVO. A exclusão somente do CRM foi bloqueada.');
-
-  // Consulta o grupo completo para descobrir quais códigos a própria Omie considera ativos.
-  $audit=self::inspectOmieDocument($id);
-  $activeRemoteCodes=[];
-  foreach((array)($audit['remote']??[]) as $remoteRow){
-   if(empty($remoteRow['inactive'])){
-    $code=trim((string)($remoteRow['omie_code']??''));
-    if($code!=='')$activeRemoteCodes[$code]=true;
-   }
-  }
-
-  $sameDocumentRows=DB::all("SELECT id,omie_code,name,legal_name,active,crm_inactive
-                              FROM clients
-                              WHERE id<>?
-                                AND REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=?
-                              ORDER BY active DESC,crm_inactive ASC,id",[$id,$localDocument]);
-
-  $eligibleTargets=[];
-  foreach($sameDocumentRows as $row){
-   $code=trim((string)($row['omie_code']??''));
-   if($code===''||str_starts_with($code,'LOCAL-')||empty($activeRemoteCodes[$code])||!empty($row['crm_inactive']))continue;
-   $eligibleTargets[]=[
-    'id'=>(int)$row['id'],'omie_code'=>$code,'name'=>(string)$row['name'],
-    'legal_name'=>(string)($row['legal_name']??''),'active'=>(bool)$row['active'],
-   ];
-  }
-
-  $target=null;
-  if($preferredTargetId>0){
-   foreach($eligibleTargets as $candidate)if((int)$candidate['id']===$preferredTargetId){$target=$candidate;break;}
-   if(!$target)throw new RuntimeException('O cadastro escolhido para permanecer não está ativo na Omie ou não pertence ao mesmo CPF/CNPJ.');
-  }elseif(count($eligibleTargets)===1){
-   $target=$eligibleTargets[0];
-  }elseif(count($eligibleTargets)>1){
-   return [
-    'status'=>'target_required','requires_target'=>true,'removed'=>null,
-    'source'=>['id'=>$id,'name'=>(string)$client['name'],'omie_code'=>$omieCode],
-    'candidates'=>$eligibleTargets,'audit'=>$audit,
-    'message'=>'A Omie possui mais de um cadastro ativo deste CPF/CNPJ. Escolha qual cadastro deve permanecer no CRM; depois o inativo poderá ser excluído normalmente.',
-   ];
-  }
-  $targetId=$target?(int)$target['id']:0;
-
-  $historyCounts=[
-   'activities'=>(int)(DB::scalar("SELECT COUNT(*) FROM activities WHERE client_id=?",[$id])??0),
-   'tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE client_id=?",[$id])??0),
-   'collection_actions'=>(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions WHERE client_id=?",[$id])??0),
-   'collection_cases'=>(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases WHERE client_id=?",[$id])??0),
-  ];
-  try{$historyCounts['opportunities']=(int)(DB::scalar("SELECT COUNT(*) FROM opportunities WHERE client_id=?",[$id])??0);}catch(Throwable $e){$historyCounts['opportunities']=0;}
-  try{$historyCounts['drafts']=(int)(DB::scalar("SELECT COUNT(*) FROM local_order_drafts WHERE client_id=?",[$id])??0);}catch(Throwable $e){$historyCounts['drafts']=0;}
-  $hasOperationalHistory=array_sum($historyCounts)>0;
-
-  if($hasOperationalHistory&&$targetId<=0){
-   return [
-    'status'=>'target_missing','requires_target'=>true,'removed'=>null,'source'=>['id'=>$id,'name'=>(string)$client['name'],'omie_code'=>$omieCode],
-    'candidates'=>$eligibleTargets,'audit'=>$audit,
-    'message'=>'Este cadastro inativo possui histórico no CRM. Selecione um cadastro ATIVO na Omie para receber o histórico antes da exclusão.',
-   ];
-  }
-
-  $pdo=DB::conn();$pdo->beginTransaction();
-  try{
-   if($targetId>0){
-    // O destino escolhido foi validado contra a situação atual da Omie.
-    DB::exec("UPDATE clients SET active=1,crm_inactive=0,crm_inactivated_at=NULL,crm_inactivated_by=NULL,updated_at=NOW() WHERE id=?",[$targetId]);
-
-    // Histórico operacional é consolidado no cadastro que ficará no CRM.
-    DB::exec("UPDATE activities SET client_id=? WHERE client_id=?",[$targetId,$id]);
-    DB::exec("UPDATE tasks SET client_id=? WHERE client_id=?",[$targetId,$id]);
-    DB::exec("UPDATE collection_actions SET client_id=? WHERE client_id=?",[$targetId,$id]);
-    try{DB::exec("UPDATE opportunities SET client_id=? WHERE client_id=?",[$targetId,$id]);}catch(Throwable $e){}
-    try{DB::exec("UPDATE local_order_drafts SET client_id=? WHERE client_id=?",[$targetId,$id]);}catch(Throwable $e){}
-    try{DB::exec("UPDATE omie_order_logs SET client_id=? WHERE client_id=?",[$targetId,$id]);}catch(Throwable $e){}
-    try{DB::exec("UPDATE client_seller_audit SET client_id=? WHERE client_id=?",[$targetId,$id]);}catch(Throwable $e){}
-
-    try{DB::exec("INSERT IGNORE INTO client_tags(client_id,tag_key,tag) SELECT ?,tag_key,tag FROM client_tags WHERE client_id=?",[$targetId,$id]);}catch(Throwable $e){}
-
-    $sourceCase=DB::one("SELECT client_id FROM collection_cases WHERE client_id=?",[$id]);
-    if($sourceCase){
-     $targetCase=DB::one("SELECT client_id FROM collection_cases WHERE client_id=?",[$targetId]);
-     if($targetCase)DB::exec("DELETE FROM collection_cases WHERE client_id=?",[$id]);
-     else DB::exec("UPDATE collection_cases SET client_id=? WHERE client_id=?",[$targetId,$id]);
-    }
-
-    DB::exec("DELETE FROM client_metrics WHERE client_id=?",[$id]);
-    DB::exec("DELETE FROM client_portfolio_assignments WHERE client_id=?",[$id]);
-   }
-
-   DB::exec("DELETE FROM clients WHERE id=?",[$id]);
-   $pdo->commit();
-  }catch(Throwable $e){
-   if($pdo->inTransaction())$pdo->rollBack();
-   throw $e;
-  }
-
-  unset($_SESSION['client_base_counts_cache'],$_SESSION['client_tag_catalog_cache']);
-  return [
-   'status'=>'inactive_omie_removed_local','requires_target'=>false,
-   'removed'=>['id'=>$id,'name'=>(string)$client['name'],'omie_code'=>$omieCode],
-   'target'=>$target,
-   'history_moved'=>$targetId>0?$historyCounts:[],
-   'message'=>$targetId>0
-    ?'Cadastro inativo da Omie removido somente do CRM. O histórico foi consolidado em “'.$target['name'].'” (Omie '.$target['omie_code'].'). Nenhuma exclusão foi enviada à Omie.'
-    :'Cadastro inativo da Omie removido somente do CRM. Nenhuma exclusão foi enviada à Omie.',
+  $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u);
+  if(!empty($result['requires_target']))return $result;
+  $removed=(array)($result['removed'][0]??[]);
+  return $result+[
+   'status'=>'inactive_omie_removed_local',
+   'removed'=>$removed?:null,
   ];
  }
 
