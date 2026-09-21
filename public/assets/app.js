@@ -166,6 +166,99 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   window.appNotify=showNotice;
 
+  const clientOmieModal=document.querySelector('[data-client-omie-modal]');
+  const clientOmieOpen=document.querySelector('[data-client-omie-check]');
+  if(clientOmieModal&&clientOmieOpen){
+    const body=clientOmieModal.querySelector('[data-client-omie-body]');
+    const summary=clientOmieModal.querySelector('[data-client-omie-summary]');
+    const reconcile=clientOmieModal.querySelector('[data-client-omie-reconcile]');
+    const clientId=Number(clientOmieModal.dataset.clientId||clientOmieOpen.dataset.clientId||0);
+    const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    const localStatus=local=>{
+      if(!local)return '<span class="tdc-omie-local none">Não vinculado no CRM</span>';
+      if(!local.active)return '<span class="tdc-omie-local source-inactive">Inativo pela origem</span>';
+      if(local.crm_inactive)return '<span class="tdc-omie-local crm-inactive">Inativo só no CRM</span>';
+      return '<span class="tdc-omie-local active">Ativo no CRM</span>';
+    };
+    const render=audit=>{
+      const remote=Array.isArray(audit?.remote)?audit.remote:[];
+      const locals=Array.isArray(audit?.local)?audit.local:[];
+      const remoteCodes=new Set(remote.map(item=>String(item.omie_code||'')));
+      const localOnly=locals.filter(item=>!remoteCodes.has(String(item.omie_code||'')));
+      let html='<section class="tdc-omie-document"><span>CPF / CNPJ consultado</span><strong>'+esc(audit?.client?.document||audit?.document||'—')+'</strong><small>'+remote.length+' cadastro(s) retornado(s) pela Omie</small></section>';
+      if(remote.length){
+        html+='<div class="tdc-omie-results">';
+        remote.forEach(item=>{
+          const status=item.inactive?'inactive':'active';
+          const linked=item.local;
+          html+='<article class="tdc-omie-result '+status+(item.is_current_code?' current':'')+'">'+
+            '<header><div><span class="tdc-omie-status '+status+'"><i class="fa-solid '+(item.inactive?'fa-circle-xmark':'fa-circle-check')+'"></i>'+esc(item.status_label)+'</span>'+(item.is_current_code?'<b>Cadastro desta ficha</b>':'')+'</div><strong>Omie '+esc(item.omie_code||'—')+'</strong></header>'+
+            '<div class="tdc-omie-result-grid">'+
+             '<div><small>Nome fantasia</small><strong>'+esc(item.name||'—')+'</strong></div>'+
+             '<div><small>Razão social</small><strong>'+esc(item.legal_name||'—')+'</strong></div>'+
+             '<div><small>E-mail</small><strong>'+esc(item.email||'—')+'</strong></div>'+
+             '<div><small>Localização</small><strong>'+esc([item.city,item.uf].filter(Boolean).join(' / ')||'—')+'</strong></div>'+
+            '</div>'+
+            '<footer>'+localStatus(linked)+(linked?'<a href="'+(window.APP_URL||'')+'/clients/'+Number(linked.id)+'"><i class="fa-regular fa-folder-open"></i>Abrir '+esc(linked.name||'cadastro')+'</a>':'')+'</footer>'+
+          '</article>';
+        });
+        html+='</div>';
+      }else{
+        html+='<div class="tdc-omie-empty"><i class="fa-solid fa-magnifying-glass"></i><strong>Nenhum cadastro encontrado na Omie</strong><p>O CRM não alterou nenhum registro local.</p></div>';
+      }
+      if(localOnly.length){
+        html+='<section class="tdc-omie-local-only"><header><i class="fa-solid fa-database"></i><div><strong>Registros locais sem correspondência nesta consulta</strong><small>Esses registros não serão inativados automaticamente porque a Omie não retornou o mesmo código.</small></div></header>';
+        localOnly.forEach(item=>{
+          html+='<div><span><strong>'+esc(item.name||'Cliente')+'</strong><small>'+esc(item.omie_code||'Sem código Omie')+'</small></span>'+localStatus(item)+'<a href="'+(window.APP_URL||'')+'/clients/'+Number(item.id)+'">Abrir</a></div>';
+        });
+        html+='</section>';
+      }
+      if(Number(audit?.remote_active_count||0)>1){
+        html+='<div class="tdc-omie-warning"><i class="fa-solid fa-triangle-exclamation"></i><div><strong>A Omie possui mais de um cadastro ativo com este CPF/CNPJ.</strong><p>O CRM não escolherá sozinho qual deve permanecer. Revise os códigos antes de qualquer alteração.</p></div></div>';
+      }
+      body.innerHTML=html;
+      summary.textContent=Number(audit?.remote_active_count||0)+' ativo(s) · '+Number(audit?.remote_inactive_count||0)+' inativo(s) na Omie';
+      reconcile.disabled=remote.length===0;
+    };
+    const load=async()=>{
+      body.innerHTML='<div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie em tempo real...</span></div>';
+      summary.textContent='';reconcile.disabled=true;
+      try{
+        const response=await fetch((window.APP_URL||'')+'/api/clients/'+clientId+'/omie-check',{headers:{'Accept':'application/json'}});
+        const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida da Omie.'}));
+        if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível consultar a Omie.');
+        render(data.audit);
+      }catch(error){
+        body.innerHTML='<div class="tdc-omie-empty error"><i class="fa-solid fa-triangle-exclamation"></i><strong>Falha na consulta</strong><p>'+esc(error.message||'Tente novamente.')+'</p></div>';
+        summary.textContent='Consulta não concluída';
+        showNotice('danger','Consulta Omie não concluída',error.message||'Tente novamente.');
+      }
+    };
+    clientOmieOpen.addEventListener('click',()=>{clientOmieModal.showModal();load();});
+    clientOmieModal.querySelectorAll('[data-client-omie-close]').forEach(button=>button.addEventListener('click',()=>clientOmieModal.close()));
+    clientOmieModal.addEventListener('click',event=>{if(event.target===clientOmieModal)clientOmieModal.close();});
+    reconcile.addEventListener('click',async()=>{
+      if(reconcile.disabled)return;
+      if(!window.confirm('Aplicar no CRM exatamente a situação encontrada na Omie? Cadastros marcados como inativos na Omie ficarão inativos também no CRM, sem excluir histórico.'))return;
+      const previous=reconcile.innerHTML;reconcile.disabled=true;reconcile.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Conferindo e aplicando...';
+      try{
+        const payload=new URLSearchParams({_token:String(clientOmieModal.dataset.csrf||'')});
+        const response=await fetch((window.APP_URL||'')+'/api/clients/'+clientId+'/omie-reconcile',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:payload.toString()});
+        const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
+        if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível aplicar a situação da Omie.');
+        render(data.audit);
+        const remaining=Array.isArray(data.remaining_operational)?data.remaining_operational.length:0;
+        showNotice(data.resolved?'success':'warning',data.resolved?'Duplicidade tratada':'Ainda há duplicidade',data.message||'Situação atualizada.');
+        summary.textContent+=(remaining?' · '+remaining+' registros operacionais restantes':' · duplicidade operacional resolvida');
+        reconcile.innerHTML='<i class="fa-solid fa-check"></i>Situação aplicada';
+        setTimeout(()=>location.reload(),900);
+      }catch(error){
+        reconcile.disabled=false;reconcile.innerHTML=previous;
+        showNotice('danger','Não foi possível corrigir',error.message||'Tente novamente.');
+      }
+    });
+  }
+
   const productDetailModal=document.querySelector('[data-product-detail-modal]');
   if(productDetailModal){
     const detailBody=productDetailModal.querySelector('[data-product-detail-body]');
