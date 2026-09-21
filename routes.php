@@ -1009,10 +1009,29 @@ $router->post('/clients/{id}/delete',function($p){
  }
 });
 
+$router->post('/clients/{id}/crm-status',function($p){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ClientSegmentPolicy::ensureSchema();
+ $id=(int)$p['id'];$client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=?",[$id]);
+ if(!$client){$_SESSION['clients_flash']=['type'=>'danger','message'=>'Cliente não encontrado.'];redirect('/clients');}
+ if((int)$client['active']!==1){$_SESSION['clients_flash']=['type'=>'danger','message'=>'Este cadastro já está inativo na origem/Omie e não pode ser alterado por este controle local.'];redirect('/clients?crm_status=inactive');}
+ $inactive=!empty($_POST['inactive'])?1:0;
+ DB::exec("UPDATE clients SET crm_inactive=?,crm_inactivated_at=?,crm_inactivated_by=?,updated_at=NOW() WHERE id=?",[
+  $inactive,$inactive?date('Y-m-d H:i:s'):null,$inactive?Auth::id():null,$id
+ ]);
+ client_cache_invalidate();
+ if($inactive){
+  $_SESSION['clients_flash']=['type'=>'success','message'=>'Cliente “'.$client['name'].'” inativado somente no CRM. Ele saiu das carteiras e das buscas operacionais, sem alterar a Omie.'];
+  redirect('/clients');
+ }
+ $_SESSION['clients_flash']=['type'=>'success','message'=>'Cliente “'.$client['name'].'” reativado no CRM e devolvido às visões operacionais.'];
+ redirect('/clients/'.$id);
+});
+
 $router->get('/clients/{id}',function($p){
  Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
  $c=DB::one("SELECT c.*,m.* FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
+ if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&!empty($c['crm_inactive'])){http_response_code(404);exit('Cliente não encontrado.');}
  if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($c))){http_response_code(403);exit('Cliente pertencente a uma operação virtual.');}
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioAssignment=ClientPortfolioService::assignment($id,$portfolioMonth);$effectiveSellerCode=ClientPortfolioService::effectiveSellerCode($id,$portfolioMonth);
  $isUnassigned=$effectiveSellerCode==='';
@@ -1027,6 +1046,7 @@ $router->get('/clients/{id}',function($p){
 $router->post('/clients/{id}/activity',function($p){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');
+ if(!empty($c['crm_inactive'])){http_response_code(422);exit('Cliente inativo no CRM. Reative o cadastro antes de registrar novos atendimentos.');}
  $effectiveSeller=ClientPortfolioService::effectiveSellerCode($id);$unassigned=$effectiveSeller==='';if($u['role']==='seller'&&!$unassigned&&$effectiveSeller!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão para registrar atendimento fora da carteira efetiva do mês.');}
  $result=(string)($_POST['result']??'contact');$allowed=array_column(task_result_options('sales'),'code');
  if(!in_array($result,$allowed,true))$result='contact';
