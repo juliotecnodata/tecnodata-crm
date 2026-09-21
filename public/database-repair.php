@@ -151,6 +151,7 @@ addCol($pdo,$log,$t,'type',"ENUM('sales','collection') NOT NULL DEFAULT 'sales'"
 $c=cols($pdo,$t);
 if(isset($c['user_id'])&&isset($c['assigned_user_id']))execStep($pdo,$log,'migrar responsável de tarefas','UPDATE '.qi($t).' SET assigned_user_id=COALESCE(assigned_user_id,user_id)');
 modifyCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NOT NULL');
+modifyCol($pdo,$log,$t,'title','TEXT NOT NULL');
 $c=cols($pdo,$t);
 if(isset($c['user_id']))modifyCol($pdo,$log,$t,'user_id','INT UNSIGNED NULL');
 if(isset($c['client_id'])&&isset($c['status'])&&isset($c['type'])&&isset($c['due_at'])&&!idxExists($pdo,$t,'idx_tasks_client_status_due')){
