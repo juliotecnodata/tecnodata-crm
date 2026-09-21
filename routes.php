@@ -1011,6 +1011,21 @@ $router->post('/clients/{id}/delete',function($p){
  }
 });
 
+$router->get('/api/clients/{id}/omie-check',function($p){
+ Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();
+ try{
+  $audit=ClientService::inspectOmieDocument((int)$p['id']);
+  json_response(['ok'=>true,'audit'=>$audit]);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
+});
+$router->post('/api/clients/{id}/omie-reconcile',function($p){
+ Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);
+ try{
+  $result=ClientService::reconcileOmieDocument((int)$p['id'],Auth::user());
+  json_response(['ok'=>true]+$result);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
+});
+
 $router->post('/clients/{id}/crm-status',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ClientSegmentPolicy::ensureSchema();
  $id=(int)$p['id'];$client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=?",[$id]);
