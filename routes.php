@@ -142,6 +142,33 @@ function client_audit_document_format(string $digits): string{
  return $digits;
 }
 
+function client_omie_verified_audit(array $ids,int $ttl=600): array{
+ $ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
+ if(!$ids)throw new RuntimeException('Selecione um cadastro válido.');
+ $ph=implode(',',array_fill(0,count($ids),'?'));
+ $rows=DB::all("SELECT id,omie_code,document FROM clients WHERE id IN (".$ph.")",$ids);
+ if(count($rows)!==count($ids))throw new RuntimeException('Um ou mais cadastros não foram encontrados no CRM.');
+ $document='';
+ foreach($rows as $row){
+  $digits=preg_replace('/\D+/','',(string)($row['document']??''));
+  if(!in_array(strlen($digits),[11,14],true))throw new RuntimeException('O cadastro não possui CPF/CNPJ válido.');
+  if($document==='')$document=$digits;
+  elseif($document!==$digits)throw new RuntimeException('Os cadastros selecionados precisam pertencer ao mesmo CPF/CNPJ.');
+ }
+ $entry=$_SESSION['client_omie_verified_audits'][$document]??null;
+ if(!is_array($entry)||!is_array($entry['audit']??null)){
+  throw new RuntimeException('Clique em “Consultar Omie” antes de excluir do CRM.');
+ }
+ $at=(int)($entry['at']??0);
+ if($at<=0||time()-$at>$ttl){
+  unset($_SESSION['client_omie_verified_audits'][$document]);
+  throw new RuntimeException('A consulta Omie anterior expirou. Consulte a linha novamente antes de excluir.');
+ }
+ $audit=$entry['audit'];
+ if((string)($audit['document']??'')!==$document)throw new RuntimeException('A consulta Omie salva não corresponde a este CPF/CNPJ.');
+ return $audit;
+}
+
 function crm_search_terms(string $query,int $limit=8): array{
  $query=trim((string)(preg_replace('/\s+/u',' ',$query)??$query));if($query==='')return [];
  $parts=preg_split('/[\s\-–—\/\\\\|,.;:()\[\]{}]+/u',$query,-1,PREG_SPLIT_NO_EMPTY)?:[$query];$terms=[];
@@ -1035,7 +1062,8 @@ $router->post('/api/clients/omie-batch-delete-inactive',function(){
  try{
   $raw=$_POST['source_ids']??[];
   if(!is_array($raw))$raw=preg_split('/[,;\s]+/',(string)$raw,-1,PREG_SPLIT_NO_EMPTY)?:[];
-  $result=ClientService::deleteInactiveOmieBatchFromCrm($raw,(int)($_POST['target_client_id']??0),Auth::user());
+  $audit=client_omie_verified_audit($raw);
+  $result=ClientService::deleteInactiveOmieBatchFromCrm($raw,(int)($_POST['target_client_id']??0),Auth::user(),[],$audit);
   $targetId=(int)($result['target']['id']??0);
   json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients-duplicates']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
@@ -1044,7 +1072,9 @@ $router->post('/api/clients/omie-batch-delete-inactive',function(){
 $router->post('/api/clients/{id}/delete-inactive-omie-local',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
-  $result=ClientService::deleteInactiveOmieFromCrm((int)$p['id'],Auth::user(),(int)($_POST['target_client_id']??0));
+  $id=(int)$p['id'];
+  $audit=client_omie_verified_audit([$id]);
+  $result=ClientService::deleteInactiveOmieFromCrm($id,Auth::user(),(int)($_POST['target_client_id']??0),$audit);
   $targetId=(int)($result['target']['id']??0);
   json_response(['ok'=>true]+$result+['redirect'=>$targetId>0?APP_URL.'/clients/'.$targetId:APP_URL.'/clients']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
@@ -1085,7 +1115,16 @@ $router->get('/api/clients/{id}/omie-check',function($p){
  Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();
  try{
   $audit=ClientService::inspectOmieDocument((int)$p['id'],true);
-  json_response(['ok'=>true,'audit'=>$audit]);
+  $document=(string)($audit['document']??'');
+  if($document!==''){
+   if(!isset($_SESSION['client_omie_verified_audits'])||!is_array($_SESSION['client_omie_verified_audits']))$_SESSION['client_omie_verified_audits']=[];
+   $_SESSION['client_omie_verified_audits'][$document]=['at'=>time(),'audit'=>$audit];
+   if(count($_SESSION['client_omie_verified_audits'])>20){
+    uasort($_SESSION['client_omie_verified_audits'],static fn($a,$b)=>(int)($a['at']??0)<=>(int)($b['at']??0));
+    while(count($_SESSION['client_omie_verified_audits'])>20)array_shift($_SESSION['client_omie_verified_audits']);
+   }
+  }
+  json_response(['ok'=>true,'audit'=>$audit,'verified_at'=>date('Y-m-d H:i:s')]);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 $router->post('/clients/{id}/crm-status',function($p){
