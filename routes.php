@@ -2376,8 +2376,9 @@ $router->get('/api/clients/datatable',function(){
  $sqlWhere=str_replace($effectiveSellerSql,$effectiveSellerExpr,implode(' AND ',$where));
  $sellerJoin=" LEFT JOIN sellers es ON es.omie_code=(".$effectiveSellerExpr.")";
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$sqlWhere,$params)??0);
+ $canBulk=$canManage&&$crmStatus==='active';
  $lastContactOrder="GREATEST(COALESCE((SELECT MAX(a_order.created_at) FROM activities a_order WHERE a_order.client_id=c.id),'1000-01-01'),COALESCE((SELECT MAX(ca_order.created_at) FROM collection_actions ca_order WHERE ca_order.client_id=c.id),'1000-01-01'))";
- $orderColumns=$canManage?['c.id','c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id'];
+ $orderColumns=$canBulk?['c.id','c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id'];
  $orderInput=$_GET['order']??[];
  $orderIndex=(int)(is_array($orderInput)?($orderInput[0]['column']??0):0);
  $orderBy=$orderColumns[$orderIndex]??'c.name';
@@ -2442,7 +2443,7 @@ $router->get('/api/clients/datatable',function(){
   }
   $actions.='</div>';
   $cells=[$identity,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$daysContactHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
-  if($canManage)array_unshift($cells,'<label class="tdc-row-check" title="Selecionar cliente"><input type="checkbox" data-client-select value="'.$id.'"><span></span></label>');
+  if($canBulk)array_unshift($cells,'<label class="tdc-row-check" title="Selecionar cliente"><input type="checkbox" data-client-select value="'.$id.'"><span></span></label>');
   $data[]=$cells;
  }
  json_response(['draw'=>$draw,'recordsTotal'=>$recordsTotal,'recordsFiltered'=>$recordsFiltered,'data'=>$data]);
