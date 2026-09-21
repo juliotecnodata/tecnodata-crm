@@ -783,6 +783,7 @@ $router->get('/clients-duplicates',function(){
  $conflict=(string)($_GET['conflict']??'');if(in_array($conflict,['active','mixed','inactive','invalid'],true))$params['conflict']=$conflict;
  $uf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');if(preg_match('/^[A-Z]{2}$/',$uf))$params['uf']=$uf;
  $seller=trim((string)($_GET['seller']??''));if($seller!=='')$params['seller']=$seller;
+ $tag=trim((string)($_GET['tag']??''));if($tag!=='')$params['tag']=mb_substr($tag,0,190);
  $source=(string)($_GET['source']??'');if(in_array($source,['omie_only','with_local'],true))$params['source']=$source;
  $min=max(2,min(20,(int)($_GET['min_records']??2)));if($min!==2)$params['min_records']=$min;
  foreach(['date_from','date_to'] as $dateKey){$date=trim((string)($_GET[$dateKey]??''));if(preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))$params[$dateKey]=$date;}
@@ -797,6 +798,7 @@ $router->get('/clients-audit',function(){
  $conflict=(string)($_GET['conflict']??'all');if(!in_array($conflict,['all','active','mixed','inactive','invalid'],true))$conflict='all';
  $auditUf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');if($auditUf!==''&&!preg_match('/^[A-Z]{2}$/',$auditUf))$auditUf='';
  $auditSeller=trim((string)($_GET['seller']??''));
+ $auditTag=trim((string)($_GET['tag']??''));if(mb_strlen($auditTag)>190)$auditTag=mb_substr($auditTag,0,190);
  $auditSource=(string)($_GET['source']??'all');if(!in_array($auditSource,['all','omie_only','with_local'],true))$auditSource='all';
  $auditMinRecords=max(2,min(20,(int)($_GET['min_records']??2)));
  $auditDateFrom=trim((string)($_GET['date_from']??''));if($auditDateFrom!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$auditDateFrom))$auditDateFrom='';
@@ -833,6 +835,16 @@ $router->get('/clients-audit',function(){
 
  $visibleGroups=[];$duplicateRows=[];$duplicateRowsByDocument=[];$inactiveRows=[];$responsibilityRows=[];
  $pagination=['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
+ $auditTagDocuments=[];
+ if($tab==='duplicates'&&$auditTag!==''){
+  foreach(DB::all("SELECT DISTINCT REGEXP_REPLACE(COALESCE(c.document,''),'[^0-9]','') document_digits
+                   FROM clients c
+                   JOIN client_tags t ON t.client_id=c.id
+                   WHERE t.tag_key=LOWER(TRIM(?))
+                     AND CHAR_LENGTH(REGEXP_REPLACE(COALESCE(c.document,''),'[^0-9]','')) IN (11,14)",[$auditTag]) as $tagRow){
+   $digits=(string)($tagRow['document_digits']??'');if($digits!=='')$auditTagDocuments[$digits]=true;
+  }
+ }
 
  if($tab==='duplicates'){
   $groupHaving=['COUNT(*)>=?'];$groupParams=[$auditMinRecords];
@@ -871,7 +883,8 @@ $router->get('/clients-audit',function(){
    if($active>1)$auditStats['active_groups']++;if($active>0&&$inactive>0)$auditStats['mixed_groups']++;
   }
   unset($group);
-  $filteredGroups=array_values(array_filter($groups,static function(array $group)use($q,$conflict): bool{
+  $filteredGroups=array_values(array_filter($groups,static function(array $group)use($q,$conflict,$auditTag,$auditTagDocuments): bool{
+   if($auditTag!==''&&!isset($auditTagDocuments[(string)$group['document_digits']]))return false;
    if($conflict==='active'&&$group['conflict_type']!=='active')return false;
    if($conflict==='mixed'&&$group['conflict_type']!=='mixed')return false;
    if($conflict==='inactive'&&$group['conflict_type']!=='inactive')return false;
@@ -971,10 +984,11 @@ $router->get('/clients-audit',function(){
  foreach($duplicateRows as $row)$duplicateRowsByDocument[(string)$row['document_digits']][]=$row;
  render('client_audit',[
   'auditTab'=>$tab,'auditQuery'=>$q,'auditConflict'=>$conflict,'auditMonth'=>$auditMonth,'auditStats'=>$auditStats,
-  'auditUf'=>$auditUf,'auditSeller'=>$auditSeller,'auditSource'=>$auditSource,'auditMinRecords'=>$auditMinRecords,
+  'auditUf'=>$auditUf,'auditSeller'=>$auditSeller,'auditTag'=>$auditTag,'auditSource'=>$auditSource,'auditMinRecords'=>$auditMinRecords,
   'auditDateFrom'=>$auditDateFrom,'auditDateTo'=>$auditDateTo,'auditSort'=>$auditSort,
   'auditUfs'=>DB::all("SELECT DISTINCT UPPER(TRIM(uf)) uf FROM clients WHERE uf IS NOT NULL AND TRIM(uf)<>'' ORDER BY uf"),
   'auditSellers'=>DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"),
+  'auditTags'=>DB::all("SELECT MIN(tag) tag,tag_key,COUNT(*) total FROM client_tags GROUP BY tag_key ORDER BY total DESC,tag"),
   'auditGroups'=>$visibleGroups,'auditRowsByDocument'=>$duplicateRowsByDocument,'auditInactiveRows'=>$inactiveRows,'auditResponsibilityRows'=>$responsibilityRows,
   'auditPagination'=>$pagination
  ]);
