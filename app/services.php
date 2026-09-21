@@ -1055,7 +1055,7 @@ final class ClientService {
   return ['status'=>'local_updated','client'=>DB::one("SELECT * FROM clients WHERE id=?",[$id]),'payload'=>$p];
  }
 
- public static function deleteInactiveOmieBatchFromCrm(array $sourceIds,int $preferredTargetId,array $u,array $verifiedInactiveCodes=[]): array{
+ public static function deleteInactiveOmieBatchFromCrm(array $sourceIds,int $preferredTargetId,array $u,array $verifiedInactiveCodes=[],?array $preloadedAudit=null): array{
   ClientSegmentPolicy::ensureSchema();
   $sourceIds=array_values(array_unique(array_filter(array_map('intval',$sourceIds),static fn($id)=>$id>0)));
   $verifiedInactiveCodes=array_fill_keys(array_values(array_unique(array_filter(array_map(static fn($code)=>trim((string)$code),$verifiedInactiveCodes),static fn($code)=>$code!==''))),true);
@@ -1076,8 +1076,9 @@ final class ClientService {
    if($code===''||str_starts_with($code,'LOCAL-'))throw new RuntimeException('Todos os cadastros selecionados precisam estar vinculados à Omie.');
   }
 
-  // UMA ÚNICA consulta ListarClientes para todo o grupo. Evita ConsultarCliente por cadastro.
-  $audit=self::inspectOmieDocument((int)$sources[0]['id']);
+  // UMA ÚNICA consulta ListarClientes para todo o grupo. Se o chamador já consultou a Omie,
+  // reutilizamos o mesmo snapshot para evitar uma chamada redundante.
+  $audit=is_array($preloadedAudit)?$preloadedAudit:self::inspectOmieDocument((int)$sources[0]['id']);
   $remoteByCode=[];$activeRemoteCodes=[];
   foreach((array)($audit['remote']??[]) as $remote){
    $code=trim((string)($remote['omie_code']??''));if($code==='')continue;
@@ -1226,31 +1227,65 @@ final class ClientService {
   $code=trim((string)($client['omie_code']??''));
   if($code===''||str_starts_with($code,'LOCAL-'))throw new RuntimeException('Este cadastro não possui um código Omie válido para inativação.');
 
-  $omie=new OmieClient();$remote=null;$notFound=false;
-  try{$remote=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);}
-  catch(Throwable $e){
-   $message=mb_strtolower($e->getMessage(),'UTF-8');
-   $notFound=str_contains($message,'não encontrado')||str_contains($message,'nao encontrado')||str_contains($message,'não existem')||str_contains($message,'nao existem')||str_contains($message,'5113');
-   if(!$notFound)throw $e;
+  // Uma consulta por CPF/CNPJ já traz todos os códigos do grupo.
+  $audit=self::inspectOmieDocument($id);
+  $remote=null;
+  foreach((array)($audit['remote']??[]) as $candidate){
+   if((string)($candidate['omie_code']??'')===$code){$remote=$candidate;break;}
   }
 
-  if($notFound){
-   $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u);
+  // Se o código não existe mais na Omie, seguimos a regra já aprovada:
+  // exclui somente do CRM e preserva/transfere o histórico.
+  if(!$remote){
+   $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u,[],$audit);
    $result['remote_action']='not_found';
-   $result['message']='O código Omie '.$code.' não foi encontrado. O cadastro foi tratado somente no CRM, conforme a regra de saneamento.';
+   $result['message']='O código Omie '.$code.' não foi encontrado. O cadastro foi removido somente do CRM; nenhuma alteração foi enviada à Omie.';
    return $result;
   }
 
-  $alreadyInactive=mb_strtoupper(trim((string)($remote['inativo']??'N')),'UTF-8')==='S';
-  if(!$alreadyInactive){
-   $omie->call('clients','AlterarCliente',['codigo_cliente_omie'=>(int)$code,'inativo'=>'S']);
-   $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
-   if(mb_strtoupper(trim((string)($confirmed['inativo']??'N')),'UTF-8')!=='S')throw new RuntimeException('A Omie não confirmou a inativação do cadastro '.$code.'. Nada foi removido do CRM.');
+  $alreadyInactive=!empty($remote['inactive']);
+  if($alreadyInactive){
+   $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u,[$code],$audit);
+   $result['remote_action']='already_inactive';
+   $result['message']='O cadastro já estava inativo na Omie. '.($result['message']??'Cadastro removido somente do CRM.');
+   return $result;
   }
 
-  $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u,[$code]);
-  $result['remote_action']=$alreadyInactive?'already_inactive':'inactivated';
-  $result['message']=($alreadyInactive?'O cadastro já estava inativo na Omie. ':'Cadastro inativado na Omie com sucesso. ').($result['message']??'Cadastro removido somente do CRM.');
+  // Para inativar um cadastro ativo pela tela de duplicados, outro cadastro ativo deve permanecer.
+  $activeTargets=[];
+  foreach((array)($audit['remote']??[]) as $candidate){
+   if(!empty($candidate['inactive']))continue;
+   $candidateCode=trim((string)($candidate['omie_code']??''));
+   $local=is_array($candidate['local']??null)?$candidate['local']:null;
+   if($candidateCode===''||$candidateCode===$code||!$local||!empty($local['crm_inactive']))continue;
+   $activeTargets[]=[
+    'id'=>(int)$local['id'],'omie_code'=>$candidateCode,'name'=>(string)($local['name']??$candidate['name']??$candidateCode),
+   ];
+  }
+
+  $target=null;
+  if($preferredTargetId>0){
+   foreach($activeTargets as $candidate)if((int)$candidate['id']===$preferredTargetId){$target=$candidate;break;}
+   if(!$target)throw new RuntimeException('O cadastro escolhido para permanecer não está ativo na Omie ou não pertence ao mesmo CPF/CNPJ.');
+  }elseif(count($activeTargets)===1)$target=$activeTargets[0];
+  elseif(count($activeTargets)>1){
+   return [
+    'status'=>'target_required','requires_target'=>true,'audit'=>$audit,'candidates'=>$activeTargets,
+    'source'=>['id'=>$id,'name'=>(string)$client['name'],'omie_code'=>$code],
+    'message'=>'Existem vários cadastros ativos na Omie. Escolha “Manter este no CRM” no cadastro que deve permanecer e tente novamente.',
+   ];
+  }else{
+   throw new RuntimeException('Este é o único cadastro ativo encontrado na Omie para este CPF/CNPJ. A inativação foi bloqueada para não deixar o documento sem cadastro ativo.');
+  }
+
+  $omie=new OmieClient();
+  $omie->call('clients','AlterarCliente',['codigo_cliente_omie'=>(int)$code,'inativo'=>'S']);
+  $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
+  if(mb_strtoupper(trim((string)($confirmed['inativo']??'N')),'UTF-8')!=='S')throw new RuntimeException('A Omie não confirmou a inativação do cadastro '.$code.'. Nada foi removido do CRM.');
+
+  $result=self::deleteInactiveOmieBatchFromCrm([$id],(int)$target['id'],$u,[$code],$audit);
+  $result['remote_action']='inactivated';
+  $result['message']='Cadastro Omie '.$code.' inativado e removido somente do CRM. O cadastro “'.$target['name'].'” foi mantido como principal e recebeu o histórico local.';
   return $result;
  }
 
