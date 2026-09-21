@@ -489,8 +489,10 @@ final class ClientService {
     [$candidate['data_inclusao']??null,$candidate['hora_inclusao']??null],
    ] as [$date,$time]){
     $date=trim((string)$date);if($date==='')continue;$time=trim((string)$time);
-    foreach(['d/m/Y H:i:s','d/m/Y H:i','Y-m-d H:i:s','Y-m-d H:i','d/m/Y','Y-m-d'] as $format){
-     $value=trim($date.' '.($time!==''?$time:'00:00:00'));
+    $attempts=$time!==''?
+      [['d/m/Y H:i:s',$date.' '.$time],['d/m/Y H:i',$date.' '.$time],['Y-m-d H:i:s',$date.' '.$time],['Y-m-d H:i',$date.' '.$time]]:
+      [['d/m/Y',$date],['Y-m-d',$date]];
+    foreach($attempts as [$format,$value]){
      $dt=DateTimeImmutable::createFromFormat($format,$value);
      if($dt instanceof DateTimeImmutable)return $dt->format('Y-m-d H:i:s');
     }
