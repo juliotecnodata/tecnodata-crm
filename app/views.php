@@ -473,7 +473,7 @@ function render(string $name,array $vars=[]): void{
         </header>
         <div class="tdaudit-table-wrap"><table class="tdaudit-table"><thead><tr><th>Status CRM</th><th>Cliente</th><th>Código Omie</th><th>Vendedor</th><th>Localização</th><th>Histórico</th><th>Inclusão</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
          <?php foreach($groupRows as $row):$history=[];if(!empty($row['orders_history']))$history[]='Pedidos';if(!empty($row['services_history']))$history[]='Serviços';if(!empty($row['financial_history']))$history[]='Financeiro';if(!empty($row['crm_history']))$history[]='CRM';$isLocal=str_starts_with((string)$row['omie_code'],'LOCAL-');?>
-          <tr class="<?=$row['active']?'is-active':'is-inactive'?>">
+          <tr class="<?=$row['active']?'is-active':'is-inactive'?>" data-audit-client-row="<?=(int)$row['id']?>">
            <td><span class="tdaudit-status <?=$row['active']?'active':'inactive'?>"><i></i><?=$row['active']?'Ativo':'Inativo'?></span><?php if($isLocal):?><small class="tdaudit-origin local">Somente CRM</small><?php else:?><small class="tdaudit-origin">Omie</small><?php endif;?></td>
            <td><div class="tdaudit-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e($row['legal_name']?:'Razão social não informada')?></small></div></div></td>
            <td><strong class="tdaudit-code"><?=e($row['omie_code'])?></strong><?php if(!empty($row['duplicate_of'])):?><small>Marcado como duplicado de <?=e($row['duplicate_of'])?></small><?php endif;?></td>
