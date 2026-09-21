@@ -760,9 +760,17 @@ $router->get('/clients-audit',function(){
  $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','responsibility','inactive'],true))$tab='duplicates';
  $auditMonth=ClientPortfolioService::monthRef($_GET['month']??null);
  $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
- $conflict=(string)($_GET['conflict']??'all');if(!in_array($conflict,['all','active','mixed','invalid'],true))$conflict='all';
+ $conflict=(string)($_GET['conflict']??'all');if(!in_array($conflict,['all','active','mixed','inactive','invalid'],true))$conflict='all';
+ $auditUf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');if($auditUf!==''&&!preg_match('/^[A-Z]{2}$/',$auditUf))$auditUf='';
+ $auditSeller=trim((string)($_GET['seller']??''));
+ $auditSource=(string)($_GET['source']??'all');if(!in_array($auditSource,['all','omie_only','with_local'],true))$auditSource='all';
+ $auditMinRecords=max(2,min(20,(int)($_GET['min_records']??2)));
+ $auditDateFrom=trim((string)($_GET['date_from']??''));if($auditDateFrom!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$auditDateFrom))$auditDateFrom='';
+ $auditDateTo=trim((string)($_GET['date_to']??''));if($auditDateTo!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$auditDateTo))$auditDateTo='';
+ $auditSort=(string)($_GET['sort']??'records_desc');if(!in_array($auditSort,['records_desc','oldest','newest','updated_oldest','updated_newest'],true))$auditSort='records_desc';
  $requestedPage=max(1,(int)($_GET['page']??1));
  $docSql="REGEXP_REPLACE(COALESCE(c.document,''),'[^0-9]','')";
+ $auditDateSql="COALESCE(c.omie_created_at,c.created_at,c.updated_at)";
 
  // KPIs leves: não precisamos materializar todas as duplicidades só para exibir os totais.
  $clientTotals=DB::one("SELECT COUNT(*) total_clients,SUM(active=1) active_clients,SUM(active=0) inactive_clients,
@@ -793,14 +801,33 @@ $router->get('/clients-audit',function(){
  $pagination=['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
 
  if($tab==='duplicates'){
+  $groupHaving=['COUNT(*)>=?'];$groupParams=[$auditMinRecords];
+  if($auditUf!==''){$groupHaving[]='SUM(UPPER(COALESCE(c.uf,\'\'))=?)>0';$groupParams[]=$auditUf;}
+  if($auditSeller!==''){$groupHaving[]='SUM(COALESCE(c.seller_omie_code,\'\')=?)>0';$groupParams[]=$auditSeller;}
+  if($auditSource==='omie_only')$groupHaving[]="SUM(c.omie_code LIKE 'LOCAL-%')=0";
+  elseif($auditSource==='with_local')$groupHaving[]="SUM(c.omie_code LIKE 'LOCAL-%')>0";
+  if($auditDateFrom!==''){$groupHaving[]="MAX({$auditDateSql})>=?";$groupParams[]=$auditDateFrom.' 00:00:00';}
+  if($auditDateTo!==''){$groupHaving[]="MIN({$auditDateSql})<=?";$groupParams[]=$auditDateTo.' 23:59:59';}
+  $groupOrder=match($auditSort){
+   'oldest'=>'first_inclusion ASC,records_count DESC,document_digits',
+   'newest'=>'last_inclusion DESC,records_count DESC,document_digits',
+   'updated_oldest'=>'first_updated ASC,records_count DESC,document_digits',
+   'updated_newest'=>'last_updated DESC,records_count DESC,document_digits',
+   default=>'records_count DESC,active_count DESC,document_digits'
+  };
   $groups=DB::all(
    "SELECT {$docSql} document_digits,COUNT(*) records_count,SUM(c.active=1) active_count,SUM(c.active=0) inactive_count,
            SUM(c.omie_code LIKE 'LOCAL-%') local_count,
-           GROUP_CONCAT(CONCAT_WS(' ',c.name,c.legal_name,c.omie_code,c.document) SEPARATOR ' ') search_blob
+           MIN({$auditDateSql}) first_inclusion,MAX({$auditDateSql}) last_inclusion,
+           MIN(c.updated_at) first_updated,MAX(c.updated_at) last_updated,
+           GROUP_CONCAT(DISTINCT UPPER(COALESCE(c.uf,'')) ORDER BY c.uf SEPARATOR ', ') group_ufs,
+           GROUP_CONCAT(DISTINCT COALESCE(c.seller_omie_code,'') ORDER BY c.seller_omie_code SEPARATOR ',') group_sellers,
+           GROUP_CONCAT(CONCAT_WS(' ',c.name,c.legal_name,c.omie_code,c.document,c.city,c.uf) SEPARATOR ' ') search_blob
     FROM clients c
     WHERE CHAR_LENGTH({$docSql}) IN (11,14)
-    GROUP BY document_digits HAVING COUNT(*)>1
-    ORDER BY active_count DESC,records_count DESC,document_digits"
+    GROUP BY document_digits HAVING ".implode(' AND ',$groupHaving)."
+    ORDER BY ".$groupOrder,
+   $groupParams
   );
   foreach($groups as &$group){
    $digits=(string)$group['document_digits'];$valid=client_audit_document_valid($digits);$active=(int)$group['active_count'];$inactive=(int)$group['inactive_count'];
@@ -813,6 +840,7 @@ $router->get('/clients-audit',function(){
   $filteredGroups=array_values(array_filter($groups,static function(array $group)use($q,$conflict): bool{
    if($conflict==='active'&&$group['conflict_type']!=='active')return false;
    if($conflict==='mixed'&&$group['conflict_type']!=='mixed')return false;
+   if($conflict==='inactive'&&$group['conflict_type']!=='inactive')return false;
    if($conflict==='invalid'&&!empty($group['document_valid']))return false;
    if($q==='')return true;
    $haystack=mb_strtolower(implode(' ',[(string)$group['document_digits'],(string)$group['document_formatted'],(string)($group['search_blob']??'')]),'UTF-8');
@@ -898,6 +926,10 @@ $router->get('/clients-audit',function(){
   foreach($operationalFlags as $flag=>$codes)$row[$flag]=isset($codes[$code])?1:0;
   $row['crm_history']=isset($crmHistory[$id])?1:0;
   $row['active_matches']=$activeMatches[(string)($row['document_digits']??'')]??'';
+  $omieCreated=(string)($row['omie_created_at']??'');
+  if($omieCreated==='')$omieCreated=(string)(ClientService::omieCreatedAtFromRaw($row['raw_json']??null)??'');
+  $row['inclusion_at']=$omieCreated!==''?$omieCreated:(string)($row['created_at']??$row['updated_at']??'');
+  $row['inclusion_source']=$omieCreated!==''?'omie':'crm';
   return $row;
  };
  $duplicateRows=array_map($hydrateAuditRow,$duplicateRows);
@@ -905,6 +937,10 @@ $router->get('/clients-audit',function(){
  foreach($duplicateRows as $row)$duplicateRowsByDocument[(string)$row['document_digits']][]=$row;
  render('client_audit',[
   'auditTab'=>$tab,'auditQuery'=>$q,'auditConflict'=>$conflict,'auditMonth'=>$auditMonth,'auditStats'=>$auditStats,
+  'auditUf'=>$auditUf,'auditSeller'=>$auditSeller,'auditSource'=>$auditSource,'auditMinRecords'=>$auditMinRecords,
+  'auditDateFrom'=>$auditDateFrom,'auditDateTo'=>$auditDateTo,'auditSort'=>$auditSort,
+  'auditUfs'=>DB::all("SELECT DISTINCT UPPER(TRIM(uf)) uf FROM clients WHERE uf IS NOT NULL AND TRIM(uf)<>'' ORDER BY uf"),
+  'auditSellers'=>DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"),
   'auditGroups'=>$visibleGroups,'auditRowsByDocument'=>$duplicateRowsByDocument,'auditInactiveRows'=>$inactiveRows,'auditResponsibilityRows'=>$responsibilityRows,
   'auditPagination'=>$pagination
  ]);
