@@ -67,7 +67,7 @@ final class ClientSegmentPolicy {
  private static bool $schemaReady=false;
  public static function ensureSchema(): void{
   if(self::$schemaReady)return;
-  $schemaVersion=7;$stateRaw=null;
+  $schemaVersion=8;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='client_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$schemaReady=true;return;}
@@ -81,6 +81,11 @@ final class ClientSegmentPolicy {
   if(!isset($columns['created_at']))DB::exec("ALTER TABLE clients ADD COLUMN created_at DATETIME NULL AFTER crm_inactivated_by");
   if(!isset($columns['omie_created_at']))DB::exec("ALTER TABLE clients ADD COLUMN omie_created_at DATETIME NULL AFTER created_at");
   DB::exec("UPDATE clients SET created_at=updated_at WHERE created_at IS NULL");
+  DB::exec("UPDATE clients SET omie_created_at=COALESCE(
+    STR_TO_DATE(CONCAT(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.info.dInc')),' ',COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.info.hInc')),''),'00:00:00')),'%d/%m/%Y %H:%i:%s'),
+    STR_TO_DATE(CONCAT(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.remote_snapshot.info.dInc')),' ',COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.remote_snapshot.info.hInc')),''),'00:00:00')),'%d/%m/%Y %H:%i:%s'),
+    STR_TO_DATE(CONCAT(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.info.dInc')),' ',COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.request.info.hInc')),''),'00:00:00')),'%d/%m/%Y %H:%i:%s')
+   ) WHERE omie_created_at IS NULL AND raw_json IS NOT NULL");
   DB::exec("ALTER TABLE clients MODIFY COLUMN email VARCHAR(1000) NULL");
   $indexes=[];foreach(DB::all("SHOW INDEX FROM clients") as $index)$indexes[(string)($index['Key_name']??'')]=true;
   if(!isset($indexes['idx_clients_active']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_active(active,id)");
