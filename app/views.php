@@ -421,10 +421,10 @@ function render(string $name,array $vars=[]): void{
     </nav>
     <header class="tdaudit-head">
      <div class="tdaudit-head-main"><span class="tdaudit-head-icon"><i class="fa-solid fa-user-shield"></i></span><div><span class="tdaudit-kicker">QUALIDADE DA BASE / CLIENTES</span><h1>Auditoria de cadastros</h1><p>Revise duplicidades, responsabilidade comercial, divergências com a Omie e registros preservados.</p></div></div>
-     <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><?php if(($u['role']??'')==='admin'):?><a class="tdaudit-btn" href="<?=APP_URL?>/omie-client-lab"><i class="fa-solid fa-flask-vial"></i>Laboratório Omie</a><?php endif;?><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
+     <div class="tdaudit-head-actions"><a class="tdaudit-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar aos clientes</a><a class="tdaudit-btn primary" href="<?=e($auditUrl(['page'=>1]))?>"><i class="fa-solid fa-rotate-right"></i>Atualizar análise</a></div>
     </header>
 
-    <div class="tdaudit-note"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Fila de saneamento com conferência na Omie</strong><p>Consulte a Omie em tempo real, identifique o código ativo e o inativo e remova somente o duplicado inativo do CRM. A exclusão nunca é enviada para a Omie.</p></div></div>
+    <div class="tdaudit-note"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Fluxo manual e seguro de duplicidades</strong><p>Inative o cadastro diretamente na Omie. Depois use “Consultar Omie” na própria linha; se o código retornar inativo, o CRM libera a exclusão local e preserva o histórico. Nenhuma alteração de status é enviada pelo CRM para a Omie.</p></div></div>
 
     <div class="tdaudit-kpis">
      <article><span class="blue"><i class="fa-solid fa-address-book"></i></span><div><small>Total no CRM</small><strong><?=number_format((int)($auditStats['total_clients']??0),0,',','.')?></strong><p><?=number_format((int)($auditStats['active_clients']??0),0,',','.')?> ativos</p></div></article>
@@ -442,7 +442,7 @@ function render(string $name,array $vars=[]): void{
     <?php if(in_array($auditTab,['duplicates','inactive'],true)):?><dialog class="tdc-omie-check-modal tdaudit-omie-modal" data-client-omie-modal data-audit-omie-modal data-client-id="0" data-csrf="<?=e(CSRF::token())?>">
      <header><span><i class="fa-solid fa-cloud"></i></span><div><small>OMIE / DUPLICIDADES</small><strong>Conferir CPF/CNPJ na Omie</strong><p>Confirme qual código está ativo e qual está inativo antes de limpar o CRM.</p></div><button type="button" data-client-omie-close><i class="fa-solid fa-xmark"></i></button></header>
      <div class="tdc-omie-check-body" data-client-omie-body><div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Selecione um cadastro para consultar.</span></div></div>
-     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-danger" type="button" data-client-omie-batch-delete disabled><i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM</button><button class="tdc-btn tdc-btn-primary" type="button" data-client-omie-reconcile><i class="fa-solid fa-arrows-rotate"></i>Aplicar situação da Omie no CRM</button></div></footer>
+     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-danger" type="button" data-client-omie-batch-delete disabled><i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM</button></div></footer>
     </dialog><?php endif;?>
 
     <form class="tdaudit-filter <?=$auditTab==='duplicates'?'duplicates':''?>" method="get" action="<?=APP_URL?>/clients-audit">
@@ -469,9 +469,9 @@ function render(string $name,array $vars=[]): void{
        <article class="tdaudit-group">
         <header>
          <div class="tdaudit-document"><span class="<?=!empty($group['document_valid'])?'valid':'invalid'?>"><i class="fa-solid <?=!empty($group['document_valid'])?'fa-id-card':'fa-circle-exclamation'?>"></i></span><div><small><?=e($group['document_type'])?> · GRUPO DUPLICADO</small><strong><?=e($group['document_formatted'])?></strong></div></div>
-         <div class="tdaudit-group-tools"><div class="tdaudit-group-badges"><span class="conflict <?=$group['conflict_type']?>"><?=e($conflictLabel)?></span><?php if(empty($group['document_valid'])):?><span class="invalid">Documento inválido</span><?php endif;?><span><?=count($groupRows)?> registros</span></div><?php if($omieSeed):?><button class="tdaudit-omie-check" type="button" data-client-omie-check data-client-id="<?=(int)$omieSeed['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i>Consultar Omie</button><?php endif;?></div>
+         <div class="tdaudit-group-tools"><div class="tdaudit-group-badges"><span class="conflict <?=$group['conflict_type']?>"><?=e($conflictLabel)?></span><?php if(empty($group['document_valid'])):?><span class="invalid">Documento inválido</span><?php endif;?><span><?=count($groupRows)?> registros</span></div></div>
         </header>
-        <div class="tdaudit-table-wrap"><table class="tdaudit-table"><thead><tr><th>Status</th><th>Cliente</th><th>Código Omie</th><th>Vendedor</th><th>Localização</th><th>Histórico</th><th>Inclusão</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
+        <div class="tdaudit-table-wrap"><table class="tdaudit-table"><thead><tr><th>Status CRM</th><th>Cliente</th><th>Código Omie</th><th>Vendedor</th><th>Localização</th><th>Histórico</th><th>Inclusão</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
          <?php foreach($groupRows as $row):$history=[];if(!empty($row['orders_history']))$history[]='Pedidos';if(!empty($row['services_history']))$history[]='Serviços';if(!empty($row['financial_history']))$history[]='Financeiro';if(!empty($row['crm_history']))$history[]='CRM';$isLocal=str_starts_with((string)$row['omie_code'],'LOCAL-');?>
           <tr class="<?=$row['active']?'is-active':'is-inactive'?>">
            <td><span class="tdaudit-status <?=$row['active']?'active':'inactive'?>"><i></i><?=$row['active']?'Ativo':'Inativo'?></span><?php if($isLocal):?><small class="tdaudit-origin local">Somente CRM</small><?php else:?><small class="tdaudit-origin">Omie</small><?php endif;?></td>
@@ -482,7 +482,7 @@ function render(string $name,array $vars=[]): void{
            <td><?php if($history):?><div class="tdaudit-history"><?php foreach($history as $item):?><span><?=e($item)?></span><?php endforeach;?></div><?php else:?><span class="tdaudit-no-history">Sem histórico</span><?php endif;?></td>
            <td><?php $inclusion=(string)($row['inclusion_at']??'');?><strong><?=$inclusion!==''?date('d/m/Y',strtotime($inclusion)):'—'?></strong><small><?=$inclusion!==''?date('H:i',strtotime($inclusion)).' · '.(($row['inclusion_source']??'crm')==='omie'?'Omie':'CRM'):''?></small></td>
            <td><strong><?=!empty($row['updated_at'])?date('d/m/Y',strtotime((string)$row['updated_at'])):'—'?></strong><small><?=!empty($row['updated_at'])?date('H:i',strtotime((string)$row['updated_at'])):''?></small></td>
-           <td><div class="tdaudit-row-actions"><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>" title="Abrir cadastro"><i class="fa-regular fa-folder-open"></i><span>Abrir</span></a><?php if(!$isLocal):?><button type="button" class="tdaudit-action omie" data-client-omie-check data-client-id="<?=(int)$row['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i><span>Omie</span></button><?php endif;?><?php if(!$isLocal&&empty($row['active'])):?><button type="button" class="tdaudit-action remove" data-client-omie-delete="<?=(int)$row['id']?>"><i class="fa-solid fa-trash-can"></i><span>Excluir CRM</span></button><?php endif;?></div></td>
+           <td><div class="tdaudit-row-actions"><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>" title="Abrir cadastro"><i class="fa-regular fa-folder-open"></i><span>Abrir</span></a><?php if(!$isLocal):?><button type="button" class="tdaudit-action omie" data-client-omie-check data-client-id="<?=(int)$row['id']?>" title="Consultar agora a situação deste código diretamente na Omie"><i class="fa-solid fa-cloud-arrow-down"></i><span>Consultar Omie</span></button><?php endif;?><?php if(!$isLocal&&empty($row['active'])):?><button type="button" class="tdaudit-action remove" data-client-omie-delete="<?=(int)$row['id']?>"><i class="fa-solid fa-trash-can"></i><span>Excluir CRM</span></button><?php endif;?></div></td>
           </tr>
          <?php endforeach;?></tbody></table></div>
        </article>
@@ -510,7 +510,7 @@ function render(string $name,array $vars=[]): void{
      <div class="tdaudit-section-head"><div><span>CONTROLE DE INTEGRIDADE</span><h2>Registros inativos preservados</h2><p>Clientes inativados na Omie permanecem no CRM quando necessário para preservar agenda, tarefas, atendimentos e histórico. Revise esses registros antes de qualquer exclusão.</p></div></div>
      <div class="tdaudit-inactive-card"><div class="tdaudit-table-wrap"><table class="tdaudit-table inactive-list"><thead><tr><th>Cliente</th><th>CPF/CNPJ</th><th>Código Omie</th><th>Vendedor</th><th>Histórico encontrado</th><th>Cadastro ativo correspondente</th><th>Atualizado</th><th>Ação</th></tr></thead><tbody>
       <?php foreach($auditInactiveRows as $row):$history=[];if(!empty($row['orders_history']))$history[]='Pedidos';if(!empty($row['services_history']))$history[]='Serviços';if(!empty($row['financial_history']))$history[]='Financeiro';if(!empty($row['crm_history']))$history[]='CRM';if(!$history&&!empty($row['history_preserved']))$history[]='Registro legado';$digits=preg_replace('/\D+/','',(string)$row['document']);?>
-       <tr><td><div class="tdaudit-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e(trim((string)($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:''))?:'Localização não informada')?></small></div></div></td><td><strong><?=e(client_audit_document_format($digits))?></strong><small><?=client_audit_document_valid($digits)?'Documento válido':'Documento inválido'?></small></td><td><strong class="tdaudit-code"><?=e($row['omie_code'])?></strong><small><span class="tdaudit-status inactive"><i></i>Inativo</span></small></td><td><strong><?=e($row['seller_name']?:'Sem vendedor')?></strong><small><?=e($row['seller_omie_code']?:'Não vinculado')?></small></td><td><?php if($history):?><div class="tdaudit-history"><?php foreach($history as $item):?><span><?=e($item)?></span><?php endforeach;?></div><?php else:?><span class="tdaudit-no-history">Sem histórico</span><?php endif;?></td><td><?php if(!empty($row['active_matches'])):?><span class="tdaudit-match"><?=e($row['active_matches'])?></span><?php else:?><span class="tdaudit-no-match">Nenhum ativo com o mesmo documento</span><?php endif;?></td><td><strong><?=!empty($row['updated_at'])?date('d/m/Y',strtotime((string)$row['updated_at'])):'—'?></strong><small><?=!empty($row['updated_at'])?date('H:i',strtotime((string)$row['updated_at'])):''?></small></td><td><div class="tdaudit-row-actions"><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>"><i class="fa-regular fa-folder-open"></i><span>Abrir</span></a><?php if(!str_starts_with((string)$row['omie_code'],'LOCAL-')):?><button type="button" class="tdaudit-action omie" data-client-omie-check data-client-id="<?=(int)$row['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i><span>Omie</span></button><button type="button" class="tdaudit-action remove" data-client-omie-delete="<?=(int)$row['id']?>"><i class="fa-solid fa-trash-can"></i><span>Excluir CRM</span></button><?php endif;?></div></td></tr>
+       <tr><td><div class="tdaudit-client"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e($row['name'])?></strong><small><?=e(trim((string)($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:''))?:'Localização não informada')?></small></div></div></td><td><strong><?=e(client_audit_document_format($digits))?></strong><small><?=client_audit_document_valid($digits)?'Documento válido':'Documento inválido'?></small></td><td><strong class="tdaudit-code"><?=e($row['omie_code'])?></strong><small><span class="tdaudit-status inactive"><i></i>Inativo</span></small></td><td><strong><?=e($row['seller_name']?:'Sem vendedor')?></strong><small><?=e($row['seller_omie_code']?:'Não vinculado')?></small></td><td><?php if($history):?><div class="tdaudit-history"><?php foreach($history as $item):?><span><?=e($item)?></span><?php endforeach;?></div><?php else:?><span class="tdaudit-no-history">Sem histórico</span><?php endif;?></td><td><?php if(!empty($row['active_matches'])):?><span class="tdaudit-match"><?=e($row['active_matches'])?></span><?php else:?><span class="tdaudit-no-match">Nenhum ativo com o mesmo documento</span><?php endif;?></td><td><strong><?=!empty($row['updated_at'])?date('d/m/Y',strtotime((string)$row['updated_at'])):'—'?></strong><small><?=!empty($row['updated_at'])?date('H:i',strtotime((string)$row['updated_at'])):''?></small></td><td><div class="tdaudit-row-actions"><a class="tdaudit-open" href="<?=APP_URL?>/clients/<?=(int)$row['id']?>"><i class="fa-regular fa-folder-open"></i><span>Abrir</span></a><?php if(!str_starts_with((string)$row['omie_code'],'LOCAL-')):?><button type="button" class="tdaudit-action omie" data-client-omie-check data-client-id="<?=(int)$row['id']?>" title="Consultar agora a situação deste código diretamente na Omie"><i class="fa-solid fa-cloud-arrow-down"></i><span>Consultar Omie</span></button><button type="button" class="tdaudit-action remove" data-client-omie-delete="<?=(int)$row['id']?>"><i class="fa-solid fa-trash-can"></i><span>Excluir CRM</span></button><?php endif;?></div></td></tr>
       <?php endforeach;?>
      </tbody></table><?php if(!$auditInactiveRows):?><div class="tdaudit-empty inline"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Nenhum cliente inativo preservado</strong><p>Não há cadastros inativados na Omie aguardando revisão.</p></div></div><?php endif;?></div></div>
      <?php if((int)$auditPagination['pages']>1):?><nav class="tdaudit-pager"><a class="tdaudit-btn <?=(int)$auditPagination['page']<=1?'disabled':''?>" href="<?=e($auditUrl(['page'=>max(1,(int)$auditPagination['page']-1)]))?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><span>Mostrando <?=number_format((int)$auditPagination['from'],0,',','.')?>–<?=number_format((int)$auditPagination['to'],0,',','.')?> de <?=number_format((int)$auditPagination['total'],0,',','.')?> · página <strong><?=(int)$auditPagination['page']?></strong> de <strong><?=(int)$auditPagination['pages']?></strong></span><a class="tdaudit-btn <?=(int)$auditPagination['page']>=(int)$auditPagination['pages']?'disabled':''?>" href="<?=e($auditUrl(['page'=>min((int)$auditPagination['pages'],(int)$auditPagination['page']+1)]))?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
@@ -669,7 +669,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($editClient&&Auth::can('admin','supervisor')):?><dialog class="tdc-omie-check-modal" data-client-omie-modal data-client-id="<?=(int)$editClient['id']?>" data-csrf="<?=e(CSRF::token())?>">
      <header><span><i class="fa-solid fa-cloud"></i></span><div><small>OMIE / CONFERÊNCIA DE CADASTRO</small><strong>CPF/CNPJ na Omie</strong><p>Compare os cadastros da Omie antes de salvar uma alteração com documento duplicado.</p></div><button type="button" data-client-omie-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
      <div class="tdc-omie-check-body" data-client-omie-body><div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie...</span></div></div>
-     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-danger" type="button" data-client-omie-batch-delete disabled><i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM</button><button class="tdc-btn tdc-btn-primary" type="button" data-client-omie-reconcile><i class="fa-solid fa-arrows-rotate"></i>Aplicar situação da Omie no CRM</button></div></footer>
+     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-danger" type="button" data-client-omie-batch-delete disabled><i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM</button></div></footer>
     </dialog><?php endif;?>
     <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
     <?php if($editError):?><div class="alert alert-danger"><strong>Omie:</strong> <?=e($editError)?></div><?php endif;?>
@@ -751,7 +751,7 @@ function render(string $name,array $vars=[]): void{
     <?php if(Auth::can('admin','supervisor')):?><dialog class="tdc-omie-check-modal" data-client-omie-modal data-client-id="<?=$client['id']?>" data-csrf="<?=e(CSRF::token())?>">
      <header><span><i class="fa-solid fa-cloud"></i></span><div><small>OMIE / CONFERÊNCIA DE CADASTRO</small><strong>CPF/CNPJ na Omie</strong><p>Compare todos os cadastros encontrados antes de corrigir uma duplicidade no CRM.</p></div><button type="button" data-client-omie-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
      <div class="tdc-omie-check-body" data-client-omie-body><div class="tdc-omie-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando a Omie...</span></div></div>
-     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-danger" type="button" data-client-omie-batch-delete disabled><i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM</button><button class="tdc-btn tdc-btn-primary" type="button" data-client-omie-reconcile><i class="fa-solid fa-arrows-rotate"></i>Aplicar situação da Omie no CRM</button></div></footer>
+     <footer><span data-client-omie-summary></span><div><button class="tdc-btn" type="button" data-client-omie-close>Fechar</button><button class="tdc-btn tdc-btn-danger" type="button" data-client-omie-batch-delete disabled><i class="fa-solid fa-trash-can"></i>Excluir selecionados do CRM</button></div></footer>
     </dialog><?php endif;?>
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
     <?php if($originInactive):?><div class="tdc-origin-inactive"><span><i class="fa-solid fa-cloud-circle-xmark"></i></span><div><strong>Cadastro inativo na Omie</strong><p>Este registro não participa da operação e não deve ser sincronizado. Você pode removê-lo somente do CRM; a Omie permanecerá intacta.</p><small>Antes da remoção o sistema consulta novamente a Omie e, se existir um único cadastro ativo equivalente, transfere para ele o histórico operacional do CRM.</small></div><?php if(Auth::can('admin','supervisor')):?><button type="button" class="tdc-btn tdc-btn-remove-inactive" data-client-omie-delete="<?=(int)$client['id']?>"><i class="fa-solid fa-trash-can"></i>Excluir só do CRM</button><?php endif;?></div><?php endif;?>
@@ -2044,83 +2044,6 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <section class="tdcfg-tip"><i class="fa-solid fa-lightbulb"></i><div><strong>Dica</strong><span>Mantenha as configurações simples. Ative somente os recursos que sua operação realmente utiliza.</span></div></section>
      </aside>
     </div>
-   </section>
-  <?php break;
-  case 'omie_client_lab':
-   $lab=$lab??[];$original=is_array($lab['original']??null)?$lab['original']:null;$rawPayload=is_array($lab['raw_payload']??null)?$lab['raw_payload']:null;$payload=is_array($lab['payload']??null)?$lab['payload']:null;$omitted=is_array($lab['omitted']??null)?$lab['omitted']:[];$alterResponse=is_array($lab['alter_response']??null)?$lab['alter_response']:null;$confirmed=is_array($lab['confirmed']??null)?$lab['confirmed']:null;$lastError=(string)($lab['last_error']??'');
-   $jsonFlags=JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES;
-   ?>
-   <section class="tdomie-lab-page">
-    <header class="tdomie-lab-head">
-     <div class="tdomie-lab-head-main"><span class="tdomie-lab-head-icon"><i class="fa-solid fa-flask-vial"></i></span><div><span class="tdomie-lab-kicker">OMIE / LABORATÓRIO CONTROLADO</span><h1>Teste de cadastro completo</h1><p>Consulta um cliente diretamente na Omie, preserva o JSON completo e compara o retorno bruto com um payload compatível para escrita, alterando somente <code>inativo</code> para <code>S</code>.</p></div></div>
-     <div class="tdomie-lab-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-arrow-left"></i>Auditoria</a><?php if($original):?><form method="post" action="<?=APP_URL?>/omie-client-lab/clear"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="tdc-btn" type="submit"><i class="fa-solid fa-eraser"></i>Limpar teste</button></form><?php endif;?></div>
-    </header>
-
-    <div class="tdomie-lab-warning"><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Teste com efeito real na Omie</strong><p>A consulta não altera nada. Como a Omie devolve campos vazios que ela própria rejeita na escrita, o laboratório preserva o JSON original para comparação e omite somente valores vazios no envio. Nenhum valor existente é modificado; apenas <b>inativo</b> muda para <b>S</b>. Esta página não altera nem exclui registros do CRM.</p></div></div>
-
-    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'info')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-
-    <section class="tdomie-lab-card">
-     <div class="tdomie-lab-card-head"><span>1</span><div><strong>Consultar cadastro completo</strong><small>Informe somente o código interno do cliente na Omie.</small></div></div>
-     <form class="tdomie-lab-form" method="post" action="<?=APP_URL?>/omie-client-lab/consult">
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <label><span>Código cliente Omie</span><input class="form-control" name="codigo_cliente_omie" inputmode="numeric" pattern="[0-9]+" value="<?=e((string)($lab['code']??''))?>" placeholder="Ex.: 2512309115" required></label>
-      <button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-cloud-arrow-down"></i>ConsultarCliente</button>
-     </form>
-    </section>
-
-    <?php if($original):?>
-    <div class="tdomie-lab-summary">
-     <article><small>Código Omie</small><strong><?=e((string)($original['codigo_cliente_omie']??'—'))?></strong></article>
-     <article><small>Nome fantasia</small><strong><?=e((string)($original['nome_fantasia']??'—'))?></strong></article>
-     <article><small>CPF/CNPJ</small><strong><?=e((string)($original['cnpj_cpf']??'—'))?></strong></article>
-     <article><small>Inativo atual</small><strong class="<?=mb_strtoupper((string)($original['inativo']??''),'UTF-8')==='S'?'is-inactive':'is-active'?>"><?=e((string)($original['inativo']??'não informado'))?></strong></article>
-    </div>
-
-    <div class="tdomie-lab-json-grid">
-     <section class="tdomie-lab-json-card">
-      <header><div><span class="blue"><i class="fa-solid fa-download"></i></span><div><strong>1. Retorno original</strong><small>JSON completo de ConsultarCliente, sem qualquer alteração</small></div></div><b><?=count($original)?> campos raiz</b></header>
-      <pre><?=e((string)json_encode($original,$jsonFlags))?></pre>
-     </section>
-     <section class="tdomie-lab-json-card">
-      <header><div><span class="orange"><i class="fa-solid fa-code"></i></span><div><strong>2. Payload bruto</strong><small>JSON original com somente <code>inativo = S</code>; referência do teste que falhou</small></div></div><b><?=count($rawPayload??[])?> campos raiz</b></header>
-      <pre><?=e((string)json_encode($rawPayload,$jsonFlags))?></pre>
-     </section>
-     <section class="tdomie-lab-json-card">
-      <header><div><span class="green"><i class="fa-solid fa-filter-circle-xmark"></i></span><div><strong>3. Payload efetivamente enviado</strong><small>Mesmos valores existentes, omitindo somente campos vazios incompatíveis com escrita</small></div></div><b><?=count($payload??[])?> campos raiz</b></header>
-      <pre><?=e((string)json_encode($payload,$jsonFlags))?></pre>
-     </section>
-     <section class="tdomie-lab-json-card">
-      <header><div><span class="purple"><i class="fa-solid fa-list-check"></i></span><div><strong>Campos vazios omitidos</strong><small>Omissão não altera o valor armazenado na Omie; evita validação de vazio na escrita</small></div></div><b><?=count($omitted)?> campo(s)</b></header>
-      <pre><?=e($omitted?implode("\n",$omitted):'Nenhum campo vazio precisou ser omitido.')?></pre>
-     </section>
-    </div>
-
-    <section class="tdomie-lab-card danger-zone">
-     <div class="tdomie-lab-card-head"><span>2</span><div><strong>Executar AlterarCliente</strong><small>Este passo altera realmente o cadastro na Omie.</small></div></div>
-     <form class="tdomie-lab-confirm" method="post" action="<?=APP_URL?>/omie-client-lab/inactivate">
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-      <input type="hidden" name="codigo_cliente_omie" value="<?=e((string)$lab['code'])?>">
-      <label><input type="checkbox" name="confirm" value="1" required><span>Confirmo que quero testar este cadastro específico. O laboratório enviará os valores atuais da Omie, omitirá somente campos vazios e mudará apenas <code>inativo</code> para <code>S</code>.</span></label>
-      <button class="tdc-btn tdc-btn-danger" type="submit"><i class="fa-solid fa-flask"></i>Enviar AlterarCliente agora</button>
-     </form>
-    </section>
-    <?php endif;?>
-
-    <?php if($lastError!==''):?><div class="tdomie-lab-warning"><span><i class="fa-solid fa-circle-xmark"></i></span><div><strong>Última tentativa recusada pela Omie</strong><p><?=e($lastError)?></p></div></div><?php endif;?>
-
-    <?php if($alterResponse||$confirmed):?>
-    <div class="tdomie-lab-json-grid result">
-     <section class="tdomie-lab-json-card">
-      <header><div><span class="green"><i class="fa-solid fa-reply"></i></span><div><strong>4. Resposta do AlterarCliente</strong><small>Resposta direta recebida da Omie</small></div></div></header>
-      <pre><?=e((string)json_encode($alterResponse,$jsonFlags))?></pre>
-     </section>
-     <section class="tdomie-lab-json-card">
-      <header><div><span class="purple"><i class="fa-solid fa-magnifying-glass"></i></span><div><strong>5. Consulta após alteração</strong><small>ConsultarCliente executado logo após o teste</small></div></div><b>inativo = <?=e((string)($confirmed['inativo']??'—'))?></b></header>
-      <pre><?=e((string)json_encode($confirmed,$jsonFlags))?></pre>
-     </section>
-    </div>
-    <?php endif;?>
    </section>
   <?php break;
   case 'test_data':?>
