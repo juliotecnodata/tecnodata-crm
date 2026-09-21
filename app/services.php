@@ -791,7 +791,7 @@ final class ClientService {
    ]);
    $changed[]=['id'=>(int)$local['id'],'name'=>(string)$local['name'],'omie_code'=>$code,'active'=>(bool)$nextActive,'remote_inactive'=>!empty($remote['inactive'])];
   }
-  client_cache_invalidate();
+  unset($_SESSION['client_base_counts_cache'],$_SESSION['client_tag_catalog_cache']);
 
   $document=(string)$audit['document'];
   $remaining=DB::all("SELECT id,omie_code,name,active,crm_inactive FROM clients
