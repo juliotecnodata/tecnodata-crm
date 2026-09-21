@@ -310,7 +310,7 @@ function ensure_task_detail_columns(): void{
 }
 function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?array{
  ensure_task_detail_columns();$where=['t.id=?'];$params=[$taskId];if($pendingOnly)$where[]="t.status='pending'";
- if(!in_array((string)($user['role']??''),['admin','supervisor'],true)){$where[]='t.assigned_user_id=?';$params[]=(int)($user['id']??0);}
+ if(!in_array((string)($user['role']??''),['admin','supervisor'],true)){$where[]='t.assigned_user_id=?';$params[]=(int)($user['id']??0);$where[]='c.crm_inactive=0';}
  return DB::one("SELECT t.*,c.name client_name,c.document client_document,c.city client_city,c.uf client_uf,
    assigned.name assigned_name,assigned.role assigned_role,
    creator.name created_by_name,completed.name completed_by_name
@@ -1101,7 +1101,7 @@ $router->post('/contact-monitoring/{id}/schedule',function($p){
  $redirect=[];$sellerFilter=max(0,(int)($_POST['seller_filter']??0));if($sellerFilter>0)$redirect['seller_id']=$sellerFilter;
  $statusFilter=(string)($_POST['status_filter']??'all');if(in_array($statusFilter,['contacted','never','scheduled','overdue','without_next'],true))$redirect['status']=$statusFilter;
  try{
-  $client=DB::one("SELECT id,name FROM clients WHERE id=? AND active=1",[$clientId]);
+  $client=DB::one("SELECT id,name FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   $seller=DB::one("SELECT id,name,role FROM users WHERE id=? AND role IN ('seller','collector') AND active=1",[$assignedId]);
   if(!$seller)throw new RuntimeException('Selecione um usuário ativo de vendas ou cobrança para o próximo contato.');
@@ -1549,8 +1549,9 @@ $router->post('/collection/recoveries',function(){
 $router->get('/collection/{id}',function($p){
  Auth::requireRole('admin','supervisor','collector');
  $id=(int)$p['id'];
- $c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);
+ $c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,c.crm_inactive,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}
+ if(($u=Auth::user())&&($u['role']??'')==='collector'&&!empty($c['crm_inactive'])){http_response_code(404);exit('Cobrança não encontrada.');}
  $a=DB::all("SELECT ca.*,ua.name author_name,ur.name assigned_name FROM collection_actions ca JOIN users ua ON ua.id=ca.author_user_id JOIN users ur ON ur.id=ca.assigned_user_id WHERE ca.client_id=? ORDER BY ca.created_at DESC",[$id]);
  $c['pending_local']=0.0;$c['available_amount']=(float)$c['open_amount'];$c['agreement_amount']=0.0;$c['agreement_date']=null;
  foreach($a as $action){
@@ -1580,8 +1581,9 @@ $router->post('/collection/{id}/assign',function($p){
 $router->post('/collection/{id}/action',function($p){
  Auth::requireRole('admin','supervisor','collector');CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();
- $case=DB::one("SELECT * FROM collection_cases WHERE client_id=?",[$id]);
+ $case=DB::one("SELECT cc.*,c.crm_inactive FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.client_id=?",[$id]);
  if(!$case){$_SESSION['collection_case_flash']=['type'=>'danger','message'=>'Cobrança inválida.'];redirect('/collection');}
+ if(!empty($case['crm_inactive'])){$_SESSION['collection_case_flash']=['type'=>'danger','message'=>'Cliente inativo no CRM. Reative o cadastro antes de registrar nova movimentação.'];redirect('/collection');}
  $assigned=(int)($case['assigned_user_id']??0);
  if(Auth::can('admin','supervisor')&&!empty($_POST['assigned_user_id']))$assigned=(int)$_POST['assigned_user_id'];
  if($assigned<=0)$assigned=(int)$u['id'];
@@ -1656,6 +1658,7 @@ $router->get('/agenda',function(){
  $flash=$_SESSION['agenda_flash']??null;unset($_SESSION['agenda_flash']);
 
  $baseWhere=["t.status='pending'"];$baseParams=[];
+ if(!$teamAgenda)$baseWhere[]="EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)";
  if($teamAgenda){
   if($filterUser>0){$baseWhere[]='t.assigned_user_id=?';$baseParams[]=$filterUser;}
  }else{
@@ -1696,7 +1699,7 @@ $router->get('/agenda',function(){
   'done_count'=>0,'other_count'=>0
  ];
  if(!$teamAgenda){
-  $personalWhere=['t.assigned_user_id=?'];$personalParams=[(int)$u['id']];
+  $personalWhere=['t.assigned_user_id=?',"EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)"];$personalParams=[(int)$u['id']];
   if($agendaType!=='all'){$personalWhere[]='t.type=?';$personalParams[]=$agendaType;}
   if($createdDate!==''){$personalWhere[]='t.created_at>=? AND t.created_at<?';array_push($personalParams,$createdDate.' 00:00:00',$createdNext.' 00:00:00');}
   $vision=DB::one(
@@ -1738,7 +1741,7 @@ $router->get('/agenda',function(){
 });
 $router->get('/api/tasks/form-context',function(){
  Auth::requireLogin();$u=Auth::user();$role=(string)($u['role']??'');$context=$role==='collector'?'collection':'sales';$clientId=max(0,(int)($_GET['client_id']??0));$client=null;
- if($clientId>0)$client=DB::one("SELECT id,name,document,city,uf FROM clients WHERE id=? AND active=1",[$clientId]);
+ if($clientId>0)$client=DB::one("SELECT id,name,document,city,uf FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
  if($role==='seller')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor'),name",[(int)$u['id']]);
  elseif($role==='collector')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'collector','supervisor'),name",[(int)$u['id']]);
  elseif($role==='supervisor')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",[(int)$u['id']]);
@@ -1753,7 +1756,7 @@ $router->post('/api/tasks',function(){
   if($role==='seller')$context='sales';if($role==='collector')$context='collection';
   $taskTypeCode=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['task_type_code']??''))));
   $title=trim((string)($_POST['title']??''));$value=trim((string)($_POST['due_at']??''));$date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
-  $client=$clientId>0?DB::one("SELECT id,name FROM clients WHERE id=? AND active=1",[$clientId]):null;if(!$client)throw new RuntimeException('Selecione um cliente válido.');
+  $client=$clientId>0?DB::one("SELECT id,name FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]):null;if(!$client)throw new RuntimeException('Selecione um cliente válido.');
   $assigned=$assignedId>0?DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]):null;if(!$assigned)throw new RuntimeException('Selecione um responsável ativo.');
   $assignedRole=(string)$assigned['role'];
   if($context==='sales'&&!in_array($assignedRole,['seller','supervisor','admin'],true))throw new RuntimeException('Tarefas comerciais devem ser atribuídas a vendedor, supervisor ou administrador.');
@@ -2586,7 +2589,7 @@ $router->get('/api/collection/datatable',function(){
    &&db_column_exists('tasks','due_at')
    &&db_column_exists('tasks','status');
 
-  $baseWhere=['cc.status=?'];$baseParams=[$view];
+  $baseWhere=['cc.status=?','c.crm_inactive=0'];$baseParams=[$view];
   if($assigned>0){
    if(!$caseHasAssigned)throw new RuntimeException('Estrutura de cobrança desatualizada: responsável da carteira ainda não existe no banco.');
    $baseWhere[]='cc.assigned_user_id=?';$baseParams[]=$assigned;
