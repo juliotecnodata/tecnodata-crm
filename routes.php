@@ -752,7 +752,13 @@ $router->get('/clients-duplicates',function(){
  Auth::requireRole('admin','supervisor');
  $params=['tab'=>'duplicates'];
  $q=trim((string)($_GET['q']??''));if($q!=='')$params['q']=mb_substr($q,0,120);
- $conflict=(string)($_GET['conflict']??'');if(in_array($conflict,['active','mixed','invalid'],true))$params['conflict']=$conflict;
+ $conflict=(string)($_GET['conflict']??'');if(in_array($conflict,['active','mixed','inactive','invalid'],true))$params['conflict']=$conflict;
+ $uf=mb_strtoupper(trim((string)($_GET['uf']??'')),'UTF-8');if(preg_match('/^[A-Z]{2}$/',$uf))$params['uf']=$uf;
+ $seller=trim((string)($_GET['seller']??''));if($seller!=='')$params['seller']=$seller;
+ $source=(string)($_GET['source']??'');if(in_array($source,['omie_only','with_local'],true))$params['source']=$source;
+ $min=max(2,min(20,(int)($_GET['min_records']??2)));if($min!==2)$params['min_records']=$min;
+ foreach(['date_from','date_to'] as $dateKey){$date=trim((string)($_GET[$dateKey]??''));if(preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))$params[$dateKey]=$date;}
+ $sort=(string)($_GET['sort']??'');if(in_array($sort,['oldest','newest','updated_oldest','updated_newest'],true))$params['sort']=$sort;
  redirect('/clients-audit?'.http_build_query($params));
 });
 $router->get('/clients-audit',function(){
