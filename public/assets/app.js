@@ -166,6 +166,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   window.appNotify=showNotice;
 
+  const removeAuditRows=(ids=[])=>{
+    const unique=[...new Set((ids||[]).map(Number).filter(Boolean))];
+    unique.forEach(id=>{
+      document.querySelectorAll('[data-audit-client-row="'+id+'"]').forEach(row=>{
+        const group=row.closest('.tdaudit-group');
+        row.remove();
+        if(group&&!group.querySelector('[data-audit-client-row]'))group.remove();
+      });
+    });
+  };
   const clientOmieModal=document.querySelector('[data-client-omie-modal]');
   const clientOmieOpeners=[...document.querySelectorAll('[data-client-omie-check]')];
   let preferredOmieTargetId=0,openClientOmieAudit=null;
@@ -315,9 +325,11 @@ document.addEventListener('DOMContentLoaded',()=>{
           if(data.audit)render(data.audit);
           return;
         }
+        const removedIds=(Array.isArray(data.removed)?data.removed:[]).map(item=>Number(item?.id||0)).filter(Boolean);
+        removeAuditRows(removedIds.length?removedIds:ids);
         showNotice('success','Duplicados tratados em lote',data.message||ids.length+' cadastro(s) removido(s) somente do CRM.');
         batchDelete.innerHTML='<i class="fa-solid fa-check"></i>'+Number(data.removed_count||ids.length)+' removido(s)';
-        setTimeout(()=>{location.href=data.redirect||(window.APP_URL||'')+'/clients-duplicates';},650);
+        clientOmieModal.close();
       }catch(error){
         batchDelete.disabled=false;batchDelete.innerHTML=previous;
         showNotice('danger','Não foi possível processar em lote',error.message||'Tente novamente.');
@@ -342,13 +354,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(data.requires_target){
         button.disabled=false;button.innerHTML=previous;
         showNotice('warning','Escolha o cadastro que ficará',data.message||'Há mais de um cadastro ativo. Selecione qual deve permanecer no CRM.');
-        if(openClientOmieAudit)openClientOmieAudit(targetId);
+        if(data.audit&&clientOmieModal){
+          clientOmieModal.dataset.clientId=String(targetId);
+          if(!clientOmieModal.open)clientOmieModal.showModal();
+          const modalBody=clientOmieModal.querySelector('[data-client-omie-body]');
+          if(modalBody&&typeof render==='function')render(data.audit);
+        }
         return;
       }
+      removeAuditRows([targetId]);
       showNotice('success','Cadastro inativo removido',data.message||'O cadastro foi removido somente do CRM.');
-      const currentId=Number(clientOmieModal?.dataset?.clientId||0);
-      if(targetId===currentId){setTimeout(()=>{location.href=data.redirect||(window.APP_URL||'')+'/clients';},450);return;}
-      setTimeout(()=>location.reload(),450);
+      if(clientOmieModal?.open)clientOmieModal.close();
     }catch(error){
       button.disabled=false;button.innerHTML=previous;
       showNotice('danger','Não foi possível excluir',error.message||'Tente novamente.');
