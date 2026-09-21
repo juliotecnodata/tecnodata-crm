@@ -748,6 +748,10 @@ $router->post('/api/clients-sync/bulk',function(){
  }catch(Throwable $e){json_response(['success'=>false,'error'=>$e->getMessage()],422);}
 });
 
+$router->get('/clients-duplicates',function(){
+ Auth::requireRole('admin','supervisor');
+ redirect('/clients-audit?tab=duplicates');
+});
 $router->get('/clients-audit',function(){
  Auth::requireRole('admin','supervisor');
  $tab=(string)($_GET['tab']??'duplicates');if(!in_array($tab,['duplicates','responsibility','inactive'],true))$tab='duplicates';
