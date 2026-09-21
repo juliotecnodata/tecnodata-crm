@@ -142,35 +142,6 @@ function client_audit_document_format(string $digits): string{
  return $digits;
 }
 
-function omie_client_lab_prune_empty(mixed $value,string $path='',array &$omitted=[]): mixed{
- if(is_array($value)){
-  $out=[];
-  foreach($value as $key=>$item){
-   $childPath=$path===''?(string)$key:$path.'.'.$key;
-   $clean=omie_client_lab_prune_empty($item,$childPath,$omitted);
-   if($clean===null)continue;
-   if(is_array($clean)&&$clean===[]){$omitted[]=$childPath;continue;}
-   $out[$key]=$clean;
-  }
-  return $out;
- }
- if($value===null){if($path!=='')$omitted[]=$path;return null;}
- if(is_string($value)&&trim($value)===''){if($path!=='')$omitted[]=$path;return null;}
- return $value;
-}
-function omie_client_lab_payload(array $original,array &$omitted=[]): array{
- $raw=$original;
- $raw['inativo']='S';
- $clean=omie_client_lab_prune_empty($raw,'',$omitted);
- if(!is_array($clean))$clean=[];
- // Campos de identificação e o status precisam permanecer explícitos.
- $clean['codigo_cliente_omie']=(int)($original['codigo_cliente_omie']??0);
- if(array_key_exists('codigo_cliente_integracao',$original)&&trim((string)$original['codigo_cliente_integracao'])!=='')$clean['codigo_cliente_integracao']=$original['codigo_cliente_integracao'];
- $clean['inativo']='S';
- $omitted=array_values(array_unique(array_filter($omitted,static fn($item)=>$item!=='inativo'&&$item!=='codigo_cliente_omie')));
- sort($omitted);
- return $clean;
-}
 function crm_search_terms(string $query,int $limit=8): array{
  $query=trim((string)(preg_replace('/\s+/u',' ',$query)??$query));if($query==='')return [];
  $parts=preg_split('/[\s\-–—\/\\\\|,.;:()\[\]{}]+/u',$query,-1,PREG_SPLIT_NO_EMPTY)?:[$query];$terms=[];
@@ -1113,18 +1084,10 @@ $router->post('/clients/{id}/delete',function($p){
 $router->get('/api/clients/{id}/omie-check',function($p){
  Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();
  try{
-  $audit=ClientService::inspectOmieDocument((int)$p['id']);
+  $audit=ClientService::inspectOmieDocument((int)$p['id'],true);
   json_response(['ok'=>true,'audit'=>$audit]);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
-$router->post('/api/clients/{id}/omie-reconcile',function($p){
- Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);
- try{
-  $result=ClientService::reconcileOmieDocument((int)$p['id'],Auth::user());
-  json_response(['ok'=>true]+$result);
- }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
-});
-
 $router->post('/clients/{id}/crm-status',function($p){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);ClientSegmentPolicy::ensureSchema();
  $id=(int)$p['id'];$client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=?",[$id]);
@@ -2264,88 +2227,6 @@ $router->post('/goals/{id}',function($p){
  GoalService::save((int)$p['id'],(string)($_POST['month']??date('Y-m')),$_POST,Auth::id());
  redirect('/goals?month='.urlencode((string)($_POST['month']??date('Y-m'))));
 });
-$router->get('/omie-client-lab',function(){
- Auth::requireRole('admin');
- $state=$_SESSION['omie_client_lab']??[];
- $flash=$_SESSION['omie_client_lab_flash']??null;unset($_SESSION['omie_client_lab_flash']);
- render('omie_client_lab',['lab'=>$state,'flash'=>$flash]);
-});
-$router->post('/omie-client-lab/consult',function(){
- Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
- $code=preg_replace('/\D+/','',(string)($_POST['codigo_cliente_omie']??''));
- try{
-  if($code===''||(int)$code<=0)throw new RuntimeException('Informe um código Omie válido.');
-  $omie=new OmieClient();
-  $original=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
-  $returnedCode=(string)($original['codigo_cliente_omie']??'');
-  if($returnedCode!==$code)throw new RuntimeException('A Omie retornou um cadastro diferente do código solicitado.');
-  $rawPayload=$original;
-  $rawPayload['inativo']='S';
-  $omitted=[];
-  $payload=omie_client_lab_payload($original,$omitted);
-  $_SESSION['omie_client_lab']=[
-   'code'=>$code,
-   'consulted_at'=>date('Y-m-d H:i:s'),
-   'original'=>$original,
-   'raw_payload'=>$rawPayload,
-   'payload'=>$payload,
-   'omitted'=>$omitted,
-   'alter_response'=>null,
-   'confirmed'=>null,
-   'last_error'=>null,
-  ];
-  $_SESSION['omie_client_lab_flash']=['type'=>'success','message'=>'Cadastro completo consultado. Revise os JSONs antes de executar o teste de alteração.'];
- }catch(Throwable $e){
-  unset($_SESSION['omie_client_lab']);
-  $_SESSION['omie_client_lab_flash']=['type'=>'danger','message'=>$e->getMessage()];
- }
- redirect('/omie-client-lab');
-});
-$router->post('/omie-client-lab/inactivate',function(){
- Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
- try{
-  $state=$_SESSION['omie_client_lab']??null;
-  if(!is_array($state)||empty($state['original'])||empty($state['code']))throw new RuntimeException('Consulte um cadastro antes de executar o teste.');
-  if((string)($_POST['codigo_cliente_omie']??'')!==(string)$state['code'])throw new RuntimeException('O código confirmado não corresponde ao cadastro consultado.');
-  if((string)($_POST['confirm']??'')!=='1')throw new RuntimeException('Confirme explicitamente o teste antes de enviar.');
-  $omitted=[];
-  $payload=omie_client_lab_payload((array)$state['original'],$omitted);
-
-  $omie=new OmieClient();
-  $response=$omie->call('clients','AlterarCliente',$payload);
-  $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$state['code']]);
-
-  $state['payload']=$payload;
-  $state['omitted']=$omitted;
-  $state['last_error']=null;
-  $state['altered_at']=date('Y-m-d H:i:s');
-  $state['alter_response']=$response;
-  $state['confirmed']=$confirmed;
-  $_SESSION['omie_client_lab']=$state;
-
-  $inactive=mb_strtoupper(trim((string)($confirmed['inativo']??'')),'UTF-8');
-  $_SESSION['omie_client_lab_flash']=[
-   'type'=>$inactive==='S'?'success':'warning',
-   'message'=>$inactive==='S'
-    ?'Teste concluído: a Omie confirmou inativo=S após o AlterarCliente.'
-    :'A Omie respondeu ao AlterarCliente, mas a consulta posterior retornou inativo='.($inactive!==''?$inactive:'não informado').'. Compare os três JSONs abaixo.'
-  ];
- }catch(Throwable $e){
-  $state=$_SESSION['omie_client_lab']??[];
-  if(is_array($state)){
-   $state['last_error']=$e->getMessage();
-   $_SESSION['omie_client_lab']=$state;
-  }
-  $_SESSION['omie_client_lab_flash']=['type'=>'danger','message'=>$e->getMessage()];
- }
- redirect('/omie-client-lab');
-});
-$router->post('/omie-client-lab/clear',function(){
- Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
- unset($_SESSION['omie_client_lab'],$_SESSION['omie_client_lab_flash']);
- redirect('/omie-client-lab');
-});
-
 $router->get('/test-data',function(){
  Auth::requireRole('admin');
  $flash=$_SESSION['test_flash']??null;unset($_SESSION['test_flash']);
