@@ -757,14 +757,30 @@ final class ClientService {
   }
  }
 
- private static function omieClientCoreUpdatePayload(array $remoteRow,string $code,string $inactive='S'): array{
-  // O AlterarCliente recebe clientes_cadastro. Apesar de aceitar alterações parciais,
-  // alguns cadastros não efetivam a troca de status quando enviamos somente chave+inativo.
-  // Reenviamos os campos centrais do próprio cadastro remoto, sem tocar em endereço,
-  // financeiro, tags ou demais dados operacionais.
+ private static function omieClientFullUpdatePayload(array $remoteRow,string $code,string $inactive='S'): array{
+  // AlterarCliente recebe clientes_cadastro. Montamos o payload a partir do retorno
+  // completo de ListarClientes, preservando todos os campos editáveis documentados
+  // e alterando exclusivamente o indicador de inatividade.
   $payload=['codigo_cliente_omie'=>(int)$code];
-  foreach(['codigo_cliente_integracao','razao_social','cnpj_cpf','nome_fantasia'] as $field){
-   if(array_key_exists($field,$remoteRow)&&$remoteRow[$field]!==null&&$remoteRow[$field]!=='')$payload[$field]=$remoteRow[$field];
+  $fields=[
+   'codigo_cliente_integracao','razao_social','cnpj_cpf','nome_fantasia',
+   'telefone1_ddd','telefone1_numero','contato','endereco','endereco_numero',
+   'bairro','complemento','estado','cidade','cep','codigo_pais','separar_endereco',
+   'pesquisar_cep','telefone2_ddd','telefone2_numero','fax_ddd','fax_numero',
+   'email','homepage','inscricao_estadual','inscricao_municipal','inscricao_suframa',
+   'optante_simples_nacional','tipo_atividade','cnae','produtor_rural','contribuinte',
+   'observacao','obs_detalhadas','recomendacao_atraso','tags','cidade_ibge',
+   'valor_limite_credito','bloquear_faturamento','recomendacoes','enderecoEntrega',
+   'nif','documento_exterior','dadosBancarios','caracteristicas','enviar_anexos',
+   'bloquear_exclusao'
+  ];
+  foreach($fields as $field){
+   if(!array_key_exists($field,$remoteRow))continue;
+   $value=$remoteRow[$field];
+   if($value===null)continue;
+   // Evita sobrescrever campos textuais com vazio quando a Omie não os devolveu.
+   if(is_string($value)&&$value===''&&!in_array($field,['observacao','obs_detalhadas','homepage','contato'],true))continue;
+   $payload[$field]=$value;
   }
   $payload['inativo']=$inactive;
   return $payload;
@@ -1365,59 +1381,62 @@ final class ClientService {
    throw new RuntimeException('O lote removeria todos os cadastros ativos deste CPF/CNPJ. Deixe pelo menos um cadastro ativo fora da seleção para permanecer como principal.');
   }
 
-  // A API pública da Omie expõe o campo "inativo", porém a alteração de situação
-  // não é efetivada de forma confiável pelos métodos de cadastro. Não tentamos mais escrever
-  // esse status pela API. O operador inativa em lote na própria Omie e o CRM apenas confirma.
-  $omie=new OmieClient();$verifiedInactiveCodes=[];$freshInactive=[];$stillActive=[];$missingNow=[];
+  $omie=new OmieClient();$inactivated=[];$verifiedInactiveCodes=[];
+  $rawRemoteByCode=self::rawOmieRowsByCode($document);
+  $changeResponses=[];
 
   if($target){
-   $targetRemote=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$target['omie_code']]);
-   $targetInactive=mb_strtoupper(trim((string)($targetRemote['inativo']??'')),'UTF-8');
-   if($targetInactive==='S'){
-    throw new RuntimeException('O cadastro principal escolhido (Omie '.$target['omie_code'].') está inativo. Escolha outro cadastro ativo para permanecer.');
+   $targetRow=$rawRemoteByCode[(string)$target['omie_code']]??null;
+   if(!$targetRow||mb_strtoupper(trim((string)($targetRow['inativo']??'N')),'UTF-8')==='S'){
+    throw new RuntimeException('O cadastro principal escolhido não está ativo na Omie. Consulte novamente e escolha outro cadastro para permanecer.');
    }
   }
 
-  foreach($sources as $source){
+  // O usuário monta o lote no CRM e envia uma única ação. Internamente usamos
+  // AlterarCliente para cada código, pois o método oficial de lote está deprecated.
+  foreach($activeSources as $source){
    $code=(string)$source['omie_code'];
-   try{
-    $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
-    $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
-    $confirmedInactive=mb_strtoupper(trim((string)($confirmed['inativo']??'')),'UTF-8');
-    if($confirmedCode!==$code){
-     $stillActive[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name'],'status'=>'Código retornado não corresponde'];
-     continue;
-    }
-    if($confirmedInactive==='S'){
-     $verifiedInactiveCodes[]=$code;
-     $freshInactive[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name']];
-     self::markCachedOmieDocumentInactive($document,[$code]);
-    }else{
-     $stillActive[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name'],'status'=>$confirmedInactive!==''?$confirmedInactive:'N'];
-    }
-   }catch(Throwable $e){
-    $message=mb_strtolower($e->getMessage(),'UTF-8');
-    if(str_contains($message,'5113')||str_contains($message,'não encontrado')||str_contains($message,'nao encontrado')){
-     $missingNow[]=['id'=>(int)$source['id'],'omie_code'=>$code,'name'=>(string)$source['name']];
-     continue;
-    }
-    throw $e;
+   $remoteRow=$rawRemoteByCode[$code]??null;
+   if(!$remoteRow){
+    throw new RuntimeException('Não foi possível obter o cadastro completo do código Omie '.$code.'. Consulte novamente o CPF/CNPJ antes de processar.');
    }
+
+   $payload=self::omieClientFullUpdatePayload($remoteRow,$code,'S');
+   $response=$omie->call('clients','AlterarCliente',$payload);
+   $status=(string)($response['codigo_status']??$response['cCodigoStatus']??'0');
+   if($status!=='0'){
+    $description=(string)($response['descricao_status']??$response['cDesStatus']??'A Omie recusou a alteração.');
+    throw new RuntimeException('Não foi possível inativar o código Omie '.$code.': '.$description);
+   }
+   $changeResponses[$code]=$response;
   }
 
-  if($stillActive){
-   $codes=implode(', ',array_map(static fn($row)=>(string)$row['omie_code'],$stillActive));
-   return [
-    'status'=>'manual_omie_inactivation_required',
-    'requires_manual_omie'=>true,
-    'requires_target'=>false,
-    'audit'=>$audit,
-    'selected_ids'=>$sourceIds,
-    'pending'=>$stillActive,
-    'confirmed_inactive'=>$freshInactive,
-    'message'=>'Ainda ativo(s) na Omie: '.$codes.'. Inative esses cadastros em lote na tela de Clientes/Fornecedores do Omie e depois clique em “Conferir Omie + concluir” novamente. Nenhum registro foi removido do CRM.',
-   ];
+  // Dá um pequeno intervalo para a leitura refletir a gravação e faz apenas uma
+  // consulta pontual por código, evitando ListarClientes redundante do mesmo CPF/CNPJ.
+  if($activeSources)usleep(1500000);
+
+  foreach($activeSources as $source){
+   $code=(string)$source['omie_code'];
+   $confirmed=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$code]);
+   $confirmedCode=(string)($confirmed['codigo_cliente_omie']??'');
+   $confirmedInactive=mb_strtoupper(trim((string)($confirmed['inativo']??'')),'UTF-8');
+   if($confirmedCode!==$code||$confirmedInactive!=='S'){
+    $change=$changeResponses[$code]??[];
+    $description=trim((string)($change['descricao_status']??$change['cDesStatus']??''));
+    $statusShown=$confirmedInactive!==''?$confirmedInactive:'não retornado';
+    throw new RuntimeException(
+     'A Omie respondeu sucesso ao AlterarCliente do código '.$code
+     .($description!==''?' ('.$description.')':'')
+     .', porém ConsultarCliente retornou inativo='.$statusShown
+     .'. Nenhum registro deste lote foi removido do CRM.'
+    );
+   }
+   $verifiedInactiveCodes[]=$code;
+   $inactivated[]=$source;
+   self::markCachedOmieDocumentInactive($document,[$code]);
   }
+
+  foreach($alreadyInactive as $source)$verifiedInactiveCodes[]=(string)$source['omie_code'];
 
   $result=self::deleteInactiveOmieBatchFromCrm(
    $sourceIds,
@@ -1428,13 +1447,18 @@ final class ClientService {
   );
   if(!empty($result['requires_target']))return $result;
 
-  $result['status']='omie_manual_batch_confirmed_and_removed';
-  $result['remote_action']='verified_only';
-  $result['confirmed_inactive']=$freshInactive;
-  $result['confirmed_inactive_count']=count($freshInactive);
+  $result['status']='omie_batch_inactivated_and_removed';
+  $result['remote_action']='alter_client_batch';
+  $result['omie_inactivated']=$inactivated;
+  $result['omie_inactivated_count']=count($inactivated);
+  $result['already_inactive']=$alreadyInactive;
+  $result['already_inactive_count']=count($alreadyInactive);
   $result['not_found_before_processing']=$notFound;
-  $result['not_found_now']=$missingNow;
-  $result['message']=count($sourceIds).' cadastro(s) conferido(s). Todos os códigos selecionados estavam inativos ou não existiam mais na Omie; os registros foram removidos somente do CRM e o histórico foi preservado/consolidado conforme o cadastro principal.';
+  $result['message']=count($sourceIds).' cadastro(s) processado(s) pelo CRM: '
+   .count($inactivated).' inativado(s) na Omie, '
+   .count($alreadyInactive).' já estava(m) inativo(s) e '
+   .count($notFound).' não foi/foram encontrado(s) na Omie. '
+   .'O cadastro principal permaneceu ativo e os duplicados confirmados foram removidos somente do CRM.';
   return $result;
  }
 
@@ -1502,7 +1526,7 @@ final class ClientService {
   $remoteRow=$rawRemoteByCode[$code]??[];
   if(!$remoteRow)throw new RuntimeException('Não foi possível montar o cadastro Omie completo. Consulte novamente este CPF/CNPJ antes de inativar.');
 
-  $change=$omie->call('clients','UpsertCliente',self::omieClientCoreUpdatePayload($remoteRow,$code,'S'));
+  $change=$omie->call('clients','AlterarCliente',self::omieClientFullUpdatePayload($remoteRow,$code,'S'));
   $changeStatus=(string)($change['codigo_status']??$change['cCodigoStatus']??'0');
   if($changeStatus!=='0'){
    $description=(string)($change['descricao_status']??$change['cDesStatus']??'A Omie recusou a alteração.');
@@ -1513,7 +1537,7 @@ final class ClientService {
   if((string)($confirmed['codigo_cliente_omie']??'')!==$code||$confirmedInactive!=='S'){
    $statusShown=$confirmedInactive!==''?$confirmedInactive:'não retornado';
    $description=trim((string)($change['descricao_status']??$change['cDesStatus']??''));
-   throw new RuntimeException('A Omie aceitou o UpsertCliente do código '.$code.($description!==''?' ('.$description.')':'').', mas ConsultarCliente retornou inativo='.$statusShown.'. Nada foi removido do CRM.');
+   throw new RuntimeException('A Omie aceitou o AlterarCliente do código '.$code.($description!==''?' ('.$description.')':'').', mas ConsultarCliente retornou inativo='.$statusShown.'. Nada foi removido do CRM.');
   }
 
   $result=self::deleteInactiveOmieBatchFromCrm([$id],(int)$target['id'],$u,[$code],$audit);
