@@ -1194,10 +1194,10 @@ final class ClientService {
   $result=self::deleteInactiveOmieBatchFromCrm([$id],$preferredTargetId,$u);
   if(!empty($result['requires_target']))return $result;
   $removed=(array)($result['removed'][0]??[]);
-  return $result+[
+  return array_merge($result,[
    'status'=>'inactive_omie_removed_local',
    'removed'=>$removed?:null,
-  ];
+  ]);
  }
 
  public static function deleteLocalOnly(int $id,array $u): array{
