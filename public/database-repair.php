@@ -80,6 +80,7 @@ addCol($pdo,$log,$t,'seller_omie_code','VARCHAR(80) NULL AFTER uf');
 addCol($pdo,$log,$t,'crm_inactive','TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
 addCol($pdo,$log,$t,'crm_inactivated_at','DATETIME NULL AFTER crm_inactive');
 addCol($pdo,$log,$t,'crm_inactivated_by','INT UNSIGNED NULL AFTER crm_inactivated_at');
+execStep($pdo,$log,'ampliar e-mail de clientes para múltiplos endereços','ALTER TABLE '.qi($t).' MODIFY COLUMN email VARCHAR(1000) NULL');
 $c=cols($pdo,$t);
 if(isset($c['crm_inactive'])&&isset($c['active'])&&!idxExists($pdo,$t,'idx_clients_crm_active')){
  execStep($pdo,$log,'índice de clientes ativos no CRM','ALTER TABLE '.qi($t).' ADD INDEX idx_clients_crm_active(crm_inactive,active,id)');
