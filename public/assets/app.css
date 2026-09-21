@@ -1950,32 +1950,3 @@ body{background:var(--bg);color:var(--text)}
 .app-confirm-actions .btn-success:hover{background:#007F49;border-color:#007F49}
 .app-confirm-actions .btn-warning{background:#F2B705;border-color:#E0A900;color:#2F2600}
 .app-confirm-actions .btn-warning:hover{background:#DDA700;border-color:#C79500;color:#211A00}
-
-
-/* Laboratório Omie: teste isolado de cadastro completo */
-.tdomie-lab-page{display:grid;gap:14px;max-width:1600px;margin:0 auto;color:#17313c}
-.tdomie-lab-head{display:flex;align-items:center;justify-content:space-between;gap:18px}
-.tdomie-lab-head-main{display:flex;align-items:center;gap:13px}
-.tdomie-lab-head-icon{width:50px;height:50px;display:grid;place-items:center;flex:0 0 50px;border:1px solid #cce4ee;border-radius:14px;background:#eaf6fb;color:#2486ad;font-size:19px}
-.tdomie-lab-kicker{display:block;color:#3190b7;font-size:10px;font-weight:800}
-.tdomie-lab-head h1{margin:2px 0 3px;font-size:27px;font-weight:800;color:#123342}
-.tdomie-lab-head p{margin:0;color:#70838b;font-size:11px;max-width:900px}
-.tdomie-lab-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tdomie-lab-head-actions form{margin:0}
-.tdomie-lab-warning{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border:1px solid #f0d0b9;border-radius:12px;background:#fff8f2}
-.tdomie-lab-warning>span{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;border-radius:10px;background:#ffe9d8;color:#c26427}
-.tdomie-lab-warning strong{display:block;font-size:12px;color:#6f421f}.tdomie-lab-warning p{margin:3px 0 0;color:#866c58;font-size:10px}
-.tdomie-lab-card,.tdomie-lab-json-card{border:1px solid #dfe8ec;border-radius:12px;background:#fff;overflow:hidden}
-.tdomie-lab-card{padding:14px}
-.tdomie-lab-card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.tdomie-lab-card-head>span{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:#eaf5fa;color:#2185ad;font-size:11px;font-weight:800}
-.tdomie-lab-card-head strong,.tdomie-lab-card-head small{display:block}.tdomie-lab-card-head strong{font-size:12px;color:#24434f}.tdomie-lab-card-head small{margin-top:2px;font-size:9px;color:#7a8d95}
-.tdomie-lab-form{display:flex;align-items:end;gap:9px}.tdomie-lab-form label{display:grid;gap:5px;min-width:320px}.tdomie-lab-form label>span{font-size:9px;font-weight:800;color:#667a83;text-transform:uppercase}
-.tdomie-lab-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.tdomie-lab-summary article{padding:12px 14px;border:1px solid #e0e8ec;border-radius:11px;background:#fff}.tdomie-lab-summary small{display:block;color:#7b8d94;font-size:8px;font-weight:800;text-transform:uppercase}.tdomie-lab-summary strong{display:block;margin-top:4px;color:#24434f;font-size:12px;overflow-wrap:anywhere}.tdomie-lab-summary .is-active{color:#218b5c}.tdomie-lab-summary .is-inactive{color:#bd4650}
-.tdomie-lab-json-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.tdomie-lab-json-card>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-bottom:1px solid #e5ecef;background:#fbfcfd}.tdomie-lab-json-card>header>div{display:flex;align-items:center;gap:9px}.tdomie-lab-json-card>header span{width:32px;height:32px;display:grid;place-items:center;border-radius:9px}.tdomie-lab-json-card>header span.blue{background:#eaf5fa;color:#2487ad}.tdomie-lab-json-card>header span.orange{background:#fff0e5;color:#c16427}.tdomie-lab-json-card>header span.green{background:#e8f6ee;color:#278e5e}.tdomie-lab-json-card>header span.purple{background:#f2edfb;color:#7550ad}
-.tdomie-lab-json-card>header strong,.tdomie-lab-json-card>header small{display:block}.tdomie-lab-json-card>header strong{font-size:11px;color:#25434f}.tdomie-lab-json-card>header small{margin-top:2px;color:#819198;font-size:8px}.tdomie-lab-json-card>header b{padding:5px 7px;border-radius:999px;background:#eef3f5;color:#617780;font-size:8px}
-.tdomie-lab-json-card pre{margin:0;max-height:540px;overflow:auto;padding:14px;background:#101820;color:#e7edf0;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
-.tdomie-lab-card.danger-zone{border-color:#efc8bb;background:#fffaf8}.tdomie-lab-card.danger-zone .tdomie-lab-card-head>span{background:#fdebe5;color:#bf4f2d}
-.tdomie-lab-confirm{display:flex;align-items:center;justify-content:space-between;gap:12px}.tdomie-lab-confirm label{display:flex;align-items:flex-start;gap:8px;max-width:920px;color:#665b56;font-size:10px}.tdomie-lab-confirm input[type=checkbox]{margin-top:2px;accent-color:#ea5127}
-.tdomie-lab-json-grid.result{margin-bottom:12px}
-@media(max-width:1000px){.tdomie-lab-summary,.tdomie-lab-json-grid{grid-template-columns:1fr 1fr}.tdomie-lab-head{align-items:flex-start;flex-direction:column}.tdomie-lab-form,.tdomie-lab-confirm{align-items:stretch;flex-direction:column}.tdomie-lab-form label{min-width:0}}
-@media(max-width:680px){.tdomie-lab-summary,.tdomie-lab-json-grid{grid-template-columns:1fr}.tdomie-lab-head h1{font-size:23px}.tdomie-lab-head-main{align-items:flex-start}}
