@@ -545,3 +545,9 @@ body[data-page="client-sync"] .tdcrm-content *{box-shadow:none!important;letter-
  .tdc-schedule-dialog footer{flex-direction:column-reverse}
  .tdc-schedule-dialog footer .tdc-btn{width:100%}
 }
+
+.tdc-seller-base-note{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:11px 13px;border:1px solid #d9e7ec;border-radius:10px;background:#f7fbfc;color:#35535f}
+.tdc-seller-base-note>i{margin-top:2px;color:#007fc7}
+.tdc-seller-base-note div{display:flex;flex-direction:column;gap:2px}
+.tdc-seller-base-note strong{font-size:10px;color:#24434f}
+.tdc-seller-base-note small{font-size:9px;line-height:1.45;color:#71858e}
