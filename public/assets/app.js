@@ -1220,6 +1220,60 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
 
+  const singleClientSync=document.querySelector('[data-sync-one-client]');
+  if(singleClientSync){
+    const input=singleClientSync.querySelector('[data-sync-one-value]');
+    const submit=singleClientSync.querySelector('[data-sync-one-submit]');
+    const result=singleClientSync.querySelector('[data-sync-one-result]');
+    const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    const setResult=(type,html)=>{
+      if(!result)return;
+      result.hidden=false;
+      result.className='tdsync2-single-result '+type;
+      result.innerHTML=html;
+    };
+    const run=async value=>{
+      value=String(value??input?.value??'').trim();
+      if(!value){setResult('error','<strong>Informe o código Omie ou CPF/CNPJ.</strong>');input?.focus();return;}
+      if(input)input.value=value;
+      const previous=submit?.innerHTML||'';
+      if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i>Consultando...';}
+      setResult('loading','<i class="fa-solid fa-circle-notch fa-spin"></i><span>Consultando somente este cliente na Omie...</span>');
+      try{
+        const body=new URLSearchParams({_token:String(window.CSRF||''),value});
+        const response=await fetch((window.APP_URL||'')+'/api/sync/client-one',{
+          method:'POST',
+          headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+          credentials:'same-origin',
+          body:body.toString()
+        });
+        const data=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
+        if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível sincronizar este cliente.');
+        if(data.requires_choice){
+          const candidates=Array.isArray(data.candidates)?data.candidates:[];
+          const cards=candidates.map(item=>'<button type="button" data-sync-one-code="'+esc(item.omie_code)+'"><span><strong>'+esc(item.name||'Cliente')+'</strong><small>Omie '+esc(item.omie_code||'—')+(item.inactive?' · inativo':' · ativo')+'</small></span><i class="fa-solid fa-arrow-right"></i></button>').join('');
+          setResult('choice','<div class="tdsync2-single-result-head"><strong>'+esc(data.message||'Escolha o cadastro exato.')+'</strong><small>Nenhum desses cadastros foi alterado ainda.</small></div><div class="tdsync2-single-candidates">'+cards+'</div>');
+          return;
+        }
+        const client=data.client||{};
+        setResult(data.inactive?'warning':'success','<div class="tdsync2-single-result-head"><strong>'+esc(data.message||'Cliente sincronizado.')+'</strong><small>'+esc(client.name||'Cliente')+' · Omie '+esc(client.omie_code||'—')+(client.document?' · '+esc(client.document):'')+'</small></div>');
+        showNotice(data.inactive?'warning':'success',data.inactive?'Cliente inativo':'Cliente sincronizado',data.message||'Sincronização pontual concluída.');
+      }catch(error){
+        setResult('error','<strong>'+esc(error.message||'Não foi possível sincronizar este cliente.')+'</strong>');
+        showNotice('danger','Sincronização pontual não concluída',error.message||'Tente novamente.');
+      }finally{
+        if(submit){submit.disabled=false;submit.innerHTML=previous;}
+      }
+    };
+    submit?.addEventListener('click',()=>run());
+    input?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();run();}});
+    result?.addEventListener('click',event=>{
+      const button=event.target.closest?.('[data-sync-one-code]');
+      if(!button)return;
+      run(button.dataset.syncOneCode||'');
+    });
+  }
+
   const syncButtons=document.querySelectorAll('[data-sync-action]');
   if(syncButtons.length){
     const setCardBusy=(card,busy)=>{
