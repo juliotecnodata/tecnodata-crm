@@ -634,12 +634,12 @@ $router->post('/clients/{id}/omie-sync',function($p){
 $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  Auth::requireRole('admin','supervisor','seller');
  $u=Auth::user();
- $defaultSegment=in_array((string)$u['role'],['admin','supervisor'],true)?'all':'general';
+ $defaultSegment='all';
  $segment=(string)($forcedSegment??($_GET['segment']??$defaultSegment));
  $segmentCatalog=client_segment_catalog();if($segment!=='all'&&!isset($segmentCatalog[$segment]))$segment=$defaultSegment;
  if($portfolioOnly)$segment='general';
- if($segment!=='general'&&!in_array((string)$u['role'],['admin','supervisor'],true)){http_response_code(403);exit('Segmento restrito à gestão.');}
- $segmentMeta=$segment==='all'?['label'=>'Todos os clientes','description'=>'Base ativa completa, incluindo Comercial, EAD Reciclagem e Suporte PET.']:(array)($segmentCatalog[$segment]??[]);
+ elseif(($u['role']??'')==='seller')$segment='all';
+ $segmentMeta=$segment==='all'?['label'=>'Todos os clientes','description'=>'Base ativa completa, sem restrição por tag ou operação. Use os filtros para localizar e corrigir classificações quando necessário.']:(array)($segmentCatalog[$segment]??[]);
  $clientBasePath='clients';
  if($portfolioOnly&&$u['role']!=='seller'){redirect('/clients');}
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
@@ -690,7 +690,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $page=max(1,min($totalPages,(int)($_GET['page']??1)));
  $offset=($page-1)*$perPage;
  $rows=[]; // A tabela é carregada exclusivamente pela API server-side para evitar consulta duplicada.
- [$generalSql,$generalParams]=client_segment_filter('general','clients');
+ [$generalSql,$generalParams]=client_segment_filter($portfolioOnly?'general':'all','clients');
  $availableEffectiveSql=client_effective_seller_sql('clients',$portfolioMonth);
  $availableClients=$u['role']==='seller'?(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND ((".$availableEffectiveSql.") IS NULL OR TRIM((".$availableEffectiveSql."))='') AND ".$generalSql,$generalParams)??0):0;
  $virtualCodes=client_virtual_seller_codes();$realSellerSql=$virtualCodes?' AND omie_code NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'';
@@ -1045,7 +1045,6 @@ $router->get('/clients/{id}/edit',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();$u=Auth::user();$id=(int)$p['id'];
  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
  if(!$client){http_response_code(404);exit('Cliente não encontrado.');}
- if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client))){http_response_code(403);exit('Cliente pertencente a uma operação virtual.');}
  $old=$_SESSION['client_edit_old']??ClientService::formFromClient($client);
  $error=$_SESSION['client_edit_error']??null;
  unset($_SESSION['client_edit_old'],$_SESSION['client_edit_error']);
@@ -1053,9 +1052,7 @@ $router->get('/clients/{id}/edit',function($p){
   'preview'=>null,'error'=>null,'old'=>$old,'createSuccess'=>null,'createError'=>null,
   'editClient'=>$client,'editError'=>$error,
   'editSellerName'=>$client['seller_omie_code']?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$client['seller_omie_code']])?:$client['seller_omie_code']):'Sem vendedor',
-  'sellers'=>($u['role']??'')==='seller'
-   ?DB::all("SELECT omie_code,name FROM sellers WHERE active=1".(client_virtual_seller_codes()?' AND omie_code NOT IN ('.implode(',',array_fill(0,count(client_virtual_seller_codes()),'?')).')':'')." ORDER BY name",client_virtual_seller_codes())
-   :DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name")
+  'sellers'=>DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name")
  ]);
 });
 $router->post('/clients/{id}/update',function($p){
@@ -1162,7 +1159,6 @@ $router->get('/clients/{id}',function($p){
  $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
  if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&(!empty($c['crm_inactive'])||(int)($c['active']??0)!==1)){http_response_code(404);exit('Cliente não encontrado.');}
- if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($c))){http_response_code(403);exit('Cliente pertencente a uma operação virtual.');}
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioAssignment=ClientPortfolioService::assignment($id,$portfolioMonth);$effectiveSellerCode=ClientPortfolioService::effectiveSellerCode($id,$portfolioMonth);
  $isUnassigned=$effectiveSellerCode==='';
  $a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);
@@ -2478,11 +2474,11 @@ $router->get('/api/clients/datatable',function(){
  $draw=max(0,(int)($_GET['draw']??0));
  $start=max(0,(int)($_GET['start']??0));
  $length=(int)($_GET['length']??5);$length=$length<1?5:min(100,$length);
- $defaultSegment=in_array((string)$u['role'],['admin','supervisor'],true)?'all':'general';
+ $defaultSegment='all';
  $segment=(string)($_GET['segment']??$defaultSegment);if($segment!=='all'&&!isset(client_segment_catalog()[$segment]))$segment=$defaultSegment;
- if($segment!=='general'&&!in_array((string)$u['role'],['admin','supervisor'],true)){http_response_code(403);json_response(['error'=>'Segmento restrito à gestão.']);}
  $portfolioOnly=$u['role']==='seller'&&(string)($_GET['portfolio']??'')==='mine';
  if($portfolioOnly)$segment='general';
+ elseif(($u['role']??'')==='seller')$segment='all';
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
