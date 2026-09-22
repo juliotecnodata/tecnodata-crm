@@ -2758,6 +2758,89 @@ final class SyncService {
   $stats=['active'=>$activeCount,'inactive'=>$inactiveCount,'processed'=>$processed];
   return $processed;
  }
+ public static function syncOneClient(string $value): array{
+  ClientSegmentPolicy::ensureSchema();
+  $value=trim($value);
+  if($value==='')throw new RuntimeException('Informe o código Omie ou CPF/CNPJ do cliente.');
+  if(mb_strlen($value)>80)throw new RuntimeException('Valor de busca muito longo.');
+
+  $digits=preg_replace('/\D+/','',$value);
+  $omie=new OmieClient();
+  $record=null;
+  $lookup='omie_code';
+
+  if(in_array(strlen($digits),[11,14],true)){
+   $lookup='document';
+   try{
+    $data=$omie->call('clients','ListarClientes',[
+     'pagina'=>1,
+     'registros_por_pagina'=>100,
+     'apenas_importado_api'=>'N',
+     'exibir_caracteristicas'=>'S',
+     'exibir_obs'=>'S',
+     'clientesFiltro'=>['cnpj_cpf'=>$digits],
+    ]);
+   }catch(Throwable $e){
+    $message=mb_strtolower($e->getMessage(),'UTF-8');
+    if(str_contains($message,'não existem registros')||str_contains($message,'nao existem registros'))$data=['clientes_cadastro'=>[]];
+    else throw $e;
+   }
+   $items=[];
+   foreach((array)($data['clientes_cadastro']??[]) as $item){
+    if(!is_array($item))continue;
+    if(preg_replace('/\D+/','',(string)($item['cnpj_cpf']??''))!==$digits)continue;
+    $items[]=$item;
+   }
+   if(!$items)throw new RuntimeException('Nenhum cliente com este CPF/CNPJ foi encontrado na Omie.');
+   if(count($items)>1){
+    $candidates=array_map(static fn($item)=>[
+     'omie_code'=>(string)($item['codigo_cliente_omie']??$item['codigo_cliente']??''),
+     'name'=>(string)($item['nome_fantasia']??$item['razao_social']??'Cliente'),
+     'inactive'=>mb_strtoupper(trim((string)($item['inativo']??'N')),'UTF-8')==='S',
+    ],$items);
+    return [
+     'ok'=>true,'requires_choice'=>true,'lookup'=>$lookup,'query'=>$value,
+     'candidates'=>$candidates,
+     'message'=>'Foram encontrados '.count($items).' cadastros na Omie para este CPF/CNPJ. Escolha o código Omie exato para sincronizar somente um.',
+    ];
+   }
+   $record=$items[0];
+  }else{
+   if($digits===''||!ctype_digit($digits))throw new RuntimeException('Para sincronização pontual, informe um código Omie numérico ou CPF/CNPJ válido.');
+   $data=$omie->call('clients','ConsultarCliente',['codigo_cliente_omie'=>(int)$digits]);
+   $record=$data['clientes_cadastro'][0]??$data;
+   if(!is_array($record))throw new RuntimeException('A Omie não retornou um cadastro válido para este código.');
+   $returned=(string)($record['codigo_cliente_omie']??$record['codigo_cliente']??'');
+   if($returned!==$digits)throw new RuntimeException('A Omie retornou um código diferente do solicitado. Nada foi sincronizado.');
+  }
+
+  $code=trim((string)($record['codigo_cliente_omie']??$record['codigo_cliente']??''));
+  if($code==='')throw new RuntimeException('O cadastro retornado pela Omie não possui código identificável.');
+
+  $stats=[];self::upsertClients([$record],$stats);
+  unset($_SESSION['client_base_counts_cache'],$_SESSION['client_tag_catalog_cache']);
+
+  $local=DB::one("SELECT id,omie_code,name,legal_name,document,email,phone,city,uf,active,updated_at FROM clients WHERE omie_code=? LIMIT 1",[$code]);
+  $inactive=mb_strtoupper(trim((string)($record['inativo']??'N')),'UTF-8')==='S';
+  if($inactive&&!$local){
+   return [
+    'ok'=>true,'requires_choice'=>false,'lookup'=>$lookup,'query'=>$value,
+    'client'=>['omie_code'=>$code,'name'=>(string)($record['nome_fantasia']??$record['razao_social']??$code),'document'=>(string)($record['cnpj_cpf']??''),'active'=>false],
+    'imported'=>false,'inactive'=>true,
+    'message'=>'O cliente Omie '.$code.' está inativo. Ele foi consultado, mas não foi incluído como novo cliente ativo no CRM.',
+   ];
+  }
+
+  return [
+   'ok'=>true,'requires_choice'=>false,'lookup'=>$lookup,'query'=>$value,
+   'client'=>$local?:['omie_code'=>$code,'name'=>(string)($record['nome_fantasia']??$record['razao_social']??$code),'document'=>(string)($record['cnpj_cpf']??''),'active'=>!$inactive],
+   'imported'=>true,'inactive'=>$inactive,
+   'message'=>$inactive
+    ?'Cliente '.$code.' atualizado no CRM como inativo conforme a Omie.'
+    :'Cliente '.$code.' sincronizado individualmente com sucesso. Nenhum outro cliente foi consultado ou atualizado.',
+  ];
+ }
+
  private static function importMissingOrderClients(OmieClient $omie,array $codes): int{
   $codes=array_values(array_unique(array_filter(array_map(static fn($code)=>trim((string)$code),$codes),static fn($code)=>$code!==''&&ctype_digit($code))));
   if(!$codes)return 0;
