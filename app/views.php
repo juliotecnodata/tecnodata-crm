@@ -2138,6 +2138,17 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
           <div class="sync-progress"><span data-sync-progress-bar style="width:0%"></span></div>
          </div>
 
+         <?php if($key==='clients'):?>
+          <div class="tdsync2-period tdsync2-single-client" data-sync-one-client>
+           <div class="tdsync2-period-copy"><span><i class="fa-solid fa-user-magnifying-glass"></i></span><div><strong>Sincronizar um único cliente</strong><small>Informe o código Omie ou CPF/CNPJ. Somente este cadastro será consultado e atualizado.</small></div></div>
+           <div class="tdsync2-period-fields">
+            <label class="wide"><span>Código Omie ou CPF/CNPJ</span><input class="form-control" type="text" autocomplete="off" placeholder="Ex.: 2512309115 ou 60.012.936/0001-64" data-sync-one-value></label>
+           </div>
+           <button class="tdsync2-btn primary" type="button" data-sync-one-submit><i class="fa-solid fa-cloud-arrow-down"></i>Sincronizar cliente</button>
+           <div class="tdsync2-single-result" data-sync-one-result hidden></div>
+          </div>
+         <?php endif;?>
+
          <?php if(in_array($key,['orders','services'],true)):?>
           <div class="tdsync2-period">
            <div class="tdsync2-period-copy"><span><i class="fa-regular fa-calendar-days"></i></span><div><strong>Sincronizar um período específico</strong><small>Escolha a janela exata que deseja consultar na Omie.</small></div></div>
