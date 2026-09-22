@@ -2304,6 +2304,21 @@ $router->get('/sync',function(){
  Auth::requireRole('admin');
  render('sync',['sync'=>SyncService::overview()]);
 });
+$router->post('/api/sync/client-one',function(){
+ Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ $locked=false;
+ try{
+  $locked=SyncService::acquireLock('clients');
+  if(!$locked)throw new RuntimeException('Clientes já estão sendo sincronizados em outra operação. Conclua essa sincronização antes de puxar um cliente isolado.');
+  $result=SyncService::syncOneClient((string)($_POST['value']??''));
+  json_response($result);
+ }catch(Throwable $e){
+  json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+ }finally{
+  if($locked)SyncService::releaseLock('clients');
+ }
+});
+
 $router->post('/api/sync',function(){
  Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
  $module=(string)($_POST['module']??'');$action=(string)($_POST['action']??'sync');$page=(int)($_POST['page']??1);
