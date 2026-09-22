@@ -2089,15 +2089,34 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      <article><span class="yellow"><i class="fa-solid fa-database"></i></span><div><small>Registros locais</small><strong><?=number_format((int)$summary['local_total'],0,',','.')?></strong><em>soma das bases sincronizadas</em></div></article>
     </div>
 
-    <div class="tdsync2-guidance">
-     <div><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Sincronize sem apagar o histórico local.</strong><small>Use “Zerar” apenas quando realmente precisar excluir todos os dados locais daquele módulo e recomeçar.</small></div></div>
-     <div class="tdsync2-legend"><span><i class="ok"></i>Sincronizado</span><span><i class="idle"></i>Aguardando</span><span><i class="error"></i>Erro</span></div>
-    </div>
+    <section class="tdsync2-control-center">
+     <div class="tdsync2-control-copy">
+      <span class="tdsync2-control-icon"><i class="fa-solid fa-shield-halved"></i></span>
+      <div><small>OPERAÇÃO SEGURA</small><strong>Atualize somente o que precisa</strong><p>Prefira sincronizações pontuais e incrementais. Use carga completa ou “Zerar” apenas quando houver necessidade técnica real.</p></div>
+     </div>
+     <div class="tdsync2-control-links">
+      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Pendências de clientes</strong><small>Revisar antes de enviar</small></span></a>
+      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base de clientes</strong><small>Consultar cadastros</small></span></a>
+     </div>
+    </section>
+
+    <section class="tdsync2-quick-client" data-sync-one-client>
+     <div class="tdsync2-quick-client-copy">
+      <span><i class="fa-solid fa-user-magnifying-glass"></i></span>
+      <div><small>CLIENTES / AÇÃO RÁPIDA</small><strong>Puxar um único cliente da Omie</strong><p>Evite sincronizar a base inteira. Informe o código Omie ou CPF/CNPJ e atualize somente aquele cadastro.</p></div>
+     </div>
+     <div class="tdsync2-quick-client-form">
+      <label><span>Código Omie ou CPF/CNPJ</span><div><i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="text" autocomplete="off" placeholder="2512309115 ou 60.012.936/0001-64" data-sync-one-value></div></label>
+      <button class="tdsync2-btn primary" type="button" data-sync-one-submit><i class="fa-solid fa-cloud-arrow-down"></i>Buscar e sincronizar</button>
+     </div>
+     <div class="tdsync2-single-result" data-sync-one-result hidden></div>
+    </section>
 
     <?php foreach($syncGroups as $groupKey=>$group):?>
      <section class="tdsync2-section <?=$groupKey==='movement'?'movement':''?>">
       <header class="tdsync2-section-head">
        <div><span><i class="fa-solid <?=$group['icon']?>"></i></span><div><small><?=strtoupper($groupKey==='base'?'BASE LOCAL':($groupKey==='references'?'ESTRUTURA OMIE':'OPERAÇÃO'))?></small><strong><?=$group['label']?></strong><p><?=$group['description']?></p></div></div>
+       <b><?=count($group['keys'])?> módulo<?=count($group['keys'])===1?'':'s'?></b>
       </header>
 
       <div class="tdsync2-grid <?=$groupKey==='movement'?'featured':''?>">
@@ -2108,7 +2127,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
         $statusLabel=$hasError?'Erro':($lastSuccess?'Sincronizado':'Aguardando');
         $modeLabel=$modeLabels[$item['mode']]??ucfirst(str_replace('_',' ',$item['mode']));
        ?>
-        <article class="tdsync2-card sync-module-card <?=$groupKey==='movement'?'featured':''?>" data-sync-card="<?=$key?>">
+        <article class="tdsync2-card sync-module-card group-<?=e($groupKey)?> module-<?=e($key)?> <?=$groupKey==='movement'?'featured':''?>" data-sync-card="<?=$key?>">
          <header class="tdsync2-card-head">
           <div class="tdsync2-card-title">
            <span><i class="fa-solid <?=e($icons[$key]??'fa-arrows-rotate')?>"></i></span>
@@ -2138,17 +2157,6 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
           <div class="sync-progress-copy"><span data-sync-progress-label>Preparando...</span><strong data-sync-progress-percent>0%</strong></div>
           <div class="sync-progress"><span data-sync-progress-bar style="width:0%"></span></div>
          </div>
-
-         <?php if($key==='clients'):?>
-          <div class="tdsync2-period tdsync2-single-client" data-sync-one-client>
-           <div class="tdsync2-period-copy"><span><i class="fa-solid fa-user-magnifying-glass"></i></span><div><strong>Sincronizar um único cliente</strong><small>Informe o código Omie ou CPF/CNPJ. Somente este cadastro será consultado e atualizado.</small></div></div>
-           <div class="tdsync2-period-fields">
-            <label class="wide"><span>Código Omie ou CPF/CNPJ</span><input class="form-control" type="text" autocomplete="off" placeholder="Ex.: 2512309115 ou 60.012.936/0001-64" data-sync-one-value></label>
-           </div>
-           <button class="tdsync2-btn primary" type="button" data-sync-one-submit><i class="fa-solid fa-cloud-arrow-down"></i>Sincronizar cliente</button>
-           <div class="tdsync2-single-result" data-sync-one-result hidden></div>
-          </div>
-         <?php endif;?>
 
          <?php if(in_array($key,['orders','services'],true)):?>
           <div class="tdsync2-period">
@@ -2183,13 +2191,10 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     <?php endforeach;?>
 
     <section class="tdsync2-help">
-     <header><div><span><i class="fa-solid fa-circle-info"></i></span><div><small>REFERÊNCIA RÁPIDA</small><strong>Como usar as ações</strong><p>As operações foram separadas para reduzir risco e facilitar a recuperação quando uma carga é interrompida.</p></div></div></header>
-     <div class="tdsync2-help-grid">
-      <div><span class="green"><i class="fa-solid fa-arrows-rotate"></i></span><strong>Sincronizar agora</strong><p>Executa a regra padrão do módulo e percorre automaticamente todas as páginas.</p></div>
-      <div><span class="blue"><i class="fa-solid fa-forward-step"></i></span><strong>Atualizar lacuna</strong><p>Em Pedidos e Serviços, busca o intervalo que falta desde a última data local até hoje.</p></div>
-      <div><span class="yellow"><i class="fa-solid fa-play"></i></span><strong>Retomar</strong><p>Continua da próxima página quando uma sincronização anterior foi interrompida.</p></div>
-      <div><span class="red"><i class="fa-solid fa-trash-can"></i></span><strong>Zerar dados locais</strong><p>Exclui a base local do módulo. Use somente quando uma reconstrução completa for necessária.</p></div>
-     </div>
+     <div><span class="green"><i class="fa-solid fa-arrows-rotate"></i></span><p><strong>Sincronizar agora</strong> Busca alterações sem apagar a base local.</p></div>
+     <div><span class="blue"><i class="fa-solid fa-forward-step"></i></span><p><strong>Atualizar lacuna</strong> Recupera o intervalo faltante de pedidos e serviços.</p></div>
+     <div><span class="yellow"><i class="fa-solid fa-play"></i></span><p><strong>Retomar</strong> Continua uma execução interrompida.</p></div>
+     <div class="danger"><span class="red"><i class="fa-solid fa-trash-can"></i></span><p><strong>Zerar</strong> Remove dados locais do módulo. Use somente para reconstrução controlada.</p></div>
     </section>
    </section>
   <?php break;
