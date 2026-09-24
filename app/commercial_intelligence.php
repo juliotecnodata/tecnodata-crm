@@ -370,13 +370,13 @@ final class CommercialPortfolioService {
   return $state&&!empty($state['last_success_at'])&&empty($state['last_error'])&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts")??0)>0;
  }
 
- public static function sellerPortfolioCondition(array $user,string $alias='c'): array{
+ public static function sellerPortfolioCondition(array $user,string $alias='c',?string $month=null): array{
   if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$alias))throw new InvalidArgumentException('Alias inválido.');
   if(self::crmPortfolioReady()){
    return [$alias.'.crm_owner_user_id=?',[(int)($user['id']??0)],'omie_crm'];
   }
   $legacyCode=trim((string)($user['seller_omie_code']??''))?:'__NO_SELLER_LINK__';
-  return ['('.client_effective_seller_sql($alias).')=?',[$legacyCode],'legacy'];
+  return ['('.client_effective_seller_sql($alias,$month).')=?',[$legacyCode],'legacy'];
  }
 
  public static function canSellerWorkClient(array $user,int $clientId): bool{
