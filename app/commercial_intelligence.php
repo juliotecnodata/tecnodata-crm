@@ -1110,7 +1110,7 @@ final class CommercialAccountService {
                         l.client_id,c.name client_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
                         cu.name owner_name,cu.email owner_email,
                         COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,ap.classification_source,
-                        m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,
+                        m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
                         act.last_contact_at,nt.next_due_at,
                         CASE WHEN act.last_contact_at IS NULL THEN 999999 ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
                  ".$join."
@@ -1124,7 +1124,7 @@ final class CommercialAccountService {
                   .",a.trade_name ASC,a.name ASC
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
-  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>compact('q','classification','link','attention','owner','scope')];
+  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>compact('q','classification','link','attention','owner','scope','sort')];
  }
 
  private static function stats(array $where,array $params): array{
