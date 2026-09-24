@@ -17,6 +17,12 @@ final class OmieClient {
   'orders'=>'https://app.omie.com.br/api/v1/produtos/pedido/',
   'services'=>'https://app.omie.com.br/api/v1/servicos/os/',
   'financial'=>'https://app.omie.com.br/api/v1/financas/mf/',
+  'crm_accounts'=>'https://app.omie.com.br/api/v1/crm/contas/',
+  'crm_account_characteristics'=>'https://app.omie.com.br/api/v1/crm/contascaract/',
+  'crm_contacts'=>'https://app.omie.com.br/api/v1/crm/contatos/',
+  'crm_users'=>'https://app.omie.com.br/api/v1/crm/usuarios/',
+  'crm_opportunities'=>'https://app.omie.com.br/api/v1/crm/oportunidades/',
+  'crm_tasks'=>'https://app.omie.com.br/api/v1/crm/tarefas/',
  ];
  public function call(string $endpoint,string $call,array $param): array{
   $url=$this->endpoints[$endpoint]??null;if(!$url)throw new RuntimeException('Endpoint Omie desconhecido.');
