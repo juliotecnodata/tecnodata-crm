@@ -320,8 +320,13 @@ final class CommercialPortfolioService {
 
   $ph=implode(',',array_fill(0,count($codes),'?'));
   DB::exec("UPDATE clients c
-            JOIN crm_account_links l ON l.client_id=c.id
-            JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+            JOIN (
+             SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
+             FROM crm_account_links l
+             GROUP BY l.client_id
+             HAVING COUNT(*)=1
+            ) x ON x.client_id=c.id
+            JOIN crm_accounts a ON a.omie_code=x.crm_account_code AND a.active=1
             JOIN users u ON u.crm_user_omie_code=a.crm_user_code AND u.active=1 AND u.role='seller'
             SET c.crm_owner_user_id=u.id,c.crm_owner_omie_code=a.crm_user_code,c.crm_account_code=a.omie_code
             WHERE a.crm_user_code IN (".$ph.")", $codes);
