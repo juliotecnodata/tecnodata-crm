@@ -165,6 +165,69 @@ document.addEventListener('DOMContentLoaded',()=>{
     return notice;
   };
   window.appNotify=showNotice;
+  const setupCommercialActivityForm=form=>{
+    if(!form||form.dataset.commercialActivityReady==='1')return;
+    form.dataset.commercialActivityReady='1';
+    const typeInputs=[...form.querySelectorAll('[name="activity_type"]')];
+    const category=form.querySelector('[data-commercial-category]');
+    const outcome=form.querySelector('[data-commercial-outcome]');
+    const refresh=()=>{
+      const type=typeInputs.find(input=>input.checked)?.value||typeInputs[0]?.value||'contact_attempt';
+      if(category){
+        let firstVisible=null;
+        [...category.options].forEach((option,index)=>{
+          if(index===0){
+            option.hidden=type!=='contact_attempt';
+            option.disabled=type!=='contact_attempt';
+            if(type==='contact_attempt')firstVisible=option;
+            return;
+          }
+          const types=String(option.dataset.types||'').split(',').filter(Boolean);
+          const visible=types.includes(type);
+          option.hidden=!visible;option.disabled=!visible;
+          if(visible&&!firstVisible)firstVisible=option;
+        });
+        if(![...category.options].some(option=>!option.disabled&&option.value===category.value))category.value=firstVisible?.value||'';
+      }
+      if(outcome){
+        let firstVisible=null;
+        [...outcome.options].forEach(option=>{
+          const types=String(option.dataset.types||'').split(',').filter(Boolean);
+          const visible=types.includes(type);
+          option.hidden=!visible;option.disabled=!visible;
+          if(visible&&!firstVisible)firstVisible=option;
+        });
+        if(![...outcome.options].some(option=>!option.disabled&&option.value===outcome.value))outcome.value=firstVisible?.value||'';
+      }
+    };
+    typeInputs.forEach(input=>input.addEventListener('change',refresh));
+    refresh();
+  };
+  document.querySelectorAll('[data-commercial-activity-form]').forEach(setupCommercialActivityForm);
+
+  const commercialActivityDialog=document.querySelector('[data-commercial-activity-dialog]');
+  if(commercialActivityDialog){
+    const form=commercialActivityDialog.querySelector('[data-commercial-activity-form]');
+    const accountLabel=commercialActivityDialog.querySelector('[data-commercial-activity-account]');
+    document.addEventListener('click',event=>{
+      const button=event.target.closest?.('[data-commercial-activity-open]');
+      if(!button||!form)return;
+      const code=String(button.dataset.accountCode||'').trim();
+      const name=String(button.dataset.accountName||'Conta CRM').trim();
+      if(!code)return;
+      form.reset();
+      form.action=(window.APP_URL||'')+'/commercial/accounts/'+encodeURIComponent(code)+'/activity';
+      if(accountLabel)accountLabel.textContent=name+' · CRM '+code;
+      setupCommercialActivityForm(form);
+      const firstType=form.querySelector('[name="activity_type"]');if(firstType)firstType.checked=true;
+      firstType?.dispatchEvent(new Event('change',{bubbles:true}));
+      commercialActivityDialog.showModal();
+    });
+    commercialActivityDialog.querySelectorAll('[data-commercial-activity-close]').forEach(button=>button.addEventListener('click',()=>commercialActivityDialog.close()));
+    commercialActivityDialog.addEventListener('click',event=>{if(event.target===commercialActivityDialog)commercialActivityDialog.close();});
+    commercialActivityDialog.addEventListener('cancel',()=>commercialActivityDialog.close());
+  }
+
 
   const removeAuditRows=(ids=[])=>{
     const unique=[...new Set((ids||[]).map(Number).filter(Boolean))];
