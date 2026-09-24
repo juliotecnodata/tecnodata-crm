@@ -1,0 +1,119 @@
+/* Tecnodata CRM — Paleta oficial v1
+   Fonte única de cores para o novo CRM.
+   Visual clean, corporativo, sem gradientes e sem sombras decorativas. */
+:root{
+ --td-navy:#0B2239;
+ --td-navy-2:#123B5D;
+
+ --td-primary:#007FC7;
+ --td-primary-soft:#EAF5FB;
+
+ --td-success:#009657;
+ --td-success-soft:#EAF7F1;
+
+ --td-brand-accent:#BDD136;
+
+ --td-warning:#E7B400;
+ --td-warning-soft:#FFF8DD;
+
+ --td-attention:#EA5127;
+ --td-attention-soft:#FFF1EC;
+
+ --td-danger:#D64545;
+ --td-danger-soft:#FFF0F0;
+
+ --td-follow:#7357C9;
+ --td-follow-soft:#F3F0FC;
+
+ --td-text:#1B2B36;
+ --td-muted:#6E7D87;
+ --td-subtle:#93A0A8;
+
+ --td-border:#DCE4E9;
+ --td-border-soft:#EBF0F3;
+
+ --td-bg:#F6F8FA;
+ --td-surface:#FFFFFF;
+ --td-hover:#F9FBFC;
+
+ --td-radius:10px;
+
+ /* Compatibilidade com o design mestre existente. */
+ --crm-navy:var(--td-navy);
+ --crm-navy-2:var(--td-navy-2);
+ --crm-lime:var(--td-brand-accent);
+ --crm-green:var(--td-success);
+ --crm-blue:var(--td-primary);
+ --crm-yellow:var(--td-warning);
+ --crm-orange:var(--td-attention);
+ --crm-red:var(--td-danger);
+ --crm-bg:var(--td-bg);
+ --crm-surface:var(--td-surface);
+ --crm-soft:var(--td-hover);
+ --crm-line:var(--td-border);
+ --crm-line-strong:#CBD6DC;
+ --crm-text:var(--td-text);
+ --crm-muted:var(--td-muted);
+}
+
+/* Navegação: azul = ativo/ação; lima = assinatura da marca, não estado. */
+body:not([data-page="login"]) .tdcrm-sidebar{
+ background:var(--td-navy)!important;
+ border-right-color:#17364F!important;
+}
+body:not([data-page="login"]) .tdcrm-nav a.active{
+ background:#123D5C!important;
+ color:#FFFFFF!important;
+ border-color:#235B7D!important;
+}
+body:not([data-page="login"]) .tdcrm-nav a.active:before{background:var(--td-primary)!important}
+body:not([data-page="login"]) .tdcrm-nav a.active>i{
+ color:#FFFFFF!important;
+ background:rgba(0,127,199,.22)!important;
+}
+body:not([data-page="login"]) .tdcrm-brand-mark,
+body:not([data-page="login"]) .tdcrm-footer-mark{
+ background:var(--td-brand-accent)!important;
+ color:var(--td-navy)!important;
+}
+body:not([data-page="login"]) .tdcrm-brand-copy strong b{color:var(--td-brand-accent)!important}
+
+/* Novo Comercial: superfícies e estados seguem a paleta oficial. */
+body[data-page="commercial_home"],
+body[data-page="commercial_portfolio"],
+body[data-page="commercial_account"],
+body[data-page="agenda"]{
+ background:var(--td-bg)!important;
+ color:var(--td-text)!important;
+}
+body[data-page="commercial_home"] .tdcrm-shell,
+body[data-page="commercial_portfolio"] .tdcrm-shell,
+body[data-page="commercial_account"] .tdcrm-shell,
+body[data-page="agenda"] .tdcrm-shell{
+ background:var(--td-bg)!important;
+}
+
+/* Topbar clean somente no novo workspace comercial. */
+body[data-page="commercial_home"] .tdcrm-topbar,
+body[data-page="commercial_portfolio"] .tdcrm-topbar,
+body[data-page="commercial_account"] .tdcrm-topbar,
+body[data-page="agenda"] .tdcrm-topbar{
+ background:var(--td-surface)!important;
+ border-bottom:1px solid var(--td-border)!important;
+}
+body[data-page="commercial_home"] .tdcrm-topbar-context>span,
+body[data-page="commercial_portfolio"] .tdcrm-topbar-context>span,
+body[data-page="commercial_account"] .tdcrm-topbar-context>span,
+body[data-page="agenda"] .tdcrm-topbar-context>span{
+ border-color:var(--td-border)!important;
+ background:var(--td-primary-soft)!important;
+ color:var(--td-primary)!important;
+}
+body[data-page="commercial_home"] .tdcrm-topbar-context small,
+body[data-page="commercial_portfolio"] .tdcrm-topbar-context small,
+body[data-page="commercial_account"] .tdcrm-topbar-context small,
+body[data-page="agenda"] .tdcrm-topbar-context small{color:var(--td-subtle)!important}
+body[data-page="commercial_home"] .tdcrm-topbar-context strong,
+body[data-page="commercial_portfolio"] .tdcrm-topbar-context strong,
+body[data-page="commercial_account"] .tdcrm-topbar-context strong,
+body[data-page="agenda"] .tdcrm-topbar-context strong{color:var(--td-navy)!important}
