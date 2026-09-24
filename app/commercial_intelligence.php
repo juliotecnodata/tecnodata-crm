@@ -862,22 +862,6 @@ final class CommercialHomeService {
                        ".$activityJoin.$staleCondition."
                        ORDER BY act.last_contact_at IS NULL DESC,act.last_contact_at ASC,a.trade_name,a.name LIMIT 3",[$crmUserCode]);
 
-  $proposalCount=(int)(DB::scalar("SELECT COUNT(DISTINCT t.id)
-    FROM tasks t LEFT JOIN activities ac ON ac.id=t.source_activity_id
-    WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?
-      AND (t.task_type_code='proposal' OR ac.category_code='proposal' OR t.title LIKE '%proposta%')",[$userId])??0);
-  $orderFollowCount=(int)(DB::scalar("SELECT COUNT(DISTINCT t.id)
-    FROM tasks t LEFT JOIN activities ac ON ac.id=t.source_activity_id
-    WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?
-      AND (ac.category_code='order_follow_up' OR t.title LIKE '%pedido%')",[$userId])??0);
-  $promiseCount=0;
-  try{
-   $promiseCount=(int)(DB::scalar("SELECT COUNT(*)
-     FROM opportunities o
-     JOIN pipeline_stages ps ON ps.id=o.stage_id
-     WHERE o.status='open' AND o.owner_user_id=? AND (ps.code='fechamento' OR ps.name LIKE '%Fech%')",[$userId])??0);
-  }catch(Throwable){$promiseCount=0;}
-
   $salesAmount=0.0;$salesCount=0;
   try{
    $monthResult=GoalService::userMonth($userId,date('Y-m'));$salesAmount=(float)($monthResult['sales']??0);
@@ -939,7 +923,6 @@ final class CommercialHomeService {
    'stale'=>['count'=>$staleCount,'items'=>$staleItems],
    'sales'=>['amount'=>$salesAmount,'count'=>$salesCount],
    'portfolio'=>$portfolio,
-   'attention_meta'=>['proposal'=>$proposalCount,'order_follow'=>$orderFollowCount,'promise'=>$promiseCount],
   ];
  }
 }
