@@ -338,9 +338,11 @@ final class CommercialPortfolioService {
 
  private static function clientDocumentMap(): array{
   if(self::$clientDocumentMap!==null)return self::$clientDocumentMap;
-  $map=[];
-  foreach(DB::all("SELECT id,document FROM clients WHERE active=1 AND crm_inactive=0 AND document IS NOT NULL AND TRIM(document)<>''") as $client){
-   $document=crm_digits((string)$client['document']);if($document==='')continue;$map[$document][]=(int)$client['id'];
+  $map=['active'=>[],'operational'=>[]];
+  foreach(DB::all("SELECT id,document,crm_inactive FROM clients WHERE active=1 AND document IS NOT NULL AND TRIM(document)<>''") as $client){
+   $document=crm_digits((string)$client['document']);if($document==='')continue;
+   $map['active'][$document][]=(int)$client['id'];
+   if(empty($client['crm_inactive']))$map['operational'][$document][]=(int)$client['id'];
   }
   return self::$clientDocumentMap=$map;
  }
@@ -430,17 +432,60 @@ final class CommercialPortfolioService {
   }
   if($document===''){$stats['unlinked']++;return 0;}
 
-  $candidates=array_values(array_unique(self::clientDocumentMap()[$document]??[]));
-  if(count($candidates)!==1){
-   if(count($candidates)>1)$stats['ambiguous']++;else $stats['unlinked']++;
+  $maps=self::clientDocumentMap();
+  $operational=array_values(array_unique($maps['operational'][$document]??[]));
+  $active=array_values(array_unique($maps['active'][$document]??[]));
+  if(count($operational)===1)$clientId=$operational[0];
+  elseif(count($operational)===0&&count($active)===1)$clientId=$active[0];
+  else{
+   $count=max(count($operational),count($active));
+   if($count>1)$stats['ambiguous']++;else $stats['unlinked']++;
    return 0;
   }
-  $clientId=$candidates[0];
   DB::exec("INSERT INTO crm_account_links(crm_account_code,client_id,link_method,confidence,is_primary,verified_at,updated_at)
             VALUES(?,?,'document',100,1,NOW(),NOW())
             ON DUPLICATE KEY UPDATE client_id=VALUES(client_id),link_method='document',confidence=100,verified_at=NOW(),updated_at=NOW()",
    [$accountCode,$clientId]);
   $stats['linked']++;return $clientId;
+ }
+
+ private static function seedAccountProfileFromAccount(string $accountCode,array $account): bool{
+  $current=DB::one("SELECT * FROM crm_account_commercial_profiles WHERE crm_account_code=?",[$accountCode]);
+  $pending=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_audit WHERE crm_account_code=? AND field_name='classification' AND sync_status IN('pending','error')",[$accountCode])??0);
+  if($pending>0)return false;
+  $characteristics=[];
+  foreach((array)($account['caracteristicas']??[]) as $item){
+   if(!is_array($item))continue;$key=crm_normalize_key((string)($item['campo']??''));$characteristics[$key]=crm_yes((string)($item['conteudo']??''));
+  }
+  $tags=[];foreach((array)($account['tags']??[]) as $item){$tag=crm_normalize_key((string)(is_array($item)?($item['tag']??''):$item));if($tag!=='')$tags[$tag]=true;}
+  $hasExplicit=array_key_exists('td cfc',$characteristics)||array_key_exists('td revendedor',$characteristics);
+  if($hasExplicit){$isCfc=!empty($characteristics['td cfc']);$isReseller=!empty($characteristics['td revendedor']);$source='omie_crm_characteristics';}
+  elseif(isset($tags['cfc'])||isset($tags['revendedor'])){$isCfc=isset($tags['cfc']);$isReseller=isset($tags['revendedor']);$source='omie_crm_tags';}
+  else return false;
+
+  $oldCfc=(int)($current['is_cfc']??0);$oldRes=(int)($current['is_reseller']??0);
+  DB::exec("INSERT INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,classification_source,updated_at)
+            VALUES(?,?,?,?,NOW())
+            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),classification_source=VALUES(classification_source),updated_at=NOW()",
+   [$accountCode,$isCfc?1:0,$isReseller?1:0,$source]);
+  if($current&&($oldCfc!==($isCfc?1:0)||$oldRes!==($isReseller?1:0))){
+   DB::exec("INSERT INTO crm_account_commercial_audit(crm_account_code,field_name,previous_value,new_value,source,sync_status,synced_at,created_at)
+             VALUES(?,'classification',?,?,?,'synced',NOW(),NOW())",
+    [$accountCode,json_encode(['cfc'=>$oldCfc===1,'reseller'=>$oldRes===1]),json_encode(['cfc'=>$isCfc,'reseller'=>$isReseller]),$source]);
+  }
+  return true;
+ }
+
+ private static function mirrorAccountProfileToClient(string $accountCode,int $clientId): bool{
+  $profile=DB::one("SELECT * FROM crm_account_commercial_profiles WHERE crm_account_code=?",[$accountCode]);
+  if(!$profile)return false;
+  $pending=(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_audit WHERE client_id=? AND field_name='classification' AND sync_status IN('pending','error')",[$clientId])??0);
+  if($pending>0)return false;
+  DB::exec("INSERT INTO client_commercial_profiles(client_id,is_cfc,is_reseller,strategic_notes,classification_source,updated_at)
+            VALUES(?,?,?,?,?,NOW())
+            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=COALESCE(client_commercial_profiles.strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()",
+   [$clientId,(int)$profile['is_cfc'],(int)$profile['is_reseller'],$profile['strategic_notes']??null,(string)$profile['classification_source']]);
+  return true;
  }
 
  private static function seedProfileFromAccount(int $clientId,array $account): bool{
