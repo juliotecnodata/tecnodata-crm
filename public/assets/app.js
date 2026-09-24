@@ -181,6 +181,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const nextDate=form.querySelector('[data-commercial-next-date]');
     const nextTime=form.querySelector('[data-commercial-next-time]');
     const defaultOutcome={contact_attempt:'attempt',contact_completed:'contact',follow_up:'progress',sale:'sale'};
+    const localToday=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
     const refresh=()=>{
       const type=typeInputs.find(input=>input.checked)?.value||typeInputs.find(input=>!input.disabled)?.value||'contact_attempt';
       if(categorySelect){
@@ -216,7 +217,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const enabled=scheduleToggle.checked;
       scheduleFields.hidden=!enabled;
       scheduleFields.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=!enabled);
-      if(nextDate){nextDate.required=enabled;nextDate.min=new Date().toISOString().slice(0,10);}
+      if(nextDate){nextDate.required=enabled;nextDate.min=localToday();}
       if(nextTime)nextTime.required=enabled;
     };
     typeInputs.forEach(input=>input.addEventListener('change',refresh));
