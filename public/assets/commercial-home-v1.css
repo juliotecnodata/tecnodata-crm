@@ -59,7 +59,7 @@
 .tdh-kpi.green:before{background:var(--tdh-green)}.tdh-kpi.green .tdh-kpi-icon{border-color:#BFDFD0;background:var(--tdh-soft-green);color:var(--tdh-green)}
 
 /* Main portfolio panel */
-.tdh-portfolio{border:1px solid var(--tdh-border);border-radius:var(--tdh-radius);background:#fff;overflow:hidden}
+.tdh-portfolio{border:1px solid var(--tdh-border);border-radius:var(--tdh-radius);background:#fff;overflow:hidden;container-type:inline-size;container-name:tdh-portfolio}
 .tdh-portfolio-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px;border-bottom:1px solid var(--tdh-border-soft)}
 .tdh-portfolio-head span{display:block;color:var(--tdh-green);font-size:9px;font-weight:800}
 .tdh-portfolio-head h2{margin:1px 0 2px;color:var(--tdh-navy);font-size:17px;font-weight:800}
@@ -92,16 +92,18 @@
 .tdh-table tbody td{padding:9px 7px;border-bottom:1px solid #EDF1F3;background:#fff;color:#344A57;font-size:9px;vertical-align:middle;min-width:0}
 .tdh-table tbody tr:last-child td{border-bottom:0}
 .tdh-table tbody tr:hover td{background:#FCFDFD}
-.tdh-table .tdh-col-client{width:19%}
-.tdh-table .tdh-col-type{width:8%}
-.tdh-table .tdh-col-consultant{width:8%}
-.tdh-table .tdh-col-purchase{width:8%}
+.tdh-table .tdh-col-client{width:18%}
+.tdh-table .tdh-col-type{width:7%}
+.tdh-table .tdh-col-consultant{width:7%}
+.tdh-table .tdh-col-purchase{width:7%}
 .tdh-table .tdh-col-last-contact{width:8%}
 .tdh-table .tdh-col-days{width:8%}
-.tdh-table .tdh-col-last-activity{width:8%}
-.tdh-table .tdh-col-next{width:9%}
-.tdh-table .tdh-col-status{width:10%}
-.tdh-table .tdh-col-actions{width:14%}
+.tdh-table .tdh-col-last-activity{width:7%}
+.tdh-table .tdh-col-next{width:8%}
+.tdh-table .tdh-col-status{width:9%}
+.tdh-table .tdh-col-actions{width:21%;position:sticky;right:0;z-index:2;border-left:1px solid var(--tdh-border-soft);background:#fff}
+.tdh-table thead .tdh-col-actions{z-index:4;background:#F4F7F8}
+.tdh-table tbody tr:hover .tdh-col-actions{background:#FCFDFD}
 .tdh-client{text-decoration:none;min-width:0;max-width:100%;display:block}
 .tdh-client strong,.tdh-client small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .tdh-client strong{color:#263D4A;font-size:10px;white-space:nowrap}
@@ -128,8 +130,9 @@
 .tdh-status.attention{border-color:#EFD99A;background:var(--tdh-soft-yellow);color:#886800}
 .tdh-empty-value{color:#97A2A8}
 
-.tdh-actions{display:flex;align-items:center;gap:5px;white-space:nowrap}
-.tdh-actions button,.tdh-actions a,.tdh-actions span.sale{min-height:28px;padding:5px 8px;border-radius:7px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:8px;font-weight:800;text-decoration:none;cursor:pointer}
+.tdh-actions{display:flex;align-items:center;justify-content:flex-start;gap:5px;white-space:nowrap;min-width:0}
+.tdh-actions button,.tdh-actions a,.tdh-actions span.sale{min-height:28px;padding:5px 8px;border-radius:7px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:8px;font-weight:800;text-decoration:none;cursor:pointer;min-width:0}
+.tdh-action-label{display:inline}
 .tdh-actions .attempt{background:var(--tdh-blue);border-color:var(--tdh-blue);color:#fff}
 .tdh-actions .contact{background:#fff;border-color:#73BEE5;color:#087BBB}
 .tdh-actions .follow{background:var(--tdh-follow);border-color:var(--tdh-follow);color:#fff}
@@ -206,4 +209,53 @@
  .tdh-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));white-space:normal}
  .tdh-actions button,.tdh-actions a,.tdh-actions span.sale{width:100%;min-height:34px}
  .tdh-table-footer{align-items:flex-start;flex-direction:column}
+}
+
+
+/* Responsividade da tabela baseada na largura real do painel.
+   Assim o menu lateral aberto/fechado também é considerado. */
+@container tdh-portfolio (max-width:1500px){
+ .tdh-table{min-width:900px}
+ .tdh-table .tdh-col-purchase,.tdh-table .tdh-col-last-activity{display:none}
+ .tdh-table .tdh-col-client{width:24%}
+ .tdh-table .tdh-col-type{width:9%}
+ .tdh-table .tdh-col-consultant{width:9%}
+ .tdh-table .tdh-col-last-contact{width:10%}
+ .tdh-table .tdh-col-days{width:10%}
+ .tdh-table .tdh-col-next{width:11%}
+ .tdh-table .tdh-col-status{width:13%}
+ .tdh-table .tdh-col-actions{width:14%}
+ .tdh-action-label{display:none}
+ .tdh-actions{gap:5px}
+ .tdh-actions button,.tdh-actions a,.tdh-actions span.sale{width:30px;min-width:30px;height:30px;min-height:30px;padding:0;gap:0}
+}
+@container tdh-portfolio (max-width:1150px){
+ .tdh-table{min-width:760px}
+ .tdh-table .tdh-col-consultant{display:none}
+ .tdh-table .tdh-col-client{width:28%}
+ .tdh-table .tdh-col-type{width:10%}
+ .tdh-table .tdh-col-last-contact{width:11%}
+ .tdh-table .tdh-col-days{width:11%}
+ .tdh-table .tdh-col-next{width:13%}
+ .tdh-table .tdh-col-status{width:14%}
+ .tdh-table .tdh-col-actions{width:13%}
+}
+@container tdh-portfolio (max-width:760px){
+ .tdh-table-wrap{overflow:visible;background:#F7F9FA}
+ .tdh-table{display:block;min-width:0}
+ .tdh-table thead{display:none}
+ .tdh-table tbody{display:grid;gap:10px;padding:10px}
+ .tdh-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;border:1px solid var(--tdh-border);border-radius:var(--tdh-radius);background:#fff}
+ .tdh-table tbody td{display:block!important;width:auto!important;padding:0;border:0;background:transparent!important;position:static}
+ .tdh-table tbody td.tdh-col-consultant,.tdh-table tbody td.tdh-col-purchase,.tdh-table tbody td.tdh-col-last-activity{display:none!important}
+ .tdh-table tbody td.tdh-col-client{grid-column:1/-1;padding-bottom:7px;border-bottom:1px solid var(--tdh-border-soft)}
+ .tdh-table tbody td.tdh-col-type{grid-column:1/-1}
+ .tdh-table tbody td.tdh-col-actions{grid-column:1/-1;padding-top:8px;border-top:1px solid var(--tdh-border-soft)}
+ .tdh-table tbody td.tdh-col-last-contact:before,.tdh-table tbody td.tdh-col-days:before,.tdh-table tbody td.tdh-col-next:before,.tdh-table tbody td.tdh-col-status:before{display:block;margin-bottom:4px;color:#7D8C95;font-size:8px;font-weight:800}
+ .tdh-table tbody td.tdh-col-last-contact:before{content:"Últ. contato"}
+ .tdh-table tbody td.tdh-col-days:before{content:"Sem contato"}
+ .tdh-table tbody td.tdh-col-next:before{content:"Próx. retorno"}
+ .tdh-table tbody td.tdh-col-status:before{content:"Status"}
+ .tdh-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+ .tdh-actions button,.tdh-actions a,.tdh-actions span.sale{width:100%;min-width:0;min-height:34px}
 }
