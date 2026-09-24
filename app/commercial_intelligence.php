@@ -943,7 +943,12 @@ final class CommercialAccountService {
           LEFT JOIN client_metrics m ON m.client_id=c.id
           LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
           LEFT JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=a.omie_code
-          LEFT JOIN (SELECT client_id,MAX(created_at) last_contact_at FROM activities GROUP BY client_id) act ON act.client_id=c.id";
+          LEFT JOIN (
+           SELECT crm_account_code,MAX(created_at) last_contact_at
+           FROM activities
+           WHERE crm_account_code IS NOT NULL
+           GROUP BY crm_account_code
+          ) act ON act.crm_account_code=a.omie_code";
 
   $total=(int)(DB::scalar("SELECT COUNT(*)".$join." WHERE ".$whereSql,$params)??0);
   $pages=max(1,(int)ceil($total/$perPage));$page=min($page,$pages);$offset=($page-1)*$perPage;
@@ -970,7 +975,12 @@ final class CommercialAccountService {
           LEFT JOIN clients c ON c.id=l.client_id
           LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
           LEFT JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=a.omie_code
-          LEFT JOIN (SELECT client_id,MAX(created_at) last_contact_at FROM activities GROUP BY client_id) act ON act.client_id=c.id";
+          LEFT JOIN (
+           SELECT crm_account_code,MAX(created_at) last_contact_at
+           FROM activities
+           WHERE crm_account_code IS NOT NULL
+           GROUP BY crm_account_code
+          ) act ON act.crm_account_code=a.omie_code";
   return DB::one("SELECT COUNT(*) total,
                          SUM(CASE WHEN l.client_id IS NOT NULL THEN 1 ELSE 0 END) linked,
                          SUM(CASE WHEN l.client_id IS NULL THEN 1 ELSE 0 END) prospects,
