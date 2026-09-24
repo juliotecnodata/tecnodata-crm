@@ -22,11 +22,17 @@ try{
  rrow('Consulta API Omie','NÃO');
  rrow('Escrita no Omie','NÃO');
 
- $profiles=CommercialPortfolioService::rebuildCachedProfiles();
+ $progress=function(string $stage,int $done,int $total): void{
+  $label=$stage==='profiles'?'Perfis':'Vínculos';
+  $pct=$total>0?number_format(($done/$total)*100,1,',','.'): '100,0';
+  echo sprintf("%s: %d / %d (%s%%)\n",$label,$done,$total,$pct);
+  if(function_exists('ob_flush'))@ob_flush();flush();
+ };
+ $profiles=CommercialPortfolioService::rebuildCachedProfiles($progress,300);
  rsection('PERFIS COMERCIAIS');
  foreach($profiles as $k=>$v)rrow($k,$v);
 
- $links=CommercialPortfolioService::reconcileCachedLinks();
+ $links=CommercialPortfolioService::reconcileCachedLinks($progress,500);
  rsection('RECONCILIAÇÃO DE VÍNCULOS');
  foreach($links as $k=>$v)rrow($k,$v);
 
