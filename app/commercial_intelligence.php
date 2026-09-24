@@ -815,6 +815,90 @@ final class CommercialPortfolioService {
  }
 }
 
+final class CommercialHomeService {
+ public static function build(array $user): array{
+  CommercialSchema::ensure();
+  $userId=(int)($user['id']??0);$crmUserCode=trim((string)($user['crm_user_omie_code']??''));
+  $empty=['today'=>['count'=>0,'items'=>[]],'overdue'=>['count'=>0,'items'=>[]],'stale'=>['count'=>0,'items'=>[]],'attention'=>['count'=>0,'items'=>[]],'priority_rows'=>[]];
+  if(($user['role']??'')!=='seller'||$userId<=0||$crmUserCode==='')return $empty;
+
+  $taskJoin=" FROM tasks t
+              LEFT JOIN crm_accounts a ON a.omie_code=t.crm_account_code
+              LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+              LEFT JOIN clients c ON c.id=COALESCE(t.client_id,l.client_id)
+              WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?";
+
+  $todayCount=(int)(DB::scalar("SELECT COUNT(*)".$taskJoin." AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY",[$userId])??0);
+  $todayItems=DB::all("SELECT t.id,t.crm_account_code,t.client_id,t.title,t.task_type_code,t.due_at,
+                             COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),c.name,'Conta CRM') account_name,
+                             COALESCE(a.document,c.document) document
+                      ".$taskJoin."
+                      AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY
+                      ORDER BY t.due_at ASC,t.id ASC LIMIT 3",[$userId]);
+
+  $overdueCount=(int)(DB::scalar("SELECT COUNT(*)".$taskJoin." AND t.due_at<CURDATE()",[$userId])??0);
+  $overdueItems=DB::all("SELECT t.id,t.crm_account_code,t.client_id,t.title,t.task_type_code,t.due_at,
+                               DATEDIFF(CURDATE(),DATE(t.due_at)) overdue_days,
+                               COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),c.name,'Conta CRM') account_name,
+                               COALESCE(a.document,c.document) document
+                        ".$taskJoin."
+                        AND t.due_at<CURDATE()
+                        ORDER BY t.due_at ASC,t.id ASC LIMIT 3",[$userId]);
+
+  $activityJoin=" FROM crm_accounts a
+                  LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+                  LEFT JOIN clients c ON c.id=l.client_id
+                  LEFT JOIN (
+                   SELECT crm_account_code,MAX(created_at) last_contact_at
+                   FROM activities
+                   WHERE crm_account_code IS NOT NULL
+                   GROUP BY crm_account_code
+                  ) act ON act.crm_account_code=a.omie_code
+                  WHERE a.active=1 AND a.crm_user_code=?";
+  $staleCondition=" AND (act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY)";
+  $staleCount=(int)(DB::scalar("SELECT COUNT(*)".$activityJoin.$staleCondition,[$crmUserCode])??0);
+  $staleItems=DB::all("SELECT a.omie_code,a.trade_name,a.name,a.document,act.last_contact_at,
+                              CASE WHEN act.last_contact_at IS NULL THEN NULL ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
+                       ".$activityJoin.$staleCondition."
+                       ORDER BY act.last_contact_at IS NULL DESC,act.last_contact_at ASC,a.trade_name,a.name LIMIT 3",[$crmUserCode]);
+
+  $proposalCount=(int)(DB::scalar("SELECT COUNT(DISTINCT t.id)
+    FROM tasks t LEFT JOIN activities ac ON ac.id=t.source_activity_id
+    WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?
+      AND (t.task_type_code='proposal' OR ac.category_code='proposal' OR t.title LIKE '%proposta%')",[$userId])??0);
+  $orderFollowCount=(int)(DB::scalar("SELECT COUNT(DISTINCT t.id)
+    FROM tasks t LEFT JOIN activities ac ON ac.id=t.source_activity_id
+    WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?
+      AND (ac.category_code='order_follow_up' OR t.title LIKE '%pedido%')",[$userId])??0);
+  $promiseCount=0;
+  try{
+   $promiseCount=(int)(DB::scalar("SELECT COUNT(*)
+     FROM opportunities o
+     JOIN pipeline_stages ps ON ps.id=o.stage_id
+     WHERE o.status='open' AND o.owner_user_id=? AND (ps.stage_key='fechamento' OR ps.name LIKE '%Fech%')",[$userId])??0);
+  }catch(Throwable){$promiseCount=0;}
+
+  $attentionItems=[];
+  if($overdueCount>0)$attentionItems[]=['code'=>'overdue','label'=>'Retornos atrasados','count'=>$overdueCount,'tone'=>'red','href'=>APP_URL.'/agenda?period=late&type=sales'];
+  if($promiseCount>0)$attentionItems[]=['code'=>'promise','label'=>'Promessas de venda','count'=>$promiseCount,'tone'=>'orange','href'=>APP_URL.'/opportunities'];
+  if($proposalCount>0)$attentionItems[]=['code'=>'proposal','label'=>'Propostas sem resposta','count'=>$proposalCount,'tone'=>'orange','href'=>APP_URL.'/agenda?type=sales'];
+  if($orderFollowCount>0)$attentionItems[]=['code'=>'order','label'=>'Acompanhar pedido','count'=>$orderFollowCount,'tone'=>'orange','href'=>APP_URL.'/agenda?type=sales'];
+  if(!$attentionItems&&$staleCount>0)$attentionItems[]=['code'=>'stale','label'=>'Clientes sem próxima ação','count'=>$staleCount,'tone'=>'orange','href'=>APP_URL.'/my-portfolio?attention=unplanned'];
+  $attentionCount=array_sum(array_map(static fn($item)=>(int)$item['count'],$attentionItems));
+
+  $portfolio=CommercialAccountService::portfolio($user,['page'=>1,'per_page'=>10,'scope'=>'active']);
+  $priorityRows=array_slice((array)($portfolio['rows']??[]),0,5);
+
+  return [
+   'today'=>['count'=>$todayCount,'items'=>$todayItems],
+   'overdue'=>['count'=>$overdueCount,'items'=>$overdueItems],
+   'stale'=>['count'=>$staleCount,'items'=>$staleItems],
+   'attention'=>['count'=>$attentionCount,'items'=>array_slice($attentionItems,0,4)],
+   'priority_rows'=>$priorityRows,
+  ];
+ }
+}
+
 final class CommercialAccountService {
  public static function canWork(array $user,string $accountCode): bool{
   CommercialSchema::ensure();
