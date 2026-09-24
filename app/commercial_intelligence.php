@@ -570,6 +570,194 @@ final class CommercialPortfolioService {
  }
 }
 
+final class CommercialAccountService {
+ public static function canWork(array $user,string $accountCode): bool{
+  CommercialSchema::ensure();
+  if(in_array((string)($user['role']??''),['admin','supervisor'],true))return true;
+  if(($user['role']??'')!=='seller')return false;
+  $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
+  if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return false;
+  return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1 AND crm_user_code=?",[$accountCode,$crmUserCode])??0)>0;
+ }
+
+ public static function get(string $accountCode): ?array{
+  CommercialSchema::ensure();
+  return DB::one("SELECT a.*,l.client_id,
+                         c.name client_name,c.legal_name client_legal_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
+                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
+                         cu.name owner_name,cu.email owner_email,
+                         COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,
+                         ap.strategic_notes,ap.classification_source,ap.updated_at profile_updated_at
+                  FROM crm_accounts a
+                  LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+                  LEFT JOIN clients c ON c.id=l.client_id
+                  LEFT JOIN client_metrics m ON m.client_id=c.id
+                  LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
+                  LEFT JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=a.omie_code
+                  WHERE a.omie_code=? LIMIT 1",[$accountCode]);
+ }
+
+ public static function contacts(string $accountCode): array{
+  CommercialSchema::ensure();
+  return DB::all("SELECT * FROM crm_contacts WHERE crm_account_code=? ORDER BY name,last_name",[$accountCode]);
+ }
+
+ public static function audit(string $accountCode,int $limit=50): array{
+  CommercialSchema::ensure();$limit=max(1,min(200,$limit));
+  return DB::all("SELECT a.*,u.name actor_name FROM crm_account_commercial_audit a LEFT JOIN users u ON u.id=a.actor_user_id WHERE a.crm_account_code=? ORDER BY a.created_at DESC,a.id DESC LIMIT ".$limit,[$accountCode]);
+ }
+
+ public static function profile(string $accountCode): array{
+  CommercialSchema::ensure();
+  return DB::one("SELECT * FROM crm_account_commercial_profiles WHERE crm_account_code=?",[$accountCode])??[
+   'crm_account_code'=>$accountCode,'is_cfc'=>0,'is_reseller'=>0,'strategic_notes'=>null,'classification_source'=>'local'
+  ];
+ }
+
+ public static function updateProfile(string $accountCode,bool $isCfc,bool $isReseller,int $actorUserId,string $notes=''): array{
+  CommercialSchema::ensure();
+  $account=DB::one("SELECT omie_code FROM crm_accounts WHERE omie_code=? AND active=1 LIMIT 1",[$accountCode]);
+  if(!$account)throw new RuntimeException('Conta CRM não encontrada ou inativa.');
+  $old=self::profile($accountCode);
+  $previous=['cfc'=>(int)$old['is_cfc']===1,'reseller'=>(int)$old['is_reseller']===1];
+  $next=['cfc'=>$isCfc,'reseller'=>$isReseller];
+  $notes=trim($notes);if(mb_strlen($notes)>10000)throw new RuntimeException('A observação estratégica deve ter até 10.000 caracteres.');
+
+  DB::exec("INSERT INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,strategic_notes,classification_source,updated_by_user_id,updated_at)
+            VALUES(?,?,?,?, 'tecnodata',?,NOW())
+            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=VALUES(strategic_notes),classification_source='tecnodata',updated_by_user_id=VALUES(updated_by_user_id),updated_at=NOW()",
+   [$accountCode,$isCfc?1:0,$isReseller?1:0,$notes!==''?$notes:null,$actorUserId?:null]);
+
+  $clientId=(int)(DB::scalar("SELECT client_id FROM crm_account_links WHERE crm_account_code=? LIMIT 1",[$accountCode])??0);
+  if($previous!==$next){
+   DB::exec("INSERT INTO crm_account_commercial_audit(crm_account_code,client_id,actor_user_id,field_name,previous_value,new_value,source,sync_status,created_at)
+             VALUES(?,?,?,'classification',?,?,'tecnodata','pending',NOW())",
+    [$accountCode,$clientId?:null,$actorUserId?:null,json_encode($previous,JSON_UNESCAPED_UNICODE),json_encode($next,JSON_UNESCAPED_UNICODE)]);
+   self::enqueueProfile($accountCode,$next);
+  }
+
+  $previousNotes=trim((string)($old['strategic_notes']??''));
+  if($previousNotes!==$notes){
+   DB::exec("INSERT INTO crm_account_commercial_audit(crm_account_code,client_id,actor_user_id,field_name,previous_value,new_value,source,sync_status,synced_at,created_at)
+             VALUES(?,?,?,'strategic_notes',?,?,'tecnodata','ignored',NOW(),NOW())",
+    [$accountCode,$clientId?:null,$actorUserId?:null,$previousNotes!==''?$previousNotes:null,$notes!==''?$notes:null]);
+  }
+
+  if($clientId>0){
+   DB::exec("INSERT INTO client_commercial_profiles(client_id,is_cfc,is_reseller,strategic_notes,classification_source,updated_by_user_id,updated_at)
+             VALUES(?,?,?,?, 'tecnodata',?,NOW())
+             ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=VALUES(strategic_notes),classification_source='tecnodata',updated_by_user_id=VALUES(updated_by_user_id),updated_at=NOW()",
+    [$clientId,$isCfc?1:0,$isReseller?1:0,$notes!==''?$notes:null,$actorUserId?:null]);
+  }
+  return self::profile($accountCode);
+ }
+
+ private static function enqueueProfile(string $accountCode,array $classification): void{
+  $payload=['crm_account_code'=>$accountCode,'cfc'=>!empty($classification['cfc']),'reseller'=>!empty($classification['reseller'])];
+  $existing=DB::one("SELECT id FROM sync_outbox WHERE entity_type='crm_account_classification' AND entity_id=? AND operation='upsert_omie_crm_characteristics' AND status IN('pending','error') ORDER BY id DESC LIMIT 1",[$accountCode]);
+  $json=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+  if($existing)DB::exec("UPDATE sync_outbox SET payload_json=?,status='pending',attempts=0,last_error=NULL,next_attempt_at=NULL,updated_at=NOW() WHERE id=?",[$json,(int)$existing['id']]);
+  else DB::exec("INSERT INTO sync_outbox(entity_type,entity_id,operation,payload_json,status,attempts,created_at,updated_at) VALUES('crm_account_classification',?,'upsert_omie_crm_characteristics',?,'pending',0,NOW(),NOW())",[$accountCode,$json]);
+ }
+
+ public static function portfolio(array $user,array $filters=[]): array{
+  CommercialSchema::ensure();
+  $page=max(1,(int)($filters['page']??1));$perPage=max(10,min(100,(int)($filters['per_page']??25)));
+  $q=trim((string)($filters['q']??''));$classification=(string)($filters['classification']??'all');
+  if(!in_array($classification,['all','cfc','reseller','both','unclassified'],true))$classification='all';
+  $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
+  $owner=trim((string)($filters['owner']??''));
+  $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
+
+  $where=['a.active=1'];$params=[];
+  $role=(string)($user['role']??'');
+  if($role==='seller'){
+   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
+   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','owner','scope')];
+   $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
+  }else{
+   $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
+   if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
+   elseif($scope==='active'){
+    if($activeCodes){$where[]='a.crm_user_code IN ('.implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);}
+    else $where[]='1=0';
+   }elseif($scope==='legacy'){
+    if($activeCodes){$where[]="(a.crm_user_code IS NULL OR a.crm_user_code NOT IN (".implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);}
+   }
+  }
+
+  if($link==='linked')$where[]='l.client_id IS NOT NULL';
+  elseif($link==='prospect')$where[]='l.client_id IS NULL';
+
+  if($classification==='cfc')$where[]='COALESCE(ap.is_cfc,0)=1';
+  elseif($classification==='reseller')$where[]='COALESCE(ap.is_reseller,0)=1';
+  elseif($classification==='both')$where[]='COALESCE(ap.is_cfc,0)=1 AND COALESCE(ap.is_reseller,0)=1';
+  elseif($classification==='unclassified')$where[]='COALESCE(ap.is_cfc,0)=0 AND COALESCE(ap.is_reseller,0)=0';
+
+  if($q!==''){
+   $like='%'.$q.'%';$digits=crm_digits($q);
+   $parts=['a.name LIKE ?','a.trade_name LIKE ?','a.document LIKE ?','cu.name LIKE ?','c.name LIKE ?'];array_push($params,$like,$like,$like,$like,$like);
+   if($digits!==''){$parts[]="REPLACE(REPLACE(REPLACE(REPLACE(a.document,'.',''),'/',''),'-',''),' ','') LIKE ?";$params[]='%'.$digits.'%';}
+   $where[]='('.implode(' OR ',$parts).')';
+  }
+
+  $whereSql=implode(' AND ',$where);
+  $join=" FROM crm_accounts a
+          LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+          LEFT JOIN clients c ON c.id=l.client_id
+          LEFT JOIN client_metrics m ON m.client_id=c.id
+          LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
+          LEFT JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=a.omie_code
+          LEFT JOIN (SELECT client_id,MAX(created_at) last_contact_at FROM activities GROUP BY client_id) act ON act.client_id=c.id";
+
+  $total=(int)(DB::scalar("SELECT COUNT(*)".$join." WHERE ".$whereSql,$params)??0);
+  $pages=max(1,(int)ceil($total/$perPage));$page=min($page,$pages);$offset=($page-1)*$perPage;
+  $rows=DB::all("SELECT a.omie_code,a.integration_code,a.name,a.trade_name,a.document,a.crm_user_code,a.updated_at,
+                        l.client_id,c.name client_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
+                        cu.name owner_name,cu.email owner_email,
+                        COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,ap.classification_source,
+                        m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,
+                        act.last_contact_at,
+                        CASE WHEN act.last_contact_at IS NULL THEN 999999 ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
+                 ".$join."
+                 WHERE ".$whereSql."
+                 ORDER BY CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END ASC,act.last_contact_at ASC,a.trade_name ASC,a.name ASC
+                 LIMIT ".$perPage." OFFSET ".$offset,$params);
+
+  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($where,$params),'filters'=>compact('q','classification','link','owner','scope')];
+ }
+
+ private static function stats(array $where,array $params): array{
+  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0];
+  $sql=implode(' AND ',$where);
+  $join=" FROM crm_accounts a
+          LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+          LEFT JOIN clients c ON c.id=l.client_id
+          LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
+          LEFT JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=a.omie_code
+          LEFT JOIN (SELECT client_id,MAX(created_at) last_contact_at FROM activities GROUP BY client_id) act ON act.client_id=c.id";
+  return DB::one("SELECT COUNT(*) total,
+                         SUM(CASE WHEN l.client_id IS NOT NULL THEN 1 ELSE 0 END) linked,
+                         SUM(CASE WHEN l.client_id IS NULL THEN 1 ELSE 0 END) prospects,
+                         SUM(CASE WHEN act.last_contact_at IS NULL THEN 1 ELSE 0 END) never_contacted,
+                         SUM(CASE WHEN act.last_contact_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(act.last_contact_at))>60 THEN 1 ELSE 0 END) over60
+                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0];
+ }
+
+ public static function owners(): array{
+  CommercialSchema::ensure();
+  return DB::all("SELECT cu.omie_code,cu.name,cu.email,
+                         COUNT(a.omie_code) account_count,
+                         CASE WHEN cu.omie_code IN (".implode(',',array_fill(0,max(1,count(CommercialPortfolioService::activeCrmSellerCodes()))),'?').") THEN 1 ELSE 0 END operational
+                  FROM crm_users cu
+                  LEFT JOIN crm_accounts a ON a.crm_user_code=cu.omie_code AND a.active=1
+                  GROUP BY cu.omie_code,cu.name,cu.email
+                  HAVING account_count>0
+                  ORDER BY operational DESC,account_count DESC,cu.name",
+   CommercialPortfolioService::activeCrmSellerCodes()?:['__NONE__']);
+ }
+}
+
 final class CommercialClassificationService {
  public static function get(int $clientId): array{
   CommercialSchema::ensure();
@@ -636,6 +824,8 @@ final class CommercialOutboxService {
     DB::exec("UPDATE sync_outbox SET status='synced',synced_at=NOW(),last_error=NULL,updated_at=NOW() WHERE id=?",[$id]);
     if($row['entity_type']==='client_classification'){
      DB::exec("UPDATE client_commercial_audit SET sync_status='synced',synced_at=NOW(),sync_error=NULL WHERE client_id=? AND field_name='classification' AND sync_status IN('pending','error')",[(int)$row['entity_id']]);
+    }elseif($row['entity_type']==='crm_account_classification'){
+     DB::exec("UPDATE crm_account_commercial_audit SET sync_status='synced',synced_at=NOW(),sync_error=NULL WHERE crm_account_code=? AND field_name='classification' AND sync_status IN('pending','error')",[(string)$row['entity_id']]);
     }
     $done++;
    }catch(Throwable $e){
@@ -646,6 +836,9 @@ final class CommercialOutboxService {
     if($row['entity_type']==='client_classification'){
      DB::exec("UPDATE client_commercial_audit SET sync_status='error',sync_error=? WHERE client_id=? AND field_name='classification' AND sync_status='pending'",
       [mb_substr($e->getMessage(),0,4000),(int)$row['entity_id']]);
+    }elseif($row['entity_type']==='crm_account_classification'){
+     DB::exec("UPDATE crm_account_commercial_audit SET sync_status='error',sync_error=? WHERE crm_account_code=? AND field_name='classification' AND sync_status='pending'",
+      [mb_substr($e->getMessage(),0,4000),(string)$row['entity_id']]);
     }
     $errors++;
    }
@@ -654,10 +847,14 @@ final class CommercialOutboxService {
  }
 
  private static function pushClassification(array $payload): void{
-  $clientId=(int)($payload['client_id']??0);
-  $client=DB::one("SELECT id,crm_account_code FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
-  if(!$client||empty($client['crm_account_code']))throw new RuntimeException('Cliente ainda não possui Conta CRM Omie vinculada.');
-  $accountCode=(int)$client['crm_account_code'];if($accountCode<=0)throw new RuntimeException('Código da Conta CRM inválido.');
+  $accountCode=(int)($payload['crm_account_code']??0);
+  if($accountCode<=0){
+   $clientId=(int)($payload['client_id']??0);
+   $client=DB::one("SELECT id,crm_account_code FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
+   if(!$client||empty($client['crm_account_code']))throw new RuntimeException('Cliente ainda não possui Conta CRM Omie vinculada.');
+   $accountCode=(int)$client['crm_account_code'];
+  }
+  if($accountCode<=0||!DB::one("SELECT 1 FROM crm_accounts WHERE omie_code=? AND active=1",[(string)$accountCode]))throw new RuntimeException('Código da Conta CRM inválido.');
 
   $omie=new OmieClient();
   $current=$omie->call('crm_account_characteristics','ConsultarCaractConta',['nCod'=>$accountCode]);
