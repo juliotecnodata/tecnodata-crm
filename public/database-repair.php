@@ -124,6 +124,9 @@ if(tableExists($pdo,$t)){
  addIndex($pdo,$log,$t,'idx_sync_outbox_entity','entity_type,entity_id,operation,status');
 }
 
+$t=$prefix.'client_metrics';
+addCol($pdo,$log,$t,'first_purchase_at','DATE NULL AFTER client_id');
+
 $t=$prefix.'products';
 addCol($pdo,$log,$t,'sku','VARCHAR(120) NULL AFTER omie_code');
 $c=cols($pdo,$t);
@@ -435,7 +438,7 @@ $expected=[
  'client_commercial_profiles'=>['client_id','is_cfc','is_reseller','classification_source'],
  'client_commercial_audit'=>['id','client_id','field_name','source','sync_status'],
  'sync_outbox'=>['id','entity_type','entity_id','operation','status'],
- 'client_metrics'=>['client_id','last_purchase_at','revenue_12m','orders_12m','avg_ticket_12m','avg_interval_days'],
+ 'client_metrics'=>['client_id','first_purchase_at','last_purchase_at','revenue_12m','orders_12m','avg_ticket_12m','avg_interval_days'],
  'products'=>['id','omie_code','sku','description','unit_price','active'],
  'categories'=>['code','description','active'],
  'financial_accounts'=>['omie_code','name','active','selected','raw_json'],
