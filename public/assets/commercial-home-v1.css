@@ -10,6 +10,7 @@
  --tdh-lime:#BDD136;
  --tdh-yellow:#FECC00;
  --tdh-orange:#EA5127;
+ --tdh-follow:#7A3DB8;
  --tdh-red:#C64132;
  --tdh-text:#172B38;
  --tdh-muted:#6F7F89;
@@ -121,7 +122,7 @@
 .tdh-actions button,.tdh-actions a,.tdh-actions span.sale{min-height:28px;padding:5px 8px;border-radius:7px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:8px;font-weight:800;text-decoration:none;cursor:pointer}
 .tdh-actions .attempt{background:var(--tdh-blue);border-color:var(--tdh-blue);color:#fff}
 .tdh-actions .contact{background:#fff;border-color:#73BEE5;color:#087BBB}
-.tdh-actions .follow{background:var(--tdh-orange);border-color:var(--tdh-orange);color:#fff}
+.tdh-actions .follow{background:var(--tdh-follow);border-color:var(--tdh-follow);color:#fff}
 .tdh-actions .sale{background:var(--tdh-green);border-color:var(--tdh-green);color:#fff}
 .tdh-actions .sale.disabled{opacity:.38;cursor:not-allowed}
 
