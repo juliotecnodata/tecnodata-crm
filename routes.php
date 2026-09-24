@@ -533,7 +533,7 @@ $router->get('/',function(){
  if(($u['role']??'')==='seller'){
   $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
   render('commercial_home',[
-   'home'=>CommercialHomeService::build($u),'flash'=>$flash,
+   'home'=>CommercialHomeService::build($u,$_GET),'flash'=>$flash,
    'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
    'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
    'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
