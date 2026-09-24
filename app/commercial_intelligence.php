@@ -653,7 +653,7 @@ final class CommercialPortfolioService {
              WHERE ca.client_id=l.client_id AND ca.field_name='classification' AND ca.sync_status IN('pending','error')
             )
             ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),
-             strategic_notes=COALESCE(strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()");
+             strategic_notes=COALESCE(client_commercial_profiles.strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()");
 
   return ['processed'=>$processed,'classified_in_cache'=>$classified,'account_profiles_written'=>$written,'client_profiles_mirrored'=>$mirrored];
  }
