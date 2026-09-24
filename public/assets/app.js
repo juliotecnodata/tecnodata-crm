@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const relativeParts=routeParts.slice(baseParts.length);
   const section=relativeParts[0]||'dashboard';
   let page=section;
+  if(relativeParts.length===0&&document.body.dataset.page==='commercial_home')page='commercial-home';
   if(section==='my-portfolio'||section==='commercial-portfolio')page='commercial-portfolio';
   if(section==='commercial'&&relativeParts[1]==='accounts')page='commercial-account';
   if(section==='clients-ead-reciclagem'||section==='clients-suporte-pet')page='clients';
@@ -220,7 +221,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       form.action=(window.APP_URL||'')+'/commercial/accounts/'+encodeURIComponent(code)+'/activity';
       if(accountLabel)accountLabel.textContent=name+' · CRM '+code;
       setupCommercialActivityForm(form);
-      const firstType=form.querySelector('[name="activity_type"]');if(firstType)firstType.checked=true;
+      const requestedType=String(button.dataset.activityType||'').trim();
+      const requestedInput=requestedType?[...form.querySelectorAll('[name="activity_type"]')].find(input=>input.value===requestedType):null;
+      const firstType=requestedInput||form.querySelector('[name="activity_type"]');
+      if(firstType)firstType.checked=true;
       firstType?.dispatchEvent(new Event('change',{bubbles:true}));
       commercialActivityDialog.showModal();
     });
