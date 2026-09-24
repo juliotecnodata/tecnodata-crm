@@ -16,7 +16,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=5;$stateRaw=null;
+  $schemaVersion=6;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
@@ -210,6 +210,12 @@ final class CommercialSchema {
              CASE WHEN EXISTS(SELECT 1 FROM client_tags t WHERE t.client_id=c.id AND t.tag_key='revendedor') THEN 1 ELSE 0 END,
              'legacy_tags',NOW()
             FROM clients c WHERE c.active=1");
+
+  DB::exec("INSERT IGNORE INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,strategic_notes,classification_source,updated_at)
+            SELECT l.crm_account_code,p.is_cfc,p.is_reseller,p.strategic_notes,
+                   CASE WHEN p.classification_source='local' THEN 'linked_client' ELSE p.classification_source END,NOW()
+            FROM crm_account_links l
+            JOIN client_commercial_profiles p ON p.client_id=l.client_id");
 
   if(!DB::scalar("SELECT 1 FROM settings WHERE setting_key='commercial_active_crm_sellers' LIMIT 1")){
    DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_active_crm_sellers',?,NOW())",
