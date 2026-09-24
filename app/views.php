@@ -120,11 +120,11 @@ function render(string $name,array $vars=[]): void{
 
      <div class="tdh-table-toolbar">
       <form method="get" class="tdh-per-page">
-       <?php foreach(['home_type','home_order','home_q'] as $key)if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'):?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php endforeach;?>
+       <?php foreach(['home_type','home_order','home_q'] as $key){if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'){?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php }}?>
        <span>Mostrar</span><select class="form-select" name="home_per_page" onchange="this.form.submit()"><?php foreach([5,10,25] as $n):?><option value="<?=$n?>" <?=$homePerPage===$n?'selected':''?>><?=$n?></option><?php endforeach;?></select><span>registros</span>
       </form>
       <form method="get" class="tdh-search">
-       <?php foreach(['home_type','home_order','home_per_page'] as $key)if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'):?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php endforeach;?>
+       <?php foreach(['home_type','home_order','home_per_page'] as $key){if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'){?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php }}?>
        <i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="home_q" value="<?=e((string)($homeFilters['home_q']??''))?>" placeholder="Buscar nesta tabela...">
       </form>
      </div>
@@ -153,7 +153,7 @@ function render(string $name,array $vars=[]): void{
          <td><?php if(!empty($row['last_contact_at'])):?><strong class="tdh-date-main"><?=date('d/m',strtotime((string)$row['last_contact_at']))?></strong><small class="tdh-sub"><?=e($lastChannel!==''?'via '.$lastChannel:'atividade registrada')?></small><?php else:?><strong class="tdh-date-main">—</strong><small class="tdh-sub">sem contato</small><?php endif;?></td>
          <td><?php if(empty($row['last_contact_at'])):?><span class="tdh-days danger">Nunca</span><?php elseif($days>=30):?><span class="tdh-days danger"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php elseif($days>=15):?><span class="tdh-days warning"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php else:?><span class="tdh-days ok"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php endif;?></td>
          <td><strong class="tdh-activity"><?=e($activityLabel($row))?></strong><?php if(!empty($row['last_activity_at'])):?><small class="tdh-sub"><i class="fa-regular fa-clock"></i><?=date('d/m',strtotime((string)$row['last_activity_at']))?></small><?php endif;?></td>
-         <td><?php if($nextTs):?><strong class="tdh-next"><i class="fa-regular fa-calendar"></i><?=date('d/m Hh',$nextTs)?></strong><?php else:?><span class="tdh-empty-value">—</span><?php endif;?></td>
+         <td><?php if($nextTs):?><strong class="tdh-next"><i class="fa-regular fa-calendar"></i><?=date('d/m H:i',$nextTs)?></strong><?php else:?><span class="tdh-empty-value">—</span><?php endif;?></td>
          <td><span class="tdh-status <?=$statusClass?>"><i></i><?=e($statusLabel)?></span></td>
          <td><div class="tdh-actions">
           <button type="button" class="attempt" data-commercial-activity-open data-activity-type="contact_attempt" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-phone"></i>Tentativa</button>
