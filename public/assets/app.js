@@ -812,6 +812,28 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   }
 
+  const setupCommercialAccountPage=()=>{
+    const page=document.querySelector('.tdf-page');if(!page)return;
+    const tabs=[...page.querySelectorAll('[data-tdf-tab]')];
+    const panels=[...page.querySelectorAll('[data-tdf-panel]')];
+    const activate=name=>{
+      const target=panels.find(panel=>panel.dataset.tdfPanel===name)||panels[0];if(!target)return;
+      const current=target.dataset.tdfPanel;
+      tabs.forEach(tab=>{const active=tab.dataset.tdfTab===current;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',active?'true':'false');});
+      panels.forEach(panel=>panel.classList.toggle('active',panel===target));
+    };
+    tabs.forEach(tab=>tab.addEventListener('click',()=>activate(tab.dataset.tdfTab||'overview')));
+    page.querySelectorAll('[data-tdf-open-tab]').forEach(button=>button.addEventListener('click',()=>activate(button.dataset.tdfOpenTab||'overview')));
+
+    const dialog=page.querySelector('[data-tdf-classification-dialog]');
+    if(dialog){
+      page.querySelectorAll('[data-tdf-classification-open]').forEach(button=>button.addEventListener('click',()=>dialog.showModal()));
+      dialog.querySelectorAll('[data-tdf-classification-close]').forEach(button=>button.addEventListener('click',()=>dialog.close()));
+      dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+    }
+  };
+  setupCommercialAccountPage();
+
   let lastValidationNotice=0;
   document.addEventListener('invalid',event=>{
     event.preventDefault();

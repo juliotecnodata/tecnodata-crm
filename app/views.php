@@ -807,92 +807,230 @@ function render(string $name,array $vars=[]): void{
 
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$linked=!empty($account['client_id']);$profile=$profile??[];
-   $activityCount=count($activities??[]);$noteCount=count($commercialNotes??[]);
+   $activities=array_values($activities??[]);$commercialNotes=array_values($commercialNotes??[]);$audit=array_values($audit??[]);
+   $activityCount=count($activities);$noteCount=count($commercialNotes);
+   $isCfc=!empty($profile['is_cfc']);$isReseller=!empty($profile['is_reseller']);
+   $classificationLabel=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':'Sem classificação'));
+   $avgInterval=(float)($account['avg_interval_days']??0);
+   if(empty($account['last_purchase_at']))$purchaseCycle='Sem histórico';
+   elseif($avgInterval<=0)$purchaseCycle='Esporádico';
+   elseif($avgInterval<=45)$purchaseCycle='Mensal';
+   elseif($avgInterval<=120)$purchaseCycle='Trimestral';
+   elseif($avgInterval<=220)$purchaseCycle='Semestral';
+   elseif($avgInterval<=400)$purchaseCycle='Anual';
+   else $purchaseCycle='Esporádico';
+
+   $lastContactAt=null;
+   foreach($activities as $activity){
+    if(in_array((string)($activity['activity_type']??''),['contact_completed','follow_up'],true)){$lastContactAt=(string)$activity['created_at'];break;}
+   }
+   $daysWithoutContact=null;
+   if($lastContactAt){$contactDay=strtotime(date('Y-m-d',strtotime($lastContactAt)));$todayDay=strtotime(date('Y-m-d'));$daysWithoutContact=max(0,(int)(($todayDay-$contactDay)/86400));}
+
+   $returnRows=[];$returnSeen=[];$nextReturn=null;
+   foreach($activities as $activity){
+    $taskId=(int)($activity['return_task_id']??0);$due=(string)($activity['return_due_at']??'');if($taskId<=0||$due===''||isset($returnSeen[$taskId]))continue;
+    $returnSeen[$taskId]=true;
+    $row=['id'=>$taskId,'status'=>(string)($activity['return_task_status']??'pending'),'due_at'=>$due,'activity'=>$activity];
+    $returnRows[]=$row;
+    if($row['status']==='pending'&&(!$nextReturn||strtotime($row['due_at'])<strtotime((string)$nextReturn['due_at'])))$nextReturn=$row;
+   }
+   usort($returnRows,static function($a,$b){$ap=$a['status']==='pending'?0:1;$bp=$b['status']==='pending'?0:1;if($ap!==$bp)return $ap<=>$bp;return strtotime((string)$b['due_at'])<=>strtotime((string)$a['due_at']);});
+   $returnCount=count($returnRows);
+   $saleActivities=array_values(array_filter($activities,static fn($row)=>(string)($row['activity_type']??'')==='sale'));$saleCount=count($saleActivities);
+
+   $nextDueTs=$nextReturn?strtotime((string)$nextReturn['due_at']):false;
+   $nextLate=$nextDueTs!==false&&$nextDueTs<time();
+   if($nextReturn)$liveStatus=$nextLate?'Retorno atrasado':'Retorno agendado';
+   elseif($daysWithoutContact===null||$daysWithoutContact>30)$liveStatus='Precisa contato';
+   else $liveStatus='Em dia';
+
+   $classificationFromRaw=static function($raw): string{
+    $data=is_string($raw)&&$raw!==''?json_decode($raw,true):null;if(!is_array($data))return 'Sem classificação';
+    $c=!empty($data['cfc']);$r=!empty($data['reseller']);
+    return $c&&$r?'CFC + Revendedor':($c?'CFC':($r?'Revendedor':'Sem classificação'));
+   };
+   $classificationAudit=array_values(array_filter($audit,static fn($change)=>(string)($change['field_name']??'')==='classification'));
+
+   $channelView=static function(string $channel): array{
+    return match($channel){
+     'whatsapp'=>['WhatsApp','fa-brands fa-whatsapp','whatsapp'],
+     'phone'=>['Ligação','fa-solid fa-phone','phone'],
+     'email'=>['E-mail','fa-solid fa-envelope','email'],
+     'presential'=>['Presencial','fa-solid fa-user-group','presential'],
+     default=>[CommercialActivityService::channelLabel($channel),'fa-solid fa-message','other']
+    };
+   };
+   $renderActivityRows=static function(array $rows)use($channelView): void{
+    foreach($rows as $activity):
+     $type=(string)($activity['activity_type']??'contact_completed');$category=(string)($activity['category_code']??'');$channel=(string)($activity['channel']??'other');
+     [$channelLabel,$channelIcon,$channelTone]=$channelView($channel);
+     if($type==='sale'){$channelLabel='Venda';$channelIcon='fa-solid fa-cart-shopping';$channelTone='sale';}
+     $title=$category!==''?CommercialActivityService::categoryLabel($category):CommercialActivityService::activityTypeLabel($type);
+     $createdTs=strtotime((string)$activity['created_at']);
+     ?>
+      <article class="tdf-activity <?=e($type)?>">
+       <span class="tdf-dot"></span>
+       <time><b><?=date('d/m',$createdTs)?></b><small><?=date('H:i',$createdTs)?></small></time>
+       <span class="tdf-channel <?=e($channelTone)?>"><i class="<?=e($channelIcon)?>"></i><?=e($channelLabel)?></span>
+       <div class="tdf-activity-card">
+        <strong><?=e($title)?></strong>
+        <p><?=!empty($activity['notes'])?nl2br(e((string)$activity['notes'])):'Atividade registrada sem descrição adicional.'?></p>
+        <small>Por <?=e((string)($activity['user_name']??'Usuário'))?></small>
+       </div>
+      </article>
+     <?php endforeach;
+   };
    ?>
-   <section class="tdw-page tdw-account">
-    <header class="tdw-account-head">
-     <div class="tdw-account-head-main">
-      <a class="tdw-icon-btn" href="<?=APP_URL?>/my-portfolio" title="Voltar"><i class="fa-solid fa-arrow-left"></i></a>
-      <span class="tdw-account-avatar"><?=e(mb_strtoupper(mb_substr($display!==''?$display:'?',0,1)))?></span>
-      <div><span class="tdw-eyebrow">CONTA CRM · <?=e((string)$account['omie_code'])?></span><div class="tdw-account-title-line"><h1><?=e($display!==''?$display:'Conta sem nome')?></h1><span class="tdw-entity-status <?=$linked?'linked':'prospect'?>"><i class="fa-solid <?=$linked?'fa-link':'fa-seedling'?>"></i><?=$linked?'Cliente vinculado':'Prospect'?></span></div><p><?=e((string)($account['document']?:'Documento não informado'))?> · Responsável: <strong><?=e((string)($account['owner_name']?:'Sem responsável'))?></strong></p></div>
+   <section class="tdf-page">
+    <a class="tdf-back" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-arrow-left"></i>Voltar para a carteira</a>
+
+    <header class="tdf-header">
+     <div class="tdf-customer">
+      <span class="tdf-customer-icon"><i class="fa-regular fa-building"></i></span>
+      <div class="tdf-customer-main">
+       <div class="tdf-title">
+        <h1><?=e($display!==''?$display:'Conta sem nome')?></h1>
+        <?php if($isCfc):?><span class="tdf-badge cfc">CFC</span><?php endif;?>
+        <?php if($isReseller):?><span class="tdf-badge reseller">Revendedor</span><?php endif;?>
+        <?php if(!$isCfc&&!$isReseller):?><span class="tdf-badge neutral">Sem classificação</span><?php endif;?>
+        <?php if($canWork):?><button class="tdf-edit" type="button" data-tdf-classification-open><i class="fa-solid fa-pen"></i>Editar</button><?php endif;?>
+       </div>
+       <div class="tdf-document"><?=e((string)($account['document']?:'Documento não informado'))?></div>
+       <div class="tdf-customer-meta">
+        <span><i class="fa-regular fa-user"></i>Responsável: <b><?=e((string)($account['owner_name']?:'Sem responsável'))?></b></span>
+        <span><i class="fa-regular fa-calendar"></i>Período de compra: <b><?=e($purchaseCycle)?></b></span>
+       </div>
+      </div>
      </div>
-     <div class="tdw-head-actions"><?php if($canWork):?><button class="tdw-btn secondary" type="button" data-global-task-open data-task-account-code="<?=e((string)$account['omie_code'])?>" data-task-account-name="<?=e($display!==''?$display:'Conta CRM')?>" data-task-client-id="<?=!empty($account['client_id'])?(int)$account['client_id']:''?>" data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Nova tarefa</button><a class="tdw-btn primary" href="#tdw-composer"><i class="fa-solid fa-plus"></i>Registrar atividade</a><?php endif;?></div>
+
+     <div class="tdf-header-actions">
+      <div class="tdf-statuses">
+       <span class="status <?=e($liveStatus==='Retorno atrasado'?'late':($liveStatus==='Em dia'?'ok':'attention'))?>"><i class="fa-solid <?=e($liveStatus==='Retorno atrasado'?'fa-circle-exclamation':($liveStatus==='Em dia'?'fa-circle-check':'fa-bell'))?>"></i><?=e($liveStatus)?></span>
+       <span class="days"><i class="fa-regular fa-calendar-check"></i><?=$daysWithoutContact===null?'Sem contato registrado':$daysWithoutContact.' dia'.($daysWithoutContact===1?'':'s').' desde o último contato'?></span>
+      </div>
+      <?php if($canWork):?><button class="tdf-new" type="button" data-commercial-activity-open data-activity-type="contact_completed" data-account-code="<?=e((string)$account['omie_code'])?>" data-account-name="<?=e($display!==''?$display:'Conta CRM')?>" data-account-owner="<?=e((string)($account['owner_name']?:$u['name']))?>" data-account-type="<?=e($classificationLabel)?>" data-client-id="<?=$linked?(int)$account['client_id']:''?>"><i class="fa-solid fa-plus"></i>Nova atividade</button><?php endif;?>
+     </div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <nav class="tdw-account-nav"><a href="#tdw-composer" class="active"><i class="fa-solid fa-bolt"></i>Atividade</a><a href="#tdw-timeline"><i class="fa-solid fa-clock-rotate-left"></i>Histórico <b><?=$activityCount?></b></a><a href="#tdw-notes"><i class="fa-regular fa-note-sticky"></i>Notas <b><?=$noteCount?></b></a><a href="#tdw-profile"><i class="fa-solid fa-building"></i>Dados da conta</a></nav>
+    <nav class="tdf-tabs" aria-label="Ficha do cliente">
+     <button type="button" class="active" data-tdf-tab="overview"><i class="fa-solid fa-table-cells-large"></i>Visão geral</button>
+     <button type="button" data-tdf-tab="activities"><i class="fa-regular fa-file-lines"></i>Atividades <b><?=$activityCount?></b></button>
+     <button type="button" data-tdf-tab="returns"><i class="fa-regular fa-clock"></i>Retornos <b><?=$returnCount?></b></button>
+     <button type="button" data-tdf-tab="sales"><i class="fa-solid fa-chart-column"></i>Vendas <b><?=$saleCount?></b></button>
+     <button type="button" data-tdf-tab="observations"><i class="fa-regular fa-note-sticky"></i>Observações <b><?=$noteCount?></b></button>
+    </nav>
 
-    <div class="tdw-account-layout">
-     <main class="tdw-account-main">
-      <section class="tdw-panel tdw-composer" id="tdw-composer">
-       <header class="tdw-panel-head"><div><span class="tdw-section-icon"><i class="fa-solid fa-bolt"></i></span><div><strong>Registrar atividade</strong><small>Atualize o relacionamento e já defina o próximo passo.</small></div></div></header>
-       <?php if($canWork):?>
-       <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/activity" data-commercial-activity-form>
-        <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="account">
-        <div class="tdw-activity-switch"><?php $accountActivityTypes=array_values(array_filter($activityTypes??[],static fn($type)=>($type['code']??'')!=='sale'||$linked));foreach($accountActivityTypes as $idx=>$type):?><label><input type="radio" name="activity_type" value="<?=e($type['code'])?>" <?=$idx===0?'checked':''?>><span><i class="fa-solid <?=e($type['icon'])?>"></i><b><?=e($type['label'])?></b></span></label><?php endforeach;?></div>
-        <div class="tdw-form-grid">
-         <label><span>Canal</span><select class="form-select" name="channel" required><?php foreach($activityChannels??[] as $channel):?><option value="<?=e($channel['code'])?>"><?=e($channel['label'])?></option><?php endforeach;?></select></label>
-         <label><span>Resultado</span><select class="form-select" name="outcome_code" data-commercial-outcome required><?php foreach($activityOutcomes??[] as $outcome):?><option value="<?=e($outcome['code'])?>" data-types="<?=e(implode(',',(array)$outcome['types']))?>"><?=e($outcome['label'])?></option><?php endforeach;?></select></label>
-         <label><span>Categoria</span><select class="form-select" name="category_code" data-commercial-category><option value="">Não se aplica</option><?php foreach($activityCategories??[] as $category):?><option value="<?=e($category['code'])?>" data-types="<?=e(implode(',',(array)$category['types']))?>"><?=e($category['label'])?></option><?php endforeach;?></select></label>
-         <label><span>Próximo retorno <small>opcional</small></span><input class="form-control" type="datetime-local" name="next_at"></label>
-         <?php if(count($activityAssignableUsers??[])>1):?><label><span>Responsável pelo retorno</span><select class="form-select" name="assigned_user_id"><?php foreach($activityAssignableUsers as $person):?><option value="<?=(int)$person['id']?>" <?=(int)$person['id']===(int)$u['id']?'selected':''?>><?=e((string)$person['name'])?></option><?php endforeach;?></select></label><?php endif;?>
-         <label class="wide"><span>Contexto do atendimento</span><textarea class="form-control" name="notes" rows="4" maxlength="2000" placeholder="Registre o que aconteceu, objeções, acordos ou o que precisa ser retomado."></textarea></label>
-        </div>
-        <footer><span>Uma atividade formal move esta conta na fila de trabalho.</span><button class="tdw-btn primary" type="submit"><i class="fa-solid fa-check"></i>Salvar atividade</button></footer>
-       </form>
-       <?php else:?><div class="tdw-readonly"><i class="fa-solid fa-lock"></i><span><strong>Conta somente para consulta</strong><small>Ela está fora da sua carteira operacional.</small></span></div><?php endif;?>
-      </section>
-
-      <section class="tdw-panel tdw-timeline-panel" id="tdw-timeline">
-       <header class="tdw-panel-head"><div><span class="tdw-section-icon"><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Linha do tempo</strong><small>Histórico comercial em ordem cronológica.</small></div></div><span class="tdw-count"><?=$activityCount?> atividade<?=$activityCount===1?'':'s'?></span></header>
-       <div class="tdw-timeline">
-        <?php foreach($activities??[] as $activity):$typeCode=(string)($activity['activity_type']??'contact_completed');$categoryCode=(string)($activity['category_code']??'');$outcomeCode=(string)($activity['outcome_code']??$activity['result']??'');?>
-         <article class="<?=$typeCode?>">
-          <div class="tdw-timeline-rail"><span><i class="fa-solid <?=$typeCode==='contact_attempt'?'fa-phone-slash':($typeCode==='follow_up'?'fa-arrows-rotate':($typeCode==='sale'?'fa-dollar-sign':'fa-comments'))?>"></i></span></div>
-          <div class="tdw-timeline-card">
-           <header><div><strong><?=e(CommercialActivityService::activityTypeLabel($typeCode))?></strong><div class="tdw-inline-tags"><span><?=e(CommercialActivityService::outcomeLabel($outcomeCode))?></span><?php if($categoryCode!==''):?><span><?=e(CommercialActivityService::categoryLabel($categoryCode))?></span><?php endif;?><span><?=e(CommercialActivityService::channelLabel((string)$activity['channel']))?></span></div></div><time><?=date('d/m/Y H:i',strtotime((string)$activity['created_at']))?><small><?=e((string)$activity['user_name'])?></small></time></header>
-           <?php if(!empty($activity['notes'])):?><p><?=nl2br(e((string)$activity['notes']))?></p><?php endif;?>
-           <?php if(!empty($activity['return_due_at'])):?><footer class="tdw-return <?=e((string)$activity['return_task_status'])?>"><i class="fa-regular fa-calendar-check"></i><span>Retorno <?=date('d/m/Y H:i',strtotime((string)$activity['return_due_at']))?></span><b><?=e((string)$activity['return_task_status'])?></b></footer><?php endif;?>
-          </div>
-         </article>
-        <?php endforeach;?>
-        <?php if(empty($activities)):?><div class="tdw-empty compact"><span><i class="fa-regular fa-comments"></i></span><strong>Nenhuma atividade ainda</strong><p>O primeiro atendimento registrado aparecerá aqui.</p></div><?php endif;?>
+    <div class="tdf-tab-panel active" data-tdf-panel="overview">
+     <div class="tdf-overview">
+      <section class="tdf-card tdf-history">
+       <header><div><strong>Histórico de atividades</strong><small>Todas as interações e atividades realizadas com este cliente.</small></div></header>
+       <div class="tdf-timeline">
+        <?php $renderActivityRows(array_slice($activities,0,8));?>
+        <?php if(!$activities):?><div class="tdf-empty"><i class="fa-regular fa-comments"></i><strong>Nenhuma atividade registrada</strong><span>Use “Nova atividade” para iniciar o histórico deste cliente.</span></div><?php endif;?>
        </div>
+       <?php if($activityCount>8):?><footer><button type="button" data-tdf-open-tab="activities">Ver histórico completo</button></footer><?php endif;?>
       </section>
 
-      <section class="tdw-panel" id="tdw-notes">
-       <header class="tdw-panel-head"><div><span class="tdw-section-icon"><i class="fa-regular fa-note-sticky"></i></span><div><strong>Notas internas</strong><small>Informações de contexto que não alteram a prioridade da carteira.</small></div></div><span class="tdw-count"><?=$noteCount?></span></header>
-       <?php if($canWork):?><form class="tdw-note-composer" method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/note"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><textarea class="form-control" name="note" rows="3" maxlength="10000" placeholder="Adicione uma informação interna sobre este relacionamento..." required></textarea><button class="tdw-btn secondary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar nota</button></form><?php endif;?>
-       <div class="tdw-note-list"><?php foreach($commercialNotes??[] as $note):?><article><p><?=nl2br(e((string)$note['note']))?></p><footer><span><?=e((string)$note['user_name'])?></span><time><?=date('d/m/Y H:i',strtotime((string)$note['created_at']))?></time></footer></article><?php endforeach;?><?php if(empty($commercialNotes)):?><div class="tdw-empty compact"><span><i class="fa-regular fa-note-sticky"></i></span><strong>Sem notas internas</strong><p>Use notas apenas para contexto, não para registrar atendimento.</p></div><?php endif;?></div>
-      </section>
-     </main>
+      <aside class="tdf-side">
+       <section class="tdf-card tdf-next <?=$nextLate?'late':''?>">
+        <header><span><i class="fa-regular fa-calendar"></i></span><strong>Próxima ação</strong></header>
+        <?php if($nextReturn&&$nextDueTs!==false):$nextActivity=$nextReturn['activity'];?>
+         <h3><?=$nextLate?'Retorno atrasado':'Retorno agendado'?> <?=date('d/m',$nextDueTs)?> às <?=date('H:i',$nextDueTs)?></h3>
+         <p><?=!empty($nextActivity['notes'])?e((string)$nextActivity['notes']):'Retomar o contato conforme combinado na atividade anterior.'?></p>
+         <small>Gerado pela atividade de <?=date('d/m/Y',strtotime((string)$nextActivity['created_at']))?></small>
+         <?php if($canWork):?><div class="tdf-next-actions">
+          <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/returns/<?=(int)$nextReturn['id']?>/complete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="primary"><i class="fa-solid fa-check"></i>Concluir retorno</button></form>
+          <button type="button" class="secondary" data-commercial-activity-open data-activity-type="follow_up" data-account-code="<?=e((string)$account['omie_code'])?>" data-account-name="<?=e($display)?>" data-account-owner="<?=e((string)($account['owner_name']?:$u['name']))?>" data-account-type="<?=e($classificationLabel)?>" data-client-id="<?=$linked?(int)$account['client_id']:''?>">Registrar atividade</button>
+         </div><?php endif;?>
+        <?php else:?>
+         <h3>Nenhum retorno agendado</h3>
+         <p>Não existe próximo passo pendente para esta conta.</p>
+         <?php if($canWork):?><button type="button" class="tdf-next-single" data-commercial-activity-open data-activity-type="follow_up" data-account-code="<?=e((string)$account['omie_code'])?>" data-account-name="<?=e($display)?>" data-account-owner="<?=e((string)($account['owner_name']?:$u['name']))?>" data-account-type="<?=e($classificationLabel)?>" data-client-id="<?=$linked?(int)$account['client_id']:''?>">Registrar atividade</button><?php endif;?>
+        <?php endif;?>
+       </section>
 
-     <aside class="tdw-account-side" id="tdw-profile">
-      <section class="tdw-panel tdw-snapshot">
-       <header class="tdw-panel-head"><div><strong>Resumo da conta</strong><small>Informação essencial para o atendimento.</small></div></header>
-       <dl>
-        <div><dt>Responsável CRM</dt><dd><?=e((string)($account['owner_name']?:'Sem responsável'))?><small><?=e((string)($account['crm_user_code']?:'Sem código'))?></small></dd></div>
-        <div><dt>Tipo</dt><dd><?=$linked?'Cliente + Conta CRM':'Prospect / Conta CRM'?></dd></div>
-        <div><dt>Período de compra</dt><dd><?=!empty($account['first_purchase_at'])?brdate((string)$account['first_purchase_at']).' → '.brdate((string)($account['last_purchase_at']??$account['first_purchase_at'])):'Sem compra identificada'?></dd></div>
-        <div><dt>Receita 12m</dt><dd><?=money($account['revenue_12m']??0)?><small><?=number_format((int)($account['orders_12m']??0),0,',','.')?> pedido(s)</small></dd></div>
-       </dl>
-       <?php if($linked):?><a class="tdw-linked-record" href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>"><span><i class="fa-solid fa-link"></i></span><div><strong>Cliente Geral vinculado</strong><small><?=e((string)($account['client_name']??''))?></small></div><i class="fa-solid fa-arrow-right"></i></a><?php endif;?>
-      </section>
-
-      <section class="tdw-panel tdw-contacts">
-       <header class="tdw-panel-head"><div><strong>Contatos</strong><small><?=count($contacts??[])?> pessoa<?=count($contacts??[])===1?'':'s'?> nesta Conta CRM.</small></div></header>
-       <div class="tdw-contact-list"><?php foreach($contacts??[] as $contact):$cn=trim((string)($contact['name']??'').' '.(string)($contact['last_name']??''));?><article><span><?=e(mb_strtoupper(mb_substr($cn!==''?$cn:'?',0,1)))?></span><div><strong><?=e($cn!==''?$cn:'Contato sem nome')?></strong><small><?=e((string)($contact['position_name']??'Cargo não informado'))?></small><nav><?php if(!empty($contact['mobile'])):?><a href="tel:<?=e(crm_digits((string)$contact['mobile']))?>" title="<?=e((string)$contact['mobile'])?>"><i class="fa-solid fa-phone"></i></a><?php endif;?><?php if(!empty($contact['email'])):?><a href="mailto:<?=e((string)$contact['email'])?>" title="<?=e((string)$contact['email'])?>"><i class="fa-regular fa-envelope"></i></a><?php endif;?></nav></div></article><?php endforeach;?><?php if(empty($contacts)):?><div class="tdw-empty compact"><strong>Nenhum contato cadastrado</strong><p>A Conta CRM ainda não possui pessoas de contato sincronizadas.</p></div><?php endif;?></div>
-      </section>
-
-      <section class="tdw-panel tdw-classification">
-       <header class="tdw-panel-head"><div><strong>Classificação comercial</strong><small>Identifique o papel deste parceiro.</small></div></header>
-       <?php if($canWork):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/profile"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><div class="tdw-checks"><label><input type="checkbox" name="is_cfc" value="1" <?=!empty($profile['is_cfc'])?'checked':''?>><span><i class="fa-solid fa-building-columns"></i><b>CFC</b></span></label><label><input type="checkbox" name="is_reseller" value="1" <?=!empty($profile['is_reseller'])?'checked':''?>><span><i class="fa-solid fa-handshake"></i><b>Revendedor</b></span></label></div><label class="tdw-field"><span>Observação estratégica</span><textarea class="form-control" name="strategic_notes" rows="4" maxlength="10000"><?=e((string)($profile['strategic_notes']??''))?></textarea></label><button class="tdw-btn secondary full" type="submit"><i class="fa-solid fa-floppy-disk"></i>Salvar classificação</button></form><?php else:?><div class="tdw-readonly compact"><i class="fa-solid fa-lock"></i><span>Somente leitura</span></div><?php endif;?>
-      </section>
-
-      <?php if(!empty($audit)):?><section class="tdw-panel tdw-audit"><header class="tdw-panel-head"><div><strong>Auditoria</strong><small>Alterações estratégicas recentes.</small></div></header><div><?php foreach(array_slice($audit,0,8) as $change):?><article><span><i class="fa-solid <?=($change['field_name']??'')==='classification'?'fa-tags':'fa-pen'?>"></i></span><div><strong><?=($change['field_name']??'')==='classification'?'Classificação alterada':'Informação alterada'?></strong><small><?=e((string)($change['actor_name']??'Sistema'))?> · <?=date('d/m/Y H:i',strtotime((string)$change['created_at']))?></small></div></article><?php endforeach;?></div></section><?php endif;?>
-     </aside>
+       <section class="tdf-card tdf-observation-summary">
+        <header><span><i class="fa-regular fa-clipboard"></i></span><strong>Observações</strong><button type="button" data-tdf-open-tab="observations" title="Abrir observações"><i class="fa-solid fa-pen"></i></button></header>
+        <?php if(isset($commercialNotes[0])):?><p><?=nl2br(e((string)$commercialNotes[0]['note']))?></p><small><?=e((string)$commercialNotes[0]['user_name'])?> · <?=date('d/m/Y H:i',strtotime((string)$commercialNotes[0]['created_at']))?></small><?php else:?><p class="muted">Nenhuma observação livre registrada para este cliente.</p><?php endif;?>
+        <footer>Observações livres ficam disponíveis para consulta e não contam como atividade.</footer>
+       </section>
+      </aside>
+     </div>
     </div>
+
+    <div class="tdf-tab-panel" data-tdf-panel="activities">
+     <section class="tdf-card tdf-full">
+      <header><div><strong>Atividades</strong><small>Histórico completo do relacionamento, do registro mais recente ao mais antigo.</small></div><span><?=$activityCount?> registro<?=$activityCount===1?'':'s'?></span></header>
+      <div class="tdf-timeline"><?php $renderActivityRows($activities);?><?php if(!$activities):?><div class="tdf-empty"><i class="fa-regular fa-comments"></i><strong>Nenhuma atividade registrada</strong></div><?php endif;?></div>
+     </section>
+    </div>
+
+    <div class="tdf-tab-panel" data-tdf-panel="returns">
+     <section class="tdf-card tdf-full">
+      <header><div><strong>Retornos</strong><small>Retornos gerados a partir das atividades do cliente.</small></div><span><?=$returnCount?> retorno<?=$returnCount===1?'':'s'?></span></header>
+      <div class="tdf-return-list">
+       <?php foreach($returnRows as $ret):$retTs=strtotime((string)$ret['due_at']);$retLate=$ret['status']==='pending'&&$retTs<time();?>
+        <article>
+         <time><b><?=date('d/m',$retTs)?></b><small><?=date('H:i',$retTs)?></small></time>
+         <div><strong><?=e(CommercialActivityService::activityTypeLabel((string)($ret['activity']['activity_type']??'follow_up')))?></strong><p><?=!empty($ret['activity']['notes'])?e((string)$ret['activity']['notes']):'Retorno agendado sem observação.'?></p></div>
+         <span class="<?=$retLate?'late':e((string)$ret['status'])?>"><?=$retLate?'Atrasado':($ret['status']==='pending'?'Pendente':($ret['status']==='done'?'Concluído':'Cancelado'))?></span>
+        </article>
+       <?php endforeach;?>
+       <?php if(!$returnRows):?><div class="tdf-empty"><i class="fa-regular fa-calendar-xmark"></i><strong>Nenhum retorno registrado</strong></div><?php endif;?>
+      </div>
+     </section>
+    </div>
+
+    <div class="tdf-tab-panel" data-tdf-panel="sales">
+     <section class="tdf-card tdf-full">
+      <header><div><strong>Vendas</strong><small>Registros de atividade classificados como venda nesta Inteligência Comercial.</small></div><span><?=$saleCount?> venda<?=$saleCount===1?'':'s'?></span></header>
+      <div class="tdf-sales-list">
+       <?php foreach($saleActivities as $sale):$saleTs=strtotime((string)$sale['created_at']);?>
+        <article><span><i class="fa-solid fa-cart-shopping"></i></span><div><strong>Venda registrada</strong><p><?=!empty($sale['notes'])?nl2br(e((string)$sale['notes'])):'Sem detalhes adicionais.'?></p><small><?=e((string)($sale['user_name']??'Usuário'))?> · <?=date('d/m/Y H:i',$saleTs)?></small></div></article>
+       <?php endforeach;?>
+       <?php if(!$saleActivities):?><div class="tdf-empty"><i class="fa-solid fa-cart-shopping"></i><strong>Nenhuma venda registrada nesta ficha</strong><span>A estrutura específica de vendas será evoluída na Tela 6.</span></div><?php endif;?>
+      </div>
+     </section>
+    </div>
+
+    <div class="tdf-tab-panel" data-tdf-panel="observations">
+     <section class="tdf-card tdf-full">
+      <header><div><strong>Observações</strong><small>Notas livres de contexto. Não contam como atividade e não alteram a prioridade da carteira.</small></div><span><?=$noteCount?> nota<?=$noteCount===1?'':'s'?></span></header>
+      <?php if($canWork):?><form class="tdf-note-form" method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/note"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><textarea name="note" rows="4" maxlength="10000" placeholder="Ex.: parceiro prefere contato pelo WhatsApp e costuma realizar pedidos na primeira semana do mês." required></textarea><button type="submit"><i class="fa-solid fa-plus"></i>Adicionar observação</button></form><?php endif;?>
+      <div class="tdf-note-list">
+       <?php foreach($commercialNotes as $note):?><article><p><?=nl2br(e((string)$note['note']))?></p><footer><b><?=e((string)$note['user_name'])?></b><time><?=date('d/m/Y H:i',strtotime((string)$note['created_at']))?></time></footer></article><?php endforeach;?>
+       <?php if(!$commercialNotes):?><div class="tdf-empty"><i class="fa-regular fa-note-sticky"></i><strong>Nenhuma observação registrada</strong></div><?php endif;?>
+      </div>
+     </section>
+    </div>
+
+    <?php if($canWork):?>
+    <dialog class="tdf-classification-dialog" data-tdf-classification-dialog>
+     <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/profile">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="strategic_notes" value="<?=e((string)($profile['strategic_notes']??''))?>">
+      <header><div><strong>Classificação do cliente</strong><small>A alteração fica registrada na trilha de auditoria.</small></div><button type="button" data-tdf-classification-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="tdf-classification-body">
+       <div class="tdf-class-options">
+        <label><input type="checkbox" name="is_cfc" value="1" <?=$isCfc?'checked':''?>><span><i class="fa-solid fa-building-columns"></i><b>CFC</b></span></label>
+        <label><input type="checkbox" name="is_reseller" value="1" <?=$isReseller?'checked':''?>><span><i class="fa-solid fa-handshake"></i><b>Revendedor</b></span></label>
+       </div>
+       <section class="tdf-audit"><h3>Últimas alterações</h3>
+        <?php foreach(array_slice($classificationAudit,0,6) as $change):?><p><b><?=date('d/m',strtotime((string)$change['created_at']))?></b>, <?=e((string)($change['actor_name']??'Sistema'))?> alterou de <strong><?=e($classificationFromRaw($change['previous_value']??null))?></strong> para <strong><?=e($classificationFromRaw($change['new_value']??null))?></strong>.</p><?php endforeach;?>
+        <?php if(!$classificationAudit):?><p class="muted">Ainda não há alterações manuais de classificação.</p><?php endif;?>
+       </section>
+      </div>
+      <footer><button type="button" class="secondary" data-tdf-classification-close>Cancelar</button><button type="submit" class="primary"><i class="fa-solid fa-floppy-disk"></i>Salvar classificação</button></footer>
+     </form>
+    </dialog>
+    <?php endif;?>
+
+    <?php render_commercial_activity_dialog([
+     'user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],
+     'return_to'=>'account','return_query'=>''
+    ]);?>
    </section>
   <?php break;
 
@@ -2571,7 +2709,7 @@ function layout(string $body,?array $u,string $page=''): void{
   'result'=>['Resultados','Meu desempenho','fa-chart-line']
  ];
  $pageInfo=$pageMeta[$page]??['Tecnodata CRM','Operação','fa-graduation-cap'];
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-intelligence-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-intelligence-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-intelligence-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/client-audit-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/client-audit-v1.css')?filemtime(APP_ROOT.'/public/assets/client-audit-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-palette-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-palette-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-palette-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-workspace-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-workspace-v2.css')?filemtime(APP_ROOT.'/public/assets/commercial-workspace-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-home-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-home-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-home-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-activity-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-activity-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-activity-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-intelligence-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-intelligence-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-intelligence-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/client-audit-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/client-audit-v1.css')?filemtime(APP_ROOT.'/public/assets/client-audit-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-palette-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-palette-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-palette-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-workspace-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-workspace-v2.css')?filemtime(APP_ROOT.'/public/assets/commercial-workspace-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-home-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-home-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-home-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-activity-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-activity-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-activity-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-account-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-account-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-account-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">

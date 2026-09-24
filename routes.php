@@ -820,7 +820,30 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
   if($queryRaw!==''){parse_str($queryRaw,$parsed);foreach(['q','classification','link','owner','scope','page'] as $key)if(isset($parsed[$key])&&!is_array($parsed[$key]))$safe[$key]=(string)$parsed[$key];}
   redirect('/my-portfolio'.($safe?'?'.http_build_query($safe):''));
  }
- redirect('/commercial/accounts/'.rawurlencode($code).'#commercial-operation');
+ redirect('/commercial/accounts/'.rawurlencode($code));
+});
+
+$router->post('/commercial/accounts/{code}/returns/{id}/complete',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();ensure_task_detail_columns();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$code=trim((string)$p['code']);$taskId=(int)($p['id']??0);
+ if(!CommercialAccountService::canWork($u,$code)){http_response_code(403);exit('Sem permissão para concluir este retorno.');}
+ try{
+  $task=DB::one("SELECT t.id,t.status
+                 FROM tasks t
+                 LEFT JOIN activities a ON a.id=t.source_activity_id
+                 WHERE t.id=? AND t.type='sales' AND (t.crm_account_code=? OR a.crm_account_code=?)
+                 LIMIT 1",[$taskId,$code,$code]);
+  if(!$task)throw new RuntimeException('Retorno não encontrado para esta Conta CRM.');
+  if((string)$task['status']!=='pending')throw new RuntimeException('Este retorno já foi concluído ou cancelado.');
+  DB::exec("UPDATE tasks
+            SET status='done',completion_result_code='completed',completion_notes='Concluído pela ficha do cliente',
+                completed_by_user_id=?,completed_at=NOW(),updated_at=NOW()
+            WHERE id=? AND status='pending'",[(int)$u['id'],$taskId]);
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Retorno concluído. O próximo passo da ficha foi atualizado.'];
+ }catch(Throwable $e){
+  $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
+ }
+ redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
 $router->post('/commercial/accounts/{code}/note',function($p){
