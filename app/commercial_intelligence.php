@@ -1004,6 +1004,17 @@ final class CommercialAccountService {
 }
 
 final class CommercialActivityService {
+ public static function channels(): array{
+  return [
+   ['code'=>'phone','label'=>'Ligação','icon'=>'fa-phone'],
+   ['code'=>'whatsapp','label'=>'WhatsApp','icon'=>'fa-brands fa-whatsapp'],
+   ['code'=>'email','label'=>'E-mail','icon'=>'fa-envelope'],
+   ['code'=>'presential','label'=>'Presencial','icon'=>'fa-user-group'],
+   ['code'=>'video','label'=>'Videoconferência','icon'=>'fa-video'],
+   ['code'=>'other','label'=>'Outro','icon'=>'fa-ellipsis'],
+  ];
+ }
+
  public static function types(): array{
   return [
    ['code'=>'contact_attempt','label'=>'Tentativa de contato','icon'=>'fa-phone-slash'],
@@ -1073,7 +1084,7 @@ final class CommercialActivityService {
   if(!in_array($type,$validTypes,true))throw new RuntimeException('Selecione um tipo de atividade válido.');
 
   $channel=trim((string)($data['channel']??''));
-  $validChannels=['phone','whatsapp','email','presential','video','chat','other'];
+  $validChannels=array_column(self::channels(),'code');
   if(!in_array($channel,$validChannels,true))throw new RuntimeException('Selecione um canal válido.');
 
   $category=trim((string)($data['category_code']??''));
@@ -1126,6 +1137,18 @@ final class CommercialActivityService {
   $clientId=(int)(DB::scalar("SELECT client_id FROM crm_account_links WHERE crm_account_code=? LIMIT 1",[$accountCode])??0);
   DB::exec("INSERT INTO crm_account_notes(crm_account_code,client_id,user_id,note,created_at) VALUES(?,?,?,?,NOW())",[$accountCode,$clientId?:null,(int)$user['id'],$note]);
   return (int)DB::conn()->lastInsertId();
+ }
+
+ public static function assignableUsers(array $user): array{
+  $role=(string)($user['role']??'');
+  if($role==='seller')return DB::all("SELECT id,name,role FROM users WHERE id=? AND active=1",[(int)$user['id']]);
+  $codes=CommercialPortfolioService::activeCrmSellerCodes();
+  $where=["active=1","role IN('seller','supervisor','admin')"];$params=[];
+  if($codes){
+   $where[]="(role IN('supervisor','admin') OR crm_user_omie_code IN (".implode(',',array_fill(0,count($codes),'?'))."))";
+   array_push($params,...$codes);
+  }else $where[]="role IN('supervisor','admin')";
+  return DB::all("SELECT id,name,role,crm_user_omie_code FROM users WHERE ".implode(' AND ',$where)." ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor','admin'),name",array_merge($params,[(int)($user['id']??0)]));
  }
 
  public static function history(string $accountCode,int $limit=100): array{
