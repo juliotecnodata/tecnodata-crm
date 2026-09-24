@@ -216,6 +216,16 @@ final class CommercialIdentityService {
 }
 
 final class CommercialPortfolioService {
+ private static ?array $clientDocumentMap=null;
+
+ private static function clientDocumentMap(): array{
+  if(self::$clientDocumentMap!==null)return self::$clientDocumentMap;
+  $map=[];
+  foreach(DB::all("SELECT id,document FROM clients WHERE active=1 AND crm_inactive=0 AND document IS NOT NULL AND TRIM(document)<>''") as $client){
+   $document=crm_digits((string)$client['document']);if($document==='')continue;$map[$document][]=(int)$client['id'];
+  }
+  return self::$clientDocumentMap=$map;
+ }
  public static function syncUsersPage(int $page=1): array{
   CommercialSchema::ensure();$page=max(1,$page);$omie=new OmieClient();
   $data=$omie->call('crm_users','ListarUsuarios',[
@@ -280,11 +290,7 @@ final class CommercialPortfolioService {
   }
   if($document===''){$stats['unlinked']++;return 0;}
 
-  $candidates=[];
-  foreach(DB::all("SELECT id,document FROM clients WHERE active=1 AND crm_inactive=0 AND document IS NOT NULL AND TRIM(document)<>''") as $client){
-   if(crm_digits((string)$client['document'])===$document)$candidates[]=(int)$client['id'];
-  }
-  $candidates=array_values(array_unique($candidates));
+  $candidates=array_values(array_unique(self::clientDocumentMap()[$document]??[]));
   if(count($candidates)!==1){
    if(count($candidates)>1)$stats['ambiguous']++;else $stats['unlinked']++;
    return 0;
@@ -440,8 +446,9 @@ final class CommercialOutboxService {
     $done++;
    }catch(Throwable $e){
     $delay=min(1440,max(5,(int)pow(2,min(8,(int)$row['attempts']))*5));
-    DB::exec("UPDATE sync_outbox SET status='error',last_error=?,next_attempt_at=DATE_ADD(NOW(),INTERVAL ? MINUTE),updated_at=NOW() WHERE id=?",
-     [mb_substr($e->getMessage(),0,4000),$delay,$id]);
+    $nextAttempt=date('Y-m-d H:i:s',time()+($delay*60));
+    DB::exec("UPDATE sync_outbox SET status='error',last_error=?,next_attempt_at=?,updated_at=NOW() WHERE id=?",
+     [mb_substr($e->getMessage(),0,4000),$nextAttempt,$id]);
     if($row['entity_type']==='client_classification'){
      DB::exec("UPDATE client_commercial_audit SET sync_status='error',sync_error=? WHERE client_id=? AND field_name='classification' AND sync_status='pending'",
       [mb_substr($e->getMessage(),0,4000),(int)$row['entity_id']]);
