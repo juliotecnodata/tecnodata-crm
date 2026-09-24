@@ -1158,7 +1158,7 @@ $router->post('/clients/{id}/crm-status',function($p){
 });
 
 $router->get('/clients/{id}',function($p){
- Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
  $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
  if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&(!empty($c['crm_inactive'])||(int)($c['active']??0)!==1)){http_response_code(404);exit('Cliente não encontrado.');}
@@ -1170,8 +1170,29 @@ $router->get('/clients/{id}',function($p){
  $form=ClientService::formFromClient($c);
  $sellerName=$c['seller_omie_code']?DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['seller_omie_code']]):null;
  $effectiveSellerName=$effectiveSellerCode!==''?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[$effectiveSellerCode])?:$effectiveSellerCode):null;$omieSellerName=!empty($c['omie_seller_code'])?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$c['omie_seller_code']])?:$c['omie_seller_code']):null;
- render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code'),'contactChannels'=>contact_channel_options('sales')]);
+ $commercialProfile=CommercialClassificationService::get($id);
+ $crmAccount=!empty($c['crm_account_code'])?DB::one("SELECT * FROM crm_accounts WHERE omie_code=? LIMIT 1",[(string)$c['crm_account_code']]):null;
+ $crmContacts=!empty($c['crm_account_code'])?DB::all("SELECT * FROM crm_contacts WHERE crm_account_code=? ORDER BY name,last_name LIMIT 30",[(string)$c['crm_account_code']]):[];
+ $commercialAudit=DB::all("SELECT a.*,u.name actor_name FROM client_commercial_audit a LEFT JOIN users u ON u.id=a.actor_user_id WHERE a.client_id=? ORDER BY a.created_at DESC,a.id DESC LIMIT 30",[$id]);
+ $crmOwnerName=!empty($c['crm_owner_user_id'])?(DB::scalar("SELECT name FROM users WHERE id=?",[(int)$c['crm_owner_user_id']])?:null):null;
+ $crmOwnerRemoteName=!empty($c['crm_owner_omie_code'])?(DB::scalar("SELECT name FROM crm_users WHERE omie_code=?",[(string)$c['crm_owner_omie_code']])?:null):null;
+ $crmPortfolioReady=CommercialPortfolioService::crmPortfolioReady();
+ $canCommercialWork=$u['role']!=='seller'||CommercialPortfolioService::canSellerWorkClient($u,$id);
+ render('client',['client'=>$c,'activities'=>$a,'sellerAudit'=>$sellerAudit,'orders'=>$o,'cycle'=>CRMService::cycle($c['last_purchase_at']??null,(float)($c['avg_interval_days']??0)),'flash'=>$flash,'formData'=>$form,'sellerName'=>$sellerName,'effectiveSellerCode'=>$effectiveSellerCode,'effectiveSellerName'=>$effectiveSellerName,'omieSellerName'=>$omieSellerName,'portfolioAssignment'=>$portfolioAssignment,'portfolioMonth'=>$portfolioMonth,'sharedUnassigned'=>$u['role']==='seller'&&$isUnassigned,'taskResults'=>task_result_options('sales'),'taskResultLabels'=>array_column(task_result_catalog(),'label','code'),'contactChannels'=>contact_channel_options('sales'),'commercialProfile'=>$commercialProfile,'crmAccount'=>$crmAccount,'crmContacts'=>$crmContacts,'commercialAudit'=>$commercialAudit,'crmOwnerName'=>$crmOwnerName,'crmOwnerRemoteName'=>$crmOwnerRemoteName,'crmPortfolioReady'=>$crmPortfolioReady,'canCommercialWork'=>$canCommercialWork]);
 });
+$router->post('/clients/{id}/commercial-profile',function($p){
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $id=(int)$p['id'];$u=Auth::user();
+ $client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
+ if(!$client||(int)($client['active']??0)!==1||!empty($client['crm_inactive'])){http_response_code(404);exit('Cliente não encontrado.');}
+ if(($u['role']??'')==='seller'&&!CommercialPortfolioService::canSellerWorkClient($u,$id)){http_response_code(403);exit('A classificação comercial só pode ser alterada dentro da sua carteira oficial.');}
+ $isCfc=!empty($_POST['is_cfc']);$isReseller=!empty($_POST['is_reseller']);
+ $notes=trim((string)($_POST['strategic_notes']??''));if(mb_strlen($notes)>10000)throw new RuntimeException('A observação estratégica deve ter até 10.000 caracteres.');
+ CommercialClassificationService::update($id,$isCfc,$isReseller,(int)$u['id'],$notes);
+ $_SESSION['client_flash']=['type'=>'success','message'=>'Classificação comercial atualizada. A alteração ficou registrada no histórico e será enviada ao CRM Omie na próxima sincronização.'];
+ redirect('/clients/'.$id.'#tdc-commercial-profile');
+});
+
 $router->post('/clients/{id}/activity',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');
