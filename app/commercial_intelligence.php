@@ -383,6 +383,9 @@ final class CommercialPortfolioService {
  }
 
  private static function syncEmbeddedContacts(string $accountCode,array $account): void{
+  // Contatos são cache da Conta CRM. Recria o conjunto da conta para não manter
+  // pessoas removidas no Omie como contatos ativos localmente.
+  DB::exec("DELETE FROM crm_contacts WHERE crm_account_code=?",[$accountCode]);
   foreach((array)($account['contatos']??[]) as $row){
    if(!is_array($row))continue;$code=trim((string)($row['id']??''));if($code==='')continue;
    DB::exec("INSERT INTO crm_contacts(omie_code,integration_code,crm_account_code,crm_user_code,name,last_name,position_name,email,phone,mobile,raw_json,updated_at)
