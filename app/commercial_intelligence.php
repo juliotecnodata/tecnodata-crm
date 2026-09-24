@@ -494,7 +494,7 @@ final class CommercialPortfolioService {
   if($pending>0)return false;
   DB::exec("INSERT INTO client_commercial_profiles(client_id,is_cfc,is_reseller,strategic_notes,classification_source,updated_at)
             VALUES(?,?,?,?,?,NOW())
-            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=COALESCE(strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()",
+            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=COALESCE(client_commercial_profiles.strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()",
    [$clientId,(int)$profile['is_cfc'],(int)$profile['is_reseller'],$profile['strategic_notes']??null,(string)$profile['classification_source']]);
   return true;
  }
