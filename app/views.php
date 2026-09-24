@@ -1745,14 +1745,14 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        </header>
        <div class="tda-task-body">
         <section class="tda-task-client-card">
-         <div class="tda-task-client-identity"><span><i class="fa-regular fa-building"></i></span><div><small>CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
+         <div class="tda-task-client-identity"><span><i class="fa-regular fa-building"></i></span><div><small>CONTA / CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
          <div class="tda-task-client-insights" aria-label="Resumo da tarefa">
           <article><small>Área</small><strong data-agenda-task-card-context>—</strong></article>
           <article><small>Tipo</small><strong data-agenda-task-card-type>—</strong></article>
           <article><small>Responsável</small><strong data-agenda-task-card-assigned>—</strong></article>
           <article><small>Prazo</small><strong data-agenda-task-card-due>—</strong></article>
          </div>
-         <a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cliente</a>
+         <a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cadastro</a>
         </section>
         <div class="tda-task-summary">
          <div class="created"><small>Criada em</small><strong data-agenda-task-created>—</strong></div>
