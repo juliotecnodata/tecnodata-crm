@@ -518,6 +518,94 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
    </section>
   <?php break;
+  case 'commercial_portfolio':
+   $portfolio=is_array($portfolio??null)?$portfolio:[];$rows=$portfolio['rows']??[];$stats=$portfolio['stats']??[];$filters=$portfolio['filters']??[];
+   $pageNum=(int)($portfolio['page']??1);$pages=(int)($portfolio['pages']??1);$total=(int)($portfolio['total']??0);
+   ?>
+   <section class="tdcp-page">
+    <header class="tdcp-head">
+     <div class="tdcp-head-main"><span class="tdcp-head-icon"><i class="fa-solid fa-briefcase"></i></span><div><span class="tdcp-kicker">INTELIGÊNCIA COMERCIAL / CARTEIRA</span><h1><?=$u['role']==='seller'?'Minha Carteira':'Carteira Comercial'?></h1><p>Contas do CRM Omie, com clientes faturados e prospects na mesma visão operacional.</p></div></div>
+     <div class="tdcp-head-actions"><a class="tdcp-btn" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-rotate-right"></i>Atualizar</a></div>
+    </header>
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <div class="tdcp-kpis">
+     <article><span><i class="fa-solid fa-address-book"></i></span><div><small>Contas na visão</small><strong><?=number_format((int)($stats['total']??0),0,',','.')?></strong><p>Base comercial do CRM Omie</p></div></article>
+     <article><span><i class="fa-solid fa-user-check"></i></span><div><small>Clientes vinculados</small><strong><?=number_format((int)($stats['linked']??0),0,',','.')?></strong><p>Possuem cadastro Geral associado</p></div></article>
+     <article><span><i class="fa-solid fa-seedling"></i></span><div><small>Prospects / Contas CRM</small><strong><?=number_format((int)($stats['prospects']??0),0,',','.')?></strong><p>Ainda sem Cliente Geral vinculado</p></div></article>
+     <article><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><small>Nunca trabalhadas</small><strong><?=number_format((int)($stats['never_contacted']??0),0,',','.')?></strong><p>Prioridade inicial da carteira</p></div></article>
+    </div>
+
+    <section class="tdcp-card tdcp-filters">
+     <div class="tdcp-card-head"><div><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da carteira</strong><small>Refine sem alterar a responsabilidade definida no CRM Omie.</small></div></div></div>
+     <form method="get" action="<?=APP_URL?>/my-portfolio">
+      <label class="tdcp-search"><span>Buscar</span><div><i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="q" value="<?=e((string)($filters['q']??''))?>" placeholder="Nome, CNPJ/CPF ou responsável"></div></label>
+      <label><span>Classificação</span><select class="form-select" name="classification"><option value="all">Todas</option><option value="cfc" <?=($filters['classification']??'')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($filters['classification']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($filters['classification']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=($filters['classification']??'')==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
+      <label><span>Tipo de vínculo</span><select class="form-select" name="link"><option value="all">Todos</option><option value="linked" <?=($filters['link']??'')==='linked'?'selected':''?>>Cliente vinculado</option><option value="prospect" <?=($filters['link']??'')==='prospect'?'selected':''?>>Prospect / Conta CRM</option></select></label>
+      <?php if(in_array((string)$u['role'],['admin','supervisor'],true)):?>
+       <label><span>Escopo</span><select class="form-select" name="scope"><option value="active" <?=($filters['scope']??'active')==='active'?'selected':''?>>Equipe ativa</option><option value="legacy" <?=($filters['scope']??'')==='legacy'?'selected':''?>>Responsáveis antigos</option><option value="all" <?=($filters['scope']??'')==='all'?'selected':''?>>Todos</option></select></label>
+       <label><span>Responsável CRM</span><select class="form-select" name="owner"><option value="">Todos do escopo</option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=($filters['owner']??'')===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?> · <?=number_format((int)$owner['account_count'],0,',','.')?><?=!empty($owner['operational'])?' · ativo':''?></option><?php endforeach;?></select></label>
+      <?php endif;?>
+      <div class="tdcp-filter-actions"><button class="tdcp-btn tdcp-btn-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar</button><a class="tdcp-btn" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-xmark"></i>Limpar</a></div>
+     </form>
+    </section>
+
+    <section class="tdcp-card tdcp-table-card">
+     <div class="tdcp-card-head"><div><span><i class="fa-solid fa-list-check"></i></span><div><strong>Prioridade de atendimento</strong><small>Contas sem contato aparecem primeiro; depois, maior tempo sem interação.</small></div></div><b><?=number_format($total,0,',','.')?> contas</b></div>
+     <div class="tdcp-table-wrap"><table class="table tdcp-table"><thead><tr><th>Conta / Cliente</th><th>Classificação</th><th>Responsável</th><th>Período de compra</th><th>Dias sem contato</th><th>Status</th><th class="text-end">Receita 12m</th><th></th></tr></thead><tbody>
+      <?php foreach($rows as $row):$display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''));$linked=!empty($row['client_id']);$days=(int)($row['days_without_contact']??999999);?>
+       <tr>
+        <td><div class="tdcp-account"><span><?=e(mb_strtoupper(mb_substr($display!==''?$display:'?',0,1)))?></span><div><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong></a><small><?=e((string)($row['document']?:'Documento não informado'))?> · CRM <?=e((string)$row['omie_code'])?></small></div></div></td>
+        <td><div class="tdcp-tags"><?php if(!empty($row['is_cfc'])):?><span class="cfc"><i class="fa-solid fa-building-columns"></i>CFC</span><?php endif;?><?php if(!empty($row['is_reseller'])):?><span class="reseller"><i class="fa-solid fa-handshake"></i>Revendedor</span><?php endif;?><?php if(empty($row['is_cfc'])&&empty($row['is_reseller'])):?><small>Sem classificação</small><?php endif;?></div></td>
+        <td><div class="tdcp-owner"><i class="fa-solid fa-user-tie"></i><span><strong><?=e((string)($row['owner_name']?:'Sem responsável'))?></strong><small><?=e((string)($row['crm_user_code']?:'sem código CRM'))?></small></span></div></td>
+        <td><?php if($linked&&!empty($row['first_purchase_at'])):?><strong><?=brdate((string)$row['first_purchase_at'])?></strong><small>até <?=brdate((string)($row['last_purchase_at']??$row['first_purchase_at']))?></small><?php else:?><span class="tdcp-muted"><?=$linked?'Sem compra identificada':'Ainda sem Cliente Geral'?></span><?php endif;?></td>
+        <td><?php if(empty($row['last_contact_at'])):?><span class="tdcp-days critical">Nunca</span><?php else:?><span class="tdcp-days <?=$days>60?'critical':($days>30?'warning':'ok')?>"><?=$days?></span><small><?=date('d/m/Y',strtotime((string)$row['last_contact_at']))?></small><?php endif;?></td>
+        <td><span class="tdcp-status <?=$linked?'client':'prospect'?>"><i class="fa-solid <?=$linked?'fa-circle-check':'fa-seedling'?>"></i><?=$linked?'Cliente vinculado':'Prospect / Conta CRM'?></span></td>
+        <td class="text-end"><strong><?=money($row['revenue_12m']??0)?></strong></td>
+        <td class="text-end"><a class="tdcp-open" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>" title="Abrir conta"><i class="fa-solid fa-arrow-right"></i></a></td>
+       </tr>
+      <?php endforeach;?>
+      <?php if(!$rows):?><tr><td colspan="8"><div class="tdcp-empty"><i class="fa-solid fa-filter-circle-xmark"></i><strong>Nenhuma Conta CRM encontrada</strong><small>Revise os filtros ou o vínculo do seu usuário com o CRM Omie.</small></div></td></tr><?php endif;?>
+     </tbody></table></div>
+     <?php if($pages>1):?><nav class="tdcp-pagination"><?php $baseQuery=$filters;unset($baseQuery['page']);?><a class="tdcp-btn <?=$pageNum<=1?'disabled':''?>" href="<?=APP_URL?>/my-portfolio?<?=e(http_build_query(array_merge($baseQuery,['page'=>max(1,$pageNum-1)])))?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><span>Página <strong><?=$pageNum?></strong> de <strong><?=$pages?></strong></span><a class="tdcp-btn <?=$pageNum>=$pages?'disabled':''?>" href="<?=APP_URL?>/my-portfolio?<?=e(http_build_query(array_merge($baseQuery,['page'=>min($pages,$pageNum+1)])))?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
+    </section>
+   </section>
+  <?php break;
+
+  case 'commercial_account':
+   $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$linked=!empty($account['client_id']);$profile=$profile??[];
+   ?>
+   <section class="tdca-page">
+    <header class="tdca-head"><div class="tdca-head-main"><a class="tdca-back" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-arrow-left"></i></a><span class="tdca-avatar"><?=e(mb_strtoupper(mb_substr($display!==''?$display:'?',0,1)))?></span><div><span class="tdca-kicker">CONTA CRM · <?=e((string)$account['omie_code'])?></span><h1><?=e($display!==''?$display:'Conta sem nome')?></h1><p><?=e((string)($account['document']?:'Documento não informado'))?></p></div></div><div class="tdca-badges"><span class="<?=$linked?'client':'prospect'?>"><i class="fa-solid <?=$linked?'fa-circle-check':'fa-seedling'?>"></i><?=$linked?'Cliente vinculado':'Prospect / Conta CRM'?></span><?php if(!empty($profile['is_cfc'])):?><span class="cfc">CFC</span><?php endif;?><?php if(!empty($profile['is_reseller'])):?><span class="reseller">Revendedor</span><?php endif;?></div></header>
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <div class="tdca-grid">
+     <section class="tdca-card tdca-summary">
+      <div class="tdca-card-head"><span><i class="fa-solid fa-building"></i></span><div><strong>Visão comercial</strong><small>Identidade da Conta no CRM Omie e vínculo empresarial.</small></div></div>
+      <div class="tdca-summary-grid">
+       <div><span>Responsável CRM</span><strong><?=e((string)($account['owner_name']?:'Sem responsável'))?></strong><small><?=e((string)($account['crm_user_code']?:'Sem código'))?></small></div>
+       <div><span>Tipo</span><strong><?=$linked?'Cliente + Conta CRM':'Conta CRM / Prospect'?></strong><small><?=$linked?'Cadastro Geral associado':'Ainda sem Cliente Geral'?></small></div>
+       <div><span>Período de compra</span><strong><?=!empty($account['first_purchase_at'])?brdate((string)$account['first_purchase_at']).' → '.brdate((string)($account['last_purchase_at']??$account['first_purchase_at'])):'Sem compra identificada'?></strong><small>Pedidos e serviços válidos</small></div>
+       <div><span>Receita 12m</span><strong><?=money($account['revenue_12m']??0)?></strong><small><?=number_format((int)($account['orders_12m']??0),0,',','.')?> pedido(s)</small></div>
+      </div>
+      <?php if($linked):?><a class="tdca-linked-client" href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>"><i class="fa-solid fa-link"></i><span><strong>Abrir cadastro Geral vinculado</strong><small><?=e((string)($account['client_name']??''))?> · Omie <?=e((string)($account['client_omie_code']??''))?></small></span><i class="fa-solid fa-arrow-right"></i></a><?php endif;?>
+     </section>
+
+     <section class="tdca-card">
+      <div class="tdca-card-head"><span><i class="fa-solid fa-address-book"></i></span><div><strong>Contatos</strong><small>Pessoas registradas na Conta CRM.</small></div><b><?=count($contacts??[])?></b></div>
+      <div class="tdca-contact-list"><?php foreach($contacts??[] as $contact):$cn=trim((string)($contact['name']??'').' '.(string)($contact['last_name']??''));?><article><span><?=e(mb_strtoupper(mb_substr($cn!==''?$cn:'?',0,1)))?></span><div><strong><?=e($cn!==''?$cn:'Contato sem nome')?></strong><small><?=e((string)($contact['position_name']??'Cargo não informado'))?></small><p><?php if(!empty($contact['mobile'])):?><a href="tel:<?=e(crm_digits((string)$contact['mobile']))?>"><i class="fa-solid fa-mobile-screen"></i><?=e((string)$contact['mobile'])?></a><?php endif;?><?php if(!empty($contact['email'])):?><a href="mailto:<?=e((string)$contact['email'])?>"><i class="fa-regular fa-envelope"></i><?=e((string)$contact['email'])?></a><?php endif;?></p></div></article><?php endforeach;?><?php if(empty($contacts)):?><div class="tdca-empty">Nenhum contato sincronizado nesta Conta.</div><?php endif;?></div>
+     </section>
+    </div>
+
+    <section class="tdca-card tdca-profile">
+     <div class="tdca-card-head"><span><i class="fa-solid fa-tags"></i></span><div><strong>Classificação do parceiro</strong><small>Informação da Conta CRM; funciona mesmo antes de existir Cliente Geral.</small></div></div>
+     <?php if($canWork):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/profile"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><div class="tdca-profile-options"><label><input type="checkbox" name="is_cfc" value="1" <?=!empty($profile['is_cfc'])?'checked':''?>><span><i class="fa-solid fa-building-columns"></i><strong>CFC</strong><small>Centro de Formação de Condutores</small></span></label><label><input type="checkbox" name="is_reseller" value="1" <?=!empty($profile['is_reseller'])?'checked':''?>><span><i class="fa-solid fa-handshake"></i><strong>Revendedor</strong><small>Parceiro comercial / revenda</small></span></label></div><label class="tdca-note"><span>Observação estratégica</span><textarea class="form-control" name="strategic_notes" rows="4" maxlength="10000"><?=e((string)($profile['strategic_notes']??''))?></textarea></label><footer><small>As alterações ficam auditadas e aguardam a sincronização de saída para o Omie.</small><button class="tdcp-btn tdcp-btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i>Salvar</button></footer></form><?php else:?><div class="tdca-readonly"><i class="fa-solid fa-lock"></i>Conta fora da sua carteira operacional.</div><?php endif;?>
+    </section>
+
+    <?php if(!empty($audit)):?><section class="tdca-card tdca-audit"><div class="tdca-card-head"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico comercial</strong><small>Mudanças estratégicas da Conta.</small></div></div><div class="tdca-audit-list"><?php foreach($audit as $change):?><article><span><i class="fa-solid <?=($change['field_name']??'')==='classification'?'fa-tags':'fa-note-sticky'?>"></i></span><div><strong><?=($change['field_name']??'')==='classification'?'Classificação alterada':'Informação comercial alterada'?></strong><small><?=e((string)($change['actor_name']??'Sistema'))?> · <?=date('d/m/Y H:i',strtotime((string)$change['created_at']))?> · <?=e((string)$change['source'])?> · <?=e((string)$change['sync_status'])?></small></div></article><?php endforeach;?></div></section><?php endif;?>
+   </section>
+  <?php break;
+
   case 'clients':?>
    <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$crmPortfolioReady=!empty($crmPortfolioReady);$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'supplier'=>0,'carrier'=>0,'crm_inactive'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$crmStatus=$crmStatus??'active';$clientSegment=$clientSegment??'all';$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$classificationFilter=$classificationFilter??'all';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralParams=[];if($clientSegment!=='all')$clientCentralParams['segment']=$clientSegment;if($crmStatus!=='active')$clientCentralParams['crm_status']=$crmStatus;$clientCentralUrl=APP_URL.'/clients'.($clientCentralParams?'?'.http_build_query($clientCentralParams):'');?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
@@ -2291,6 +2379,8 @@ function layout(string $body,?array $u,string $page=''): void{
   'settings'=>['Sistema','Configurações do CRM','fa-gears'],
   'test_data'=>['Sistema','Ferramentas técnicas','fa-flask'],
   'sync'=>['Sistema','Sincronização com Omie','fa-arrows-rotate'],
+  'commercial_portfolio'=>['Comercial','Carteira comercial','fa-briefcase'],
+  'commercial_account'=>['Comercial','Conta CRM','fa-building'],
   'opportunities'=>['Comercial','Oportunidades','fa-chart-column'],
   'opportunity_detail'=>['Comercial','Detalhe da oportunidade','fa-handshake'],
   'sales_flow_settings'=>['Gestão','Funil de vendas','fa-diagram-project'],
@@ -2331,6 +2421,7 @@ function layout(string $body,?array $u,string $page=''): void{
       <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-handshake"></i>Comercial</span><i class="fa-solid fa-chevron-down"></i></button>
       <div class="tdcrm-nav-group-links">
        <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span>Carteira comercial</span></a>
        <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
        <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
        <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
