@@ -2032,10 +2032,13 @@ $router->get('/api/tasks/form-context',function(){
   $account=CommercialAccountService::get($accountCode);
   if($account&&$role==='seller'&&!CommercialAccountService::canWork($u,$accountCode))$account=null;
  }
- if($role==='seller')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor'),name",[(int)$u['id']]);
- elseif($role==='collector')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'collector','supervisor'),name",[(int)$u['id']]);
- elseif($role==='supervisor')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",[(int)$u['id']]);
- else $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor','admin') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'admin','supervisor','seller','collector'),name",[(int)$u['id']]);
+ if($role==='seller')$users=task_assignable_users($u,'sales');
+ elseif($role==='collector')$users=task_assignable_users($u,'collection');
+ else{
+  $byId=[];foreach(array_merge(task_assignable_users($u,'sales'),task_assignable_users($u,'collection')) as $row)$byId[(int)$row['id']]=$row;
+  $users=array_values($byId);
+  usort($users,static function($a,$b)use($u){$aid=(int)$a['id'];$bid=(int)$b['id'];$uid=(int)$u['id'];if($aid===$uid)return -1;if($bid===$uid)return 1;return strcasecmp((string)$a['name'],(string)$b['name']);});
+ }
  json_response(['ok'=>true,'current_user_id'=>(int)$u['id'],'role'=>$role,'default_context'=>$context,'users'=>$users,'types'=>task_type_catalog(),'client'=>$client,'account'=>$account]);
 });
 $router->post('/api/tasks',function(){
