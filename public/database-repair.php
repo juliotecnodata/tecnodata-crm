@@ -111,6 +111,13 @@ if(isset($c['crm_inactive'])&&isset($c['active'])&&!idxExists($pdo,$t,'idx_clien
  execStep($pdo,$log,'índice de clientes ativos no CRM','ALTER TABLE '.qi($t).' ADD INDEX idx_clients_crm_active(crm_inactive,active,id)');
 }
 
+$t=$prefix.'crm_users';
+addCol($pdo,$log,$t,'last_seen_token','VARCHAR(64) NULL AFTER raw_json');
+
+$t=$prefix.'crm_accounts';
+addCol($pdo,$log,$t,'active','TINYINT(1) NOT NULL DEFAULT 1 AFTER notes');
+addCol($pdo,$log,$t,'last_seen_token','VARCHAR(64) NULL AFTER raw_json');
+
 $t=$prefix.'sync_outbox';
 if(tableExists($pdo,$t)){
  if(idxExists($pdo,$t,'uq_sync_outbox_event'))execStep($pdo,$log,'remover índice único legado da outbox','ALTER TABLE '.qi($t).' DROP INDEX '.qi('uq_sync_outbox_event'));
@@ -419,8 +426,8 @@ if(tableExists($pdo,$settings)){
 $expected=[
  'users'=>['id','name','email','password_hash','role','seller_omie_code','crm_user_omie_code','active'],
  'sellers'=>['omie_code','name','active'],
- 'crm_users'=>['omie_code','name','email','active'],
- 'crm_accounts'=>['omie_code','name','document','crm_user_code'],
+ 'crm_users'=>['omie_code','name','email','active','last_seen_token'],
+ 'crm_accounts'=>['omie_code','name','document','crm_user_code','active','last_seen_token'],
  'clients'=>['id','omie_code','name','seller_omie_code','crm_account_code','crm_owner_omie_code','crm_owner_user_id','active'],
  'crm_account_links'=>['crm_account_code','client_id','link_method'],
  'crm_contacts'=>['omie_code','crm_account_code'],
