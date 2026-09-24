@@ -829,22 +829,7 @@ final class CommercialHomeService {
               WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?";
 
   $todayCount=(int)(DB::scalar("SELECT COUNT(*)".$taskJoin." AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY",[$userId])??0);
-  $todayItems=DB::all("SELECT t.id,t.crm_account_code,t.client_id,t.title,t.task_type_code,t.due_at,
-                             COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),c.name,'Conta CRM') account_name,
-                             COALESCE(a.document,c.document) document
-                      ".$taskJoin."
-                      AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY
-                      ORDER BY t.due_at ASC,t.id ASC LIMIT 3",[$userId]);
-
   $overdueCount=(int)(DB::scalar("SELECT COUNT(*)".$taskJoin." AND t.due_at<CURDATE()",[$userId])??0);
-  $overdueItems=DB::all("SELECT t.id,t.crm_account_code,t.client_id,t.title,t.task_type_code,t.due_at,
-                               DATEDIFF(CURDATE(),DATE(t.due_at)) overdue_days,
-                               COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),c.name,'Conta CRM') account_name,
-                               COALESCE(a.document,c.document) document
-                        ".$taskJoin."
-                        AND t.due_at<CURDATE()
-                        ORDER BY t.due_at ASC,t.id ASC LIMIT 3",[$userId]);
-
   $activityJoin=" FROM crm_accounts a
                   LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
                   LEFT JOIN clients c ON c.id=l.client_id
@@ -857,11 +842,6 @@ final class CommercialHomeService {
                   WHERE a.active=1 AND a.crm_user_code=?";
   $staleCondition=" AND (act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY)";
   $staleCount=(int)(DB::scalar("SELECT COUNT(*)".$activityJoin.$staleCondition,[$crmUserCode])??0);
-  $staleItems=DB::all("SELECT a.omie_code,a.trade_name,a.name,a.document,act.last_contact_at,
-                              CASE WHEN act.last_contact_at IS NULL THEN NULL ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
-                       ".$activityJoin.$staleCondition."
-                       ORDER BY act.last_contact_at IS NULL DESC,act.last_contact_at ASC,a.trade_name,a.name LIMIT 3",[$crmUserCode]);
-
   $salesAmount=0.0;$salesCount=0;
   try{
    $monthResult=GoalService::userMonth($userId,date('Y-m'));$salesAmount=(float)($monthResult['sales']??0);
@@ -918,9 +898,9 @@ final class CommercialHomeService {
   $portfolio['filters']=['home_q'=>$q,'home_type'=>$type,'home_order'=>$order,'home_per_page'=>$perPage];
 
   return [
-   'today'=>['count'=>$todayCount,'items'=>$todayItems],
-   'overdue'=>['count'=>$overdueCount,'items'=>$overdueItems],
-   'stale'=>['count'=>$staleCount,'items'=>$staleItems],
+   'today'=>['count'=>$todayCount],
+   'overdue'=>['count'=>$overdueCount],
+   'stale'=>['count'=>$staleCount],
    'sales'=>['amount'=>$salesAmount,'count'=>$salesCount],
    'portfolio'=>$portfolio,
   ];
@@ -941,7 +921,7 @@ final class CommercialAccountService {
   CommercialSchema::ensure();
   return DB::one("SELECT a.*,l.client_id,
                          c.name client_name,c.legal_name client_legal_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
-                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,m.avg_interval_days,
+                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
                          cu.name owner_name,cu.email owner_email,
                          COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,
                          ap.strategic_notes,ap.classification_source,ap.updated_at profile_updated_at
