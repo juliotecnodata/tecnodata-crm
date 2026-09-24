@@ -54,6 +54,13 @@ function modifyCol(PDO $pdo,array &$log,string $table,string $column,string $def
  $c=cols($pdo,$table);if(!isset($c[$column]))return;
  execStep($pdo,$log,'ajustar '.$table.'.'.$column,'ALTER TABLE '.qi($table).' MODIFY COLUMN '.qi($column).' '.$definition);
 }
+function addIndex(PDO $pdo,array &$log,string $table,string $index,string $columns): void{
+ if(!tableExists($pdo,$table)||idxExists($pdo,$table,$index))return;
+ $parts=array_values(array_filter(array_map('trim',explode(',',$columns))));
+ if(!$parts)return;
+ $quoted=implode(',',array_map('qi',$parts));
+ execStep($pdo,$log,'indice '.$table.'.'.$index,'ALTER TABLE '.qi($table).' ADD INDEX '.qi($index).'('.$quoted.')');
+}
 
 $log=[];
 $logicalTables=[
