@@ -875,7 +875,7 @@ final class CommercialHomeService {
    $promiseCount=(int)(DB::scalar("SELECT COUNT(*)
      FROM opportunities o
      JOIN pipeline_stages ps ON ps.id=o.stage_id
-     WHERE o.status='open' AND o.owner_user_id=? AND (ps.stage_key='fechamento' OR ps.name LIKE '%Fech%')",[$userId])??0);
+     WHERE o.status='open' AND o.owner_user_id=? AND (ps.code='fechamento' OR ps.name LIKE '%Fech%')",[$userId])??0);
   }catch(Throwable){$promiseCount=0;}
 
   $attentionItems=[];
