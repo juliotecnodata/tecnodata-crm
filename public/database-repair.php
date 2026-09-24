@@ -64,7 +64,7 @@ function addIndex(PDO $pdo,array &$log,string $table,string $index,string $colum
 
 $log=[];
 $logicalTables=[
- 'users','sellers','crm_users','crm_accounts','clients','crm_account_links','crm_account_commercial_profiles','crm_account_commercial_audit','crm_contacts','user_omie_identity','client_commercial_profiles','client_commercial_audit','sync_outbox','client_metrics','products','categories','financial_accounts','order_stages',
+ 'users','sellers','crm_users','crm_accounts','clients','crm_account_links','crm_account_commercial_profiles','crm_account_commercial_audit','crm_account_notes','crm_contacts','user_omie_identity','client_commercial_profiles','client_commercial_audit','sync_outbox','client_metrics','products','categories','financial_accounts','order_stages',
  'payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders',
  'financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state',
  'omie_order_logs','goals','virtual_seller_goals','collection_assignment_log','order_profiles'
@@ -186,8 +186,15 @@ if(isset($c['original_amount'])&&isset($c['paid_amount'])&&isset($c['open_amount
 }
 
 $t=$prefix.'activities';
+addCol($pdo,$log,$t,'crm_account_code','VARCHAR(80) NULL AFTER client_id');
+addCol($pdo,$log,$t,'activity_type',"VARCHAR(30) NOT NULL DEFAULT 'contact_completed' AFTER user_id");
+addCol($pdo,$log,$t,'category_code','VARCHAR(50) NULL AFTER activity_type');
 addCol($pdo,$log,$t,'channel','VARCHAR(30) NULL');
+addCol($pdo,$log,$t,'outcome_code','VARCHAR(40) NULL AFTER result');
 addCol($pdo,$log,$t,'next_at','DATETIME NULL');
+modifyCol($pdo,$log,$t,'client_id','BIGINT UNSIGNED NULL');
+addIndex($pdo,$log,$t,'idx_activities_account_date','crm_account_code,created_at,id');
+addIndex($pdo,$log,$t,'idx_activities_account_type','crm_account_code,activity_type,created_at');
 $c=cols($pdo,$t);
 if(isset($c['type'])&&isset($c['channel']))execStep($pdo,$log,'migrar canal de atividades','UPDATE '.qi($t).' SET channel=COALESCE(NULLIF(channel,\'\'),type)');
 modifyCol($pdo,$log,$t,'result','VARCHAR(40) NOT NULL');
@@ -195,7 +202,12 @@ $c=cols($pdo,$t);
 if(isset($c['type']))modifyCol($pdo,$log,$t,'type','VARCHAR(30) NULL');
 
 $t=$prefix.'tasks';
+addCol($pdo,$log,$t,'crm_account_code','VARCHAR(80) NULL AFTER client_id');
 addCol($pdo,$log,$t,'assigned_user_id','INT UNSIGNED NULL');
+addCol($pdo,$log,$t,'source_activity_id','BIGINT UNSIGNED NULL AFTER task_type_code');
+modifyCol($pdo,$log,$t,'client_id','BIGINT UNSIGNED NULL');
+addIndex($pdo,$log,$t,'idx_tasks_account_status_due','crm_account_code,status,due_at,id');
+addIndex($pdo,$log,$t,'idx_tasks_source_activity','source_activity_id');
 addCol($pdo,$log,$t,'type',"ENUM('sales','collection') NOT NULL DEFAULT 'sales'");
 $c=cols($pdo,$t);
 if(isset($c['user_id'])&&isset($c['assigned_user_id']))execStep($pdo,$log,'migrar responsável de tarefas','UPDATE '.qi($t).' SET assigned_user_id=COALESCE(assigned_user_id,user_id)');
@@ -435,6 +447,7 @@ $expected=[
  'crm_account_links'=>['crm_account_code','client_id','link_method'],
   'crm_account_commercial_profiles'=>['crm_account_code','is_cfc','is_reseller','classification_source'],
   'crm_account_commercial_audit'=>['id','crm_account_code','field_name','sync_status'],
+  'crm_account_notes'=>['id','crm_account_code','client_id','user_id','note'],
  'crm_contacts'=>['omie_code','crm_account_code'],
  'user_omie_identity'=>['user_id','sales_seller_code','crm_user_code'],
  'client_commercial_profiles'=>['client_id','is_cfc','is_reseller','classification_source'],
@@ -453,8 +466,8 @@ $expected=[
  'orders'=>['id','omie_code','client_omie_code','seller_omie_code','order_date','total','status'],
  'service_orders'=>['id','omie_code','client_omie_code','seller_omie_code','service_date','total','status'],
  'financial_movements'=>['id','omie_code','client_omie_code','account_omie_code','seller_omie_code','due_date','open_amount','paid_amount','status','last_seen_token'],
- 'activities'=>['id','client_id','user_id','channel','result','next_at','created_at'],
- 'tasks'=>['id','client_id','assigned_user_id','type','title','due_at','status'],
+ 'activities'=>['id','client_id','crm_account_code','user_id','activity_type','category_code','channel','result','outcome_code','next_at','created_at'],
+ 'tasks'=>['id','client_id','crm_account_code','assigned_user_id','type','task_type_code','source_activity_id','title','due_at','status'],
  'collection_cases'=>['client_id','open_amount','status','assigned_user_id'],
  'collection_actions'=>['id','client_id','author_user_id','assigned_user_id','channel','result','amount','promise_date','created_at'],
  'settings'=>['setting_key','value_json'],
