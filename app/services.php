@@ -3033,7 +3033,7 @@ final class SyncService {
             ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),
             context_json=VALUES(context_json),last_success_at=IF(VALUES(last_success_at) IS NULL,last_success_at,VALUES(last_success_at)),last_error=NULL",
    [$module,$page,$total,$count,$done?null:json_encode($period,JSON_UNESCAPED_UNICODE),$done?1:0]);
-  if($module==='orders'&&$done)self::rebuildMetrics();
+  if(in_array($module,['orders','services'],true)&&$done)self::rebuildMetrics();
   return ['module'=>$module,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$done,'period'=>$period];
  }
  private static function upsertProducts(array $items): int{
@@ -3171,7 +3171,7 @@ final class SyncService {
 
   return self::finishProductSync($context,$logicalPage,$batchCount);
  }
- private static function finish(string $m,array $d,int $page,int $count): array{$total=(int)($d['total_de_paginas']??$d['nTotPaginas']??1);$total=max(1,$total);DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error) VALUES(?,?,?,?,NULL,NOW(),NULL) ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=NOW(),last_error=NULL",[$m,$page,$total,$count]);if($m==='orders'&&$page>=$total)self::rebuildMetrics();return ['module'=>$m,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$page>=$total];}
+ private static function finish(string $m,array $d,int $page,int $count): array{$total=(int)($d['total_de_paginas']??$d['nTotPaginas']??1);$total=max(1,$total);DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error) VALUES(?,?,?,?,NULL,NOW(),NULL) ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=NOW(),last_error=NULL",[$m,$page,$total,$count]);if(in_array($m,['orders','services'],true)&&$page>=$total)self::rebuildMetrics();return ['module'=>$m,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$page>=$total];}
  public static function run(string $m,int $page=1): array{
   if(!isset(self::modules()[$m]))throw new RuntimeException('Módulo inválido.');$o=new OmieClient();$page=max(1,$page);
   if($m==='sellers'){$d=$o->call('sellers','ListarVendedores',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['cadastro','vendedores']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO sellers(omie_code,name,email,active,raw_json,updated_at) VALUES(?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['nome']??$c),$r['email']??null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
@@ -3370,14 +3370,15 @@ final class SyncService {
  }
  private static function rebuildMetrics(): void{
   $today=date('Y-m-d');$yearAgo=date('Y-m-d',strtotime('-12 months'));
-  [$validOrders,$validOrderParams]=OrderPolicy::validReportSql('o.stage_code','o.status');
-  DB::exec("INSERT INTO client_metrics(client_id,last_purchase_at,revenue_12m,orders_12m,avg_ticket_12m,avg_interval_days,updated_at)
-            SELECT c.id,a.last_purchase_at,COALESCE(a.revenue_12m,0),COALESCE(a.orders_12m,0),
+  [$validOrders,$validOrderParams]=OrderPolicy::validReportSql('o.stage_code','o.status','o.raw_json');
+  [$validPurchaseOrders,$validPurchaseOrderParams]=OrderPolicy::validReportSql('o2.stage_code','o2.status','o2.raw_json');
+  DB::exec("INSERT INTO client_metrics(client_id,first_purchase_at,last_purchase_at,revenue_12m,orders_12m,avg_ticket_12m,avg_interval_days,updated_at)
+            SELECT c.id,p.first_purchase_at,p.last_purchase_at,COALESCE(a.revenue_12m,0),COALESCE(a.orders_12m,0),
                    CASE WHEN COALESCE(a.orders_12m,0)>0 THEN a.revenue_12m/a.orders_12m ELSE 0 END,
                    a.avg_interval_days,NOW()
             FROM clients c
             LEFT JOIN (
-             SELECT o.client_omie_code,MAX(o.order_date) last_purchase_at,
+             SELECT o.client_omie_code,
                     SUM(CASE WHEN o.order_date>=? AND o.order_date<=? THEN o.total ELSE 0 END) revenue_12m,
                     SUM(CASE WHEN o.order_date>=? AND o.order_date<=? THEN 1 ELSE 0 END) orders_12m,
                     CASE WHEN COUNT(DISTINCT o.order_date)>1
@@ -3387,10 +3388,26 @@ final class SyncService {
              WHERE o.order_date IS NOT NULL AND ".$validOrders."
              GROUP BY o.client_omie_code
             ) a ON a.client_omie_code=c.omie_code
+            LEFT JOIN (
+             SELECT purchase.client_omie_code,MIN(purchase.purchase_date) first_purchase_at,MAX(purchase.purchase_date) last_purchase_at
+             FROM (
+              SELECT o2.client_omie_code,o2.order_date purchase_date
+              FROM orders o2
+              WHERE o2.order_date IS NOT NULL AND ".$validPurchaseOrders."
+              UNION ALL
+              SELECT so.client_omie_code,so.service_date purchase_date
+              FROM service_orders so
+              WHERE so.service_date IS NOT NULL
+                AND UPPER(TRIM(COALESCE(so.status,''))) NOT LIKE '%CANCEL%'
+             ) purchase
+             WHERE purchase.client_omie_code IS NOT NULL AND TRIM(purchase.client_omie_code)<>''
+             GROUP BY purchase.client_omie_code
+            ) p ON p.client_omie_code=c.omie_code
             WHERE c.active=1
-            ON DUPLICATE KEY UPDATE last_purchase_at=VALUES(last_purchase_at),revenue_12m=VALUES(revenue_12m),
-             orders_12m=VALUES(orders_12m),avg_ticket_12m=VALUES(avg_ticket_12m),avg_interval_days=VALUES(avg_interval_days),updated_at=NOW()",
-   array_merge([$yearAgo,$today,$yearAgo,$today],$validOrderParams));
+            ON DUPLICATE KEY UPDATE first_purchase_at=VALUES(first_purchase_at),last_purchase_at=VALUES(last_purchase_at),
+             revenue_12m=VALUES(revenue_12m),orders_12m=VALUES(orders_12m),avg_ticket_12m=VALUES(avg_ticket_12m),
+             avg_interval_days=VALUES(avg_interval_days),updated_at=NOW()",
+   array_merge([$yearAgo,$today,$yearAgo,$today],$validOrderParams,$validPurchaseOrderParams));
  }
 
 }
