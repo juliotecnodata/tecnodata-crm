@@ -36,7 +36,7 @@ function render_commercial_activity_dialog(array $vars): void{
     <fieldset class="tda-section">
      <legend>Tipo de contato</legend>
      <div class="tda-chip-row tda-category-row">
-      <?php foreach($categories as $idx=>$category):?><label class="tda-chip"><input type="radio" name="category_code" value="<?=e((string)$category['code'])?>" <?=$idx===0?'checked':''?> required><span><?=e((string)$category['label'])?><b><i class="fa-solid fa-circle-check"></i></b></span></label><?php endforeach;?>
+      <?php $categoryIcons=['commercial'=>'fa-briefcase','relationship'=>'fa-user-group','follow_up'=>'fa-calendar-check','support'=>'fa-headset','update'=>'fa-file-lines','other'=>'fa-ellipsis'];foreach($categories as $idx=>$category):$categoryIcon=$categoryIcons[(string)$category['code']]??'fa-circle';?><label class="tda-chip"><input type="radio" name="category_code" value="<?=e((string)$category['code'])?>" <?=$idx===0?'checked':''?> required><span><i class="fa-solid <?=e($categoryIcon)?>"></i><?=e((string)$category['label'])?><b><i class="fa-solid fa-circle-check"></i></b></span></label><?php endforeach;?>
      </div>
     </fieldset>
 
@@ -47,12 +47,13 @@ function render_commercial_activity_dialog(array $vars): void{
     </div>
 
     <section class="tda-return">
-     <label class="tda-return-toggle"><input type="checkbox" name="schedule_return" value="1" data-commercial-schedule-toggle><span><i class="fa-solid fa-check"></i></span><b>Agendar retorno após esta atividade</b></label>
-     <div class="tda-return-fields" data-commercial-schedule-fields hidden>
-      <label><span>Data</span><div><i class="fa-regular fa-calendar"></i><input type="date" name="next_date" data-commercial-next-date></div></label>
-      <label><span>Horário</span><div><i class="fa-regular fa-clock"></i><input type="time" name="next_time" data-commercial-next-time></div></label>
-      <label class="wide"><span>Observação</span><input type="text" name="return_note" maxlength="500" placeholder="O que precisa ser retomado nesse retorno?"></label>
-      <?php if(count($assignable)>1):?><label class="wide"><span>Responsável pelo retorno</span><select name="assigned_user_id"><?php foreach($assignable as $person):?><option value="<?=(int)$person['id']?>" <?=(int)$person['id']===(int)($u['id']??0)?'selected':''?>><?=e((string)$person['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+     <h3>Agendar retorno</h3>
+     <label class="tda-return-toggle"><input type="checkbox" name="schedule_return" value="1" data-commercial-schedule-toggle checked><span><i class="fa-solid fa-check"></i></span><b>Agendar retorno após esta atividade</b></label>
+     <div class="tda-return-fields" data-commercial-schedule-fields>
+      <label class="tda-return-date"><span>Data</span><div><i class="fa-regular fa-calendar"></i><input type="date" name="next_date" data-commercial-next-date></div></label>
+      <label class="tda-return-time"><span>Horário</span><div><i class="fa-regular fa-clock"></i><input type="time" name="next_time" data-commercial-next-time></div></label>
+      <label class="tda-return-note"><span>Observação</span><textarea name="return_note" rows="2" maxlength="2000" placeholder="O que precisa ser retomado nesse retorno?"></textarea></label>
+      <?php if(count($assignable)>1):?><label class="tda-return-assignee"><span>Responsável pelo retorno</span><select name="assigned_user_id"><?php foreach($assignable as $person):?><option value="<?=(int)$person['id']?>" <?=(int)$person['id']===(int)($u['id']??0)?'selected':''?>><?=e((string)$person['name'])?></option><?php endforeach;?></select></label><?php endif;?>
      </div>
     </section>
    </div>

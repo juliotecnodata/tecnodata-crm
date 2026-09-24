@@ -1241,7 +1241,7 @@ final class CommercialActivityService {
     $nextAt=$nextDateRaw.'T'.$nextTimeRaw;
    }else $nextAt='';
   }
-  $returnNote=trim((string)($data['return_note']??''));if(mb_strlen($returnNote)>500)throw new RuntimeException('A observação do retorno deve ter até 500 caracteres.');
+  $returnNote=trim((string)($data['return_note']??''));if(mb_strlen($returnNote)>2000)throw new RuntimeException('A observação do retorno deve ter até 2.000 caracteres.');
   $nextDate=null;
   if($nextAt!==''){
    $nextDate=DateTime::createFromFormat('Y-m-d\TH:i',$nextAt);

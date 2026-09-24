@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(firstType)firstType.checked=true;
       firstType?.dispatchEvent(new Event('change',{bubbles:true}));
       const counter=form.querySelector('[data-commercial-notes-count]');if(counter)counter.textContent='0';
-      const schedule=form.querySelector('[data-commercial-schedule-toggle]');if(schedule){schedule.checked=false;schedule.dispatchEvent(new Event('change',{bubbles:true}));}
+      const schedule=form.querySelector('[data-commercial-schedule-toggle]');if(schedule){schedule.checked=true;schedule.dispatchEvent(new Event('change',{bubbles:true}));}
       commercialActivityDialog.showModal();
     });
     commercialActivityDialog.querySelectorAll('[data-commercial-activity-close]').forEach(button=>button.addEventListener('click',()=>commercialActivityDialog.close()));
