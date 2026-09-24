@@ -16,7 +16,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=2;$stateRaw=null;
+  $schemaVersion=3;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
@@ -302,8 +302,17 @@ final class CommercialPortfolioService {
    if($clientId>0){
     $ownerUserId=0;
     if($crmUserCode!=='')$ownerUserId=(int)(DB::scalar("SELECT u.id FROM users u JOIN crm_users cu ON cu.omie_code=u.crm_user_omie_code AND cu.active=1 WHERE u.crm_user_omie_code=? AND u.active=1 ORDER BY FIELD(u.role,'seller','supervisor','admin') LIMIT 1",[$crmUserCode])??0);
+    $before=DB::one("SELECT crm_account_code,crm_owner_omie_code,crm_owner_user_id FROM clients WHERE id=? LIMIT 1",[$clientId])??[];
+    $previousOwner=trim((string)($before['crm_owner_omie_code']??''));$nextOwner=$crmUserCode;
     DB::exec("UPDATE clients SET crm_account_code=?,crm_owner_omie_code=?,crm_owner_user_id=?,updated_at=updated_at WHERE id=?",
      [$code,$crmUserCode!==''?$crmUserCode:null,$ownerUserId?:null,$clientId]);
+    if($previousOwner!==$nextOwner){
+     $previousName=$previousOwner!==''?(DB::scalar("SELECT name FROM crm_users WHERE omie_code=?",[$previousOwner])?:$previousOwner):'Sem responsável';
+     $nextName=$nextOwner!==''?(DB::scalar("SELECT name FROM crm_users WHERE omie_code=?",[$nextOwner])?:$nextOwner):'Sem responsável';
+     DB::exec("INSERT INTO client_commercial_audit(client_id,field_name,previous_value,new_value,source,sync_status,synced_at,created_at)
+               VALUES(?,'responsible',?,?,'omie_crm','synced',NOW(),NOW())",
+      [$clientId,json_encode(['code'=>$previousOwner?:null,'name'=>$previousName],JSON_UNESCAPED_UNICODE),json_encode(['code'=>$nextOwner?:null,'name'=>$nextName],JSON_UNESCAPED_UNICODE)]);
+    }
     if($ownerUserId>0)$stats['owner_linked']++;
     if(self::seedProfileFromAccount($clientId,$row))$stats['profiles_seeded']++;
    }
