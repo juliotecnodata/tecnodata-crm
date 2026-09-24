@@ -85,7 +85,7 @@ function render(string $name,array $vars=[]): void{
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <div class="tdh-kpis">
-     <a class="tdh-kpi danger" href="<?=APP_URL?>/my-portfolio?attention=never">
+     <a class="tdh-kpi danger" href="<?=APP_URL?>/my-portfolio?attention=stale30">
       <span class="tdh-kpi-icon"><i class="fa-regular fa-clock"></i></span>
       <div><small>Clientes sem contato há 30+ dias</small><strong><?=number_format((int)($home['stale']['count']??0),0,',','.')?></strong><p>Necessitam de atenção</p></div>
      </a>
