@@ -816,10 +816,10 @@ final class CommercialPortfolioService {
 }
 
 final class CommercialHomeService {
- public static function build(array $user): array{
+ public static function build(array $user,array $filters=[]): array{
   CommercialSchema::ensure();
   $userId=(int)($user['id']??0);$crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-  $empty=['today'=>['count'=>0,'items'=>[]],'overdue'=>['count'=>0,'items'=>[]],'stale'=>['count'=>0,'items'=>[]],'attention'=>['count'=>0,'items'=>[]],'priority_rows'=>[]];
+  $empty=['today'=>['count'=>0,'items'=>[]],'overdue'=>['count'=>0,'items'=>[]],'stale'=>['count'=>0,'items'=>[]],'sales'=>['amount'=>0.0,'count'=>0],'portfolio'=>['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>5,'filters'=>[]]];
   if(($user['role']??'')!=='seller'||$userId<=0||$crmUserCode==='')return $empty;
 
   $taskJoin=" FROM tasks t
@@ -878,23 +878,68 @@ final class CommercialHomeService {
      WHERE o.status='open' AND o.owner_user_id=? AND (ps.code='fechamento' OR ps.name LIKE '%Fech%')",[$userId])??0);
   }catch(Throwable){$promiseCount=0;}
 
-  $attentionItems=[];
-  if($overdueCount>0)$attentionItems[]=['code'=>'overdue','label'=>'Retornos atrasados','count'=>$overdueCount,'tone'=>'red','href'=>APP_URL.'/agenda?period=late&type=sales'];
-  if($promiseCount>0)$attentionItems[]=['code'=>'promise','label'=>'Promessas de venda','count'=>$promiseCount,'tone'=>'orange','href'=>APP_URL.'/opportunities'];
-  if($proposalCount>0)$attentionItems[]=['code'=>'proposal','label'=>'Propostas sem resposta','count'=>$proposalCount,'tone'=>'orange','href'=>APP_URL.'/agenda?type=sales'];
-  if($orderFollowCount>0)$attentionItems[]=['code'=>'order','label'=>'Acompanhar pedido','count'=>$orderFollowCount,'tone'=>'orange','href'=>APP_URL.'/agenda?type=sales'];
-  if(!$attentionItems&&$staleCount>0)$attentionItems[]=['code'=>'stale','label'=>'Clientes sem próxima ação','count'=>$staleCount,'tone'=>'orange','href'=>APP_URL.'/my-portfolio?attention=unplanned'];
-  $attentionCount=array_sum(array_map(static fn($item)=>(int)$item['count'],$attentionItems));
+  $salesAmount=0.0;$salesCount=0;
+  try{
+   $monthResult=GoalService::userMonth($userId,date('Y-m'));$salesAmount=(float)($monthResult['sales']??0);
+   $sellerCode=trim((string)($user['seller_omie_code']??''));
+   if($sellerCode!==''){
+    $start=date('Y-m-01');$next=date('Y-m-d',strtotime($start.' +1 month'));
+    [$validOrders,$validParams]=OrderPolicy::validReportSql('stage_code','status','raw_json');
+    $salesCount+=(int)(DB::scalar("SELECT COUNT(*) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$sellerCode,$start,$next],$validParams))??0);
+    $salesCount+=(int)(DB::scalar("SELECT COUNT(*) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$sellerCode,$start,$next])??0);
+   }
+  }catch(Throwable){$salesAmount=0.0;$salesCount=0;}
 
-  $portfolio=CommercialAccountService::portfolio($user,['page'=>1,'per_page'=>10,'scope'=>'active']);
-  $priorityRows=array_slice((array)($portfolio['rows']??[]),0,5);
+  $q=trim((string)($filters['home_q']??''));
+  $type=(string)($filters['home_type']??'all');
+  if(!in_array($type,['all','cfc','reseller','both','prospect'],true))$type='all';
+  $order=(string)($filters['home_order']??'stale');
+  if(!in_array($order,['stale','urgent','next'],true))$order='stale';
+  $perPage=(int)($filters['home_per_page']??5);if(!in_array($perPage,[5,10,25],true))$perPage=5;
+  $page=max(1,(int)($filters['home_page']??1));
+  $portfolioFilters=['page'=>$page,'per_page'=>$perPage,'scope'=>'active','q'=>$q,'sort'=>$order];
+  if($type==='prospect')$portfolioFilters['link']='prospect';
+  elseif($type!=='all')$portfolioFilters['classification']=$type;
+  $portfolio=CommercialAccountService::portfolio($user,$portfolioFilters);
+
+  $codes=array_values(array_filter(array_map(static fn($row)=>(string)($row['omie_code']??''),(array)($portfolio['rows']??[]))));
+  $latest=[];
+  if($codes){
+   $ph=implode(',',array_fill(0,count($codes),'?'));
+   foreach(DB::all("SELECT ac.*
+                    FROM activities ac
+                    JOIN (
+                     SELECT crm_account_code,MAX(id) max_id
+                     FROM activities
+                     WHERE crm_account_code IN (".$ph.")
+                     GROUP BY crm_account_code
+                    ) x ON x.max_id=ac.id",$codes) as $activity)$latest[(string)$activity['crm_account_code']]=$activity;
+  }
+  foreach($portfolio['rows'] as &$row){
+   $activity=$latest[(string)$row['omie_code']]??null;
+   $row['last_activity_type']=$activity['activity_type']??null;
+   $row['last_activity_category']=$activity['category_code']??null;
+   $row['last_activity_channel']=$activity['channel']??null;
+   $row['last_activity_at']=$activity['created_at']??null;
+   $avg=(float)($row['avg_interval_days']??0);
+   if(empty($row['last_purchase_at']))$row['purchase_cycle']='Sem histórico';
+   elseif($avg<=0)$row['purchase_cycle']='Esporádico';
+   elseif($avg<=45)$row['purchase_cycle']='Mensal';
+   elseif($avg<=120)$row['purchase_cycle']='Trimestral';
+   elseif($avg<=220)$row['purchase_cycle']='Semestral';
+   elseif($avg<=400)$row['purchase_cycle']='Anual';
+   else $row['purchase_cycle']='Esporádico';
+  }
+  unset($row);
+  $portfolio['filters']=['home_q'=>$q,'home_type'=>$type,'home_order'=>$order,'home_per_page'=>$perPage];
 
   return [
    'today'=>['count'=>$todayCount,'items'=>$todayItems],
    'overdue'=>['count'=>$overdueCount,'items'=>$overdueItems],
    'stale'=>['count'=>$staleCount,'items'=>$staleItems],
-   'attention'=>['count'=>$attentionCount,'items'=>array_slice($attentionItems,0,4)],
-   'priority_rows'=>$priorityRows,
+   'sales'=>['amount'=>$salesAmount,'count'=>$salesCount],
+   'portfolio'=>$portfolio,
+   'attention_meta'=>['proposal'=>$proposalCount,'order_follow'=>$orderFollowCount,'promise'=>$promiseCount],
   ];
  }
 }
@@ -913,7 +958,7 @@ final class CommercialAccountService {
   CommercialSchema::ensure();
   return DB::one("SELECT a.*,l.client_id,
                          c.name client_name,c.legal_name client_legal_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
-                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
+                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,m.avg_interval_days,
                          cu.name owner_name,cu.email owner_email,
                          COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,
                          ap.strategic_notes,ap.classification_source,ap.updated_at profile_updated_at
@@ -997,13 +1042,14 @@ final class CommercialAccountService {
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
   $attention=(string)($filters['attention']??'all');if(!in_array($attention,['all','overdue','today','never','upcoming','unplanned'],true))$attention='all';
   $owner=trim((string)($filters['owner']??''));
+  $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next'],true))$sort='urgent';
   $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
 
   $where=['a.active=1'];$params=[];
   $role=(string)($user['role']??'');
   if($role==='seller'){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope')];
+   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope','sort')];
    $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
   }else{
    $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
@@ -1069,15 +1115,13 @@ final class CommercialAccountService {
                         CASE WHEN act.last_contact_at IS NULL THEN 999999 ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
                  ".$join."
                  WHERE ".$whereSql."
-                 ORDER BY
-                  CASE
-                   WHEN nt.next_due_at<CURDATE() THEN 0
-                   WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1
-                   WHEN act.last_contact_at IS NULL THEN 2
-                   ELSE 3
-                  END,
-                  CASE WHEN nt.next_due_at IS NOT NULL THEN nt.next_due_at END ASC,
-                  act.last_contact_at ASC,a.trade_name ASC,a.name ASC
+                 ORDER BY ".
+                  ($sort==='stale'
+                   ?"CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC"
+                   :($sort==='next'
+                    ?"CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC"
+                    :"CASE WHEN nt.next_due_at<CURDATE() THEN 0 WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1 WHEN act.last_contact_at IS NULL THEN 2 ELSE 3 END,CASE WHEN nt.next_due_at IS NOT NULL THEN nt.next_due_at END ASC,act.last_contact_at ASC"))
+                  .",a.trade_name ASC,a.name ASC
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
   return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>compact('q','classification','link','attention','owner','scope')];
