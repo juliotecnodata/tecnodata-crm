@@ -49,6 +49,151 @@ function render(string $name,array $vars=[]): void{
     </section>
    </main>
   <?php break;
+  case 'commercial_home':
+   $home=is_array($home??null)?$home:[];$portfolio=is_array($home['portfolio']??null)?$home['portfolio']:[];
+   $rows=$portfolio['rows']??[];$homeFilters=$portfolio['filters']??[];$homePage=(int)($portfolio['page']??1);$homePages=(int)($portfolio['pages']??1);$homeTotal=(int)($portfolio['total']??0);$homePerPage=(int)($portfolio['per_page']??5);
+   $homeUrl=static function(array $changes=[])use($homeFilters): string{$query=array_merge($homeFilters,$changes);foreach($query as $k=>$v)if($v===''||$v==='all'||$v===null)unset($query[$k]);return APP_URL.'/'.($query?'?'.http_build_query($query):'');};
+   $dayNames=['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
+   $monthNames=[1=>'janeiro',2=>'fevereiro',3=>'março',4=>'abril',5=>'maio',6=>'junho',7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro'];
+   $todayLabel=($dayNames[date('l')]??'Hoje').', '.date('d').' de '.$monthNames[(int)date('n')].' de '.date('Y');
+   $activityLabel=static function(array $row): string{
+    $type=(string)($row['last_activity_type']??'');$category=(string)($row['last_activity_category']??'');
+    if($type==='contact_attempt')return 'Tentativa';
+    if($type==='follow_up'&&$category!=='')return CommercialActivityService::categoryLabel($category);
+    if($type==='follow_up')return 'Follow-up';
+    if($type==='contact_completed')return 'Contato';
+    return '—';
+   };
+   ?>
+   <section class="tdh-home">
+    <header class="tdh-head">
+     <div class="tdh-head-main">
+      <span class="tdh-head-icon"><i class="fa-solid fa-briefcase"></i></span>
+      <div>
+       <span class="tdh-kicker">COMERCIAL / MINHA HOME</span>
+       <div class="tdh-title-row"><h1>Minha Home</h1><span class="tdh-date"><i class="fa-regular fa-calendar"></i><?=e($todayLabel)?></span></div>
+       <strong class="tdh-question">O que preciso fazer agora?</strong>
+       <p>Resumo gerado automaticamente a partir das atividades e retornos registrados.</p>
+      </div>
+     </div>
+     <div class="tdh-head-actions">
+      <a class="tdh-btn secondary" href="<?=APP_URL?>/"><i class="fa-solid fa-rotate-right"></i>Atualizar</a>
+      <a class="tdh-btn primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a>
+     </div>
+    </header>
+
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <div class="tdh-kpis">
+     <a class="tdh-kpi danger" href="<?=APP_URL?>/my-portfolio?attention=never">
+      <span class="tdh-kpi-icon"><i class="fa-regular fa-clock"></i></span>
+      <div><small>Clientes sem contato há 30+ dias</small><strong><?=number_format((int)($home['stale']['count']??0),0,',','.')?></strong><p>Necessitam de atenção</p></div>
+     </a>
+     <a class="tdh-kpi orange" href="<?=APP_URL?>/agenda?period=late&type=sales">
+      <span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-xmark"></i></span>
+      <div><small>Retornos atrasados</small><strong><?=number_format((int)($home['overdue']['count']??0),0,',','.')?></strong><p>Pendentes de contato</p></div>
+     </a>
+     <a class="tdh-kpi blue" href="<?=APP_URL?>/agenda?period=today&type=sales">
+      <span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-check"></i></span>
+      <div><small>Retornos agendados hoje</small><strong><?=number_format((int)($home['today']['count']??0),0,',','.')?></strong><p>Compromissos do dia</p></div>
+     </a>
+     <a class="tdh-kpi green" href="<?=APP_URL?>/orders">
+      <span class="tdh-kpi-icon"><i class="fa-solid fa-chart-column"></i></span>
+      <div><small>Vendas no mês</small><strong><?=money($home['sales']['amount']??0)?></strong><p><?=number_format((int)($home['sales']['count']??0),0,',','.')?> venda<?=((int)($home['sales']['count']??0))===1?'':'s'?> realizada<?=((int)($home['sales']['count']??0))===1?'':'s'?></p></div>
+     </a>
+    </div>
+
+    <section class="tdh-portfolio">
+     <header class="tdh-portfolio-head">
+      <div><span>ATENDIMENTO PRIORITÁRIO</span><h2>Clientes da minha carteira</h2><p>Busque somente entre as Contas CRM vinculadas ao seu usuário comercial.</p></div>
+      <div class="tdh-portfolio-head-actions"><a href="<?=APP_URL?>/my-portfolio"><i class="fa-regular fa-eye"></i>Visualizar carteira completa</a></div>
+     </header>
+
+     <form class="tdh-filter-bar" method="get">
+      <div class="tdh-filter-intro"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine os filtros para encontrar exatamente as contas que deseja acompanhar.</small></div></div>
+      <label><span>Tipo de cliente</span><select class="form-select" name="home_type" onchange="this.form.submit()"><option value="all">Todos</option><option value="cfc" <?=($homeFilters['home_type']??'all')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($homeFilters['home_type']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($homeFilters['home_type']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="prospect" <?=($homeFilters['home_type']??'')==='prospect'?'selected':''?>>Prospect</option></select></label>
+      <label><span>Ordenar por</span><select class="form-select" name="home_order" onchange="this.form.submit()"><option value="stale" <?=($homeFilters['home_order']??'stale')==='stale'?'selected':''?>>Mais tempo sem contato primeiro</option><option value="urgent" <?=($homeFilters['home_order']??'')==='urgent'?'selected':''?>>Mais urgente primeiro</option><option value="next" <?=($homeFilters['home_order']??'')==='next'?'selected':''?>>Próximo retorno primeiro</option></select></label>
+      <div class="tdh-filter-note"><i class="fa-solid fa-circle"></i><span>A carteira permanece limitada aos seus clientes; filtros e ordenação afetam apenas a visualização.</span></div>
+      <?php if(!empty($homeFilters['home_q'])):?><input type="hidden" name="home_q" value="<?=e((string)$homeFilters['home_q'])?>"><?php endif;?>
+      <input type="hidden" name="home_per_page" value="<?=$homePerPage?>">
+     </form>
+
+     <div class="tdh-table-toolbar">
+      <form method="get" class="tdh-per-page">
+       <?php foreach(['home_type','home_order','home_q'] as $key)if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'):?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php endforeach;?>
+       <span>Mostrar</span><select class="form-select" name="home_per_page" onchange="this.form.submit()"><?php foreach([5,10,25] as $n):?><option value="<?=$n?>" <?=$homePerPage===$n?'selected':''?>><?=$n?></option><?php endforeach;?></select><span>registros</span>
+      </form>
+      <form method="get" class="tdh-search">
+       <?php foreach(['home_type','home_order','home_per_page'] as $key)if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'):?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php endforeach;?>
+       <i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="home_q" value="<?=e((string)($homeFilters['home_q']??''))?>" placeholder="Buscar nesta tabela...">
+      </form>
+     </div>
+
+     <div class="tdh-table-wrap">
+      <table class="tdh-table">
+       <thead><tr><th>Cliente</th><th>Tipo</th><th>Consultor</th><th>Período de compra</th><th>Último contato</th><th>Dias sem contato</th><th>Última atividade</th><th>Próximo retorno</th><th>Status</th><th>Ações</th></tr></thead>
+       <tbody>
+       <?php foreach($rows as $row):
+        $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''));$days=(int)($row['days_without_contact']??999999);
+        $nextTs=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;$today=date('Y-m-d');
+        if($nextTs&&date('Y-m-d',$nextTs)<$today){$statusClass='late';$statusLabel='Retorno atrasado';}
+        elseif($nextTs){$statusClass='scheduled';$statusLabel='Retorno agendado';}
+        elseif(empty($row['last_contact_at'])||$days>=30){$statusClass='attention';$statusLabel='Precisa contato';}
+        else{$statusClass='ok';$statusLabel='Em dia';}
+        $isCfc=!empty($row['is_cfc']);$isReseller=!empty($row['is_reseller']);$linked=!empty($row['client_id']);
+        $typeClass=$isCfc&&$isReseller?'both':($isCfc?'cfc':($isReseller?'reseller':($linked?'linked':'prospect')));
+        $typeLabel=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':($linked?'Cliente vinculado':'Prospect')));
+        $lastChannel=!empty($row['last_activity_channel'])?CommercialActivityService::channelLabel((string)$row['last_activity_channel']):'';
+       ?>
+        <tr>
+         <td><a class="tdh-client" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong><small><?=e((string)($row['document']?:'Documento não informado'))?></small></a></td>
+         <td><span class="tdh-type <?=$typeClass?>"><?=e($typeLabel)?></span></td>
+         <td><span class="tdh-consultant"><i class="fa-solid fa-user"></i><?=e((string)($row['owner_name']?:$u['name']))?></span></td>
+         <td><span class="tdh-cycle"><?=e((string)($row['purchase_cycle']??'Sem histórico'))?></span></td>
+         <td><?php if(!empty($row['last_contact_at'])):?><strong class="tdh-date-main"><?=date('d/m',strtotime((string)$row['last_contact_at']))?></strong><small class="tdh-sub"><?=e($lastChannel!==''?'via '.$lastChannel:'atividade registrada')?></small><?php else:?><strong class="tdh-date-main">—</strong><small class="tdh-sub">sem contato</small><?php endif;?></td>
+         <td><?php if(empty($row['last_contact_at'])):?><span class="tdh-days danger">Nunca</span><?php elseif($days>=30):?><span class="tdh-days danger"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php elseif($days>=15):?><span class="tdh-days warning"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php else:?><span class="tdh-days ok"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php endif;?></td>
+         <td><strong class="tdh-activity"><?=e($activityLabel($row))?></strong><?php if(!empty($row['last_activity_at'])):?><small class="tdh-sub"><i class="fa-regular fa-clock"></i><?=date('d/m',strtotime((string)$row['last_activity_at']))?></small><?php endif;?></td>
+         <td><?php if($nextTs):?><strong class="tdh-next"><i class="fa-regular fa-calendar"></i><?=date('d/m Hh',$nextTs)?></strong><?php else:?><span class="tdh-empty-value">—</span><?php endif;?></td>
+         <td><span class="tdh-status <?=$statusClass?>"><i></i><?=e($statusLabel)?></span></td>
+         <td><div class="tdh-actions">
+          <button type="button" class="attempt" data-commercial-activity-open data-activity-type="contact_attempt" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-phone"></i>Tentativa</button>
+          <button type="button" class="contact" data-commercial-activity-open data-activity-type="contact_completed" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-comment-dots"></i>Contato</button>
+          <button type="button" class="follow" data-commercial-activity-open data-activity-type="follow_up" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-clipboard-check"></i>Follow-up</button>
+          <?php if($linked):?><a class="sale" href="<?=APP_URL?>/orders/new?client_id=<?=(int)$row['client_id']?>"><i class="fa-solid fa-circle-dollar-to-slot"></i>Venda</a><?php else:?><span class="sale disabled" title="A venda exige Cliente Geral vinculado"><i class="fa-solid fa-circle-dollar-to-slot"></i>Venda</span><?php endif;?>
+         </div></td>
+        </tr>
+       <?php endforeach;?>
+       <?php if(!$rows):?><tr><td colspan="10"><div class="tdh-empty"><i class="fa-solid fa-filter-circle-xmark"></i><strong>Nenhuma conta encontrada</strong><span>Revise os filtros ou a busca aplicada.</span></div></td></tr><?php endif;?>
+       </tbody>
+      </table>
+     </div>
+
+     <footer class="tdh-table-footer">
+      <span>Exibindo <?=($homeTotal>0?(($homePage-1)*$homePerPage+1):0)?>-<?=min($homeTotal,$homePage*$homePerPage)?> de <?=number_format($homeTotal,0,',','.')?> registros</span>
+      <?php if($homePages>1):?><nav><a class="<?=$homePage<=1?'disabled':''?>" href="<?=$homeUrl(['home_page'=>max(1,$homePage-1)])?>"><i class="fa-solid fa-chevron-left"></i></a><?php $first=max(1,$homePage-2);$last=min($homePages,$homePage+2);for($p=$first;$p<=$last;$p++):?><a class="<?=$p===$homePage?'active':''?>" href="<?=$homeUrl(['home_page'=>$p])?>"><?=$p?></a><?php endfor;?><?php if($last<$homePages):?><span>…</span><a href="<?=$homeUrl(['home_page'=>$homePages])?>"><?=$homePages?></a><?php endif;?><a class="<?=$homePage>=$homePages?'disabled':''?>" href="<?=$homeUrl(['home_page'=>min($homePages,$homePage+1)])?>"><i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
+     </footer>
+    </section>
+
+    <dialog class="tdw-activity-dialog tdh-activity-dialog" data-commercial-activity-dialog>
+     <form method="post" data-commercial-activity-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="home">
+      <header><div><span class="tdw-dialog-icon"><i class="fa-solid fa-comments"></i></span><div><small>REGISTRO RÁPIDO</small><strong>Nova atividade comercial</strong><p data-commercial-activity-account>Conta CRM</p></div></div><button type="button" data-commercial-activity-close><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="tdw-dialog-body">
+       <div class="tdw-activity-switch"><?php foreach($activityTypes??[] as $idx=>$type):?><label><input type="radio" name="activity_type" value="<?=e($type['code'])?>" <?=$idx===0?'checked':''?>><span><i class="fa-solid <?=e($type['icon'])?>"></i><b><?=e($type['label'])?></b></span></label><?php endforeach;?></div>
+       <div class="tdw-form-grid">
+        <label><span>Canal</span><select class="form-select" name="channel" required><?php foreach($activityChannels??[] as $channel):?><option value="<?=e($channel['code'])?>"><?=e($channel['label'])?></option><?php endforeach;?></select></label>
+        <label><span>Resultado</span><select class="form-select" name="outcome_code" data-commercial-outcome required><?php foreach($activityOutcomes??[] as $outcome):?><option value="<?=e($outcome['code'])?>" data-types="<?=e(implode(',',(array)$outcome['types']))?>"><?=e($outcome['label'])?></option><?php endforeach;?></select></label>
+        <label><span>Categoria</span><select class="form-select" name="category_code" data-commercial-category><option value="">Não se aplica</option><?php foreach($activityCategories??[] as $category):?><option value="<?=e($category['code'])?>" data-types="<?=e(implode(',',(array)$category['types']))?>"><?=e($category['label'])?></option><?php endforeach;?></select></label>
+        <label><span>Próximo retorno <small>opcional</small></span><input class="form-control" type="datetime-local" name="next_at"></label>
+        <?php if(count($activityAssignableUsers??[])>1):?><label><span>Responsável pelo retorno</span><select class="form-select" name="assigned_user_id"><?php foreach($activityAssignableUsers as $person):?><option value="<?=(int)$person['id']?>" <?=(int)$person['id']===(int)$u['id']?'selected':''?>><?=e((string)$person['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+        <label class="wide"><span>Contexto do atendimento</span><textarea class="form-control" name="notes" rows="4" maxlength="10000" placeholder="Registre o que aconteceu e o que precisa ser lembrado no próximo contato."></textarea></label>
+       </div>
+      </div>
+      <footer><span><i class="fa-solid fa-circle-info"></i>A atividade atualiza automaticamente a prioridade desta Conta.</span><div><button class="tdw-btn secondary" type="button" data-commercial-activity-close>Cancelar</button><button class="tdw-btn primary" type="submit"><i class="fa-solid fa-check"></i>Salvar atividade</button></div></footer>
+     </form>
+    </dialog>
+   </section>
+  <?php break;
   case 'dashboard':
    $data=is_array($data??null)?$data:[];
    $resultData=is_array($result??null)?$result:[];
@@ -2380,6 +2525,7 @@ function layout(string $body,?array $u,string $page=''): void{
   'settings'=>['Sistema','Configurações do CRM','fa-gears'],
   'test_data'=>['Sistema','Ferramentas técnicas','fa-flask'],
   'sync'=>['Sistema','Sincronização com Omie','fa-arrows-rotate'],
+  'commercial_home'=>['Comercial','Minha Home','fa-house'],
   'commercial_portfolio'=>['Comercial','Carteira comercial','fa-briefcase'],
   'commercial_account'=>['Comercial','Conta CRM','fa-building'],
   'opportunities'=>['Comercial','Oportunidades','fa-chart-column'],
@@ -2401,7 +2547,7 @@ function layout(string $body,?array $u,string $page=''): void{
    </div>
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
-     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
+     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Minha Home</span></a>
      <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Base de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
      <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
