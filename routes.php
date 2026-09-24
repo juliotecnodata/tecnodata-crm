@@ -435,9 +435,19 @@ function task_updated_label(array $task): string{
 }
 function task_assignable_users(array $user,string $context): array{
  $role=(string)($user['role']??'');$uid=(int)($user['id']??0);$context=$context==='collection'?'collection':'sales';
- if($context==='sales')$roles=['seller','supervisor'];else $roles=['collector','supervisor'];if($role==='admin')$roles[]='admin';
- $placeholders=implode(',',array_fill(0,count($roles),'?'));$params=$roles;
- if($uid>0)return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",array_merge($roles,[$uid]));
+ if($context==='sales'){
+  CommercialSchema::ensure();$codes=CommercialPortfolioService::activeCrmSellerCodes();
+  $where=["active=1","role IN('seller','supervisor'".($role==='admin'?",'admin'":"").")"];$params=[];
+  if($codes){$where[]="(role<>'seller' OR crm_user_omie_code IN (".implode(',',array_fill(0,count($codes),'?'))."))";array_push($params,...$codes);}
+  else $where[]="role<>'seller'";
+  $sql="SELECT id,name,role FROM users WHERE ".implode(' AND ',$where);
+  if($uid>0){$sql.=" ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor','admin'),name";$params[]=$uid;}
+  else $sql.=" ORDER BY FIELD(role,'seller','supervisor','admin'),name";
+  return DB::all($sql,$params);
+ }
+ $roles=['collector','supervisor'];if($role==='admin')$roles[]='admin';
+ $placeholders=implode(',',array_fill(0,count($roles),'?'));
+ if($uid>0)return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'collector','supervisor','admin'),name",array_merge($roles,[$uid]));
  return DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN (".$placeholders.") ORDER BY name",$roles);
 }
 
