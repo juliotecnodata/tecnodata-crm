@@ -1995,33 +1995,80 @@ $router->get('/agenda',function(){
   'agendaCreatedDate'=>$createdDate,'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash
  ]);
 });
+$router->get('/api/commercial/accounts/search',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ $q=trim((string)($_GET['q']??''));if(mb_strlen($q)<2)json_response(['ok'=>true,'items'=>[]]);
+ if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
+ $where=['a.active=1'];$params=[];$role=(string)($u['role']??'');
+ if($role==='seller'){
+  $crmCode=trim((string)($u['crm_user_omie_code']??''));if($crmCode==='')json_response(['ok'=>true,'items'=>[]]);
+  $where[]='a.crm_user_code=?';$params[]=$crmCode;
+ }
+ $like='%'.$q.'%';$digits=crm_digits($q);
+ $search=['a.name LIKE ?','a.trade_name LIKE ?','a.document LIKE ?','cu.name LIKE ?'];array_push($params,$like,$like,$like,$like);
+ if($digits!==''){$search[]="REPLACE(REPLACE(REPLACE(REPLACE(a.document,'.',''),'/',''),'-',''),' ','') LIKE ?";$params[]='%'.$digits.'%';}
+ $where[]='('.implode(' OR ',$search).')';
+ $items=DB::all("SELECT a.omie_code crm_account_code,
+                        COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),'Conta CRM') name,
+                        a.document,a.crm_user_code,cu.name owner_name,
+                        l.client_id,c.city,c.uf
+                 FROM crm_accounts a
+                 LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
+                 LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+                 LEFT JOIN clients c ON c.id=l.client_id
+                 WHERE ".implode(' AND ',$where)."
+                 ORDER BY CASE WHEN a.crm_user_code IN (".implode(',',array_fill(0,max(1,count(CommercialPortfolioService::activeCrmSellerCodes()))),'?').") THEN 0 ELSE 1 END,
+                          a.trade_name,a.name
+                 LIMIT 20",
+  array_merge($params,CommercialPortfolioService::activeCrmSellerCodes()?:['__NONE__']));
+ json_response(['ok'=>true,'items'=>$items]);
+});
+
 $router->get('/api/tasks/form-context',function(){
- Auth::requireLogin();ClientSegmentPolicy::ensureSchema();$u=Auth::user();$role=(string)($u['role']??'');$context=$role==='collector'?'collection':'sales';$clientId=max(0,(int)($_GET['client_id']??0));$client=null;
- if($clientId>0)$client=DB::one("SELECT id,name,document,city,uf FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
+ Auth::requireLogin();ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$role=(string)($u['role']??'');$context=$role==='collector'?'collection':'sales';$clientId=max(0,(int)($_GET['client_id']??0));$accountCode=trim((string)($_GET['crm_account_code']??''));$client=null;$account=null;
+ if($clientId>0)$client=DB::one("SELECT id,name,document,city,uf,crm_account_code FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
+ if($accountCode===''&&!empty($client['crm_account_code']))$accountCode=(string)$client['crm_account_code'];
+ if($accountCode!==''){
+  $account=CommercialAccountService::get($accountCode);
+  if($account&&$role==='seller'&&!CommercialAccountService::canWork($u,$accountCode))$account=null;
+ }
  if($role==='seller')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'seller','supervisor'),name",[(int)$u['id']]);
  elseif($role==='collector')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'collector','supervisor'),name",[(int)$u['id']]);
  elseif($role==='supervisor')$users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'supervisor','seller','collector'),name",[(int)$u['id']]);
  else $users=DB::all("SELECT id,name,role FROM users WHERE active=1 AND role IN('seller','collector','supervisor','admin') ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,FIELD(role,'admin','supervisor','seller','collector'),name",[(int)$u['id']]);
- json_response(['ok'=>true,'current_user_id'=>(int)$u['id'],'role'=>$role,'default_context'=>$context,'users'=>$users,'types'=>task_type_catalog(),'client'=>$client]);
+ json_response(['ok'=>true,'current_user_id'=>(int)$u['id'],'role'=>$role,'default_context'=>$context,'users'=>$users,'types'=>task_type_catalog(),'client'=>$client,'account'=>$account]);
 });
 $router->post('/api/tasks',function(){
  Auth::requireLogin();ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);$u=Auth::user();$role=(string)($u['role']??'');
  try{
-  $clientId=max(0,(int)($_POST['client_id']??0));$assignedId=max(0,(int)($_POST['assigned_user_id']??0));
+  CommercialSchema::ensure();
+  $clientId=max(0,(int)($_POST['client_id']??0));$accountCode=trim((string)($_POST['crm_account_code']??''));$assignedId=max(0,(int)($_POST['assigned_user_id']??0));
   $context=(string)($_POST['context']??($role==='collector'?'collection':'sales'));if(!in_array($context,['sales','collection'],true))$context='sales';
   if($role==='seller')$context='sales';if($role==='collector')$context='collection';
   $taskTypeCode=preg_replace('/[^a-z0-9_\-]/','',mb_strtolower(trim((string)($_POST['task_type_code']??''))));
   $title=trim((string)($_POST['title']??''));$value=trim((string)($_POST['due_at']??''));$date=DateTime::createFromFormat('Y-m-d\TH:i',$value);
-  $client=$clientId>0?DB::one("SELECT id,name FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]):null;if(!$client)throw new RuntimeException('Selecione um cliente válido.');
+
+  $account=null;$client=null;$entityName='';
+  if($context==='sales'&&$accountCode!==''){
+   $account=CommercialAccountService::get($accountCode);if(!$account)throw new RuntimeException('Selecione uma Conta CRM válida.');
+   if($role==='seller'&&!CommercialAccountService::canWork($u,$accountCode))throw new RuntimeException('Esta Conta CRM não pertence à sua carteira.');
+   if($clientId<=0)$clientId=(int)($account['client_id']??0);
+   $entityName=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''))?:'Conta CRM';
+  }
+  if($clientId>0)$client=DB::one("SELECT id,name FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId]);
+  if($context==='collection'&&!$client)throw new RuntimeException('Selecione um cliente válido para cobrança.');
+  if($context==='sales'&&!$account&&!$client)throw new RuntimeException('Selecione uma Conta CRM ou cliente válido.');
+  if($entityName==='')$entityName=(string)($client['name']??'Cliente');
+
   $assigned=$assignedId>0?DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]):null;if(!$assigned)throw new RuntimeException('Selecione um responsável ativo.');
-  $assignedRole=(string)$assigned['role'];
-  if($context==='sales'&&!in_array($assignedRole,['seller','supervisor','admin'],true))throw new RuntimeException('Tarefas comerciais devem ser atribuídas a vendedor, supervisor ou administrador.');
-  if($context==='collection'&&!in_array($assignedRole,['collector','supervisor','admin'],true))throw new RuntimeException('Tarefas de cobrança devem ser atribuídas à cobrança, supervisor ou administrador.');
+  $assignableIds=array_map(static fn($row)=>(int)$row['id'],task_assignable_users($u,$context));
+  if(!in_array($assignedId,$assignableIds,true))throw new RuntimeException('O responsável selecionado não pertence à equipe ativa desta área.');
+
   $allowed=array_column(task_type_options($context),'code');if(!in_array($taskTypeCode,$allowed,true))throw new RuntimeException('Selecione um tipo de tarefa válido.');
   if(!$date||$date->format('Y-m-d\TH:i')!==$value||$date->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida.');
   if($title===''||mb_strlen($title)>task_description_limit())throw new RuntimeException('Informe uma descrição com até 2.000 caracteres.');
-  ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId,$assignedId,(int)$u['id'],$context,$taskTypeCode,$title,$date->format('Y-m-d H:i:00')]);
-  json_response(['ok'=>true,'message'=>'Tarefa criada para '.$assigned['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'.','task'=>['client_name'=>$client['name'],'assigned_name'=>$assigned['name'],'task_type'=>task_type_label($taskTypeCode)]]);
+  ensure_task_detail_columns();DB::exec("INSERT INTO tasks(client_id,crm_account_code,assigned_user_id,created_by_user_id,type,task_type_code,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'pending',NOW(),NOW())",[$clientId?:null,$accountCode!==''?$accountCode:null,$assignedId,(int)$u['id'],$context,$taskTypeCode,$title,$date->format('Y-m-d H:i:00')]);
+  json_response(['ok'=>true,'message'=>'Tarefa criada para '.$assigned['name'].' em '.$date->format('d/m/Y').' às '.$date->format('H:i').'.','task'=>['client_name'=>$entityName,'crm_account_code'=>$accountCode,'assigned_name'=>$assigned['name'],'task_type'=>task_type_label($taskTypeCode)]]);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
