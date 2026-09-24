@@ -16,6 +16,10 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
+  $schemaVersion=2;$stateRaw=null;
+  try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
+  $state=$stateRaw?json_decode((string)$stateRaw,true):null;
+  if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
 
   $clientColumns=[];foreach(DB::all("SHOW COLUMNS FROM clients") as $row)$clientColumns[(string)$row['Field']]=true;
   if(!isset($clientColumns['crm_account_code']))DB::exec("ALTER TABLE clients ADD COLUMN crm_account_code VARCHAR(80) NULL AFTER omie_seller_code");
@@ -150,18 +154,26 @@ final class CommercialSchema {
    created_at DATETIME NOT NULL,
    updated_at DATETIME NOT NULL,
    synced_at DATETIME NULL,
-   UNIQUE KEY uq_sync_outbox_event(entity_type,entity_id,operation,status),
+   INDEX idx_sync_outbox_entity(entity_type,entity_id,operation,status),
    INDEX idx_sync_outbox_status(status,next_attempt_at,id)
   )");
 
   // Aproveita classificações antigas somente como semente. A nova estrutura
   // passa a ser a autoridade local e nunca depende exclusivamente de tags.
+  $outboxIndexes=[];foreach(DB::all("SHOW INDEX FROM sync_outbox") as $index)$outboxIndexes[(string)($index['Key_name']??'')]=(int)($index['Non_unique']??1);
+  if(isset($outboxIndexes['uq_sync_outbox_event']))DB::exec("ALTER TABLE sync_outbox DROP INDEX uq_sync_outbox_event");
+  if(!isset($outboxIndexes['idx_sync_outbox_entity']))DB::exec("ALTER TABLE sync_outbox ADD INDEX idx_sync_outbox_entity(entity_type,entity_id,operation,status)");
+
   DB::exec("INSERT IGNORE INTO client_commercial_profiles(client_id,is_cfc,is_reseller,classification_source,updated_at)
             SELECT c.id,
              CASE WHEN EXISTS(SELECT 1 FROM client_tags t WHERE t.client_id=c.id AND t.tag_key='cfc') THEN 1 ELSE 0 END,
              CASE WHEN EXISTS(SELECT 1 FROM client_tags t WHERE t.client_id=c.id AND t.tag_key='revendedor') THEN 1 ELSE 0 END,
              'legacy_tags',NOW()
             FROM clients c WHERE c.active=1");
+
+  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_intelligence_schema_version',?,NOW())
+            ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+   [json_encode(['version'=>$schemaVersion],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
 
   self::$ready=true;
  }
@@ -434,6 +446,12 @@ final class CommercialClassificationService {
              VALUES(?,?,'classification',?,?,'tecnodata','pending',NOW())",
     [$clientId,$actorUserId?:null,json_encode($previous,JSON_UNESCAPED_UNICODE),json_encode($next,JSON_UNESCAPED_UNICODE)]);
    self::enqueueClassification($clientId,$next);
+  }
+  $previousNotes=trim((string)($old['strategic_notes']??''));
+  if($previousNotes!==trim($notes)){
+   DB::exec("INSERT INTO client_commercial_audit(client_id,actor_user_id,field_name,previous_value,new_value,source,sync_status,synced_at,created_at)
+             VALUES(?,?,'strategic_notes',?,?,'tecnodata','ignored',NOW(),NOW())",
+    [$clientId,$actorUserId?:null,$previousNotes!==''?$previousNotes:null,$notes!==''?$notes:null]);
   }
   return self::get($clientId);
  }
