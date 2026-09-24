@@ -545,42 +545,112 @@ final class CommercialPortfolioService {
    [$module,$page,$total,$count,$context?json_encode($context,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES):null,$done?1:0]);
  }
 
- public static function reconcileCachedLinks(): array{
-  CommercialSchema::ensure();self::$clientDocumentMap=null;
+ public static function reconcileCachedLinks(?callable $progress=null,int $batchSize=500): array{
+  CommercialSchema::ensure();self::$clientDocumentMap=null;$batchSize=max(50,min(1000,$batchSize));
   $stats=['linked'=>0,'unlinked'=>0,'ambiguous'=>0,'new_links'=>0,'profiles_mirrored'=>0];
-  $accounts=DB::all("SELECT a.omie_code,a.document,a.crm_user_code
+  $accounts=DB::all("SELECT a.omie_code,a.document
                      FROM crm_accounts a
                      LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
                      WHERE a.active=1 AND l.crm_account_code IS NULL
                      ORDER BY a.omie_code");
-  $activeSellerCodes=self::activeCrmSellerCodes();
+  $total=count($accounts);$maps=self::clientDocumentMap();$values=[];$params=[];$processed=0;
+
+  $flush=function()use(&$values,&$params,&$stats){
+   if(!$values)return;
+   DB::exec("INSERT IGNORE INTO crm_account_links(crm_account_code,client_id,link_method,confidence,is_primary,verified_at,updated_at)
+             VALUES ".implode(',',$values),$params);
+   $stats['new_links']+=count($values);$values=[];$params=[];
+  };
+
   foreach($accounts as $account){
-   $localStats=['linked'=>0,'unlinked'=>0,'ambiguous'=>0];
-   $clientId=self::reconcileAccountClient((string)$account['omie_code'],crm_digits((string)($account['document']??'')),$localStats);
-   foreach(['linked','unlinked','ambiguous'] as $key)$stats[$key]+=(int)($localStats[$key]??0);
-   if($clientId<=0)continue;
-   $stats['new_links']++;
-   $crmUserCode=trim((string)($account['crm_user_code']??''));$ownerUserId=0;
-   if($crmUserCode!==''&&in_array($crmUserCode,$activeSellerCodes,true)){
-    $ownerUserId=(int)(DB::scalar("SELECT id FROM users WHERE crm_user_omie_code=? AND active=1 AND role='seller' LIMIT 1",[$crmUserCode])??0);
+   $processed++;$document=crm_digits((string)($account['document']??''));
+   if($document===''){$stats['unlinked']++;}
+   else{
+    $operational=array_values(array_unique($maps['operational'][$document]??[]));
+    $active=array_values(array_unique($maps['active'][$document]??[]));$clientId=0;
+    if(count($operational)===1)$clientId=$operational[0];
+    elseif(count($operational)===0&&count($active)===1)$clientId=$active[0];
+    else{if(max(count($operational),count($active))>1)$stats['ambiguous']++;else $stats['unlinked']++;}
+    if($clientId>0){$stats['linked']++;$values[]='(?,?,\'document\',100,1,NOW(),NOW())';array_push($params,(string)$account['omie_code'],$clientId);if(count($values)>=$batchSize)$flush();}
    }
-   DB::exec("UPDATE clients SET crm_account_code=?,crm_owner_omie_code=?,crm_owner_user_id=? WHERE id=?",
-    [(string)$account['omie_code'],$crmUserCode!==''?$crmUserCode:null,$ownerUserId?:null,$clientId]);
-   if(self::mirrorAccountProfileToClient((string)$account['omie_code'],$clientId))$stats['profiles_mirrored']++;
+   if($progress&&($processed%500===0||$processed===$total))$progress('links',$processed,$total);
   }
+  $flush();
+
+  // Só denormaliza para clients quando há uma única Conta CRM ligada ao cliente.
+  DB::exec("UPDATE clients c
+            JOIN (
+             SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
+             FROM crm_account_links l
+             GROUP BY l.client_id
+             HAVING COUNT(*)=1
+            ) x ON x.client_id=c.id
+            JOIN crm_accounts a ON a.omie_code=x.crm_account_code AND a.active=1
+            LEFT JOIN users u ON u.crm_user_omie_code=a.crm_user_code AND u.active=1 AND u.role='seller'
+            SET c.crm_account_code=a.omie_code,
+                c.crm_owner_omie_code=a.crm_user_code,
+                c.crm_owner_user_id=CASE
+                 WHEN a.crm_user_code IN (".implode(',',array_fill(0,max(1,count(self::activeCrmSellerCodes()))),'?').") THEN u.id
+                 ELSE NULL END",
+   self::activeCrmSellerCodes()?:['__NONE__']);
+
   self::rebuildOperationalOwners();
+  $stats['profiles_mirrored']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links l JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=l.crm_account_code")??0);
   $stats['remaining_unlinked']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0);
   return $stats;
  }
 
- public static function rebuildCachedProfiles(): array{
-  CommercialSchema::ensure();$created=0;$mirrored=0;$processed=0;
-  foreach(DB::all("SELECT a.omie_code,a.raw_json,l.client_id FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1") as $row){
-   $processed++;$raw=json_decode((string)($row['raw_json']??''),true);if(!is_array($raw))continue;
-   if(self::seedAccountProfileFromAccount((string)$row['omie_code'],$raw))$created++;
-   if(!empty($row['client_id'])&&self::mirrorAccountProfileToClient((string)$row['omie_code'],(int)$row['client_id']))$mirrored++;
+ public static function rebuildCachedProfiles(?callable $progress=null,int $batchSize=300): array{
+  CommercialSchema::ensure();$batchSize=max(50,min(1000,$batchSize));
+  $rows=DB::all("SELECT omie_code,raw_json FROM crm_accounts WHERE active=1 ORDER BY omie_code");
+  $total=count($rows);$processed=0;$classified=0;$written=0;
+  $pending=[];
+  foreach(DB::all("SELECT DISTINCT crm_account_code FROM crm_account_commercial_audit WHERE field_name='classification' AND sync_status IN('pending','error')") as $p)$pending[(string)$p['crm_account_code']]=true;
+
+  $values=[];$params=[];
+  $flush=function()use(&$values,&$params,&$written){
+   if(!$values)return;
+   DB::exec("INSERT INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,classification_source,updated_at) VALUES ".implode(',',$values)."
+             ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),classification_source=VALUES(classification_source),updated_at=NOW()",$params);
+   $written+=count($values);$values=[];$params=[];
+  };
+
+  foreach($rows as $row){
+   $processed++;$accountCode=(string)$row['omie_code'];
+   if(isset($pending[$accountCode])){if($progress&&($processed%500===0||$processed===$total))$progress('profiles',$processed,$total);continue;}
+   $raw=json_decode((string)($row['raw_json']??''),true);
+   if(is_array($raw)){
+    $characteristics=[];
+    foreach((array)($raw['caracteristicas']??[]) as $item){
+     if(!is_array($item))continue;$key=crm_normalize_key((string)($item['campo']??''));$characteristics[$key]=crm_yes((string)($item['conteudo']??''));
+    }
+    $tags=[];foreach((array)($raw['tags']??[]) as $item){$tag=crm_normalize_key((string)(is_array($item)?($item['tag']??''):$item));if($tag!=='')$tags[$tag]=true;}
+    $hasExplicit=array_key_exists('td cfc',$characteristics)||array_key_exists('td revendedor',$characteristics);
+    if($hasExplicit){$isCfc=!empty($characteristics['td cfc']);$isReseller=!empty($characteristics['td revendedor']);$source='omie_crm_characteristics';}
+    elseif(isset($tags['cfc'])||isset($tags['revendedor'])){$isCfc=isset($tags['cfc']);$isReseller=isset($tags['revendedor']);$source='omie_crm_tags';}
+    else{$isCfc=$isReseller=false;$source='';}
+    if($source!==''){
+     $classified++;$values[]='(?,?,?,?,NOW())';array_push($params,$accountCode,$isCfc?1:0,$isReseller?1:0,$source);
+     if(count($values)>=$batchSize)$flush();
+    }
+   }
+   if($progress&&($processed%500===0||$processed===$total))$progress('profiles',$processed,$total);
   }
-  return ['processed'=>$processed,'account_profiles'=>$created,'client_profiles_mirrored'=>$mirrored];
+  $flush();
+
+  $mirrored=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links l JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=l.crm_account_code")??0);
+  DB::exec("INSERT INTO client_commercial_profiles(client_id,is_cfc,is_reseller,strategic_notes,classification_source,updated_at)
+            SELECT l.client_id,ap.is_cfc,ap.is_reseller,ap.strategic_notes,ap.classification_source,NOW()
+            FROM crm_account_links l
+            JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=l.crm_account_code
+            WHERE NOT EXISTS(
+             SELECT 1 FROM client_commercial_audit ca
+             WHERE ca.client_id=l.client_id AND ca.field_name='classification' AND ca.sync_status IN('pending','error')
+            )
+            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),
+             strategic_notes=COALESCE(strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()");
+
+  return ['processed'=>$processed,'classified_in_cache'=>$classified,'account_profiles_written'=>$written,'client_profiles_mirrored'=>$mirrored];
  }
 
  public static function runFullBase(): array{
