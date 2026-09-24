@@ -595,7 +595,7 @@ final class CommercialPortfolioService {
             SET c.crm_account_code=a.omie_code,
                 c.crm_owner_omie_code=a.crm_user_code,
                 c.crm_owner_user_id=CASE
-                 WHEN a.crm_user_code IN (".implode(',',array_fill(0,max(1,count(self::activeCrmSellerCodes()))),'?').") THEN u.id
+                 WHEN a.crm_user_code IN (".implode(',',array_fill(0,max(1,count(self::activeCrmSellerCodes())),'?')).") THEN u.id
                  ELSE NULL END",
    self::activeCrmSellerCodes()?:['__NONE__']);
 
@@ -603,6 +603,36 @@ final class CommercialPortfolioService {
   $stats['profiles_mirrored']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links l JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=l.crm_account_code")??0);
   $stats['remaining_unlinked']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0);
   return $stats;
+ }
+
+ public static function finalizeCachedPortfolio(): array{
+  CommercialSchema::ensure();
+  $activeCodes=self::activeCrmSellerCodes();
+  $placeholders=implode(',',array_fill(0,max(1,count($activeCodes)),'?'));
+  DB::exec("UPDATE clients c
+            LEFT JOIN (
+             SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
+             FROM crm_account_links l
+             GROUP BY l.client_id
+             HAVING COUNT(*)=1
+            ) x ON x.client_id=c.id
+            LEFT JOIN crm_accounts a ON a.omie_code=x.crm_account_code AND a.active=1
+            LEFT JOIN users u ON u.crm_user_omie_code=a.crm_user_code AND u.active=1 AND u.role='seller'
+            SET c.crm_account_code=CASE WHEN x.crm_account_code IS NOT NULL THEN a.omie_code ELSE c.crm_account_code END,
+                c.crm_owner_omie_code=CASE WHEN x.crm_account_code IS NOT NULL THEN a.crm_user_code ELSE c.crm_owner_omie_code END,
+                c.crm_owner_user_id=CASE
+                 WHEN x.crm_account_code IS NOT NULL AND a.crm_user_code IN (".$placeholders.") THEN u.id
+                 WHEN x.crm_account_code IS NOT NULL THEN NULL
+                 ELSE c.crm_owner_user_id END
+            WHERE c.active=1",
+   $activeCodes?:['__NONE__']);
+  $owners=self::rebuildOperationalOwners();
+  return [
+   'owners'=>$owners,
+   'health'=>self::health(),
+   'linked_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links")??0),
+   'remaining_unlinked'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0),
+  ];
  }
 
  public static function rebuildCachedProfiles(?callable $progress=null,int $batchSize=300): array{
