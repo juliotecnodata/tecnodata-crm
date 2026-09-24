@@ -3,25 +3,26 @@
    No gradients, no box-shadows, 10px radius. */
 
 :root{
- --tdw-navy:#051C3B;
- --tdw-navy-2:#0B2A50;
- --tdw-blue:#007FC7;
- --tdw-green:#009657;
- --tdw-lime:#BDD136;
- --tdw-yellow:#FECC00;
- --tdw-orange:#EA5127;
- --tdw-red:#C64132;
- --tdw-text:#172B38;
- --tdw-muted:#6F7F89;
- --tdw-border:#DCE5EA;
- --tdw-border-soft:#E9EEF1;
- --tdw-bg:#F6F8F9;
- --tdw-surface:#FFFFFF;
- --tdw-soft-blue:#F2F8FC;
- --tdw-soft-green:#F2FAF6;
- --tdw-soft-yellow:#FFF9E8;
- --tdw-soft-red:#FFF4F2;
- --tdw-radius:10px;
+ --tdw-navy:var(--td-navy);
+ --tdw-navy-2:var(--td-navy-2);
+ --tdw-blue:var(--td-primary);
+ --tdw-green:var(--td-success);
+ --tdw-lime:var(--td-brand-accent);
+ --tdw-yellow:var(--td-warning);
+ --tdw-orange:var(--td-attention);
+ --tdw-red:var(--td-danger);
+ --tdw-follow:var(--td-follow);
+ --tdw-text:var(--td-text);
+ --tdw-muted:var(--td-muted);
+ --tdw-border:var(--td-border);
+ --tdw-border-soft:var(--td-border-soft);
+ --tdw-bg:var(--td-bg);
+ --tdw-surface:var(--td-surface);
+ --tdw-soft-blue:var(--td-primary-soft);
+ --tdw-soft-green:var(--td-success-soft);
+ --tdw-soft-yellow:var(--td-warning-soft);
+ --tdw-soft-red:var(--td-danger-soft);
+ --tdw-radius:var(--td-radius);
 }
 
 .tdw-page{display:grid;gap:16px;max-width:1600px;margin:0 auto;padding:2px 0 28px;color:var(--tdw-text)}
