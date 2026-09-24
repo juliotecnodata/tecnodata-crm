@@ -108,42 +108,84 @@
 .tda-type-card.is-disabled{cursor:not-allowed;opacity:.45}
 .tda-type-card input:focus-visible+span,.tda-chip input:focus-visible+span{outline:2px solid #007FC7;outline-offset:2px}
 
-/* Canais e tipos: compactos como no modelo aprovado */
-.tda-chip-row{display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
-.tda-chip{cursor:pointer;min-width:0;flex:0 0 auto}
+/* Canais e tipos: ocupam toda a largura útil, como no modelo aprovado */
+.tda-chip-row{
+ width:100%;
+ display:grid;
+ align-items:stretch;
+ gap:7px;
+}
+.tda-channel-row{
+ grid-template-columns:repeat(5,minmax(0,1fr));
+}
+.tda-category-row{
+ grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.85fr) minmax(0,1.1fr) minmax(0,.75fr);
+}
+.tda-chip{
+ cursor:pointer;
+ min-width:0;
+ width:100%;
+}
 .tda-chip>span{
  position:relative;
- min-height:32px;padding:6px 24px 6px 11px;
- display:inline-flex;align-items:center;justify-content:center;gap:6px;
- border:1px solid #D4E0E6;border-radius:8px;
- background:#fff;color:#344C59;
- font-size:8px;font-weight:750;white-space:nowrap;
+ width:100%;
+ min-width:0;
+ min-height:32px;
+ padding:6px 23px 6px 10px;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:6px;
+ border:1px solid #D4E0E6;
+ border-radius:8px;
+ background:#fff;
+ color:#344C59;
+ font-size:8px;
+ font-weight:750;
+ line-height:1.15;
+ white-space:nowrap;
 }
-.tda-chip>span>i{width:12px;flex:0 0 12px;text-align:center;color:#526B79;font-size:8px}
+.tda-chip>span>i{
+ width:12px;
+ flex:0 0 12px;
+ text-align:center;
+ color:#526B79;
+ font-size:8px;
+}
 .tda-channel-row .tda-chip:first-child>span>i{color:#009657}
 .tda-chip>span>b{
- position:absolute;right:6px;top:50%;transform:translateY(-50%);
- display:block;width:10px;height:10px;
- border:1px solid #C2D1DA;border-radius:50%;
- color:transparent;font-size:0;background:#fff;
+ position:absolute;
+ right:6px;
+ top:50%;
+ transform:translateY(-50%);
+ display:block;
+ width:10px;
+ height:10px;
+ border:1px solid #C2D1DA;
+ border-radius:50%;
+ color:transparent;
+ font-size:0;
+ background:#fff;
 }
-.tda-chip input:checked+span{border-color:#007FC7;background:#EDF8FE;color:#066B9F}
-.tda-chip input:checked+span>b{border-color:#007FC7;background:#007FC7}
+.tda-chip input:checked+span{
+ border-color:#007FC7;
+ background:#EDF8FE;
+ color:#066B9F;
+}
+.tda-chip input:checked+span>b{
+ border-color:#007FC7;
+ background:#007FC7;
+}
 .tda-chip input:checked+span>b:after{
- content:"";position:absolute;left:3px;top:3px;
- width:2px;height:2px;border-radius:50%;background:#fff;
+ content:"";
+ position:absolute;
+ left:3px;
+ top:3px;
+ width:2px;
+ height:2px;
+ border-radius:50%;
+ background:#fff;
 }
-.tda-channel-row .tda-chip>span{min-width:82px}
-.tda-channel-row .tda-chip:nth-child(1)>span{min-width:91px}
-.tda-channel-row .tda-chip:nth-child(4)>span{min-width:94px}
-.tda-category-row{gap:6px}
-.tda-category-row .tda-chip>span{padding-left:10px;padding-right:22px}
-.tda-category-row .tda-chip:nth-child(1)>span{min-width:75px}
-.tda-category-row .tda-chip:nth-child(2)>span{min-width:108px}
-.tda-category-row .tda-chip:nth-child(3)>span{min-width:82px}
-.tda-category-row .tda-chip:nth-child(4)>span{min-width:72px}
-.tda-category-row .tda-chip:nth-child(5)>span{min-width:88px}
-.tda-category-row .tda-chip:nth-child(6)>span{min-width:62px}
 
 /* Texto principal */
 .tda-notes textarea{
@@ -229,8 +271,9 @@
  .tda-body{padding:10px 11px 12px}
  .tda-type-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .tda-type-card>span{min-height:60px}
- .tda-chip-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
- .tda-chip{width:100%}.tda-chip>span{width:100%;min-width:0!important}
+ .tda-chip-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .tda-channel-row,.tda-category-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tda-chip{width:100%}.tda-chip>span{width:100%;min-width:0!important;justify-content:flex-start}
  .tda-category-row .tda-chip:last-child,.tda-channel-row .tda-chip:last-child{grid-column:1/-1}
  .tda-return-fields{grid-template-columns:1fr 1fr}
  .tda-return-note,.tda-return-assignee{grid-column:1/-1}
