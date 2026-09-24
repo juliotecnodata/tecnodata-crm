@@ -16,7 +16,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=3;$stateRaw=null;
+  $schemaVersion=4;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
@@ -239,6 +239,54 @@ final class CommercialIdentityService {
 final class CommercialPortfolioService {
  private static ?array $clientDocumentMap=null;
 
+ public static function activeCrmSellerCodes(): array{
+  CommercialSchema::ensure();
+  $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_active_crm_sellers' LIMIT 1");
+  $data=$raw?json_decode((string)$raw,true):null;
+  $codes=is_array($data)?(array)($data['crm_user_codes']??[]):[];
+  return array_values(array_unique(array_filter(array_map(static fn($v)=>trim((string)$v),$codes),static fn($v)=>$v!=='')));
+ }
+
+ public static function setActiveCrmSellerCodes(array $codes,int $actorUserId=0,string $notes=''): array{
+  CommercialSchema::ensure();
+  $codes=array_values(array_unique(array_filter(array_map(static fn($v)=>trim((string)$v),$codes),static fn($v)=>$v!=='')));
+  if(!$codes)throw new RuntimeException('Informe pelo menos um vendedor CRM ativo.');
+  $valid=[];
+  foreach($codes as $code){
+   $u=DB::one("SELECT omie_code,name,email,active FROM crm_users WHERE omie_code=? LIMIT 1",[$code]);
+   if(!$u)throw new RuntimeException('Usuário CRM não encontrado: '.$code);
+   if((int)$u['active']!==1)throw new RuntimeException('Usuário CRM está inativo no cache: '.$code.' · '.$u['name']);
+   $valid[]=['code'=>$code,'name'=>(string)$u['name'],'email'=>(string)($u['email']??'')];
+  }
+  $payload=['crm_user_codes'=>$codes,'sellers'=>$valid,'changed_at'=>date('c'),'changed_by'=>$actorUserId?:null,'notes'=>trim($notes)];
+  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_active_crm_sellers',?,NOW())
+            ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+   [json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+  self::rebuildOperationalOwners();
+  return $payload;
+ }
+
+ public static function rebuildOperationalOwners(): array{
+  CommercialSchema::ensure();
+  $codes=self::activeCrmSellerCodes();
+  DB::exec("UPDATE clients SET crm_owner_user_id=NULL WHERE crm_account_code IS NOT NULL");
+  if(!$codes)return ['active_sellers'=>0,'mapped_clients'=>0,'stale_owner_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0)];
+
+  $ph=implode(',',array_fill(0,count($codes),'?'));
+  DB::exec("UPDATE clients c
+            JOIN crm_account_links l ON l.client_id=c.id
+            JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+            JOIN users u ON u.crm_user_omie_code=a.crm_user_code AND u.active=1 AND u.role='seller'
+            SET c.crm_owner_user_id=u.id,c.crm_owner_omie_code=a.crm_user_code,c.crm_account_code=a.omie_code
+            WHERE a.crm_user_code IN (".$ph.")", $codes);
+
+  return [
+   'active_sellers'=>count($codes),
+   'mapped_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NOT NULL")??0),
+   'stale_owner_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0),
+  ];
+ }
+
  private static function snapshotToken(string $module,int $page): string{
   if($page===1)return bin2hex(random_bytes(16));
   $state=DB::one("SELECT context_json FROM sync_state WHERE module_key=? LIMIT 1",[$module]);
@@ -300,8 +348,10 @@ final class CommercialPortfolioService {
 
    $clientId=self::reconcileAccountClient($code,$document,$stats);
    if($clientId>0){
-    $ownerUserId=0;
-    if($crmUserCode!=='')$ownerUserId=(int)(DB::scalar("SELECT u.id FROM users u JOIN crm_users cu ON cu.omie_code=u.crm_user_omie_code AND cu.active=1 WHERE u.crm_user_omie_code=? AND u.active=1 ORDER BY FIELD(u.role,'seller','supervisor','admin') LIMIT 1",[$crmUserCode])??0);
+    $ownerUserId=0;$activeSellerCodes=self::activeCrmSellerCodes();
+    if($crmUserCode!==''&&in_array($crmUserCode,$activeSellerCodes,true)){
+     $ownerUserId=(int)(DB::scalar("SELECT u.id FROM users u JOIN crm_users cu ON cu.omie_code=u.crm_user_omie_code AND cu.active=1 WHERE u.crm_user_omie_code=? AND u.active=1 AND u.role='seller' LIMIT 1",[$crmUserCode])??0);
+    }
     $before=DB::one("SELECT crm_account_code,crm_owner_omie_code,crm_owner_user_id FROM clients WHERE id=? LIMIT 1",[$clientId])??[];
     $previousOwner=trim((string)($before['crm_owner_omie_code']??''));$nextOwner=$crmUserCode;
     DB::exec("UPDATE clients SET crm_account_code=?,crm_owner_omie_code=?,crm_owner_user_id=?,updated_at=updated_at WHERE id=?",
@@ -324,6 +374,7 @@ final class CommercialPortfolioService {
   if($done){
    DB::exec("UPDATE crm_accounts SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
    DB::exec("UPDATE clients c JOIN crm_account_links l ON l.client_id=c.id JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=0 SET c.crm_owner_omie_code=NULL,c.crm_owner_user_id=NULL WHERE c.active=1");
+   self::rebuildOperationalOwners();
   }
   $stats['sync_token']=$syncToken;
   self::saveState('crm_accounts',$page,$total,count($items),$done,$stats);
@@ -465,6 +516,8 @@ final class CommercialPortfolioService {
    'unlinked_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0),
    'clients_with_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NOT NULL")??0),
    'clients_without_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NULL")??0),
+   'active_crm_sellers'=>count(self::activeCrmSellerCodes()),
+   'clients_with_stale_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0),
    'profiles'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles")??0),
    'cfc'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_cfc=1")??0),
    'resellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_reseller=1")??0),
