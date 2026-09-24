@@ -1896,7 +1896,7 @@ $router->post('/collection/{id}/actions/delete',function($p){
 });
 
 $router->get('/agenda',function(){
- Auth::requireLogin();ClientSegmentPolicy::ensureSchema();
+ Auth::requireLogin();ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();
  $u=Auth::user();$role=(string)$u['role'];$teamAgenda=in_array($role,['admin','supervisor'],true);
  $filterUser=$teamAgenda?max(0,(int)($_GET['user_id']??0)):(int)$u['id'];
  $agendaType=(string)($_GET['type']??'all');if(!in_array($agendaType,['all','sales','collection'],true))$agendaType='all';
