@@ -7,9 +7,12 @@ declare(strict_types=1);
  *
  * Uso:
  *   php tools/rebuild-commercial-cache.php
+ *   php tools/rebuild-commercial-cache.php --finalize-only
  */
 if(PHP_SAPI!=='cli'){fwrite(STDERR,"Execute via CLI.\n");exit(1);}
 require dirname(__DIR__).'/app/bootstrap.php';
+$options=getopt('',['finalize-only']);
+$finalizeOnly=array_key_exists('finalize-only',$options);
 
 function rsection(string $title): void{echo "\n".$title."\n".str_repeat('=',mb_strlen($title))."\n";}
 function rrow(string $label,mixed $value): void{echo str_pad($label,46).': '.$value."\n";}
@@ -21,6 +24,29 @@ try{
  rrow('Origem','cache local CRM Omie');
  rrow('Consulta API Omie','NÃO');
  rrow('Escrita no Omie','NÃO');
+
+ if($finalizeOnly){
+  rsection('FINALIZAÇÃO DA CARTEIRA');
+  $final=CommercialPortfolioService::finalizeCachedPortfolio();
+  foreach($final['owners']??[] as $k=>$v)rrow($k,$v);
+
+  rsection('SAÚDE FINAL');
+  foreach($final['health']??[] as $k=>$v)rrow($k,$v);
+  rrow('linked_accounts_confirmed',$final['linked_accounts']??0);
+  rrow('remaining_unlinked_confirmed',$final['remaining_unlinked']??0);
+
+  rsection('CARTEIRA POR VENDEDOR ATIVO');
+  foreach(CommercialPortfolioService::activeCrmSellerCodes() as $code){
+   $user=DB::one("SELECT name,email FROM crm_users WHERE omie_code=? LIMIT 1",[$code]);
+   $accounts=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1 AND crm_user_code=?",[$code])??0);
+   $linked=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND a.crm_user_code=?",[$code])??0);
+   $prospects=$accounts-$linked;
+   echo '- '.$code.' | '.($user['name']??'desconhecido').' | contas '.$accounts.' | clientes vinculados '.$linked.' | prospects/contas CRM '.$prospects."\n";
+  }
+
+  echo "\nFinalização concluída sem acessar ou alterar o Omie.\n";
+  exit(0);
+ }
 
  $progress=function(string $stage,int $done,int $total): void{
   $label=$stage==='profiles'?'Perfis':'Vínculos';
