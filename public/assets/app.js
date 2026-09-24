@@ -702,7 +702,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       const cityHasUf=city&&uf&&(cityUpper.includes('('+ufUpper+')')||cityUpper.endsWith(' / '+ufUpper)||cityUpper.endsWith(' - '+ufUpper));
       const location=city?(cityHasUf?city:(uf?city+' / '+uf:city)):uf;
       clientMeta.textContent=[task.client_document,location].filter(Boolean).join(' • ')||'Sem dados complementares';
-      clientLink.href=base+(task.context==='collection'?'/collection/':'/clients/')+Number(task.client_id||0);
+      if(task.context==='collection')clientLink.href=base+'/collection/'+Number(task.client_id||0);
+      else if(String(task.crm_account_code||''))clientLink.href=base+'/commercial/accounts/'+encodeURIComponent(String(task.crm_account_code));
+      else clientLink.href=base+'/clients/'+Number(task.client_id||0);
       cardContext.textContent=task.context==='collection'?'Cobrança':'Comercial';
       cardType.textContent=task.task_type_label||'Não informado';
       cardAssigned.textContent=task.assigned_name||'Sem responsável';
