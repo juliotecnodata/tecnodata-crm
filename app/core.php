@@ -41,7 +41,7 @@ final class DB {
  }
  public static function sql(string $sql): string{
   $prefix=self::prefix();
-  $tables=['users','sellers','clients','client_tags','client_portfolio_assignments','client_seller_audit','client_metrics','products','categories','departments','financial_accounts','order_stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','local_order_drafts','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state','omie_order_logs','goals','virtual_seller_goals','collection_assignment_log','order_profiles'];
+  $tables=['users','sellers','clients','client_tags','client_portfolio_assignments','client_seller_audit','client_metrics','crm_users','crm_accounts','crm_account_links','crm_contacts','user_omie_identity','client_commercial_profiles','client_commercial_audit','sync_outbox','products','categories','departments','financial_accounts','order_stages','payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','local_order_drafts','service_orders','financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state','omie_order_logs','goals','virtual_seller_goals','collection_assignment_log','order_profiles'];
   usort($tables,fn($a,$b)=>strlen($b)<=>strlen($a));
   foreach($tables as $table)$sql=preg_replace('/(?<![A-Za-z0-9_])'.preg_quote($table,'/').'(?![A-Za-z0-9_])/i',$prefix.$table,$sql);
   return $sql;
