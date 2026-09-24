@@ -368,3 +368,12 @@
  .tdca-free-note{align-items:stretch;flex-direction:column}
  .tdca-activity-list article header{align-items:flex-start;flex-direction:column;gap:2px}
 }
+
+
+/* Módulo 3 — integração visual com Agenda */
+.tdca-head-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.tda-entity-hint{display:flex!important;align-items:center;gap:5px;margin-top:3px;color:#73828c!important}
+.tda-entity-hint i{color:#007FC7}
+@media (max-width:720px){
+ .tdca-head-tools{width:100%;justify-content:flex-start}
+}
