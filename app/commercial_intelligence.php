@@ -909,7 +909,7 @@ final class CommercialAccountService {
   $role=(string)($user['role']??'');
   if($role==='seller'){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','owner','scope')];
+   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope')];
    $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
   }else{
    $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
@@ -925,12 +925,6 @@ final class CommercialAccountService {
   if($link==='linked')$where[]='l.client_id IS NOT NULL';
   elseif($link==='prospect')$where[]='l.client_id IS NULL';
 
-  if($attention==='overdue')$where[]="nt.next_due_at<CURDATE()";
-  elseif($attention==='today')$where[]="nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY";
-  elseif($attention==='never')$where[]='act.last_contact_at IS NULL';
-  elseif($attention==='upcoming')$where[]="nt.next_due_at>=CURDATE()+INTERVAL 1 DAY";
-  elseif($attention==='unplanned')$where[]='nt.next_due_at IS NULL';
-
   if($classification==='cfc')$where[]='COALESCE(ap.is_cfc,0)=1';
   elseif($classification==='reseller')$where[]='COALESCE(ap.is_reseller,0)=1';
   elseif($classification==='both')$where[]='COALESCE(ap.is_cfc,0)=1 AND COALESCE(ap.is_reseller,0)=1';
@@ -942,6 +936,13 @@ final class CommercialAccountService {
    if($digits!==''){$parts[]="REPLACE(REPLACE(REPLACE(REPLACE(a.document,'.',''),'/',''),'-',''),' ','') LIKE ?";$params[]='%'.$digits.'%';}
    $where[]='('.implode(' OR ',$parts).')';
   }
+
+  $statsWhere=$where;$statsParams=$params;
+  if($attention==='overdue')$where[]="nt.next_due_at<CURDATE()";
+  elseif($attention==='today')$where[]="nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY";
+  elseif($attention==='never')$where[]='act.last_contact_at IS NULL';
+  elseif($attention==='upcoming')$where[]="nt.next_due_at>=CURDATE()+INTERVAL 1 DAY";
+  elseif($attention==='unplanned')$where[]='nt.next_due_at IS NULL';
 
   $whereSql=implode(' AND ',$where);
   $join=" FROM crm_accounts a
@@ -985,11 +986,11 @@ final class CommercialAccountService {
                   act.last_contact_at ASC,a.trade_name ASC,a.name ASC
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
-  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($where,$params),'filters'=>compact('q','classification','link','attention','owner','scope')];
+  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>compact('q','classification','link','attention','owner','scope')];
  }
 
  private static function stats(array $where,array $params): array{
-  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0];
+  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
   $sql=implode(' AND ',$where);
   $join=" FROM crm_accounts a
           LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
