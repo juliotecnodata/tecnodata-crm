@@ -1,0 +1,220 @@
+/* Inteligência Comercial Tecnodata — Módulo 1
+   Sem sombras, gradientes ou efeitos decorativos. */
+
+.tdc-responsibility-crm .official{
+ border-color:#009657;
+ background:#f3fbf7;
+}
+.tdc-responsibility-crm .official span,
+.tdc-responsibility-crm .official small{color:#527067}
+.tdc-responsibility-crm .official strong{color:#08764f}
+
+.tdc-commercial-grid{
+ display:grid;
+ grid-template-columns:minmax(0,1.3fr) minmax(320px,.7fr);
+ gap:16px;
+ margin:18px 0;
+ align-items:start;
+}
+.tdc-commercial-profile,
+.tdc-crm-contacts,
+.tdc-commercial-audit{border-radius:10px}
+
+.tdc-commercial-sync{
+ display:inline-flex;
+ align-items:center;
+ gap:7px;
+ padding:6px 9px;
+ border:1px solid #d8e1e7;
+ border-radius:10px;
+ font-size:12px;
+ font-weight:700;
+ color:#52616d;
+ white-space:nowrap;
+}
+.tdc-commercial-sync.ok{border-color:#b9ddce;color:#08764f;background:#f3fbf7}
+.tdc-commercial-sync.pending{border-color:#ecd786;color:#876800;background:#fffbed}
+
+.tdc-commercial-current{
+ display:flex;
+ align-items:center;
+ flex-wrap:wrap;
+ gap:8px;
+ padding:0 18px 14px;
+}
+.tdc-commercial-current>span,
+.tdc-commercial-badges>span{
+ display:inline-flex;
+ align-items:center;
+ gap:6px;
+ border:1px solid #d7e1e7;
+ border-radius:10px;
+ padding:6px 9px;
+ font-size:12px;
+ font-weight:800;
+ color:#53626e;
+ background:#fff;
+}
+.tdc-commercial-current>span.active,
+.tdc-commercial-badges>span.cfc{border-color:#9fcfe7;color:#006a9f;background:#f3f9fc}
+.tdc-commercial-current>span.active.reseller,
+.tdc-commercial-badges>span.reseller{border-color:#addac9;color:#08764f;background:#f3fbf7}
+.tdc-commercial-current>span.inactive{opacity:.5}
+.tdc-commercial-current>em{font-style:normal;color:#7b8992;font-size:13px}
+
+.tdc-commercial-form{
+ border-top:1px solid #e5ebef;
+ padding:16px 18px 18px;
+}
+.tdc-commercial-options{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:10px;
+}
+.tdc-commercial-options label{display:block;cursor:pointer}
+.tdc-commercial-options input{
+ position:absolute;
+ opacity:0;
+ pointer-events:none;
+}
+.tdc-commercial-options label>span{
+ display:flex;
+ min-height:76px;
+ align-items:center;
+ gap:10px;
+ border:1px solid #dce4e9;
+ border-radius:10px;
+ padding:12px;
+ background:#fff;
+ transition:border-color .15s ease,background-color .15s ease;
+}
+.tdc-commercial-options label>span>i{
+ width:34px;
+ height:34px;
+ border:1px solid #dce4e9;
+ border-radius:10px;
+ display:grid;
+ place-items:center;
+ color:#637581;
+ flex:0 0 34px;
+}
+.tdc-commercial-options label>span>b{font-size:14px;color:#20313e}
+.tdc-commercial-options label>span>small{display:block;color:#72818b;font-size:11px;margin-left:auto;text-align:right;max-width:150px}
+.tdc-commercial-options input:checked+span{border-color:#007FC7;background:#f5fafc}
+.tdc-commercial-options input:checked+span>i{border-color:#007FC7;color:#007FC7;background:#fff}
+.tdc-commercial-options label:nth-child(2) input:checked+span{border-color:#009657;background:#f3fbf7}
+.tdc-commercial-options label:nth-child(2) input:checked+span>i{border-color:#009657;color:#009657}
+
+.tdc-commercial-note{display:block;margin-top:12px}
+.tdc-commercial-note>span{display:block;font-size:12px;font-weight:800;color:#3f505c;margin-bottom:6px}
+.tdc-commercial-form textarea{resize:vertical;min-height:88px;border-radius:10px}
+.tdc-commercial-form footer{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:14px;
+ margin-top:12px;
+}
+.tdc-commercial-form footer>small{color:#72818b;line-height:1.4;max-width:65%}
+.tdc-commercial-readonly{
+ margin:0 18px 18px;
+ padding:10px 12px;
+ border:1px solid #e0e6ea;
+ border-radius:10px;
+ color:#657680;
+ font-size:13px;
+}
+
+.tdc-crm-contact-list{padding:0 18px 18px;display:grid;gap:8px}
+.tdc-crm-contact-list article{
+ display:flex;
+ align-items:flex-start;
+ gap:10px;
+ border:1px solid #e1e7eb;
+ border-radius:10px;
+ padding:10px;
+}
+.tdc-crm-contact-list article>span{
+ width:34px;
+ height:34px;
+ border-radius:10px;
+ border:1px solid #c9dbe6;
+ display:grid;
+ place-items:center;
+ flex:0 0 34px;
+ color:#007FC7;
+ font-weight:800;
+ background:#f7fafc;
+}
+.tdc-crm-contact-list article>div{min-width:0}
+.tdc-crm-contact-list article strong{display:block;color:#20313e;font-size:13px}
+.tdc-crm-contact-list article small{display:block;color:#7a8992;font-size:11px;margin-top:1px}
+.tdc-crm-contact-list article p{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 0}
+.tdc-crm-contact-list article a{
+ display:inline-flex;
+ align-items:center;
+ gap:5px;
+ color:#49616f;
+ text-decoration:none;
+ font-size:11px;
+ word-break:break-word;
+}
+.tdc-crm-contact-empty{
+ border:1px dashed #ccd7dd;
+ border-radius:10px;
+ padding:18px;
+ text-align:center;
+ color:#71818c;
+}
+.tdc-crm-contact-empty i{font-size:24px;display:block;margin-bottom:8px}
+.tdc-crm-contact-empty strong,
+.tdc-crm-contact-empty small{display:block}
+
+.tdc-commercial-badges{
+ display:flex;
+ align-items:center;
+ flex-wrap:wrap;
+ gap:5px;
+ min-width:120px;
+}
+.tdc-commercial-badges>small{color:#82909a;font-size:11px}
+.tdc-commercial-badges>em{
+ font-style:normal;
+ font-size:10px;
+ color:#7c8b95;
+ border-left:1px solid #d9e1e6;
+ padding-left:6px;
+}
+
+.tdc-commercial-audit{margin-top:16px}
+.tdc-commercial-audit-list{padding:0 18px 18px;display:grid;gap:8px}
+.tdc-commercial-audit-list>div{
+ display:flex;
+ gap:10px;
+ border:1px solid #e2e8ec;
+ border-radius:10px;
+ padding:10px 12px;
+}
+.tdc-commercial-audit-list .icon{
+ width:32px;
+ height:32px;
+ border:1px solid #c9dbe6;
+ border-radius:10px;
+ display:grid;
+ place-items:center;
+ color:#007FC7;
+ flex:0 0 32px;
+}
+.tdc-commercial-audit-list strong{font-size:13px;color:#20313e}
+.tdc-commercial-audit-list p{margin:3px 0;color:#52636f;font-size:12px}
+.tdc-commercial-audit-list small{color:#7b8992;font-size:11px}
+
+@media (max-width:1100px){
+ .tdc-commercial-grid{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+ .tdc-commercial-options{grid-template-columns:1fr}
+ .tdc-commercial-form footer{align-items:stretch;flex-direction:column}
+ .tdc-commercial-form footer>small{max-width:none}
+ .tdc-commercial-current,.tdc-commercial-form,.tdc-crm-contact-list,.tdc-commercial-audit-list{padding-left:14px;padding-right:14px}
+}
