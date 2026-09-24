@@ -537,6 +537,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       config=data;
       const requestedContext=openingTrigger?.dataset.taskContext||data.default_context||'sales';
       contextSelect.value=requestedContext;
+      contextSelect.dataset.previousContext=requestedContext;
       contextSelect.disabled=['seller','collector'].includes(String(data.role||''));
       if(requestedContext==='sales'&&data.account)selectAccount({
         crm_account_code:data.account.omie_code,
