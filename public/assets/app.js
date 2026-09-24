@@ -275,7 +275,32 @@ document.addEventListener('DOMContentLoaded',()=>{
     commercialActivityDialog.addEventListener('cancel',()=>commercialActivityDialog.close());
   }
 
-  const removeAuditRows=(ids=[])=>{
+  const setupCommercialAccount=()=>{
+    const page=document.querySelector('.tdca-page');if(!page)return;
+    const tabs=[...page.querySelectorAll('[data-tdca-tab]')];
+    const panels=[...page.querySelectorAll('[data-tdca-panel]')];
+    const activate=name=>{
+      const target=panels.find(panel=>panel.dataset.tdcaPanel===name)||panels[0];if(!target)return;
+      const activeName=target.dataset.tdcaPanel;
+      tabs.forEach(tab=>{const active=tab.dataset.tdcaTab===activeName;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',active?'true':'false');});
+      panels.forEach(panel=>panel.classList.toggle('active',panel===target));
+      if(history.replaceState)history.replaceState(null,'','#'+activeName);
+    };
+    tabs.forEach(tab=>tab.addEventListener('click',()=>activate(tab.dataset.tdcaTab||'overview')));
+    page.querySelectorAll('[data-tdca-open-tab]').forEach(button=>button.addEventListener('click',()=>activate(button.dataset.tdcaOpenTab||'overview')));
+    const requested=String(location.hash||'').replace(/^#/,'');if(panels.some(panel=>panel.dataset.tdcaPanel===requested))activate(requested);
+
+    const dialog=page.querySelector('[data-tdca-classification-dialog]');
+    if(dialog){
+      page.querySelectorAll('[data-tdca-classification-open]').forEach(button=>button.addEventListener('click',()=>dialog.showModal()));
+      dialog.querySelectorAll('[data-tdca-classification-close]').forEach(button=>button.addEventListener('click',()=>dialog.close()));
+      dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+      dialog.addEventListener('cancel',()=>dialog.close());
+    }
+  };
+  setupCommercialAccount();
+
+  const removeAuditRows=(ids=[])=>
     const unique=[...new Set((ids||[]).map(Number).filter(Boolean))];
     unique.forEach(id=>{
       document.querySelectorAll('[data-audit-client-row="'+id+'"]').forEach(row=>{
