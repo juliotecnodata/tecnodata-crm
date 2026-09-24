@@ -747,7 +747,10 @@ $renderCommercialPortfolio=function(){
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_portfolio',[
   'portfolio'=>$data,'owners'=>in_array((string)$u['role'],['admin','supervisor'],true)?CommercialAccountService::owners():[],
-  'activeSellerCodes'=>CommercialPortfolioService::activeCrmSellerCodes(),'flash'=>$flash
+  'activeSellerCodes'=>CommercialPortfolioService::activeCrmSellerCodes(),'flash'=>$flash,
+  'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
+  'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
+  'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
  ]);
 };
 $router->get('/my-portfolio',$renderCommercialPortfolio);
@@ -760,8 +763,38 @@ $router->get('/commercial/accounts/{code}',function($p){
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_account',[
   'account'=>$account,'contacts'=>CommercialAccountService::contacts($code),'profile'=>CommercialAccountService::profile($code),
-  'audit'=>CommercialAccountService::audit($code),'canWork'=>CommercialAccountService::canWork($u,$code),'flash'=>$flash
+  'audit'=>CommercialAccountService::audit($code),'canWork'=>CommercialAccountService::canWork($u,$code),'flash'=>$flash,
+  'activities'=>CommercialActivityService::history($code),'commercialNotes'=>CommercialActivityService::notes($code),
+  'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
+  'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
+  'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
  ]);
+});
+
+$router->post('/commercial/accounts/{code}/activity',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$code=trim((string)$p['code']);
+ try{
+  $result=CommercialActivityService::record($code,$u,$_POST);
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>!empty($result['task_id'])?'Atividade registrada e próximo retorno agendado.':'Atividade registrada no histórico comercial.'];
+ }catch(Throwable $e){
+  $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
+ }
+ $returnTo=(string)($_POST['return_to']??'account');
+ if($returnTo==='portfolio')redirect('/my-portfolio');
+ redirect('/commercial/accounts/'.rawurlencode($code).'#commercial-operation');
+});
+
+$router->post('/commercial/accounts/{code}/note',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$code=trim((string)$p['code']);
+ try{
+  CommercialActivityService::addNote($code,$u,trim((string)($_POST['note']??'')));
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Observação adicionada sem alterar a prioridade de contato da carteira.'];
+ }catch(Throwable $e){
+  $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
+ }
+ redirect('/commercial/accounts/'.rawurlencode($code).'#commercial-notes');
 });
 
 $router->post('/commercial/accounts/{code}/profile',function($p){
