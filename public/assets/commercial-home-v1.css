@@ -3,27 +3,27 @@
    Paleta provisória centralizada até validação final da equipe. */
 
 :root{
- --tdh-navy:#051C3B;
- --tdh-navy-2:#0B2A50;
- --tdh-blue:#007FC7;
- --tdh-green:#009657;
- --tdh-lime:#BDD136;
- --tdh-yellow:#FECC00;
- --tdh-orange:#EA5127;
- --tdh-follow:#7A3DB8;
- --tdh-red:#C64132;
- --tdh-text:#172B38;
- --tdh-muted:#6F7F89;
- --tdh-border:#DCE5EA;
- --tdh-border-soft:#E9EEF1;
- --tdh-bg:#F6F8F9;
- --tdh-white:#FFFFFF;
- --tdh-soft-blue:#EEF7FC;
- --tdh-soft-green:#EEF9F4;
- --tdh-soft-yellow:#FFF8DE;
- --tdh-soft-orange:#FFF3EC;
- --tdh-soft-red:#FFF1EF;
- --tdh-radius:10px;
+ --tdh-navy:var(--td-navy);
+ --tdh-navy-2:var(--td-navy-2);
+ --tdh-blue:var(--td-primary);
+ --tdh-green:var(--td-success);
+ --tdh-lime:var(--td-brand-accent);
+ --tdh-yellow:var(--td-warning);
+ --tdh-orange:var(--td-attention);
+ --tdh-follow:var(--td-follow);
+ --tdh-red:var(--td-danger);
+ --tdh-text:var(--td-text);
+ --tdh-muted:var(--td-muted);
+ --tdh-border:var(--td-border);
+ --tdh-border-soft:var(--td-border-soft);
+ --tdh-bg:var(--td-bg);
+ --tdh-white:var(--td-surface);
+ --tdh-soft-blue:var(--td-primary-soft);
+ --tdh-soft-green:var(--td-success-soft);
+ --tdh-soft-yellow:var(--td-warning-soft);
+ --tdh-soft-orange:var(--td-attention-soft);
+ --tdh-soft-red:var(--td-danger-soft);
+ --tdh-radius:var(--td-radius);
 }
 
 .tdh-home{display:grid;gap:14px;max-width:1680px;margin:0 auto;padding:2px 0 28px;color:var(--tdh-text)}
