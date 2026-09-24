@@ -5,7 +5,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const relativeParts=routeParts.slice(baseParts.length);
   const section=relativeParts[0]||'dashboard';
   let page=section;
-  if(section==='my-portfolio')page='clients';
+  if(section==='my-portfolio'||section==='commercial-portfolio')page='commercial-portfolio';
+  if(section==='commercial'&&relativeParts[1]==='accounts')page='commercial-account';
   if(section==='clients-ead-reciclagem'||section==='clients-suporte-pet')page='clients';
   if(section==='clients-audit')page='client-audit';
   if(section==='clients-sync')page='client-sync';
