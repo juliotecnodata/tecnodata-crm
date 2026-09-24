@@ -117,3 +117,59 @@ body[data-page="commercial_home"] .tdcrm-topbar-context strong,
 body[data-page="commercial_portfolio"] .tdcrm-topbar-context strong,
 body[data-page="commercial_account"] .tdcrm-topbar-context strong,
 body[data-page="agenda"] .tdcrm-topbar-context strong{color:var(--td-navy)!important}
+
+
+/* Contraste da topbar clara no novo Comercial. */
+body[data-page="commercial_home"] .tdcrm-notification,
+body[data-page="commercial_portfolio"] .tdcrm-notification,
+body[data-page="commercial_account"] .tdcrm-notification,
+body[data-page="agenda"] .tdcrm-notification{color:var(--td-navy)!important}
+
+body[data-page="commercial_home"] .tdcrm-user strong,
+body[data-page="commercial_portfolio"] .tdcrm-user strong,
+body[data-page="commercial_account"] .tdcrm-user strong,
+body[data-page="agenda"] .tdcrm-user strong{color:var(--td-navy)!important}
+
+body[data-page="commercial_home"] .tdcrm-user small,
+body[data-page="commercial_portfolio"] .tdcrm-user small,
+body[data-page="commercial_account"] .tdcrm-user small,
+body[data-page="agenda"] .tdcrm-user small{color:var(--td-muted)!important}
+
+body[data-page="commercial_home"] .tdcrm-user>span,
+body[data-page="commercial_portfolio"] .tdcrm-user>span,
+body[data-page="commercial_account"] .tdcrm-user>span,
+body[data-page="agenda"] .tdcrm-user>span{
+ background:var(--td-primary-soft)!important;
+ color:var(--td-primary)!important;
+ border-color:var(--td-border)!important;
+}
+
+body[data-page="commercial_home"] .tdcrm-menu-button,
+body[data-page="commercial_portfolio"] .tdcrm-menu-button,
+body[data-page="commercial_account"] .tdcrm-menu-button,
+body[data-page="agenda"] .tdcrm-menu-button,
+body[data-page="commercial_home"] .tdcrm-logout button,
+body[data-page="commercial_portfolio"] .tdcrm-logout button,
+body[data-page="commercial_account"] .tdcrm-logout button,
+body[data-page="agenda"] .tdcrm-logout button{
+ border-color:var(--td-border)!important;
+ background:#FFFFFF!important;
+ color:var(--td-navy)!important;
+}
+
+body[data-page="commercial_home"] .tdcrm-global-search,
+body[data-page="commercial_portfolio"] .tdcrm-global-search,
+body[data-page="commercial_account"] .tdcrm-global-search,
+body[data-page="agenda"] .tdcrm-global-search{
+ border-color:var(--td-border)!important;
+ background:var(--td-hover)!important;
+ color:var(--td-muted)!important;
+}
+body[data-page="commercial_home"] .tdcrm-global-search input,
+body[data-page="commercial_portfolio"] .tdcrm-global-search input,
+body[data-page="commercial_account"] .tdcrm-global-search input,
+body[data-page="agenda"] .tdcrm-global-search input{color:var(--td-text)!important}
+body[data-page="commercial_home"] .tdcrm-global-search input::placeholder,
+body[data-page="commercial_portfolio"] .tdcrm-global-search input::placeholder,
+body[data-page="commercial_account"] .tdcrm-global-search input::placeholder,
+body[data-page="agenda"] .tdcrm-global-search input::placeholder{color:var(--td-subtle)!important}
