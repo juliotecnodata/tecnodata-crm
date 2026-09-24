@@ -111,6 +111,12 @@ if(isset($c['crm_inactive'])&&isset($c['active'])&&!idxExists($pdo,$t,'idx_clien
  execStep($pdo,$log,'índice de clientes ativos no CRM','ALTER TABLE '.qi($t).' ADD INDEX idx_clients_crm_active(crm_inactive,active,id)');
 }
 
+$t=$prefix.'sync_outbox';
+if(tableExists($pdo,$t)){
+ if(idxExists($pdo,$t,'uq_sync_outbox_event'))execStep($pdo,$log,'remover índice único legado da outbox','ALTER TABLE '.qi($t).' DROP INDEX '.qi('uq_sync_outbox_event'));
+ addIndex($pdo,$log,$t,'idx_sync_outbox_entity','entity_type,entity_id,operation,status');
+}
+
 $t=$prefix.'products';
 addCol($pdo,$log,$t,'sku','VARCHAR(120) NULL AFTER omie_code');
 $c=cols($pdo,$t);
