@@ -176,7 +176,7 @@ function render(string $name,array $vars=[]): void{
 
     <dialog class="tdw-activity-dialog tdh-activity-dialog" data-commercial-activity-dialog>
      <form method="post" data-commercial-activity-form>
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="home">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="home"><input type="hidden" name="return_query" value="<?=e(http_build_query(array_merge($homeFilters,['home_page'=>$homePage])))?>">
       <header><div><span class="tdw-dialog-icon"><i class="fa-solid fa-comments"></i></span><div><small>REGISTRO RÁPIDO</small><strong>Nova atividade comercial</strong><p data-commercial-activity-account>Conta CRM</p></div></div><button type="button" data-commercial-activity-close><i class="fa-solid fa-xmark"></i></button></header>
       <div class="tdw-dialog-body">
        <div class="tdw-activity-switch"><?php foreach($activityTypes??[] as $idx=>$type):?><label><input type="radio" name="activity_type" value="<?=e($type['code'])?>" <?=$idx===0?'checked':''?>><span><i class="fa-solid <?=e($type['icon'])?>"></i><b><?=e($type['label'])?></b></span></label><?php endforeach;?></div>
