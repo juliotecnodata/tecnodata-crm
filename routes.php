@@ -529,6 +529,17 @@ $router->post('/logout',function(){CSRF::require($_POST['_token']??null);Auth::l
 
 $router->get('/',function(){
  Auth::requireLogin();
+ $u=Auth::user();
+ if(($u['role']??'')==='seller'){
+  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
+  render('commercial_home',[
+   'home'=>CommercialHomeService::build($u),'flash'=>$flash,
+   'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
+   'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
+   'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
+  ]);
+  return;
+ }
  $month=(string)($_GET['month']??date('Y-m'));
  if(!preg_match('/^\d{4}-\d{2}$/',$month))$month=date('Y-m');
  $daysInMonth=(int)date('t',strtotime($month.'-01'));
@@ -536,7 +547,6 @@ $router->get('/',function(){
  $selectedDays=[];foreach($requestedDays as $requestedDay){$value=(int)$requestedDay;if($value>=1&&$value<=$daysInMonth)$selectedDays[$value]=$value;}
  $selectedDays=array_values($selectedDays);sort($selectedDays);
  $periodLabel=$selectedDays?'Dias '.implode(', ',array_map(static fn($value)=>str_pad((string)$value,2,'0',STR_PAD_LEFT),$selectedDays)).' de '.date('m/Y',strtotime($month.'-01')):date('m/Y',strtotime($month.'-01'));
- $u=Auth::user();
  $resultModel=(string)($_GET['result_model']??'executive');
  if(!in_array($resultModel,['executive','cards','compare','detail'],true))$resultModel='executive';
  $resultArea=(string)($_GET['result_area']??'commercial');
