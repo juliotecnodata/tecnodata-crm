@@ -417,8 +417,24 @@ final class CommercialPortfolioService {
 
  public static function crmPortfolioReady(): bool{
   CommercialSchema::ensure();
+  $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_crm_portfolio_authority' LIMIT 1");
+  if(!$raw)return false;
+  $value=json_decode((string)$raw,true);
+  return is_array($value)&&!empty($value['enabled']);
+ }
+
+ public static function crmSyncComplete(): bool{
+  CommercialSchema::ensure();
   $state=DB::one("SELECT last_success_at,last_error FROM sync_state WHERE module_key='crm_accounts' LIMIT 1");
   return $state&&!empty($state['last_success_at'])&&empty($state['last_error'])&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1")??0)>0;
+ }
+
+ public static function setCrmPortfolioAuthority(bool $enabled,int $actorUserId=0,string $notes=''): void{
+  CommercialSchema::ensure();
+  $payload=['enabled'=>$enabled,'changed_at'=>date('c'),'changed_by'=>$actorUserId?:null,'notes'=>trim($notes)];
+  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_crm_portfolio_authority',?,NOW())
+            ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+   [json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
  }
 
  public static function sellerPortfolioCondition(array $user,string $alias='c',?string $month=null): array{
@@ -453,6 +469,8 @@ final class CommercialPortfolioService {
    'cfc'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_cfc=1")??0),
    'resellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_reseller=1")??0),
    'both'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_cfc=1 AND is_reseller=1")??0),
+   'crm_sync_complete'=>self::crmSyncComplete()?1:0,
+   'crm_portfolio_authority'=>self::crmPortfolioReady()?1:0,
    'outbox_pending'=>(int)(DB::scalar("SELECT COUNT(*) FROM sync_outbox WHERE status IN('pending','error')")??0),
   ];
  }
