@@ -809,7 +809,11 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
   $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
  }
  $returnTo=(string)($_POST['return_to']??'account');
- if($returnTo==='home')redirect('/');
+ if($returnTo==='home'){
+  $queryRaw=trim((string)($_POST['return_query']??''));$safe=[];
+  if($queryRaw!==''){parse_str($queryRaw,$parsed);foreach(['home_q','home_type','home_order','home_per_page','home_page'] as $key)if(isset($parsed[$key])&&!is_array($parsed[$key]))$safe[$key]=(string)$parsed[$key];}
+  redirect('/'.($safe?'?'.http_build_query($safe):''));
+ }
  if($returnTo==='portfolio'){
   $queryRaw=trim((string)($_POST['return_query']??''));$safe=[];
   if($queryRaw!==''){parse_str($queryRaw,$parsed);foreach(['q','classification','link','owner','scope','page'] as $key)if(isset($parsed[$key])&&!is_array($parsed[$key]))$safe[$key]=(string)$parsed[$key];}
