@@ -16,7 +16,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=7;$stateRaw=null;
+  $schemaVersion=8;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
@@ -29,6 +29,16 @@ final class CommercialSchema {
   $clientIndexes=[];foreach(DB::all("SHOW INDEX FROM clients") as $row)$clientIndexes[(string)$row['Key_name']]=true;
   if(!isset($clientIndexes['idx_clients_crm_owner']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_crm_owner(crm_owner_user_id,active,crm_inactive)");
   if(!isset($clientIndexes['idx_clients_crm_account']))DB::exec("ALTER TABLE clients ADD INDEX idx_clients_crm_account(crm_account_code)");
+
+  // Bancos antigos podem ter client_metrics criado antes de first_purchase_at.
+  // Mantemos a tabela compatível com o schema atual sem exigir recriação.
+  $metricColumns=[];foreach(DB::all("SHOW COLUMNS FROM client_metrics") as $row)$metricColumns[(string)$row['Field']]=true;
+  if(!isset($metricColumns['first_purchase_at']))DB::exec("ALTER TABLE client_metrics ADD COLUMN first_purchase_at DATE NULL AFTER client_id");
+  if(!isset($metricColumns['last_purchase_at']))DB::exec("ALTER TABLE client_metrics ADD COLUMN last_purchase_at DATE NULL AFTER first_purchase_at");
+  if(!isset($metricColumns['revenue_12m']))DB::exec("ALTER TABLE client_metrics ADD COLUMN revenue_12m DECIMAL(15,2) NOT NULL DEFAULT 0 AFTER last_purchase_at");
+  if(!isset($metricColumns['orders_12m']))DB::exec("ALTER TABLE client_metrics ADD COLUMN orders_12m INT NOT NULL DEFAULT 0 AFTER revenue_12m");
+  if(!isset($metricColumns['avg_ticket_12m']))DB::exec("ALTER TABLE client_metrics ADD COLUMN avg_ticket_12m DECIMAL(15,2) NOT NULL DEFAULT 0 AFTER orders_12m");
+  if(!isset($metricColumns['avg_interval_days']))DB::exec("ALTER TABLE client_metrics ADD COLUMN avg_interval_days DECIMAL(10,2) NULL AFTER avg_ticket_12m");
 
   $userColumns=[];foreach(DB::all("SHOW COLUMNS FROM users") as $row)$userColumns[(string)$row['Field']]=true;
   if(!isset($userColumns['crm_user_omie_code']))DB::exec("ALTER TABLE users ADD COLUMN crm_user_omie_code VARCHAR(80) NULL AFTER seller_omie_code");
