@@ -88,7 +88,7 @@ try{
  $unlinked=DB::all("SELECT a.omie_code,a.name,a.trade_name,a.document,a.crm_user_code
                     FROM crm_accounts a
                     LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
-                    WHERE l.crm_account_code IS NULL
+                    WHERE a.active=1 AND l.crm_account_code IS NULL
                     ORDER BY a.name LIMIT 30");
  if($unlinked){
   cliSection('AMOSTRA — CONTAS CRM SEM CLIENTE GERAL VINCULADO');
@@ -103,7 +103,7 @@ try{
                          COUNT(CASE WHEN c.crm_owner_user_id IS NOT NULL THEN 1 END) local_owner_clients,
                          MAX(u.name) local_user
                   FROM crm_users cu
-                  LEFT JOIN crm_accounts a ON a.crm_user_code=cu.omie_code
+                  LEFT JOIN crm_accounts a ON a.crm_user_code=cu.omie_code AND a.active=1
                   LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
                   LEFT JOIN clients c ON c.id=l.client_id
                   LEFT JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1
