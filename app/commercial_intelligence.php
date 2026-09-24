@@ -489,7 +489,7 @@ final class CommercialPortfolioService {
   if($pending>0)return false;
   DB::exec("INSERT INTO client_commercial_profiles(client_id,is_cfc,is_reseller,strategic_notes,classification_source,updated_at)
             VALUES(?,?,?,?,?,NOW())
-            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=COALESCE(client_commercial_profiles.strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()",
+            ON DUPLICATE KEY UPDATE is_cfc=VALUES(is_cfc),is_reseller=VALUES(is_reseller),strategic_notes=COALESCE(strategic_notes,VALUES(strategic_notes)),classification_source=VALUES(classification_source),updated_at=NOW()",
    [$clientId,(int)$profile['is_cfc'],(int)$profile['is_reseller'],$profile['strategic_notes']??null,(string)$profile['classification_source']]);
   return true;
  }
@@ -543,6 +543,44 @@ final class CommercialPortfolioService {
             VALUES(?,?,?,?,?,IF(?,NOW(),NULL),NULL)
             ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=VALUES(context_json),last_success_at=IF(VALUES(last_success_at) IS NULL,last_success_at,VALUES(last_success_at)),last_error=NULL",
    [$module,$page,$total,$count,$context?json_encode($context,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES):null,$done?1:0]);
+ }
+
+ public static function reconcileCachedLinks(): array{
+  CommercialSchema::ensure();self::$clientDocumentMap=null;
+  $stats=['linked'=>0,'unlinked'=>0,'ambiguous'=>0,'new_links'=>0,'profiles_mirrored'=>0];
+  $accounts=DB::all("SELECT a.omie_code,a.document,a.crm_user_code
+                     FROM crm_accounts a
+                     LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+                     WHERE a.active=1 AND l.crm_account_code IS NULL
+                     ORDER BY a.omie_code");
+  $activeSellerCodes=self::activeCrmSellerCodes();
+  foreach($accounts as $account){
+   $localStats=['linked'=>0,'unlinked'=>0,'ambiguous'=>0];
+   $clientId=self::reconcileAccountClient((string)$account['omie_code'],crm_digits((string)($account['document']??'')),$localStats);
+   foreach(['linked','unlinked','ambiguous'] as $key)$stats[$key]+=(int)($localStats[$key]??0);
+   if($clientId<=0)continue;
+   $stats['new_links']++;
+   $crmUserCode=trim((string)($account['crm_user_code']??''));$ownerUserId=0;
+   if($crmUserCode!==''&&in_array($crmUserCode,$activeSellerCodes,true)){
+    $ownerUserId=(int)(DB::scalar("SELECT id FROM users WHERE crm_user_omie_code=? AND active=1 AND role='seller' LIMIT 1",[$crmUserCode])??0);
+   }
+   DB::exec("UPDATE clients SET crm_account_code=?,crm_owner_omie_code=?,crm_owner_user_id=? WHERE id=?",
+    [(string)$account['omie_code'],$crmUserCode!==''?$crmUserCode:null,$ownerUserId?:null,$clientId]);
+   if(self::mirrorAccountProfileToClient((string)$account['omie_code'],$clientId))$stats['profiles_mirrored']++;
+  }
+  self::rebuildOperationalOwners();
+  $stats['remaining_unlinked']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0);
+  return $stats;
+ }
+
+ public static function rebuildCachedProfiles(): array{
+  CommercialSchema::ensure();$created=0;$mirrored=0;$processed=0;
+  foreach(DB::all("SELECT a.omie_code,a.raw_json,l.client_id FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1") as $row){
+   $processed++;$raw=json_decode((string)($row['raw_json']??''),true);if(!is_array($raw))continue;
+   if(self::seedAccountProfileFromAccount((string)$row['omie_code'],$raw))$created++;
+   if(!empty($row['client_id'])&&self::mirrorAccountProfileToClient((string)$row['omie_code'],(int)$row['client_id']))$mirrored++;
+  }
+  return ['processed'=>$processed,'account_profiles'=>$created,'client_profiles_mirrored'=>$mirrored];
  }
 
  public static function runFullBase(): array{
