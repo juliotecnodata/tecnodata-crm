@@ -658,8 +658,11 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $w=['c.active=1',$segmentSql];$p=$segmentParams;
  if($crmStatus==='active')$w[]='c.crm_inactive=0';elseif($crmStatus==='inactive')$w[]='c.crm_inactive=1';
  if($u['role']==='seller'){
-  if($portfolioOnly){$w[]='('.$effectiveSellerSql.')=?';$p[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
-  elseif($clientScope==='unassigned')$w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
+  if($portfolioOnly){[$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$w[]=$portfolioSql;array_push($p,...$portfolioParams);}
+  elseif($clientScope==='unassigned'){
+   if(CommercialPortfolioService::crmPortfolioReady())$w[]='c.crm_owner_user_id IS NULL';
+   else $w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
+  }
  }
  if($clientUfs){$w[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($p,...$clientUfs);}
  if($ddds){$w[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($p,...$ddds);}
@@ -692,7 +695,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $rows=[]; // A tabela é carregada exclusivamente pela API server-side para evitar consulta duplicada.
  [$generalSql,$generalParams]=client_segment_filter($portfolioOnly?'general':'all','clients');
  $availableEffectiveSql=client_effective_seller_sql('clients',$portfolioMonth);
- $availableClients=$u['role']==='seller'?(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND ((".$availableEffectiveSql.") IS NULL OR TRIM((".$availableEffectiveSql."))='') AND ".$generalSql,$generalParams)??0):0;
+ $availableClients=$u['role']==='seller'?(CommercialPortfolioService::crmPortfolioReady()?0:(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND ((".$availableEffectiveSql.") IS NULL OR TRIM((".$availableEffectiveSql."))='') AND ".$generalSql,$generalParams)??0)):0;
  $virtualCodes=client_virtual_seller_codes();$realSellerSql=$virtualCodes?' AND omie_code NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'';
  $crmPortfolioCodes=ClientSegmentPolicy::crmPortfolioSellerCodes();$crmPortfolioSql=$crmPortfolioCodes?' AND omie_code IN ('.implode(',',array_fill(0,count($crmPortfolioCodes),'?')).')':' AND 1=0';
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
@@ -701,7 +704,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $statePortfolioJoin=" LEFT JOIN client_portfolio_assignments pa_state ON pa_state.client_id=c.id AND pa_state.month_ref='".$portfolioMonth."'";
  $stateEffectiveExpr="CASE WHEN pa_state.id IS NOT NULL THEN pa_state.seller_omie_code ELSE c.seller_omie_code END";
  $baseCounts=client_base_counts_cached();
- if($portfolioOnly&&$u['role']==='seller'){$stateWhere.=' AND ('.$stateEffectiveSql.')=?';$stateParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
+ if($portfolioOnly&&$u['role']==='seller'){[$statePortfolioSql,$statePortfolioParams]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$stateWhere.=' AND '.$statePortfolioSql;array_push($stateParams,...$statePortfolioParams);}
  $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
  render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
@@ -1173,7 +1176,7 @@ $router->post('/clients/{id}/activity',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();$c=DB::one("SELECT * FROM clients WHERE id=?",[$id]);if(!$c)exit('Cliente inválido.');
  if(!empty($c['crm_inactive'])){http_response_code(422);exit('Cliente inativo no CRM. Reative o cadastro antes de registrar novos atendimentos.');}
- $effectiveSeller=ClientPortfolioService::effectiveSellerCode($id);$unassigned=$effectiveSeller==='';if($u['role']==='seller'&&!$unassigned&&$effectiveSeller!==(string)$u['seller_omie_code']){http_response_code(403);exit('Sem permissão para registrar atendimento fora da carteira efetiva do mês.');}
+ $effectiveSeller=ClientPortfolioService::effectiveSellerCode($id);$unassigned=$effectiveSeller==='';if($u['role']==='seller'&&!CommercialPortfolioService::canSellerWorkClient($u,$id)){http_response_code(403);exit('Sem permissão para registrar atendimento fora da sua carteira oficial.');}
  $result=(string)($_POST['result']??'contact');$allowed=array_column(task_result_options('sales'),'code');
  if(!in_array($result,$allowed,true))$result='contact';
  $channel=(string)($_POST['channel']??'phone');$allowedChannels=array_column(contact_channel_options('sales'),'code');
@@ -2494,8 +2497,11 @@ $router->get('/api/clients/datatable',function(){
  $baseWhere=['c.active=1',$segmentSql];$baseParams=$segmentParams;
  if($crmStatus==='active')$baseWhere[]='c.crm_inactive=0';elseif($crmStatus==='inactive')$baseWhere[]='c.crm_inactive=1';
  if(($u['role']??'')==='seller'){
-  if($portfolioOnly){$baseWhere[]='('.$effectiveSellerSql.')=?';$baseParams[]=trim((string)($u['seller_omie_code']??''))?:'__NO_SELLER_LINK__';}
-  elseif($clientScope==='unassigned')$baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
+  if($portfolioOnly){[$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$baseWhere[]=$portfolioSql;array_push($baseParams,...$portfolioParams);}
+  elseif($clientScope==='unassigned'){
+   if(CommercialPortfolioService::crmPortfolioReady())$baseWhere[]='c.crm_owner_user_id IS NULL';
+   else $baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
+  }
  }
  if($clientUfs){$baseWhere[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($baseParams,...$clientUfs);}
  if($ddds){$baseWhere[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($baseParams,...$ddds);}
@@ -2526,7 +2532,7 @@ $router->get('/api/clients/datatable',function(){
  $orderDirection=strtolower((string)(is_array($orderInput)?($orderInput[0]['dir']??'asc'):'asc'))==='desc'?'DESC':'ASC';
  $rows=DB::all(
   "SELECT c.*,s.name seller_name,os.name omie_seller_name,(".$effectiveSellerExpr.") effective_seller_code,
-          es.name effective_seller_name,pa.id portfolio_assignment_id,pa.seller_omie_code portfolio_seller_code,
+          es.name effective_seller_name,cu.name crm_owner_name,cu.crm_user_omie_code crm_owner_code,pa.id portfolio_assignment_id,pa.seller_omie_code portfolio_seller_code,
           m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
           (SELECT MAX(a_last.created_at) FROM activities a_last WHERE a_last.client_id=c.id) last_activity_at,
           (SELECT MAX(ca_last.created_at) FROM collection_actions ca_last WHERE ca_last.client_id=c.id) last_collection_at
@@ -2535,6 +2541,7 @@ $router->get('/api/clients/datatable',function(){
    ".$portfolioJoin."
    LEFT JOIN sellers s ON s.omie_code=c.seller_omie_code
    LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code
+   LEFT JOIN users cu ON cu.id=c.crm_owner_user_id
    ".$sellerJoin."
    WHERE ".$sqlWhere." ORDER BY ".$orderBy." ".$orderDirection.",c.id ASC LIMIT ".$length." OFFSET ".$start,
   $params
@@ -2553,7 +2560,10 @@ $router->get('/api/clients/datatable',function(){
   $phoneDigits=preg_replace('/\D+/','',(string)($row['phone']??''));$rowDdd=strlen($phoneDigits)>=2?substr($phoneDigits,0,2):'';
   $locationHtml='<span class="client-location"><i class="fa-solid fa-location-dot"></i>'.e($location!==''?$location:'Não informado').($rowDdd!==''?'<b>DDD '.e($rowDdd).'</b>':'').'</span>';
   $principalCode=trim((string)($row['seller_omie_code']??''));$omieCode=trim((string)($row['omie_seller_code']??''));$hasOverride=!empty($row['portfolio_assignment_id']);$diverged=$principalCode!==$omieCode;
-  if($effectiveSeller!==''){$effectiveName=(string)($row['effective_seller_name']??$effectiveSeller);$meta=$hasOverride?'Carteira '.$portfolioMonth.' · principal '.(($row['seller_name']??'')?:($principalCode?:'sem vendedor')):($diverged?'Principal · Omie '.(($row['omie_seller_name']??'')?:($omieCode?:'sem vendedor')):'Principal alinhado com a Omie');$sellerHtml='<span class="client-seller'.($hasOverride?' monthly':'').($diverged?' divergent':'').'"><i class="fa-solid '.($hasOverride?'fa-calendar-check':'fa-user-tie').'"></i><span><strong>'.e($effectiveName).'</strong><small>'.e($meta).'</small></span></span>';}
+  if($portfolioOnly&&CommercialPortfolioService::crmPortfolioReady()){
+   $crmOwnerName=trim((string)($row['crm_owner_name']??''));$crmOwnerCode=trim((string)($row['crm_owner_omie_code']??''));
+   $sellerHtml=$crmOwnerName!==''?'<span class="client-seller"><i class="fa-solid fa-user-shield"></i><span><strong>'.e($crmOwnerName).'</strong><small>Carteira oficial · CRM Omie '.e($crmOwnerCode).'</small></span></span>':'<span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem responsável mapeado</strong><small>Conta CRM sem usuário Tecnodata vinculado</small></span></span>';
+  }elseif($effectiveSeller!==''){$effectiveName=(string)($row['effective_seller_name']??$effectiveSeller);$meta=$hasOverride?'Carteira '.$portfolioMonth.' · principal '.(($row['seller_name']??'')?:($principalCode?:'sem vendedor')):($diverged?'Principal · Omie '.(($row['omie_seller_name']??'')?:($omieCode?:'sem vendedor')):'Principal alinhado com a Omie');$sellerHtml='<span class="client-seller'.($hasOverride?' monthly':'').($diverged?' divergent':'').'"><i class="fa-solid '.($hasOverride?'fa-calendar-check':'fa-user-tie').'"></i><span><strong>'.e($effectiveName).'</strong><small>'.e($meta).'</small></span></span>';}
   else $sellerHtml='<span class="client-seller unassigned"><i class="fa-solid fa-user-slash"></i><span><strong>Sem responsável</strong><small>'.($hasOverride?'Sem vendedor na carteira '.$portfolioMonth:($u['role']==='seller'?'Atendimento compartilhado':'Disponível para vincular')).'</small></span></span>';
   $rowTags=client_tags_from_raw($row['raw_json']??null);$visibleTags=array_slice($rowTags,0,3);
   $tagsHtml='<div class="client-tag-list" title="'.e(implode(', ',$rowTags)).'">';foreach($visibleTags as $rowTag)$tagsHtml.='<span>'.e($rowTag).'</span>';if(count($rowTags)>3)$tagsHtml.='<b>+'.(count($rowTags)-3).'</b>';if(!$rowTags)$tagsHtml.='<small>Sem tag</small>';$tagsHtml.='</div>';
