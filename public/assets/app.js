@@ -475,6 +475,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(globalTaskModal){
     const form=globalTaskModal.querySelector('[data-global-task-form]');
     const clientIdInput=globalTaskModal.querySelector('[data-task-client-id]');
+    const accountCodeInput=globalTaskModal.querySelector('[data-task-account-code]');
+    const entityLabel=globalTaskModal.querySelector('[data-task-entity-label]');
     const clientSearch=globalTaskModal.querySelector('[data-task-client-search]');
     const clientResults=globalTaskModal.querySelector('[data-task-client-results]');
     const clientSelected=globalTaskModal.querySelector('[data-task-client-selected]');
@@ -485,20 +487,33 @@ document.addEventListener('DOMContentLoaded',()=>{
     const base=String(window.APP_URL||'').replace(/\/$/,'');
     const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
     const localDateTime=minutes=>{const date=new Date(Date.now()+minutes*60000);const pad=n=>String(n).padStart(2,'0');return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());};
-    let config=null,clientTimer=null,currentClient=null,openingTrigger=null;
+    let config=null,clientTimer=null,currentClient=null,currentAccount=null,openingTrigger=null;
 
     const clearClient=()=>{
-      currentClient=null;clientIdInput.value='';clientSelected.innerHTML='';clientSearch.hidden=false;clientSearch.value='';clientResults.innerHTML='';clientSearch.focus();
+      currentClient=null;currentAccount=null;clientIdInput.value='';accountCodeInput.value='';clientSelected.innerHTML='';clientSearch.hidden=false;clientSearch.value='';clientResults.innerHTML='';clientSearch.focus();
     };
     const selectClient=client=>{
-      currentClient=client||null;clientIdInput.value=String(client?.id||'');clientSearch.hidden=true;clientSearch.value='';clientResults.innerHTML='';
+      currentClient=client||null;currentAccount=null;clientIdInput.value=String(client?.id||'');accountCodeInput.value='';
+      clientSearch.hidden=true;clientSearch.value='';clientResults.innerHTML='';
       const owner=client?.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:'';
-      clientSelected.innerHTML='<div><strong>'+esc(client?.name||'Cliente')+'</strong><small>'+esc([client?.document,client?.city,client?.uf,owner].filter(Boolean).join(' • '))+'</small></div><button type="button" title="Trocar cliente"><i class="fa-solid fa-xmark"></i></button>';
+      clientSelected.innerHTML='<div><strong>'+esc(client?.name||'Cliente')+'</strong><small>'+esc([client?.document,client?.city,client?.uf,owner].filter(Boolean).join(' • '))+'</small></div><button type="button" title="Trocar seleção"><i class="fa-solid fa-xmark"></i></button>';
+      clientSelected.querySelector('button')?.addEventListener('click',clearClient);
+    };
+    const selectAccount=account=>{
+      currentAccount=account||null;currentClient=null;
+      accountCodeInput.value=String(account?.crm_account_code||account?.omie_code||'');
+      clientIdInput.value=String(account?.client_id||'');
+      clientSearch.hidden=true;clientSearch.value='';clientResults.innerHTML='';
+      const owner=account?.owner_name?'Responsável: '+account.owner_name:'';
+      const link=account?.client_id?'Cliente Geral vinculado':'Prospect / Conta CRM';
+      clientSelected.innerHTML='<div><strong>'+esc(account?.name||account?.trade_name||'Conta CRM')+'</strong><small>'+esc([account?.document,account?.city,account?.uf,owner,link].filter(Boolean).join(' • '))+'</small></div><button type="button" title="Trocar seleção"><i class="fa-solid fa-xmark"></i></button>';
       clientSelected.querySelector('button')?.addEventListener('click',clearClient);
     };
     const renderSelectors=()=>{
       if(!config)return;
       const context=contextSelect.value||config.default_context||'sales';
+      if(entityLabel)entityLabel.textContent=context==='collection'?'Cliente de cobrança':'Conta CRM / Cliente';
+      clientSearch.placeholder=context==='collection'?'Busque cliente por nome, documento ou código':'Busque Conta CRM por nome, CNPJ/CPF ou responsável';
       const roleNeeded=context==='collection'?'collector':'seller';
       const users=(config.users||[]).filter(user=>{const userRole=String(user.role||'');return userRole===roleNeeded||userRole==='supervisor'||userRole==='admin';});
       const previous=assignedSelect.value;
@@ -512,47 +527,78 @@ document.addEventListener('DOMContentLoaded',()=>{
       const preferredType=openingTrigger?.dataset.taskType||'';
       if(preferredType&&[...typeSelect.options].some(option=>option.value===preferredType))typeSelect.value=preferredType;
     };
-    const loadConfig=async clientId=>{
-      const url=base+'/api/tasks/form-context'+(clientId?'?client_id='+encodeURIComponent(clientId):'');
+    const loadConfig=async(clientId,accountCode)=>{
+      const params=new URLSearchParams();
+      if(clientId)params.set('client_id',String(clientId));
+      if(accountCode)params.set('crm_account_code',String(accountCode));
+      const url=base+'/api/tasks/form-context'+(params.toString()?'?'+params.toString():'');
       const response=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json'}});
       const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível preparar a tarefa.');
       config=data;
       const requestedContext=openingTrigger?.dataset.taskContext||data.default_context||'sales';
       contextSelect.value=requestedContext;
       contextSelect.disabled=['seller','collector'].includes(String(data.role||''));
-      if(data.client)selectClient(data.client);
+      if(requestedContext==='sales'&&data.account)selectAccount({
+        crm_account_code:data.account.omie_code,
+        name:data.account.trade_name||data.account.name,
+        document:data.account.document,
+        owner_name:data.account.owner_name,
+        client_id:data.account.client_id,
+        city:data.account.client_city,
+        uf:data.account.client_uf
+      });
+      else if(data.client)selectClient(data.client);
       renderSelectors();
     };
     const searchClients=async()=>{
       const query=clientSearch.value.trim();if(query.length<2){clientResults.innerHTML='';return;}
-      clientResults.innerHTML='<div class="tdcrm-task-search-state">Buscando clientes...</div>';
+      const context=contextSelect.value||config?.default_context||'sales';
+      const sales=context==='sales';
+      clientResults.innerHTML='<div class="tdcrm-task-search-state">Buscando '+(sales?'Contas CRM':'clientes')+'...</div>';
       try{
-        const response=await fetch(base+'/api/clients?scope=task&q='+encodeURIComponent(query),{credentials:'same-origin',headers:{Accept:'application/json'}});
+        const endpoint=sales?base+'/api/commercial/accounts/search?q='+encodeURIComponent(query):base+'/api/clients?scope=task&q='+encodeURIComponent(query);
+        const response=await fetch(endpoint,{credentials:'same-origin',headers:{Accept:'application/json'}});
         const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Falha na busca.');
         const items=Array.isArray(data.items)?data.items:[];
-        clientResults.innerHTML=items.length?items.map((client,index)=>'<button type="button" data-global-task-client="'+index+'"><span><strong>'+esc(client.name)+'</strong><small>'+esc([client.document,client.city,client.uf,client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:''].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>').join(''):'<div class="tdcrm-task-search-state">Nenhum cliente encontrado.</div>';
-        clientResults.querySelectorAll('[data-global-task-client]').forEach(button=>button.addEventListener('click',()=>selectClient(items[Number(button.dataset.globalTaskClient)]||{})));
-      }catch(error){clientResults.innerHTML='';showNotice('danger','Busca de clientes',error.message||'Não foi possível consultar os clientes.');}
+        if(sales){
+          clientResults.innerHTML=items.length?items.map((account,index)=>'<button type="button" data-global-task-account="'+index+'"><span><strong>'+esc(account.name)+'</strong><small>'+esc([account.document,account.city,account.uf,account.owner_name?'Responsável: '+account.owner_name:'',account.client_id?'Cliente vinculado':'Prospect'].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>').join(''):'<div class="tdcrm-task-search-state">Nenhuma Conta CRM encontrada.</div>';
+          clientResults.querySelectorAll('[data-global-task-account]').forEach(button=>button.addEventListener('click',()=>selectAccount(items[Number(button.dataset.globalTaskAccount)]||{})));
+        }else{
+          clientResults.innerHTML=items.length?items.map((client,index)=>'<button type="button" data-global-task-client="'+index+'"><span><strong>'+esc(client.name)+'</strong><small>'+esc([client.document,client.city,client.uf,client.portfolio_seller_name?'Carteira: '+client.portfolio_seller_name:''].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-chevron-right"></i></button>').join(''):'<div class="tdcrm-task-search-state">Nenhum cliente encontrado.</div>';
+          clientResults.querySelectorAll('[data-global-task-client]').forEach(button=>button.addEventListener('click',()=>selectClient(items[Number(button.dataset.globalTaskClient)]||{})));
+        }
+      }catch(error){clientResults.innerHTML='';showNotice('danger','Busca de tarefa',error.message||'Não foi possível consultar a base.');}
     };
     const openTask=async trigger=>{
-      openingTrigger=trigger;config=null;currentClient=null;form?.reset();clientIdInput.value='';clientSelected.innerHTML='';clientResults.innerHTML='';clientSearch.hidden=false;clientSearch.value='';
+      openingTrigger=trigger;config=null;currentClient=null;currentAccount=null;form?.reset();clientIdInput.value='';accountCodeInput.value='';clientSelected.innerHTML='';clientResults.innerHTML='';clientSearch.hidden=false;clientSearch.value='';
       dueInput.min=localDateTime(0);dueInput.value=localDateTime(30);
       assignedSelect.innerHTML='<option value="">Carregando responsáveis...</option>';typeSelect.innerHTML='<option value="">Carregando tipos...</option>';
       globalTaskModal.showModal();
       const clientId=Number(trigger?.dataset.taskClientId||0);
       const clientName=String(trigger?.dataset.taskClientName||'').trim();
-      if(clientId&&clientName)selectClient({id:clientId,name:clientName});
-      try{await loadConfig(clientId);}catch(error){showNotice('danger','Nova tarefa',error.message||'Não foi possível abrir o formulário.');globalTaskModal.close();}
+      const accountCode=String(trigger?.dataset.taskAccountCode||'').trim();
+      const accountName=String(trigger?.dataset.taskAccountName||'').trim();
+      if(accountCode&&accountName)selectAccount({crm_account_code:accountCode,name:accountName,client_id:clientId||''});
+      else if(clientId&&clientName)selectClient({id:clientId,name:clientName});
+      try{await loadConfig(clientId,accountCode);}catch(error){showNotice('danger','Nova tarefa',error.message||'Não foi possível abrir o formulário.');globalTaskModal.close();}
     };
 
     document.addEventListener('click',event=>{const trigger=event.target.closest?.('[data-global-task-open]');if(trigger){event.preventDefault();openTask(trigger);}});
-    contextSelect?.addEventListener('change',renderSelectors);
+    contextSelect?.addEventListener('change',()=>{
+      const previous=contextSelect.dataset.previousContext||'';
+      const current=contextSelect.value;
+      if(previous&&previous!==current)clearClient();
+      contextSelect.dataset.previousContext=current;
+      renderSelectors();
+    });
     clientSearch?.addEventListener('input',()=>{clearTimeout(clientTimer);clientTimer=setTimeout(searchClients,240);});
     globalTaskModal.querySelectorAll('[data-global-task-close]').forEach(button=>button.addEventListener('click',()=>globalTaskModal.close()));
     globalTaskModal.addEventListener('click',event=>{if(event.target===globalTaskModal)globalTaskModal.close();});
     form?.addEventListener('submit',async event=>{
       event.preventDefault();
-      if(!clientIdInput.value){showNotice('warning','Selecione um cliente','Busque e selecione o cliente antes de criar a tarefa.');clientSearch.hidden=false;clientSearch.focus();return;}
+      const taskContext=contextSelect.value||'sales';
+      if(taskContext==='sales'&&!accountCodeInput.value&&!clientIdInput.value){showNotice('warning','Selecione uma Conta CRM','Busque e selecione a Conta CRM antes de criar a tarefa.');clientSearch.hidden=false;clientSearch.focus();return;}
+      if(taskContext==='collection'&&!clientIdInput.value){showNotice('warning','Selecione um cliente','Busque e selecione o cliente antes de criar a tarefa de cobrança.');clientSearch.hidden=false;clientSearch.focus();return;}
       const submit=form.querySelector('[type="submit"]');const original=submit?.innerHTML;if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Criando...';}
       try{
         const data=new FormData(form);if(contextSelect.disabled)data.set('context',contextSelect.value);
