@@ -1642,203 +1642,95 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 
   case 'agenda':
    $stats=is_array($agendaStats??null)?$agendaStats:[];
-   $agendaLate=(int)($stats['late_count']??0);
-   $agendaTodayCount=(int)($stats['today_count']??0);
-   $agendaUpcoming=(int)($stats['upcoming_count']??0);
-   $agendaCollection=(int)($stats['collection_count']??0);
-   $agendaTotal=(int)($stats['total']??0);
-   $agendaRoleLabels=['seller'=>'Vendas','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Admin'];
+   $agendaLate=(int)($stats['late_count']??0);$agendaTodayCount=(int)($stats['today_count']??0);$agendaUpcoming=(int)($stats['upcoming_count']??0);$agendaCollection=(int)($stats['collection_count']??0);$agendaTotal=(int)($stats['total']??0);
+   $agendaRoleLabels=['seller'=>'Comercial','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Admin'];
    $groups=['late'=>[],'today'=>[],'upcoming'=>[]];
-   foreach($rows as $agendaRow){
-    $dueDate=date('Y-m-d',strtotime((string)$agendaRow['due_at']));
-    if($dueDate<date('Y-m-d'))$groups['late'][]=$agendaRow;
-    elseif($dueDate===date('Y-m-d'))$groups['today'][]=$agendaRow;
-    else $groups['upcoming'][]=$agendaRow;
-   }
-   $agendaQueryBase=[];
-   if(!empty($teamAgenda)&&!empty($agendaFilterUser))$agendaQueryBase['user_id']=(int)$agendaFilterUser;
-   if(($agendaType??'all')!=='all')$agendaQueryBase['type']=$agendaType;
-   if(!empty($agendaCreatedDate))$agendaQueryBase['created_date']=$agendaCreatedDate;
-   $vision=is_array($agendaVision??null)?$agendaVision:[];
-   $visionTotal=max(1,(int)($vision['total']??0));
-   $visionValues=['upcoming'=>(int)($vision['upcoming_count']??0),'today'=>(int)($vision['today_count']??0),'late'=>(int)($vision['late_count']??0),'done'=>(int)($vision['done_count']??0),'other'=>(int)($vision['other_count']??0)];
-   $visionDegrees=[];$visionCursor=0;foreach($visionValues as $visionKey=>$visionValue){$visionDegrees[$visionKey]=[$visionCursor,$visionCursor+($visionValue/$visionTotal*360)];$visionCursor=$visionDegrees[$visionKey][1];}
+   foreach($rows as $agendaRow){$dueDate=date('Y-m-d',strtotime((string)$agendaRow['due_at']));if($dueDate<date('Y-m-d'))$groups['late'][]=$agendaRow;elseif($dueDate===date('Y-m-d'))$groups['today'][]=$agendaRow;else $groups['upcoming'][]=$agendaRow;}
+   $agendaQueryBase=[];if(!empty($teamAgenda)&&!empty($agendaFilterUser))$agendaQueryBase['user_id']=(int)$agendaFilterUser;if(($agendaType??'all')!=='all')$agendaQueryBase['type']=$agendaType;if(!empty($agendaCreatedDate))$agendaQueryBase['created_date']=$agendaCreatedDate;
+   $agendaUrl=static function(array $changes=[])use($agendaQueryBase): string{$query=array_merge($agendaQueryBase,$changes);foreach($query as $k=>$v)if($v===''||$v==='all'||$v===0||$v===null)unset($query[$k]);return APP_URL.'/agenda'.($query?'?'.http_build_query($query):'');};
    $weekDays=['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
-   $collectionKpiQuery=$agendaQueryBase;$collectionKpiQuery['type']='collection';unset($collectionKpiQuery['period']);
-   // Comercial e cobrança compartilham a mesma experiência visual e responsiva.
-   $collectionAgenda=false;
    ?>
-   <?php if($collectionAgenda):?>
-   <section class="tdca4-page">
-    <header class="tdca4-head"><div><span class="tdca4-kicker">COBRANÇA / AGENDA</span><h1>Agenda de cobrança</h1><p>Organize e execute as atividades de cobrança com foco, prioridade e resultado.</p></div><div class="tdca4-date"><i class="fa-regular fa-calendar"></i><span><strong><?=date('d/m/Y')?></strong><small><?=$agendaTotal?> pendente(s)</small></span></div></header>
-    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-    <section class="tdca4-filters"><form method="get"><input type="hidden" name="type" value="collection"><?php if(!empty($teamAgenda)):?><label><span>Responsável</span><select class="form-select" name="user_id"><option value="0">Todos os responsáveis</option><?php foreach($agendaUsers??[] as $agendaUser):if($agendaUser['role']!=='collector')continue;?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?></option><?php endforeach;?></select></label><?php endif;?><label><span>Período</span><select class="form-select" name="period"><option value="all" <?=($agendaPeriod??'all')==='all'?'selected':''?>>Todos</option><option value="late" <?=($agendaPeriod??'all')==='late'?'selected':''?>>Atrasadas</option><option value="today" <?=($agendaPeriod??'all')==='today'?'selected':''?>>Hoje</option><option value="next7" <?=($agendaPeriod??'all')==='next7'?'selected':''?>>Próximos 7 dias</option><option value="upcoming" <?=($agendaPeriod??'all')==='upcoming'?'selected':''?>>Próximas</option></select></label><a href="<?=APP_URL?>/agenda?type=collection">Limpar filtros</a><button class="tdca4-primary" type="submit"><i class="fa-solid fa-filter"></i>Aplicar filtros</button></form></section>
-    <div class="tdca4-kpis"><article><span class="green"><i class="fa-regular fa-calendar-check"></i></span><div><small>Atividades de hoje</small><strong><?=$agendaTodayCount?></strong><em>Programadas para hoje</em></div></article><article><span class="red"><i class="fa-regular fa-clock"></i></span><div><small>Atrasadas</small><strong><?=$agendaLate?></strong><em>Exigem ação imediata</em></div></article><article><span class="blue"><i class="fa-solid fa-handshake"></i></span><div><small>Próximas</small><strong><?=$agendaUpcoming?></strong><em>Planejamento futuro</em></div></article><article><span class="yellow"><i class="fa-solid fa-list-check"></i></span><div><small>Total pendente</small><strong><?=$agendaTotal?></strong><em>Compromissos de cobrança</em></div></article></div>
-    <div class="tdca4-layout"><div class="tdca4-board">
-     <?php foreach(['late'=>['Atrasadas','Atividades que já passaram do prazo','red'],'today'=>['Hoje','Atividades programadas para hoje','green'],'upcoming'=>['Próximas','Atividades dos próximos dias','blue']] as $groupKey=>$meta):?>
-      <section class="tdca4-column <?=$meta[2]?>"><header><div><strong><?=$meta[0]?></strong><small><?=$meta[1]?></small></div><b><?=count($groups[$groupKey])?></b></header><div class="tdca4-column-body"><?php foreach(array_slice($groups[$groupKey],0,8) as $r):$due=strtotime((string)$r['due_at']);?><article><div class="client"><span><i class="fa-solid fa-building"></i></span><div><strong><?=e($r['name'])?></strong><small><?=e($r['uf']??'')?></small></div><b><?=date($groupKey==='today'?'H:i':'d/m',$due)?></b></div><div class="meta"><span><i class="fa-solid fa-user"></i><?=e($r['assigned_name']??'')?></span><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span></div><p><?=e($r['title'])?></p><footer><a href="<?=APP_URL?>/collection/<?=$r['client_id']?>">Abrir</a><form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/done"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="collection"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><button type="submit">Concluir</button></form></footer></article><?php endforeach;?><?php if(empty($groups[$groupKey])):?><div class="tdca4-empty">Nenhuma atividade nesta coluna.</div><?php endif;?></div></section>
-     <?php endforeach;?>
-    </div>
-    <aside class="tdca4-side"><section><header><strong>Carga por responsável</strong><a href="<?=APP_URL?>/agenda?type=collection">Ver todos</a></header><div class="tdca4-workload"><?php $maxWork=1;foreach($agendaWorkload??[] as $w)if($w['role']==='collector')$maxWork=max($maxWork,(int)$w['total']);foreach($agendaWorkload??[] as $w):if($w['role']!=='collector')continue;?><a href="<?=APP_URL?>/agenda?type=collection&user_id=<?=$w['id']?>"><span><?=e(mb_strtoupper(mb_substr((string)$w['name'],0,1)))?></span><strong><?=e($w['name'])?></strong><div><i style="width:<?=round((int)$w['total']/$maxWork*100)?>%"></i></div><b><?=(int)$w['total']?></b></a><?php endforeach;?></div></section><section><header><strong>Resumo do dia</strong></header><div class="tdca4-summary"><span><i class="ok"></i>Hoje<b><?=$agendaTodayCount?></b></span><span><i class="danger"></i>Atrasadas<b><?=$agendaLate?></b></span><span><i class="blue"></i>Próximas<b><?=$agendaUpcoming?></b></span></div></section></aside></div>
-   </section>
-   <?php else:?>
-   <section class="tda-page">
-    <header class="tda-head">
-     <div class="tda-head-main">
-      <span class="tda-head-icon"><i class="fa-regular fa-calendar-check"></i></span>
-      <div>
-       <span class="tda-kicker"><?=!empty($teamAgenda)?'GESTÃO / AGENDA':'AGENDA'?></span>
-       <h1><?=$u['role']==='collector'?'Agenda de cobrança':'Agenda e retornos'?></h1>
-       <p><?=!empty($teamAgenda)?'Organize, acompanhe e execute os compromissos da equipe de forma simples e eficiente.':($u['role']==='collector'?'Organize cobranças, acordos e retornos sem perder prazos e prioridades.':'Organize retornos, cobranças e próximos contatos sem perder prioridades.')?></p>
-      </div>
-     </div>
-     <div class="tda-date"><i class="fa-regular fa-calendar"></i><div><strong><?=date('d/m/Y')?></strong><small><?=e($weekDays[date('l')]??'Hoje')?>, hoje</small></div></div>
+   <section class="tdw-page tdw-agenda">
+    <header class="tdw-page-head tdw-agenda-head">
+     <div class="tdw-page-title"><span class="tdw-eyebrow"><?=!empty($teamAgenda)?'GESTÃO / AGENDA':'COMERCIAL / AGENDA'?></span><div><h1><?=$u['role']==='collector'?'Agenda de cobrança':'Agenda e retornos'?></h1><span class="tdw-live"><i></i><?=e($weekDays[date('l')]??'Hoje')?> · <?=date('d/m/Y')?></span></div><p>Execute o que está vencido, resolva o que é de hoje e deixe os próximos retornos organizados.</p></div>
+     <div class="tdw-head-actions"><button class="tdw-btn primary" type="button" data-global-task-open data-task-context="<?=$u['role']==='collector'?'collection':'sales'?>"><i class="fa-solid fa-plus"></i>Nova tarefa</button></div>
     </header>
 
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <section class="tda-controlbar">
-     <form method="get" class="tda-filters">
-      <label class="tda-created"><span>Data de criação</span><input class="form-control" type="date" name="created_date" value="<?=e($agendaCreatedDate??'')?>"></label>
-      <?php if(!empty($teamAgenda)):?>
-       <label><span>Vendedor / Responsável</span><select class="form-select" name="user_id">
-        <option value="0">Todos os responsáveis</option>
-        <?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e($agendaRoleLabels[$agendaUser['role']]??$agendaUser['role'])?></option><?php endforeach;?>
-       </select></label>
-      <?php endif;?>
-      <label><span>Tipo</span><select class="form-select" name="type" <?=$u['role']==='collector'?'disabled':''?>>
-       <?php if($u['role']!=='collector'):?><option value="all" <?=($agendaType??'all')==='all'?'selected':''?>>Todos</option><option value="sales" <?=($agendaType??'all')==='sales'?'selected':''?>>Comercial</option><?php endif;?>
-       <option value="collection" <?=($agendaType??'all')==='collection'?'selected':''?>>Cobrança</option>
-      </select><?php if($u['role']==='collector'):?><input type="hidden" name="type" value="collection"><?php endif;?></label>
-      <label><span>Período</span><select class="form-select" name="period">
-       <option value="all" <?=($agendaPeriod??'all')==='all'?'selected':''?>>Todos os pendentes</option>
-       <option value="late" <?=($agendaPeriod??'all')==='late'?'selected':''?>>Somente vencidos</option>
-       <option value="today" <?=($agendaPeriod??'all')==='today'?'selected':''?>>Somente hoje</option>
-       <option value="next7" <?=($agendaPeriod??'all')==='next7'?'selected':''?>>Próximos 7 dias</option>
-       <option value="upcoming" <?=($agendaPeriod??'all')==='upcoming'?'selected':''?>>Todos os próximos</option>
-      </select></label>
-      <button class="tda-btn tda-btn-filter" type="submit"><i class="fa-solid fa-magnifying-glass"></i>Aplicar filtros</button>
-      <a class="tda-btn" href="<?=APP_URL?>/agenda"><i class="fa-solid fa-rotate-left"></i>Limpar</a>
+    <nav class="tdw-priority-strip tdw-agenda-strip" aria-label="Situação da agenda">
+     <?php foreach([
+      'late'=>['Atrasados',$agendaLate,'fa-triangle-exclamation','danger'],
+      'today'=>['Hoje',$agendaTodayCount,'fa-clock','warning'],
+      'upcoming'=>['Próximos',$agendaUpcoming,'fa-calendar-check','green'],
+      'all'=>['Todos pendentes',$agendaTotal,'fa-list-check','neutral']
+     ] as $key=>$item):?>
+      <a class="tdw-priority <?=$item[3]?> <?=($agendaPeriod??'all')===$key?'active':''?>" href="<?=$agendaUrl(['period'=>$key])?>"><span><i class="fa-solid <?=$item[2]?>"></i></span><div><small><?=$item[0]?></small><strong><?=number_format($item[1],0,',','.')?></strong></div></a>
+     <?php endforeach;?>
+    </nav>
+
+    <section class="tdw-filter-shell">
+     <form method="get" class="tdw-filter-form tdw-agenda-filters">
+      <label><span>Período</span><select class="form-select" name="period"><option value="all" <?=($agendaPeriod??'all')==='all'?'selected':''?>>Todos pendentes</option><option value="late" <?=($agendaPeriod??'all')==='late'?'selected':''?>>Atrasados</option><option value="today" <?=($agendaPeriod??'all')==='today'?'selected':''?>>Hoje</option><option value="next7" <?=($agendaPeriod??'all')==='next7'?'selected':''?>>Próximos 7 dias</option><option value="upcoming" <?=($agendaPeriod??'all')==='upcoming'?'selected':''?>>Próximos</option></select></label>
+      <label><span>Área</span><select class="form-select" name="type" <?=$u['role']==='collector'?'disabled':''?>><?php if($u['role']!=='collector'):?><option value="all" <?=($agendaType??'all')==='all'?'selected':''?>>Todas</option><option value="sales" <?=($agendaType??'all')==='sales'?'selected':''?>>Comercial</option><?php endif;?><option value="collection" <?=($agendaType??'all')==='collection'?'selected':''?>>Cobrança</option></select><?php if($u['role']==='collector'):?><input type="hidden" name="type" value="collection"><?php endif;?></label>
+      <?php if(!empty($teamAgenda)):?><label><span>Responsável</span><select class="form-select" name="user_id"><option value="0">Toda a equipe</option><?php foreach($agendaUsers??[] as $agendaUser):?><option value="<?=(int)$agendaUser['id']?>" <?=((int)($agendaFilterUser??0)===(int)$agendaUser['id'])?'selected':''?>><?=e($agendaUser['name'])?> · <?=e($agendaRoleLabels[$agendaUser['role']]??$agendaUser['role'])?></option><?php endforeach;?></select></label><?php endif;?>
+      <label><span>Criada em</span><input class="form-control" type="date" name="created_date" value="<?=e($agendaCreatedDate??'')?>"></label>
+      <div class="tdw-filter-actions"><button class="tdw-btn primary" type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button><a class="tdw-icon-btn" href="<?=APP_URL?>/agenda" title="Limpar filtros"><i class="fa-solid fa-rotate-left"></i></a></div>
      </form>
     </section>
 
-    <div class="tda-kpis">
-     <a class="tda-kpi red <?=($agendaPeriod??'all')==='late'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'late']))?>"><b><?=round($agendaTotal?$agendaLate/$agendaTotal*100:0)?>%</b><span><i class="fa-solid fa-triangle-exclamation"></i></span><small>Vencidos</small><strong><?=number_format($agendaLate,0,',','.')?></strong><em>Compromissos em atraso</em></a>
-     <a class="tda-kpi yellow <?=($agendaPeriod??'all')==='today'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'today']))?>"><b><?=round($agendaTotal?$agendaTodayCount/$agendaTotal*100:0)?>%</b><span><i class="fa-regular fa-clock"></i></span><small>Hoje</small><strong><?=number_format($agendaTodayCount,0,',','.')?></strong><em>Compromissos para hoje</em></a>
-     <a class="tda-kpi blue <?=($agendaPeriod??'all')==='upcoming'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($agendaQueryBase+['period'=>'upcoming']))?>"><b><?=round($agendaTotal?$agendaUpcoming/$agendaTotal*100:0)?>%</b><span><i class="fa-regular fa-calendar-plus"></i></span><small>Próximos</small><strong><?=number_format($agendaUpcoming,0,',','.')?></strong><em>Compromissos nos próximos dias</em></a>
-     <a class="tda-kpi green <?=($agendaType??'all')==='collection'?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($collectionKpiQuery))?>"><b><?=round($agendaTotal?$agendaCollection/$agendaTotal*100:0)?>%</b><span><i class="fa-solid fa-coins"></i></span><small>Cobrança</small><strong><?=number_format($agendaCollection,0,',','.')?></strong><em>Compromissos financeiros</em></a>
+    <div class="tdw-agenda-layout">
+     <main class="tdw-agenda-main">
+      <?php foreach(['late'=>['Atrasados','Compromissos que já passaram do prazo.','danger'],'today'=>['Hoje','O que precisa ser executado hoje.','warning'],'upcoming'=>['Próximos','Retornos já planejados para os próximos dias.','green']] as $groupKey=>$groupMeta):
+       if(($agendaPeriod??'all')!=='all'&&($agendaPeriod??'all')!=='next7'&&($agendaPeriod??'all')!==$groupKey)continue;?>
+       <section class="tdw-agenda-group <?=$groupMeta[2]?>">
+        <header><div><span><i class="fa-solid <?=$groupKey==='late'?'fa-triangle-exclamation':($groupKey==='today'?'fa-clock':'fa-calendar-check')?>"></i></span><div><strong><?=$groupMeta[0]?></strong><small><?=$groupMeta[1]?></small></div></div><b><?=count($groups[$groupKey])?></b></header>
+        <div class="tdw-task-list">
+         <?php foreach($groups[$groupKey] as $r):
+          $due=strtotime((string)$r['due_at']);$created=strtotime((string)$r['created_at']);$isCollection=($r['type']??'')==='collection';
+          $taskAccountCode=trim((string)($r['crm_account_code']??''));$taskHref=$isCollection?APP_URL.'/collection/'.(int)$r['client_id']:($taskAccountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($taskAccountCode):APP_URL.'/clients/'.(int)$r['client_id']);
+          $taskTypeCode=(string)($r['task_type_code']??'');$taskTypeName=$taskTypeLabels[$taskTypeCode]??'Retorno / outro';
+         ?>
+          <article class="tdw-task">
+           <div class="tdw-task-time"><strong><?=date($groupKey==='today'?'H:i':'d/m',$due)?></strong><small><?=date('H:i',$due)?></small></div>
+           <div class="tdw-task-main"><div class="tdw-task-account"><a href="<?=$taskHref?>"><?=e((string)$r['name'])?></a><div class="tdw-inline-tags"><span class="<?=$isCollection?'collection':'sales'?>"><?=$isCollection?'Cobrança':'Comercial'?></span><?php if($taskAccountCode!==''&&empty($r['client_id'])):?><span class="prospect">Prospect</span><?php elseif($taskAccountCode!==''):?><span class="linked">Conta vinculada</span><?php endif;?></div></div><p><?=e((string)$r['title'])?></p><footer><span><i class="fa-regular fa-user"></i><?=e((string)($r['assigned_name']??'Não identificado'))?></span><span><i class="fa-solid fa-list-check"></i><?=e($taskTypeName)?></span><span><i class="fa-regular fa-calendar-plus"></i>Criada <?=date('d/m/Y',$created)?></span></footer></div>
+           <div class="tdw-task-actions">
+            <button class="tdw-icon-btn" type="button" title="Ver tarefa" data-agenda-task-action="view" data-task-id="<?=(int)$r['id']?>"><i class="fa-regular fa-eye"></i></button>
+            <button class="tdw-icon-btn" type="button" title="Editar" data-agenda-task-action="edit" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-pen"></i></button>
+            <button class="tdw-icon-btn" type="button" title="Reagendar" data-agenda-task-action="reschedule" data-task-id="<?=(int)$r['id']?>"><i class="fa-regular fa-calendar-plus"></i></button>
+            <button class="tdw-icon-btn done" type="button" title="Concluir" data-agenda-task-action="complete" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-check"></i></button>
+            <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><input type="hidden" name="created_date" value="<?=e($agendaCreatedDate??'')?>"><button class="tdw-icon-btn danger" data-confirm="Excluir definitivamente esta tarefa da agenda de <?=e((string)$r['name'])?>?" data-confirm-title="Excluir tarefa" data-confirm-label="Excluir" data-confirm-tone="danger" title="Excluir"><i class="fa-regular fa-trash-can"></i></button></form>
+           </div>
+          </article>
+         <?php endforeach;?>
+         <?php if(empty($groups[$groupKey])):?><div class="tdw-empty compact"><span><i class="fa-solid fa-circle-check"></i></span><strong>Nada em <?=$groupMeta[0]?></strong><p>Não há compromissos nesta faixa para os filtros atuais.</p></div><?php endif;?>
+        </div>
+       </section>
+      <?php endforeach;?>
+     </main>
+
+     <aside class="tdw-agenda-side">
+      <?php if(!empty($teamAgenda)):?>
+       <section class="tdw-panel tdw-team-load"><header class="tdw-panel-head"><div><strong>Carga da equipe</strong><small>Pendências por responsável.</small></div></header><div><?php foreach($agendaWorkload??[] as $work):$initial=mb_strtoupper(mb_substr((string)$work['name'],0,1));?><a href="<?=$agendaUrl(['user_id'=>(int)$work['id']])?>" class="<?=((int)($agendaFilterUser??0)===(int)$work['id'])?'active':''?>"><span class="tdw-mini-avatar"><?=$initial?></span><div><strong><?=e((string)$work['name'])?></strong><small><?=e($agendaRoleLabels[$work['role']]??$work['role'])?></small></div><p><b><?=(int)$work['late_count']?></b> atras. <b><?=(int)$work['today_count']?></b> hoje</p><em><?=(int)$work['total']?></em></a><?php endforeach;?><?php if(empty($agendaWorkload)):?><div class="tdw-empty compact"><strong>Equipe sem pendências</strong><p>Nenhuma tarefa para os filtros atuais.</p></div><?php endif;?></div></section>
+      <?php endif;?>
+      <section class="tdw-panel tdw-agenda-summary"><header class="tdw-panel-head"><div><strong>Resumo operacional</strong><small>Leitura rápida da fila atual.</small></div></header><dl><div><dt>Atrasados</dt><dd class="danger"><?=$agendaLate?></dd></div><div><dt>Hoje</dt><dd class="warning"><?=$agendaTodayCount?></dd></div><div><dt>Próximos</dt><dd class="green"><?=$agendaUpcoming?></dd></div><div><dt>Cobrança</dt><dd><?=$agendaCollection?></dd></div></dl></section>
+     </aside>
     </div>
 
-     <div class="tda-insights <?=empty($teamAgenda)?'single':''?>">
-    <?php if(!empty($teamAgenda)):?>
-     <section class="tda-team">
-      <div class="tda-section-head"><div><span><i class="fa-solid fa-people-group"></i></span><div><strong>Carga da equipe</strong><small>Acompanhe a quantidade de compromissos por responsável.</small></div></div><a href="<?=APP_URL?>/agenda"><i class="fa-solid fa-users"></i> Ver detalhes</a></div>
-      <?php if(empty($agendaWorkload)):?>
-       <div class="tda-empty compact"><span><i class="fa-solid fa-circle-check"></i></span><div><strong>Equipe sem pendências</strong><p>Não há compromissos pendentes para os filtros atuais.</p></div></div>
-      <?php else:?>
-       <div class="tda-team-grid">
-        <?php foreach($agendaWorkload as $work):$initial=mb_strtoupper(mb_substr((string)$work['name'],0,1));?>
-         <?php $workQuery=['user_id'=>(int)$work['id']];if(($agendaType??'all')!=='all')$workQuery['type']=$agendaType;?>
-         <a class="tda-person <?=((int)($agendaFilterUser??0)===(int)$work['id'])?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($workQuery))?>">
-          <span class="tda-person-avatar"><?=$initial?></span>
-          <div class="tda-person-main"><strong><?=e($work['name'])?></strong><small><?=e($agendaRoleLabels[$work['role']]??$work['role'])?></small></div>
-          <div class="tda-person-stats"><span><b><?=(int)$work['late_count']?></b> venc.</span><span><b><?=(int)$work['today_count']?></b> hoje</span><span><b><?=(int)$work['upcoming_count']?></b> próximos</span></div>
-          <strong class="tda-person-total"><?=(int)$work['total']?></strong>
-         </a>
-        <?php endforeach;?>
-       </div>
-      <?php endif;?>
-     </section>
-    <?php endif;?>
-     <section class="tda-vision">
-      <div class="tda-section-head"><div><span><i class="fa-solid <?=!empty($teamAgenda)?'fa-chart-pie':'fa-user-clock'?>"></i></span><div><strong><?=!empty($teamAgenda)?'Visão da equipe':'Resumo da minha agenda'?></strong><small><?=!empty($teamAgenda)?'Distribuição dos compromissos por situação.':'Leitura rápida dos seus compromissos e retornos.'?></small></div></div><small><?=number_format((int)($vision['total']??0),0,',','.')?> no total</small></div>
-      <?php if(!empty($teamAgenda)):?>
-      <div class="tda-vision-body">
-       <div class="tda-donut" style="--chart:conic-gradient(#2794f2 <?=$visionDegrees['upcoming'][0]?>deg <?=$visionDegrees['upcoming'][1]?>deg,#f2b705 <?=$visionDegrees['today'][0]?>deg <?=$visionDegrees['today'][1]?>deg,#e34a43 <?=$visionDegrees['late'][0]?>deg <?=$visionDegrees['late'][1]?>deg,#08a66a <?=$visionDegrees['done'][0]?>deg <?=$visionDegrees['done'][1]?>deg,#99a8b3 <?=$visionDegrees['other'][0]?>deg <?=$visionDegrees['other'][1]?>deg)"><span><strong><?=number_format((int)($vision['total']??0),0,',','.')?></strong><small>total</small></span></div>
-       <div class="tda-legend"><?php foreach(['upcoming'=>['Próximos','blue'],'today'=>['Hoje','yellow'],'late'=>['Vencidos','red'],'done'=>['Concluídos','green'],'other'=>['Outros','gray']] as $visionKey=>$visionMeta):$visionValue=$visionValues[$visionKey];?><div><span><i class="<?=$visionMeta[1]?>"></i><?=$visionMeta[0]?></span><strong><?=number_format($visionValue,0,',','.')?></strong><b><?=round($visionValue/$visionTotal*100)?>%</b></div><?php endforeach;?></div>
+    <dialog class="tda-task-modal tdw-task-modal" data-agenda-task-modal>
+     <form data-agenda-task-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="mode" value="view" data-agenda-task-mode>
+      <header><span data-agenda-task-icon><i class="fa-solid fa-eye"></i></span><div><small>AGENDA / TAREFA</small><strong data-agenda-task-heading>Tarefa completa</strong><p><b data-agenda-task-client>Carregando...</b><em data-agenda-task-status></em></p></div><button type="button" data-agenda-task-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="tda-task-body">
+       <section class="tda-task-client-card"><div class="tda-task-client-identity"><span><i class="fa-regular fa-building"></i></span><div><small>CONTA / CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div><div class="tda-task-client-insights" aria-label="Resumo da tarefa"><article><small>Área</small><strong data-agenda-task-card-context>—</strong></article><article><small>Tipo</small><strong data-agenda-task-card-type>—</strong></article><article><small>Responsável</small><strong data-agenda-task-card-assigned>—</strong></article><article><small>Prazo</small><strong data-agenda-task-card-due>—</strong></article></div><a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cadastro</a></section>
+       <div class="tda-task-summary"><div class="created"><small>Criada em</small><strong data-agenda-task-created>—</strong></div><div class="creator"><small>Criada por</small><strong data-agenda-task-created-by>—</strong></div><div class="status"><small>Status</small><strong data-agenda-task-status-label>—</strong></div><div class="updated"><small>Última alteração</small><strong data-agenda-task-updated>—</strong></div></div>
+       <div class="tda-task-grid"><label><span>Área</span><select class="form-select" name="context" data-agenda-task-context><option value="sales">Comercial</option><option value="collection">Cobrança</option></select></label><label><span>Tipo de tarefa</span><select class="form-select" name="task_type_code" data-agenda-task-type></select></label><label><span>Responsável</span><select class="form-select" name="assigned_user_id" data-agenda-task-assigned></select></label><label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" data-agenda-task-due></label><label class="wide"><span>Descrição da tarefa</span><textarea class="form-control" name="title" rows="5" maxlength="2000" data-agenda-task-description></textarea></label></div>
+       <section class="tda-task-completion" data-agenda-task-completion hidden><header><span><i class="fa-solid fa-check"></i></span><div><strong>Conclusão da tarefa</strong><small>Registre o resultado e complemente a informação antes de encerrar.</small></div></header><div class="tda-task-grid"><label><span>Resultado do atendimento <small>opcional</small></span><select class="form-select" name="completion_result_code" data-agenda-task-result><option value="">Somente concluir tarefa</option></select></label><label class="wide"><span>Observação de conclusão <small>opcional</small></span><textarea class="form-control" name="completion_notes" rows="6" maxlength="10000" placeholder="Ex.: cliente confirmou recebimento, proposta encaminhada, retorno concluído..." data-agenda-task-notes></textarea></label></div></section>
       </div>
-      <?php else:?>
-       <div class="tda-personal-status"><?php foreach(['upcoming'=>['Próximos','blue','fa-calendar-check'],'today'=>['Hoje','yellow','fa-clock'],'late'=>['Vencidos','red','fa-triangle-exclamation'],'done'=>['Concluídos','green','fa-circle-check'],'other'=>['Outros','gray','fa-layer-group']] as $visionKey=>$visionMeta):$visionValue=$visionValues[$visionKey];?><article class="<?=$visionMeta[1]?>"><span><i class="fa-solid <?=$visionMeta[2]?>"></i></span><div><small><?=$visionMeta[0]?></small><strong><?=number_format($visionValue,0,',','.')?></strong><em><?=round($visionValue/$visionTotal*100)?>% do total</em></div></article><?php endforeach;?></div>
-      <?php endif;?>
-     </section>
-     </div>
-
-    <section class="tda-list table-card">
-     <div class="tda-list-head"><div class="tda-list-title"><span><i class="fa-solid fa-list-check"></i></span><div><strong>Compromissos</strong><small>Gerencie os compromissos da equipe, filtre, visualize e acompanhe cada retorno.</small></div></div><button class="tda-btn tda-btn-primary" type="button" data-global-task-open data-task-context="<?=$u['role']==='collector'?'collection':'sales'?>"><i class="fa-solid fa-plus"></i>Nova tarefa</button></div>
-     <div class="tda-list-tabs"><?php foreach(['upcoming'=>['Próximos',$agendaUpcoming,'fa-folder-open'],'late'=>['Vencidos',$agendaLate,'fa-triangle-exclamation'],'today'=>['Hoje',$agendaTodayCount,'fa-clock'],'all'=>['Todos',$agendaTotal,'fa-list']] as $tabValue=>$tabInfo):$tabQuery=$agendaQueryBase;if($tabValue!=='all')$tabQuery['period']=$tabValue;?><a class="<?=($agendaPeriod??'all')===$tabValue?'active':''?>" href="<?=APP_URL?>/agenda?<?=e(http_build_query($tabQuery))?>"><i class="fa-solid <?=$tabInfo[2]?>"></i><?=$tabInfo[0]?> (<?=$tabInfo[1]?>)</a><?php endforeach;?></div>
-     <div class="tda-table-wrap">
-      <table class="table tda-table" data-page-length="5">
-       <thead><tr><th>Data de criação</th><th>Data do agendamento</th><th>Conta / Cliente</th><th>Descrição</th><th>Tipo</th><th>Responsável</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead>
-       <tbody><?php foreach($rows as $r):$due=strtotime((string)$r['due_at']);$created=strtotime((string)$r['created_at']);$isLate=date('Y-m-d',$due)<date('Y-m-d');$isToday=date('Y-m-d',$due)===date('Y-m-d');$isCollection=($r['type']??'')==='collection';$responsibleInitial=mb_strtoupper(mb_substr((string)($r['assigned_name']??''),0,1));?>
-        <tr>
-         <td data-order="<?=$created?>"><strong><?=date('d/m/Y H:i',$created)?></strong></td>
-         <td data-order="<?=$due?>"><strong><?=date('d/m/Y H:i',$due)?></strong></td>
-         <td><?php $taskAccountCode=trim((string)($r['crm_account_code']??''));$taskHref=$isCollection?APP_URL.'/collection/'.(int)$r['client_id']:($taskAccountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($taskAccountCode):APP_URL.'/clients/'.(int)$r['client_id']);?><a class="tda-table-client" href="<?=$taskHref?>"><?=e($r['name'])?></a><?php if($taskAccountCode!==''&&empty($r['client_id'])):?><small class="tda-entity-hint"><i class="fa-solid fa-seedling"></i>Prospect / Conta CRM</small><?php elseif($taskAccountCode!==''):?><small class="tda-entity-hint"><i class="fa-solid fa-link"></i>Conta CRM vinculada</small><?php endif;?></td>
-         <td><span class="tda-description"><?=e($r['title'])?></span></td>
-         <td><?php $taskTypeCode=(string)($r['task_type_code']??'');$taskTypeName=$taskTypeLabels[$taskTypeCode]??'Retorno / outro';?><span class="tda-type <?=$isCollection?'collection':''?>"><i class="fa-solid <?=$isCollection?'fa-hand-holding-dollar':'fa-list-check'?>"></i><?=e($taskTypeName)?></span><small class="tda-type-context"><?=$isCollection?'Cobrança':'Comercial'?></small></td>
-         <td><span class="tda-owner-cell"><i><?=$responsibleInitial?></i><b><?=e($r['assigned_name']??'Não identificado')?></b></span></td>
-         <td><span class="tda-status <?=$isLate?'late':($isToday?'today':'upcoming')?>"><i class="fa-regular <?=$isLate?'fa-circle-xmark':($isToday?'fa-clock':'fa-calendar-check')?>"></i><?=$isLate?'Vencido':($isToday?'Hoje':'Agendado')?></span></td>
-         <td><div class="tda-actions compact">
-          <button class="tda-btn tda-btn-open" type="button" title="Ver tarefa completa" data-agenda-task-action="view" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-eye"></i></button>
-          <button class="tda-btn tda-btn-edit" type="button" title="Editar tarefa completa" data-agenda-task-action="edit" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-pen"></i></button>
-          <button class="tda-btn tda-btn-reschedule" type="button" title="Reagendar tarefa" data-agenda-task-action="reschedule" data-task-id="<?=(int)$r['id']?>"><i class="fa-regular fa-calendar-plus"></i></button>
-          <button class="tda-btn tda-btn-primary" type="button" title="Concluir tarefa" data-agenda-task-action="complete" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-check"></i></button>
-          <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><input type="hidden" name="created_date" value="<?=e($agendaCreatedDate??'')?>"><button class="tda-btn tda-btn-danger" data-confirm="Excluir definitivamente esta tarefa da agenda de <?=e($r['name'])?>?" data-confirm-title="Excluir tarefa" data-confirm-label="Excluir" data-confirm-tone="danger" title="Excluir"><i class="fa-regular fa-trash-can"></i></button></form>
-         </div></td>
-        </tr>
-       <?php endforeach;?></tbody>
-      </table>
-     </div>
-    </section>
-     <dialog class="tda-task-modal" data-agenda-task-modal>
-      <form data-agenda-task-form>
-       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-       <input type="hidden" name="mode" value="view" data-agenda-task-mode>
-       <header>
-        <span data-agenda-task-icon><i class="fa-solid fa-eye"></i></span>
-        <div><small>AGENDA / TAREFA</small><strong data-agenda-task-heading>Tarefa completa</strong><p><b data-agenda-task-client>Carregando...</b><em data-agenda-task-status></em></p></div>
-        <button type="button" data-agenda-task-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
-       </header>
-       <div class="tda-task-body">
-        <section class="tda-task-client-card">
-         <div class="tda-task-client-identity"><span><i class="fa-regular fa-building"></i></span><div><small>CONTA / CLIENTE</small><strong data-agenda-task-client-name>—</strong><p data-agenda-task-client-meta>—</p></div></div>
-         <div class="tda-task-client-insights" aria-label="Resumo da tarefa">
-          <article><small>Área</small><strong data-agenda-task-card-context>—</strong></article>
-          <article><small>Tipo</small><strong data-agenda-task-card-type>—</strong></article>
-          <article><small>Responsável</small><strong data-agenda-task-card-assigned>—</strong></article>
-          <article><small>Prazo</small><strong data-agenda-task-card-due>—</strong></article>
-         </div>
-         <a href="#" data-agenda-task-client-link><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir cadastro</a>
-        </section>
-        <div class="tda-task-summary">
-         <div class="created"><small>Criada em</small><strong data-agenda-task-created>—</strong></div>
-         <div class="creator"><small>Criada por</small><strong data-agenda-task-created-by>—</strong></div>
-         <div class="status"><small>Status</small><strong data-agenda-task-status-label>—</strong></div>
-         <div class="updated"><small>Última alteração</small><strong data-agenda-task-updated>—</strong></div>
-        </div>
-        <div class="tda-task-grid">
-         <label><span>Área</span><select class="form-select" name="context" data-agenda-task-context><option value="sales">Comercial</option><option value="collection">Cobrança</option></select></label>
-         <label><span>Tipo de tarefa</span><select class="form-select" name="task_type_code" data-agenda-task-type></select></label>
-         <label><span>Responsável</span><select class="form-select" name="assigned_user_id" data-agenda-task-assigned></select></label>
-         <label><span>Data e hora</span><input class="form-control" type="datetime-local" name="due_at" data-agenda-task-due></label>
-         <label class="wide"><span>Descrição da tarefa</span><textarea class="form-control" name="title" rows="5" maxlength="2000" data-agenda-task-description></textarea></label>
-        </div>
-        <section class="tda-task-completion" data-agenda-task-completion hidden>
-         <header><span><i class="fa-solid fa-check"></i></span><div><strong>Conclusão da tarefa</strong><small>Registre o resultado e complemente a informação antes de encerrar.</small></div></header>
-         <div class="tda-task-grid">
-          <label><span>Resultado do atendimento <small>opcional</small></span><select class="form-select" name="completion_result_code" data-agenda-task-result><option value="">Somente concluir tarefa</option></select></label>
-          <label class="wide"><span>Observação de conclusão <small>opcional</small></span><textarea class="form-control" name="completion_notes" rows="6" maxlength="10000" placeholder="Ex.: cliente confirmou recebimento, proposta encaminhada, retorno concluído..." data-agenda-task-notes></textarea></label>
-         </div>
-        </section>
-       </div>
-       <footer>
-        <button class="tda-btn" type="button" data-agenda-task-close>Fechar</button>
-        <button class="tda-btn tda-task-submit" type="submit" data-agenda-task-submit hidden><i class="fa-solid fa-check"></i><span>Salvar</span></button>
-       </footer>
-      </form>
-     </dialog>
+      <footer><button class="tda-btn" type="button" data-agenda-task-close>Fechar</button><button class="tda-btn tda-task-submit" type="submit" data-agenda-task-submit hidden><i class="fa-solid fa-check"></i><span>Salvar</span></button></footer>
+     </form>
+    </dialog>
    </section>
-  <?php endif;?>
   <?php break;
 
   case 'management_result':$g=$management['general_goal'];?>
