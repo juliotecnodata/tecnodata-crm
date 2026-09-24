@@ -337,13 +337,21 @@ function ensure_task_detail_columns(): void{
  $ready=true;
 }
 function task_access_row(int $taskId,array $user,bool $pendingOnly=false): ?array{
- ensure_task_detail_columns();$where=['t.id=?'];$params=[$taskId];if($pendingOnly)$where[]="t.status='pending'";
- if(!in_array((string)($user['role']??''),['admin','supervisor'],true)){$where[]='t.assigned_user_id=?';$params[]=(int)($user['id']??0);$where[]='c.crm_inactive=0';}
- return DB::one("SELECT t.*,c.name client_name,c.document client_document,c.city client_city,c.uf client_uf,
+ ensure_task_detail_columns();CommercialSchema::ensure();$where=['t.id=?'];$params=[$taskId];if($pendingOnly)$where[]="t.status='pending'";
+ if(!in_array((string)($user['role']??''),['admin','supervisor'],true)){
+  $where[]='t.assigned_user_id=?';$params[]=(int)($user['id']??0);
+  $where[]="((t.crm_account_code IS NOT NULL AND ca.active=1) OR (t.client_id IS NOT NULL AND c.crm_inactive=0))";
+ }
+ return DB::one("SELECT t.*,
+   COALESCE(NULLIF(ca.trade_name,''),NULLIF(ca.name,''),c.name,'Conta CRM') client_name,
+   COALESCE(ca.document,c.document) client_document,c.city client_city,c.uf client_uf,
+   ca.omie_code account_code,ca.crm_user_code account_owner_code,
+   CASE WHEN t.crm_account_code IS NOT NULL THEN 'crm_account' ELSE 'client' END entity_type,
    assigned.name assigned_name,assigned.role assigned_role,
    creator.name created_by_name,completed.name completed_by_name
   FROM tasks t
-  JOIN clients c ON c.id=t.client_id
+  LEFT JOIN clients c ON c.id=t.client_id
+  LEFT JOIN crm_accounts ca ON ca.omie_code=t.crm_account_code
   JOIN users assigned ON assigned.id=t.assigned_user_id
   LEFT JOIN users creator ON creator.id=t.created_by_user_id
   LEFT JOIN users completed ON completed.id=t.completed_by_user_id
@@ -1890,7 +1898,7 @@ $router->get('/agenda',function(){
  $flash=$_SESSION['agenda_flash']??null;unset($_SESSION['agenda_flash']);
 
  $baseWhere=["t.status='pending'"];$baseParams=[];
- if(!$teamAgenda)$baseWhere[]="EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)";
+ if(!$teamAgenda)$baseWhere[]="((t.crm_account_code IS NOT NULL AND EXISTS (SELECT 1 FROM crm_accounts agenda_account WHERE agenda_account.omie_code=t.crm_account_code AND agenda_account.active=1)) OR (t.client_id IS NOT NULL AND EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)))";
  if($teamAgenda){
   if($filterUser>0){$baseWhere[]='t.assigned_user_id=?';$baseParams[]=$filterUser;}
  }else{
@@ -1906,8 +1914,14 @@ $router->get('/agenda',function(){
  elseif($agendaPeriod==='upcoming')$listWhere[]='t.due_at>=CURDATE()+INTERVAL 1 DAY';
 
  $rows=DB::all(
-  "SELECT t.*,c.name,c.uf,u.name assigned_name,u.role assigned_role
-   FROM tasks t JOIN clients c ON c.id=t.client_id
+  "SELECT t.*,
+          COALESCE(NULLIF(ca.trade_name,''),NULLIF(ca.name,''),c.name,'Conta CRM') name,
+          c.uf,ca.omie_code account_code,
+          CASE WHEN t.crm_account_code IS NOT NULL THEN 'crm_account' ELSE 'client' END entity_type,
+          u.name assigned_name,u.role assigned_role
+   FROM tasks t
+   LEFT JOIN clients c ON c.id=t.client_id
+   LEFT JOIN crm_accounts ca ON ca.omie_code=t.crm_account_code
    JOIN users u ON u.id=t.assigned_user_id
    WHERE ".implode(' AND ',$listWhere)."
    ORDER BY CASE WHEN t.due_at<CURDATE() THEN 0 WHEN t.due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 2 END,t.due_at",
@@ -1931,7 +1945,7 @@ $router->get('/agenda',function(){
   'done_count'=>0,'other_count'=>0
  ];
  if(!$teamAgenda){
-  $personalWhere=['t.assigned_user_id=?',"EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)"];$personalParams=[(int)$u['id']];
+  $personalWhere=['t.assigned_user_id=?',"((t.crm_account_code IS NOT NULL AND EXISTS (SELECT 1 FROM crm_accounts agenda_account WHERE agenda_account.omie_code=t.crm_account_code AND agenda_account.active=1)) OR (t.client_id IS NOT NULL AND EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)))"];$personalParams=[(int)$u['id']];
   if($agendaType!=='all'){$personalWhere[]='t.type=?';$personalParams[]=$agendaType;}
   if($createdDate!==''){$personalWhere[]='t.created_at>=? AND t.created_at<?';array_push($personalParams,$createdDate.' 00:00:00',$createdNext.' 00:00:00');}
   $vision=DB::one(
@@ -2009,7 +2023,7 @@ $router->get('/api/tasks/{id}',function($p){
  $types=['sales'=>task_type_options('sales',false),'collection'=>task_type_options('collection',false)];
  $results=['sales'=>task_result_options('sales'),'collection'=>task_result_options('collection')];
  json_response(['ok'=>true,'current_role'=>(string)($u['role']??''),'task'=>[
-  'id'=>(int)$task['id'],'client_id'=>(int)$task['client_id'],'client_name'=>(string)$task['client_name'],
+  'id'=>(int)$task['id'],'client_id'=>(int)($task['client_id']??0),'crm_account_code'=>(string)($task['crm_account_code']??''),'entity_type'=>(string)($task['entity_type']??'client'),'client_name'=>(string)$task['client_name'],
   'client_document'=>(string)($task['client_document']??''),'client_city'=>(string)($task['client_city']??''),'client_uf'=>(string)($task['client_uf']??''),
   'assigned_user_id'=>(int)$task['assigned_user_id'],'assigned_name'=>(string)$task['assigned_name'],'assigned_role'=>(string)$task['assigned_role'],
   'created_by_name'=>$creatorMeta['label'],'created_by_source'=>$creatorMeta['source'],'created_by_known'=>$creatorMeta['known'],'completed_by_name'=>(string)($task['completed_by_name']??''),
