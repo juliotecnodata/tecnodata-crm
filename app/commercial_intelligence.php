@@ -16,7 +16,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=4;$stateRaw=null;
+  $schemaVersion=5;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
@@ -87,6 +87,37 @@ final class CommercialSchema {
    FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,
    FOREIGN KEY(verified_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
    INDEX idx_crm_links_client(client_id,is_primary)
+  )");
+
+  DB::exec("CREATE TABLE IF NOT EXISTS crm_account_commercial_profiles(
+   crm_account_code VARCHAR(80) PRIMARY KEY,
+   is_cfc TINYINT(1) NOT NULL DEFAULT 0,
+   is_reseller TINYINT(1) NOT NULL DEFAULT 0,
+   strategic_notes TEXT NULL,
+   classification_source VARCHAR(30) NOT NULL DEFAULT 'local',
+   updated_by_user_id INT UNSIGNED NULL,
+   updated_at DATETIME NOT NULL,
+   FOREIGN KEY(updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+   INDEX idx_crm_account_profile_class(is_cfc,is_reseller)
+  )");
+
+  DB::exec("CREATE TABLE IF NOT EXISTS crm_account_commercial_audit(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   crm_account_code VARCHAR(80) NOT NULL,
+   client_id BIGINT UNSIGNED NULL,
+   actor_user_id INT UNSIGNED NULL,
+   field_name VARCHAR(80) NOT NULL,
+   previous_value TEXT NULL,
+   new_value TEXT NULL,
+   source VARCHAR(30) NOT NULL DEFAULT 'tecnodata',
+   sync_status ENUM('pending','synced','error','ignored') NOT NULL DEFAULT 'pending',
+   synced_at DATETIME NULL,
+   sync_error TEXT NULL,
+   created_at DATETIME NOT NULL,
+   FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE SET NULL,
+   FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+   INDEX idx_crm_account_audit_account(crm_account_code,created_at),
+   INDEX idx_crm_account_audit_sync(sync_status,created_at)
   )");
 
   DB::exec("CREATE TABLE IF NOT EXISTS crm_contacts(
@@ -179,6 +210,15 @@ final class CommercialSchema {
              CASE WHEN EXISTS(SELECT 1 FROM client_tags t WHERE t.client_id=c.id AND t.tag_key='revendedor') THEN 1 ELSE 0 END,
              'legacy_tags',NOW()
             FROM clients c WHERE c.active=1");
+
+  if(!DB::scalar("SELECT 1 FROM settings WHERE setting_key='commercial_active_crm_sellers' LIMIT 1")){
+   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_active_crm_sellers',?,NOW())",
+    [json_encode([
+      'crm_user_codes'=>['2403587771','712952964'],
+      'sellers'=>[['code'=>'2403587771','name'=>'Pamela'],['code'=>'712952964','name'=>'Jessica Ribeiro']],
+      'changed_at'=>date('c'),'changed_by'=>null,'notes'=>'Equipe comercial ativa informada em 24/09/2026'
+    ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+  }
 
   DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_intelligence_schema_version',?,NOW())
             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
@@ -346,6 +386,7 @@ final class CommercialPortfolioService {
              ON DUPLICATE KEY UPDATE integration_code=VALUES(integration_code),name=VALUES(name),trade_name=VALUES(trade_name),document=VALUES(document),crm_user_code=VALUES(crm_user_code),vertical_code=VALUES(vertical_code),telemarketing_code=VALUES(telemarketing_code),notes=VALUES(notes),active=1,raw_json=VALUES(raw_json),last_seen_token=VALUES(last_seen_token),updated_at=NOW()",
     [$code,$ident['cCodInt']??null,(string)($ident['cNome']??$ident['cNomeFantasia']??$code),$ident['cNomeFantasia']??null,$document!==''?$document:null,$crmUserCode!==''?$crmUserCode:null,$ident['nCodVert']??null,$ident['nCodTelemkt']??null,$ident['cObs']??null,json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$syncToken]);
 
+   self::seedAccountProfileFromAccount($code,$row);
    $clientId=self::reconcileAccountClient($code,$document,$stats);
    if($clientId>0){
     $ownerUserId=0;$activeSellerCodes=self::activeCrmSellerCodes();
@@ -364,7 +405,7 @@ final class CommercialPortfolioService {
       [$clientId,json_encode(['code'=>$previousOwner?:null,'name'=>$previousName],JSON_UNESCAPED_UNICODE),json_encode(['code'=>$nextOwner?:null,'name'=>$nextName],JSON_UNESCAPED_UNICODE)]);
     }
     if($ownerUserId>0)$stats['owner_linked']++;
-    if(self::seedProfileFromAccount($clientId,$row))$stats['profiles_seeded']++;
+    if(self::mirrorAccountProfileToClient($code,$clientId))$stats['profiles_seeded']++;
    }
 
    self::syncEmbeddedContacts($code,$row);
@@ -518,10 +559,10 @@ final class CommercialPortfolioService {
    'clients_without_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NULL")??0),
    'active_crm_sellers'=>count(self::activeCrmSellerCodes()),
    'clients_with_stale_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0),
-   'profiles'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles")??0),
-   'cfc'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_cfc=1")??0),
-   'resellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_reseller=1")??0),
-   'both'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles WHERE is_cfc=1 AND is_reseller=1")??0),
+   'profiles'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles")??0),
+   'cfc'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles WHERE is_cfc=1")??0),
+   'resellers'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles WHERE is_reseller=1")??0),
+   'both'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles WHERE is_cfc=1 AND is_reseller=1")??0),
    'crm_sync_complete'=>self::crmSyncComplete()?1:0,
    'crm_portfolio_authority'=>self::crmPortfolioReady()?1:0,
    'outbox_pending'=>(int)(DB::scalar("SELECT COUNT(*) FROM sync_outbox WHERE status IN('pending','error')")??0),
