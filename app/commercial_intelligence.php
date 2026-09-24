@@ -16,7 +16,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=6;$stateRaw=null;
+  $schemaVersion=7;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
@@ -216,6 +216,47 @@ final class CommercialSchema {
                    CASE WHEN p.classification_source='local' THEN 'linked_client' ELSE p.classification_source END,NOW()
             FROM crm_account_links l
             JOIN client_commercial_profiles p ON p.client_id=l.client_id");
+
+  $activityColumns=[];foreach(DB::all("SHOW COLUMNS FROM activities") as $row)$activityColumns[(string)$row['Field']]=$row;
+  if(!isset($activityColumns['crm_account_code']))DB::exec("ALTER TABLE activities ADD COLUMN crm_account_code VARCHAR(80) NULL AFTER client_id");
+  if(!isset($activityColumns['activity_type']))DB::exec("ALTER TABLE activities ADD COLUMN activity_type VARCHAR(30) NOT NULL DEFAULT 'contact_completed' AFTER user_id");
+  if(!isset($activityColumns['category_code']))DB::exec("ALTER TABLE activities ADD COLUMN category_code VARCHAR(50) NULL AFTER activity_type");
+  if(!isset($activityColumns['outcome_code']))DB::exec("ALTER TABLE activities ADD COLUMN outcome_code VARCHAR(40) NULL AFTER result");
+  if(isset($activityColumns['client_id'])&&strtoupper((string)($activityColumns['client_id']['Null']??''))!=='YES')DB::exec("ALTER TABLE activities MODIFY COLUMN client_id BIGINT UNSIGNED NULL");
+  $activityIndexes=[];foreach(DB::all("SHOW INDEX FROM activities") as $row)$activityIndexes[(string)$row['Key_name']]=true;
+  if(!isset($activityIndexes['idx_activities_account_date']))DB::exec("ALTER TABLE activities ADD INDEX idx_activities_account_date(crm_account_code,created_at,id)");
+  if(!isset($activityIndexes['idx_activities_account_type']))DB::exec("ALTER TABLE activities ADD INDEX idx_activities_account_type(crm_account_code,activity_type,created_at)");
+
+  $taskColumns=[];foreach(DB::all("SHOW COLUMNS FROM tasks") as $row)$taskColumns[(string)$row['Field']]=$row;
+  if(!isset($taskColumns['crm_account_code']))DB::exec("ALTER TABLE tasks ADD COLUMN crm_account_code VARCHAR(80) NULL AFTER client_id");
+  if(!isset($taskColumns['source_activity_id']))DB::exec("ALTER TABLE tasks ADD COLUMN source_activity_id BIGINT UNSIGNED NULL AFTER task_type_code");
+  if(isset($taskColumns['client_id'])&&strtoupper((string)($taskColumns['client_id']['Null']??''))!=='YES')DB::exec("ALTER TABLE tasks MODIFY COLUMN client_id BIGINT UNSIGNED NULL");
+  $taskIndexes=[];foreach(DB::all("SHOW INDEX FROM tasks") as $row)$taskIndexes[(string)$row['Key_name']]=true;
+  if(!isset($taskIndexes['idx_tasks_account_status_due']))DB::exec("ALTER TABLE tasks ADD INDEX idx_tasks_account_status_due(crm_account_code,status,due_at,id)");
+  if(!isset($taskIndexes['idx_tasks_source_activity']))DB::exec("ALTER TABLE tasks ADD INDEX idx_tasks_source_activity(source_activity_id)");
+
+  DB::exec("CREATE TABLE IF NOT EXISTS crm_account_notes(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   crm_account_code VARCHAR(80) NOT NULL,
+   client_id BIGINT UNSIGNED NULL,
+   user_id INT UNSIGNED NOT NULL,
+   note TEXT NOT NULL,
+   created_at DATETIME NOT NULL,
+   updated_at DATETIME NULL,
+   FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE SET NULL,
+   FOREIGN KEY(user_id) REFERENCES users(id),
+   INDEX idx_account_notes_account_date(crm_account_code,created_at,id)
+  )");
+
+  // Migra histórico legado somente quando o cliente possui uma única Conta CRM.
+  DB::exec("UPDATE activities a
+            JOIN (SELECT client_id,MIN(crm_account_code) crm_account_code FROM crm_account_links GROUP BY client_id HAVING COUNT(*)=1) l ON l.client_id=a.client_id
+            SET a.crm_account_code=l.crm_account_code
+            WHERE a.crm_account_code IS NULL");
+  DB::exec("UPDATE tasks t
+            JOIN (SELECT client_id,MIN(crm_account_code) crm_account_code FROM crm_account_links GROUP BY client_id HAVING COUNT(*)=1) l ON l.client_id=t.client_id
+            SET t.crm_account_code=l.crm_account_code
+            WHERE t.crm_account_code IS NULL");
 
   if(!DB::scalar("SELECT 1 FROM settings WHERE setting_key='commercial_active_crm_sellers' LIMIT 1")){
    DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_active_crm_sellers',?,NOW())",
@@ -949,6 +990,148 @@ final class CommercialAccountService {
                   HAVING account_count>0
                   ORDER BY operational DESC,account_count DESC,cu.name",
    CommercialPortfolioService::activeCrmSellerCodes()?:['__NONE__']);
+ }
+}
+
+final class CommercialActivityService {
+ public static function types(): array{
+  return [
+   ['code'=>'contact_attempt','label'=>'Tentativa de contato','icon'=>'fa-phone-slash'],
+   ['code'=>'contact_completed','label'=>'Contato realizado','icon'=>'fa-comments'],
+   ['code'=>'follow_up','label'=>'Follow-up','icon'=>'fa-arrows-rotate'],
+  ];
+ }
+
+ public static function categories(string $type=''): array{
+  $all=[
+   ['code'=>'commercial','label'=>'Comercial','types'=>['contact_completed']],
+   ['code'=>'relationship','label'=>'Relacionamento','types'=>['contact_completed']],
+   ['code'=>'support','label'=>'Suporte','types'=>['contact_completed']],
+   ['code'=>'update','label'=>'Atualização cadastral','types'=>['contact_completed']],
+   ['code'=>'general_follow_up','label'=>'Acompanhamento','types'=>['contact_completed','follow_up']],
+   ['code'=>'boleto','label'=>'Boleto','types'=>['follow_up']],
+   ['code'=>'freight','label'=>'Frete','types'=>['follow_up']],
+   ['code'=>'media','label'=>'Mídia / artes','types'=>['follow_up']],
+   ['code'=>'proposal','label'=>'Proposta','types'=>['follow_up']],
+   ['code'=>'order_follow_up','label'=>'Acompanhamento de pedido','types'=>['follow_up']],
+   ['code'=>'material','label'=>'Material','types'=>['follow_up']],
+   ['code'=>'customer_return','label'=>'Retorno do cliente','types'=>['follow_up']],
+   ['code'=>'access','label'=>'Acesso','types'=>['follow_up']],
+   ['code'=>'product_guidance','label'=>'Orientação de produto','types'=>['follow_up']],
+   ['code'=>'campaign','label'=>'Campanha','types'=>['follow_up']],
+   ['code'=>'activation','label'=>'Ativação','types'=>['follow_up']],
+   ['code'=>'other','label'=>'Outro','types'=>['contact_completed','follow_up']],
+  ];
+  if($type==='')return $all;
+  return array_values(array_filter($all,static fn($item)=>in_array($type,$item['types'],true)));
+ }
+
+ public static function outcomes(): array{
+  return [
+   ['code'=>'no_answer','label'=>'Não atendeu','types'=>['contact_attempt']],
+   ['code'=>'busy','label'=>'Ocupado / indisponível','types'=>['contact_attempt']],
+   ['code'=>'wrong_contact','label'=>'Contato incorreto','types'=>['contact_attempt']],
+   ['code'=>'message_left','label'=>'Mensagem enviada','types'=>['contact_attempt']],
+   ['code'=>'contact','label'=>'Contato realizado','types'=>['contact_completed']],
+   ['code'=>'interested','label'=>'Interessado','types'=>['contact_completed']],
+   ['code'=>'not_interested','label'=>'Sem interesse agora','types'=>['contact_completed']],
+   ['code'=>'information','label'=>'Informação prestada','types'=>['contact_completed']],
+   ['code'=>'pending','label'=>'Pendente de retorno','types'=>['contact_completed','follow_up']],
+   ['code'=>'resolved','label'=>'Resolvido','types'=>['contact_completed','follow_up']],
+   ['code'=>'progress','label'=>'Em andamento','types'=>['follow_up']],
+  ];
+ }
+
+ public static function activityTypeLabel(string $code): string{
+  foreach(self::types() as $item)if($item['code']===$code)return $item['label'];
+  return $code;
+ }
+ public static function categoryLabel(?string $code): string{
+  foreach(self::categories() as $item)if($item['code']===$code)return $item['label'];
+  return (string)$code;
+ }
+ public static function outcomeLabel(?string $code): string{
+  foreach(self::outcomes() as $item)if($item['code']===$code)return $item['label'];
+  return (string)$code;
+ }
+
+ public static function record(string $accountCode,array $user,array $data): array{
+  CommercialSchema::ensure();
+  if(!CommercialAccountService::canWork($user,$accountCode))throw new RuntimeException('Esta Conta CRM não pertence à sua carteira operacional.');
+  $account=CommercialAccountService::get($accountCode);if(!$account)throw new RuntimeException('Conta CRM não encontrada.');
+  $type=trim((string)($data['activity_type']??''));$validTypes=array_column(self::types(),'code');
+  if(!in_array($type,$validTypes,true))throw new RuntimeException('Selecione um tipo de atividade válido.');
+
+  $channel=trim((string)($data['channel']??''));
+  $validChannels=['phone','whatsapp','email','presential','video','chat','other'];
+  if(!in_array($channel,$validChannels,true))throw new RuntimeException('Selecione um canal válido.');
+
+  $category=trim((string)($data['category_code']??''));
+  $validCategories=array_column(self::categories($type),'code');
+  if($type==='contact_attempt')$category='';
+  elseif(!in_array($category,$validCategories,true))throw new RuntimeException('Selecione uma categoria válida para esta atividade.');
+
+  $outcome=trim((string)($data['outcome_code']??''));
+  $validOutcomes=array_values(array_filter(self::outcomes(),static fn($item)=>in_array($type,$item['types'],true)));
+  if(!in_array($outcome,array_column($validOutcomes,'code'),true))throw new RuntimeException('Selecione um resultado válido.');
+
+  $notes=trim((string)($data['notes']??''));if(mb_strlen($notes)>10000)throw new RuntimeException('A anotação deve ter até 10.000 caracteres.');
+  $nextAt=trim((string)($data['next_at']??''));$nextDate=null;
+  if($nextAt!==''){
+   $nextDate=DateTime::createFromFormat('Y-m-d\TH:i',$nextAt);
+   if(!$nextDate||$nextDate->format('Y-m-d\TH:i')!==$nextAt||$nextDate->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida para o retorno.');
+  }
+
+  $clientId=(int)($account['client_id']??0);
+  DB::exec("INSERT INTO activities(client_id,crm_account_code,user_id,activity_type,category_code,channel,result,outcome_code,notes,next_at,created_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,NOW())",
+   [$clientId?:null,$accountCode,(int)$user['id'],$type,$category!==''?$category:null,$channel,$outcome,$outcome,$notes!==''?$notes:null,$nextDate?$nextDate->format('Y-m-d H:i:00'):null]);
+  $activityId=(int)DB::conn()->lastInsertId();
+
+  $taskId=0;
+  if($nextDate){
+   $assignedId=(int)($data['assigned_user_id']??0);
+   if(($user['role']??'')==='seller')$assignedId=(int)$user['id'];
+   if($assignedId<=0){
+    $assignedId=(int)(DB::scalar("SELECT id FROM users WHERE crm_user_omie_code=? AND active=1 AND role='seller' LIMIT 1",[(string)($account['crm_user_code']??'')])??0);
+   }
+   if($assignedId<=0)$assignedId=(int)$user['id'];
+   $assigned=DB::one("SELECT id,name,role FROM users WHERE id=? AND active=1",[$assignedId]);
+   if(!$assigned||!in_array((string)$assigned['role'],['seller','supervisor','admin'],true))throw new RuntimeException('Responsável do retorno inválido.');
+   $title='Retorno · '.self::activityTypeLabel($type);
+   if($category!=='')$title.=' · '.self::categoryLabel($category);
+   DB::exec("INSERT INTO tasks(client_id,crm_account_code,assigned_user_id,created_by_user_id,type,task_type_code,source_activity_id,title,due_at,status,created_at,updated_at)
+             VALUES(?,?,?,?,'sales','return',?,?,?,'pending',NOW(),NOW())",
+    [$clientId?:null,$accountCode,$assignedId,(int)$user['id'],$activityId,$title,$nextDate->format('Y-m-d H:i:00')]);
+   $taskId=(int)DB::conn()->lastInsertId();
+  }
+
+  return ['activity_id'=>$activityId,'task_id'=>$taskId,'account_code'=>$accountCode,'client_id'=>$clientId?:null];
+ }
+
+ public static function addNote(string $accountCode,array $user,string $note): int{
+  CommercialSchema::ensure();
+  if(!CommercialAccountService::canWork($user,$accountCode))throw new RuntimeException('Esta Conta CRM não pertence à sua carteira operacional.');
+  $note=trim($note);if($note==='')throw new RuntimeException('Digite uma observação.');if(mb_strlen($note)>10000)throw new RuntimeException('A observação deve ter até 10.000 caracteres.');
+  $clientId=(int)(DB::scalar("SELECT client_id FROM crm_account_links WHERE crm_account_code=? LIMIT 1",[$accountCode])??0);
+  DB::exec("INSERT INTO crm_account_notes(crm_account_code,client_id,user_id,note,created_at) VALUES(?,?,?,?,NOW())",[$accountCode,$clientId?:null,(int)$user['id'],$note]);
+  return (int)DB::conn()->lastInsertId();
+ }
+
+ public static function history(string $accountCode,int $limit=100): array{
+  CommercialSchema::ensure();$limit=max(1,min(300,$limit));
+  return DB::all("SELECT a.*,u.name user_name,
+                         t.id return_task_id,t.status return_task_status,t.due_at return_due_at
+                  FROM activities a
+                  JOIN users u ON u.id=a.user_id
+                  LEFT JOIN tasks t ON t.source_activity_id=a.id
+                  WHERE a.crm_account_code=?
+                  ORDER BY a.created_at DESC,a.id DESC LIMIT ".$limit,[$accountCode]);
+ }
+
+ public static function notes(string $accountCode,int $limit=100): array{
+  CommercialSchema::ensure();$limit=max(1,min(300,$limit));
+  return DB::all("SELECT n.*,u.name user_name FROM crm_account_notes n JOIN users u ON u.id=n.user_id WHERE n.crm_account_code=? ORDER BY n.created_at DESC,n.id DESC LIMIT ".$limit,[$accountCode]);
  }
 }
 
