@@ -742,7 +742,8 @@ function render(string $name,array $vars=[]): void{
    $pendingOmie=$isLocal||in_array($omieStatus,['pending','pending_update'],true);
    $originInactive=empty($client['active']);$crmInactive=!empty($client['crm_inactive']);
    $loggedUser=Auth::user();$loggedSellerCode=trim((string)($loggedUser['seller_omie_code']??''));$effectiveSellerCode=$effectiveSellerCode??trim((string)($client['seller_omie_code']??''));
-   $operationalAccess=!$originInactive&&!$crmInactive&&(($loggedUser['role']??'')!=='seller'||$effectiveSellerCode===''||$effectiveSellerCode===$loggedSellerCode);
+   $legacyOperationalAccess=(($loggedUser['role']??'')!=='seller'||$effectiveSellerCode===''||$effectiveSellerCode===$loggedSellerCode);
+   $operationalAccess=!$originInactive&&!$crmInactive&&($canCommercialWork??$legacyOperationalAccess);
    $principalSellerName=$sellerName?:($client['seller_omie_code']??'Sem vendedor');$effectiveSellerName=$effectiveSellerName?:'Sem responsável';$omieSellerName=$omieSellerName?:'Sem vendedor';
    ?>
    <section class="tdc-page">
@@ -759,11 +760,19 @@ function render(string $name,array $vars=[]): void{
     <?php if($originInactive):?><div class="tdc-origin-inactive"><span><i class="fa-solid fa-cloud-circle-xmark"></i></span><div><strong>Cadastro inativo na Omie</strong><p>Este registro não participa da operação e não deve ser sincronizado. Para removê-lo do CRM, use “Consultar Omie”; a exclusão reutiliza exatamente essa consulta, sem uma segunda chamada.</p><small>Quando a consulta confirmar inativo=S, a opção de exclusão aparece dentro da própria conferência.</small></div><?php if(Auth::can('admin','supervisor')):?><button type="button" class="tdc-btn" data-client-omie-check data-client-id="<?=(int)$client['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i>Consultar Omie</button><?php endif;?></div><?php endif;?>
     <?php if($crmInactive):?><div class="tdc-crm-inactive"><span><i class="fa-solid fa-user-slash"></i></span><div><strong>Cliente inativo somente no CRM</strong><p>Este cadastro continua intacto na Omie, mas foi retirado das carteiras, buscas, tarefas novas e rotinas operacionais. Somente Admin e Supervisor conseguem visualizá-lo.</p><small>Inativado em <?=!empty($client['crm_inactivated_at'])?date('d/m/Y H:i',strtotime((string)$client['crm_inactivated_at'])):'data não registrada'?><?=!empty($client['crm_inactivated_by_name'])?' por '.e((string)$client['crm_inactivated_by_name']):''?>.</small></div></div><?php endif;?>
 
-    <div class="tdc-responsibility">
-     <div><span>Principal no CRM</span><strong><?=e((string)$principalSellerName)?></strong><small>Responsabilidade definitiva do cadastro</small></div>
-     <div class="<?=!empty($portfolioAssignment)?'monthly':''?>"><span>Carteira <?=$portfolioMonth?date('m/Y',strtotime($portfolioMonth.'-01')):date('m/Y')?></span><strong><?=e((string)$effectiveSellerName)?></strong><small><?=!empty($portfolioAssignment)?'Exceção provisória do mês':'Usando automaticamente o vendedor principal'?></small></div>
-     <div class="<?=trim((string)($client['seller_omie_code']??''))!==trim((string)($client['omie_seller_code']??''))?'divergent':''?>"><span>Vendedor na Omie</span><strong><?=e((string)$omieSellerName)?></strong><small><?=trim((string)($client['seller_omie_code']??''))!==trim((string)($client['omie_seller_code']??''))?'Divergente do principal; pode ser sincronizado':'Alinhado com o cadastro principal'?></small></div>
+    <?php if(!empty($crmPortfolioReady)):?>
+    <div class="tdc-responsibility tdc-responsibility-crm">
+     <div class="official"><span>Responsável oficial · CRM Omie</span><strong><?=e((string)($crmOwnerName??$crmOwnerRemoteName??'Sem responsável mapeado'))?></strong><small><?=!empty($client['crm_owner_omie_code'])?'Código CRM '.e((string)$client['crm_owner_omie_code']):'Conta CRM sem vendedor responsável'?></small></div>
+     <div><span>Conta CRM Omie</span><strong><?=e((string)($crmAccount['trade_name']??$crmAccount['name']??'Não vinculada'))?></strong><small><?=!empty($client['crm_account_code'])?'Conta '.e((string)$client['crm_account_code']):'Aguardando reconciliação por CPF/CNPJ'?></small></div>
+     <div><span>Vendedor do módulo de Vendas</span><strong><?=e((string)$omieSellerName)?></strong><small>Referência de vendas; não define a carteira comercial atual</small></div>
     </div>
+    <?php else:?>
+    <div class="tdc-responsibility">
+     <div><span>Responsável legado</span><strong><?=e((string)$principalSellerName)?></strong><small>Usado somente até concluir a primeira sincronização do CRM Omie</small></div>
+     <div class="<?=!empty($portfolioAssignment)?'monthly':''?>"><span>Carteira <?=$portfolioMonth?date('m/Y',strtotime($portfolioMonth.'-01')):date('m/Y')?></span><strong><?=e((string)$effectiveSellerName)?></strong><small><?=!empty($portfolioAssignment)?'Exceção provisória do mês':'Fallback temporário da carteira atual'?></small></div>
+     <div><span>Vendedor no cadastro Geral Omie</span><strong><?=e((string)$omieSellerName)?></strong><small>Aguardando CRM Omie assumir a autoridade da carteira</small></div>
+    </div>
+    <?php endif;?>
     <?php if(($loggedUser['role']??'')==='seller'&&!$operationalAccess):?><div class="tdc-sync shared"><span class="icon"><i class="fa-solid fa-user-lock"></i></span><div><strong>Cadastro liberado para correção</strong><p>Você pode revisar e corrigir este cliente, mas os contatos e pedidos deste mês pertencem a <?=e((string)$effectiveSellerName)?>.</p></div></div><?php endif;?>
 
     <?php if(!empty($sharedUnassigned)):?>
@@ -775,6 +784,45 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
 
     <nav class="tdc-tabs"><a class="active" href="#tdc-overview"><i class="fa-solid fa-table-columns"></i>Visão geral</a><?php if(sales_flow_enabled()&&!$crmInactive&&!$originInactive):?><a href="<?=APP_URL?>/opportunities?client_id=<?=$client['id']?>"><i class="fa-solid fa-chart-column"></i>Oportunidades</a><?php endif;?><a href="#tdc-history"><i class="fa-regular fa-comments"></i>Histórico</a><a href="#tdc-orders"><i class="fa-solid fa-receipt"></i>Pedidos</a></nav>
+
+    <?php
+     $commercialProfile=$commercialProfile??['is_cfc'=>0,'is_reseller'=>0,'strategic_notes'=>'','classification_source'=>'local'];
+     $commercialAudit=$commercialAudit??[];$crmContacts=$crmContacts??[];
+     $classificationPending=count(array_filter($commercialAudit,static fn($row)=>($row['field_name']??'')==='classification'&&in_array((string)($row['sync_status']??''),['pending','error'],true)));
+     $classificationSource=(string)($commercialProfile['classification_source']??'local');
+     $classificationSourceLabel=['tecnodata'=>'Tecnodata CRM','omie_crm_characteristics'=>'CRM Omie · características','omie_crm_tags'=>'CRM Omie · tags','legacy_tags'=>'Tags legadas','local'=>'Tecnodata CRM'][$classificationSource]??$classificationSource;
+    ?>
+    <div class="tdc-commercial-grid" id="tdc-commercial-profile">
+     <section class="tdc-card tdc-commercial-profile">
+      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-tags"></i></span><div><strong>Classificação do parceiro</strong><small>CFC e Revendedor são classificações independentes e podem coexistir.</small></div></div><span class="tdc-commercial-sync <?=$classificationPending>0?'pending':'ok'?>"><i class="fa-solid <?=$classificationPending>0?'fa-cloud-arrow-up':'fa-circle-check'?>"></i><?=$classificationPending>0?$classificationPending.' alteração(ões) pendente(s)':'Classificação registrada'?></span></div>
+      <div class="tdc-commercial-current">
+       <span class="<?=!empty($commercialProfile['is_cfc'])?'active':'inactive'?>"><i class="fa-solid fa-building-columns"></i>CFC</span>
+       <span class="<?=!empty($commercialProfile['is_reseller'])?'active reseller':'inactive'?>"><i class="fa-solid fa-handshake"></i>Revendedor</span>
+       <?php if(empty($commercialProfile['is_cfc'])&&empty($commercialProfile['is_reseller'])):?><em>Sem classificação comercial definida</em><?php endif;?>
+      </div>
+      <?php if($operationalAccess||Auth::can('admin','supervisor')):?>
+      <form class="tdc-commercial-form" method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/commercial-profile">
+       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+       <div class="tdc-commercial-options">
+        <label><input type="checkbox" name="is_cfc" value="1" <?=!empty($commercialProfile['is_cfc'])?'checked':''?>><span><i class="fa-solid fa-building-columns"></i><b>CFC</b><small>Centro de Formação de Condutores</small></span></label>
+        <label><input type="checkbox" name="is_reseller" value="1" <?=!empty($commercialProfile['is_reseller'])?'checked':''?>><span><i class="fa-solid fa-handshake"></i><b>Revendedor</b><small>Parceiro comercial / revenda</small></span></label>
+       </div>
+       <label class="tdc-commercial-note"><span>Observação estratégica</span><textarea class="form-control" name="strategic_notes" rows="3" maxlength="10000" placeholder="Ex.: prefere WhatsApp, compra na primeira semana do mês..."><?=e((string)($commercialProfile['strategic_notes']??''))?></textarea></label>
+       <footer><small>Origem atual: <?=e($classificationSourceLabel)?>. Alterações são auditadas e entram na fila de sincronização do CRM Omie.</small><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i>Salvar classificação</button></footer>
+      </form>
+      <?php else:?><div class="tdc-commercial-readonly"><i class="fa-solid fa-lock"></i>Você pode consultar esta classificação, mas a edição pertence à carteira responsável.</div><?php endif;?>
+     </section>
+
+     <section class="tdc-card tdc-crm-contacts">
+      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-address-book"></i></span><div><strong>Contatos da Conta CRM</strong><small>Pessoas vinculadas à empresa no CRM Omie.</small></div></div><b><?=count($crmContacts)?></b></div>
+      <div class="tdc-crm-contact-list">
+       <?php foreach(array_slice($crmContacts,0,8) as $crmContact):$contactName=trim((string)($crmContact['name']??'').' '.(string)($crmContact['last_name']??''));?>
+       <article><span><?=e(mb_strtoupper(mb_substr($contactName!==''?$contactName:'?',0,1)))?></span><div><strong><?=e($contactName!==''?$contactName:'Contato sem nome')?></strong><small><?=e((string)($crmContact['position_name']??'Cargo não informado'))?></small><p><?php if(!empty($crmContact['mobile'])):?><a href="tel:<?=e(preg_replace('/\D+/','',(string)$crmContact['mobile']))?>"><i class="fa-solid fa-mobile-screen"></i><?=e((string)$crmContact['mobile'])?></a><?php endif;?><?php if(!empty($crmContact['email'])):?><a href="mailto:<?=e((string)$crmContact['email'])?>"><i class="fa-regular fa-envelope"></i><?=e((string)$crmContact['email'])?></a><?php endif;?></p></div></article>
+       <?php endforeach;?>
+       <?php if(!$crmContacts):?><div class="tdc-crm-contact-empty"><i class="fa-regular fa-address-card"></i><strong>Nenhum contato CRM sincronizado</strong><small>Os dados cadastrais gerais continuam disponíveis abaixo.</small></div><?php endif;?>
+      </div>
+     </section>
+    </div>
 
     <div class="tdc-detail-kpis" id="tdc-overview">
      <article class="tdc-detail-kpi"><span class="icon green"><i class="fa-solid fa-wave-square"></i></span><small>Momento</small><strong><?=e($cycle['label'])?></strong></article>
@@ -812,6 +860,16 @@ function render(string $name,array $vars=[]): void{
      <section class="tdc-card"><div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-regular fa-comments"></i></span><div><strong>Últimos contatos</strong><small>Histórico de relacionamento.</small></div></div></div><div class="tdc-list"><?php $resultLabels=$taskResultLabels??[];foreach($activities as $a):?><div><strong><?=e($resultLabels[$a['result']]??$a['result'])?></strong><small><?=e($a['user_name'])?> • <?=date('d/m/Y H:i',strtotime($a['created_at']))?></small><?php if($a['notes']):?><p><?=nl2br(e($a['notes']))?></p><?php endif;?></div><?php endforeach;?><?php if(!$activities):?><div>Nenhum contato registrado.</div><?php endif;?></div></section>
      <section class="tdc-card" id="tdc-orders"><div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Últimos pedidos</strong><small>Compras mais recentes do cliente.</small></div></div></div><div class="tdc-list"><?php foreach($orders as $o):?><div><a href="<?=APP_URL?>/orders/<?=(int)$o['id']?>"><strong><?=brdate($o['order_date'])?> · <?=e($o['number']??$o['omie_code'])?></strong></a><small><?=money($o['total'])?></small></div><?php endforeach;?><?php if(!$orders):?><div>Nenhum pedido encontrado.</div><?php endif;?></div></section>
     </div>
+    <?php if(!empty($commercialAudit)):?>
+    <section class="tdc-card tdc-commercial-audit">
+     <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico comercial</strong><small>Rastreabilidade das classificações e informações estratégicas.</small></div></div></div>
+     <div class="tdc-commercial-audit-list">
+      <?php foreach(array_slice($commercialAudit,0,15) as $change):$old=json_decode((string)($change['previous_value']??''),true);$new=json_decode((string)($change['new_value']??''),true);?>
+       <div><span class="icon"><i class="fa-solid fa-tags"></i></span><div><strong><?=($change['field_name']??'')==='classification'?'Classificação alterada':'Informação comercial alterada'?></strong><?php if(is_array($old)&&is_array($new)):?><p><?=!empty($old['cfc'])?'CFC ':''?><?=!empty($old['reseller'])?'Revendedor':''?> <i class="fa-solid fa-arrow-right"></i> <?=!empty($new['cfc'])?'CFC ':''?><?=!empty($new['reseller'])?'Revendedor':''?></p><?php endif;?><small><?=e((string)($change['actor_name']??'Sistema'))?> · <?=date('d/m/Y H:i',strtotime((string)$change['created_at']))?> · <?=e((string)($change['source']??'tecnodata'))?> · <?=e((string)($change['sync_status']??''))?></small></div></div>
+      <?php endforeach;?>
+     </div>
+    </section>
+    <?php endif;?>
     <?php if(Auth::can('admin','supervisor')&&!empty($sellerAudit)):?>
     <section class="tdc-card tdc-seller-audit">
      <div class="tdc-card-head"><div class="tdc-card-title"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico de responsabilidade</strong><small>Alterações do vendedor principal, carteira mensal e alinhamento com a Omie.</small></div></div></div>
