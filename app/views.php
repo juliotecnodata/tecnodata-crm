@@ -131,7 +131,7 @@ function render(string $name,array $vars=[]): void{
 
      <div class="tdh-table-wrap">
       <table class="tdh-table">
-       <thead><tr><th>Cliente</th><th>Tipo</th><th>Consultor</th><th>Período de compra</th><th>Último contato</th><th>Dias sem contato</th><th>Última atividade</th><th>Próximo retorno</th><th>Status</th><th>Ações</th></tr></thead>
+       <thead><tr><th class="tdh-col-client">Cliente</th><th class="tdh-col-type">Tipo</th><th class="tdh-col-consultant">Consultor</th><th class="tdh-col-purchase" title="Período de compra">Compra</th><th class="tdh-col-last-contact" title="Último contato">Últ. contato</th><th class="tdh-col-days" title="Dias sem contato">Sem contato</th><th class="tdh-col-last-activity" title="Última atividade">Últ. ativ.</th><th class="tdh-col-next" title="Próximo retorno">Próx. retorno</th><th class="tdh-col-status">Status</th><th class="tdh-col-actions">Ações</th></tr></thead>
        <tbody>
        <?php foreach($rows as $row):
         $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''));$days=(int)($row['days_without_contact']??999999);
@@ -146,16 +146,16 @@ function render(string $name,array $vars=[]): void{
         $lastChannel=!empty($row['last_activity_channel'])?CommercialActivityService::channelLabel((string)$row['last_activity_channel']):'';
        ?>
         <tr>
-         <td><a class="tdh-client" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong><small><?=e((string)($row['document']?:'Documento não informado'))?></small></a></td>
-         <td><span class="tdh-type <?=$typeClass?>"><?=e($typeLabel)?></span></td>
-         <td><span class="tdh-consultant"><i class="fa-solid fa-user"></i><?=e((string)($row['owner_name']?:$u['name']))?></span></td>
-         <td><span class="tdh-cycle"><?=e((string)($row['purchase_cycle']??'Sem histórico'))?></span></td>
-         <td><?php if(!empty($row['last_contact_at'])):?><strong class="tdh-date-main"><?=date('d/m',strtotime((string)$row['last_contact_at']))?></strong><small class="tdh-sub"><?=e($lastChannel!==''?'via '.$lastChannel:'atividade registrada')?></small><?php else:?><strong class="tdh-date-main">—</strong><small class="tdh-sub">sem contato</small><?php endif;?></td>
-         <td><?php if(empty($row['last_contact_at'])):?><span class="tdh-days danger">Nunca</span><?php elseif($days>=30):?><span class="tdh-days danger"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php elseif($days>=15):?><span class="tdh-days warning"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php else:?><span class="tdh-days ok"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php endif;?></td>
-         <td><strong class="tdh-activity"><?=e($activityLabel($row))?></strong><?php if(!empty($row['last_activity_at'])):?><small class="tdh-sub"><i class="fa-regular fa-clock"></i><?=date('d/m',strtotime((string)$row['last_activity_at']))?></small><?php endif;?></td>
-         <td><?php if($nextTs):?><strong class="tdh-next"><i class="fa-regular fa-calendar"></i><?=date('d/m H:i',$nextTs)?></strong><?php else:?><span class="tdh-empty-value">—</span><?php endif;?></td>
-         <td><span class="tdh-status <?=$statusClass?>"><i></i><?=e($statusLabel)?></span></td>
-         <td><div class="tdh-actions">
+         <td class="tdh-col-client"><a class="tdh-client" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong><small><?=e((string)($row['document']?:'Documento não informado'))?></small></a></td>
+         <td class="tdh-col-type"><span class="tdh-type <?=$typeClass?>"><?=e($typeLabel)?></span></td>
+         <td class="tdh-col-consultant"><span class="tdh-consultant"><i class="fa-solid fa-user"></i><?=e((string)($row['owner_name']?:$u['name']))?></span></td>
+         <td class="tdh-col-purchase"><span class="tdh-cycle"><?=e((string)($row['purchase_cycle']??'Sem histórico'))?></span></td>
+         <td class="tdh-col-last-contact"><?php if(!empty($row['last_contact_at'])):?><strong class="tdh-date-main"><?=date('d/m',strtotime((string)$row['last_contact_at']))?></strong><small class="tdh-sub"><?=e($lastChannel!==''?'via '.$lastChannel:'atividade registrada')?></small><?php else:?><strong class="tdh-date-main">—</strong><small class="tdh-sub">sem contato</small><?php endif;?></td>
+         <td class="tdh-col-days"><?php if(empty($row['last_contact_at'])):?><span class="tdh-days danger">Nunca</span><?php elseif($days>=30):?><span class="tdh-days danger"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php elseif($days>=15):?><span class="tdh-days warning"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php else:?><span class="tdh-days ok"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php endif;?></td>
+         <td class="tdh-col-last-activity"><strong class="tdh-activity"><?=e($activityLabel($row))?></strong><?php if(!empty($row['last_activity_at'])):?><small class="tdh-sub"><i class="fa-regular fa-clock"></i><?=date('d/m',strtotime((string)$row['last_activity_at']))?></small><?php endif;?></td>
+         <td class="tdh-col-next"><?php if($nextTs):?><strong class="tdh-next"><i class="fa-regular fa-calendar"></i><?=date('d/m H:i',$nextTs)?></strong><?php else:?><span class="tdh-empty-value">—</span><?php endif;?></td>
+         <td class="tdh-col-status"><span class="tdh-status <?=$statusClass?>"><i></i><?=e($statusLabel)?></span></td>
+         <td class="tdh-col-actions"><div class="tdh-actions">
           <button type="button" class="attempt" data-commercial-activity-open data-activity-type="contact_attempt" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-phone"></i>Tentativa</button>
           <button type="button" class="contact" data-commercial-activity-open data-activity-type="contact_completed" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-comment-dots"></i>Contato</button>
           <button type="button" class="follow" data-commercial-activity-open data-activity-type="follow_up" data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>"><i class="fa-solid fa-clipboard-check"></i>Follow-up</button>
