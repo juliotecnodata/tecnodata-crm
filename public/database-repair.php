@@ -57,7 +57,7 @@ function modifyCol(PDO $pdo,array &$log,string $table,string $column,string $def
 
 $log=[];
 $logicalTables=[
- 'users','sellers','clients','client_metrics','products','categories','financial_accounts','order_stages',
+ 'users','sellers','crm_users','crm_accounts','clients','crm_account_links','crm_contacts','user_omie_identity','client_commercial_profiles','client_commercial_audit','sync_outbox','client_metrics','products','categories','financial_accounts','order_stages',
  'payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders',
  'financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state',
  'omie_order_logs','goals','virtual_seller_goals','collection_assignment_log','order_profiles'
@@ -75,8 +75,17 @@ foreach(preg_split('/;\s*(?:\r?\n|$)/',$schema)?:[] as $statement){
 }
 
 // 2) Normaliza tabelas que podem ter vindo do CRM legado.
+$t=$prefix.'users';
+addCol($pdo,$log,$t,'crm_user_omie_code','VARCHAR(80) NULL AFTER seller_omie_code');
+addIndex($pdo,$log,$t,'idx_users_crm_user','crm_user_omie_code,active');
+
 $t=$prefix.'clients';
 addCol($pdo,$log,$t,'seller_omie_code','VARCHAR(80) NULL AFTER uf');
+addCol($pdo,$log,$t,'crm_account_code','VARCHAR(80) NULL AFTER omie_seller_code');
+addCol($pdo,$log,$t,'crm_owner_omie_code','VARCHAR(80) NULL AFTER crm_account_code');
+addCol($pdo,$log,$t,'crm_owner_user_id','INT UNSIGNED NULL AFTER crm_owner_omie_code');
+addIndex($pdo,$log,$t,'idx_clients_crm_owner','crm_owner_user_id,active,crm_inactive');
+addIndex($pdo,$log,$t,'idx_clients_crm_account','crm_account_code');
 addCol($pdo,$log,$t,'crm_inactive','TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
 addCol($pdo,$log,$t,'crm_inactivated_at','DATETIME NULL AFTER crm_inactive');
 addCol($pdo,$log,$t,'crm_inactivated_by','INT UNSIGNED NULL AFTER crm_inactivated_at');
