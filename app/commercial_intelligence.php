@@ -1015,6 +1015,11 @@ final class CommercialActivityService {
   ];
  }
 
+ public static function channelLabel(string $code): string{
+  foreach(self::channels() as $item)if($item['code']===$code)return $item['label'];
+  return $code;
+ }
+
  public static function types(): array{
   return [
    ['code'=>'contact_attempt','label'=>'Tentativa de contato','icon'=>'fa-phone-slash'],
