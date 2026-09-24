@@ -1036,11 +1036,11 @@ final class CommercialAccountService {
 
  public static function portfolio(array $user,array $filters=[]): array{
   CommercialSchema::ensure();
-  $page=max(1,(int)($filters['page']??1));$perPage=max(10,min(100,(int)($filters['per_page']??25)));
+  $page=max(1,(int)($filters['page']??1));$perPage=max(5,min(100,(int)($filters['per_page']??25)));
   $q=trim((string)($filters['q']??''));$classification=(string)($filters['classification']??'all');
   if(!in_array($classification,['all','cfc','reseller','both','unclassified'],true))$classification='all';
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
-  $attention=(string)($filters['attention']??'all');if(!in_array($attention,['all','overdue','today','never','upcoming','unplanned'],true))$attention='all';
+  $attention=(string)($filters['attention']??'all');if(!in_array($attention,['all','overdue','today','never','stale30','upcoming','unplanned'],true))$attention='all';
   $owner=trim((string)($filters['owner']??''));
   $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next'],true))$sort='urgent';
   $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
@@ -1081,6 +1081,7 @@ final class CommercialAccountService {
   if($attention==='overdue')$where[]="nt.next_due_at<CURDATE()";
   elseif($attention==='today')$where[]="nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY";
   elseif($attention==='never')$where[]='act.last_contact_at IS NULL';
+  elseif($attention==='stale30')$where[]="(act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY)";
   elseif($attention==='upcoming')$where[]="nt.next_due_at>=CURDATE()+INTERVAL 1 DAY";
   elseif($attention==='unplanned')$where[]='nt.next_due_at IS NULL';
 
@@ -1100,7 +1101,7 @@ final class CommercialAccountService {
           LEFT JOIN (
            SELECT crm_account_code,MIN(due_at) next_due_at
            FROM tasks
-           WHERE crm_account_code IS NOT NULL AND status='pending'
+           WHERE crm_account_code IS NOT NULL AND status='pending' AND type='sales'
            GROUP BY crm_account_code
           ) nt ON nt.crm_account_code=a.omie_code";
 
