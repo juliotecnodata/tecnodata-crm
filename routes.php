@@ -740,7 +740,38 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  ]);
 };
 $router->get('/clients',function()use($renderClients){$renderClients(false);});
-$router->get('/my-portfolio',function()use($renderClients){$renderClients(true,'general');});
+
+$renderCommercialPortfolio=function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();
+ $u=Auth::user();$data=CommercialAccountService::portfolio($u,$_GET);
+ $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
+ render('commercial_portfolio',[
+  'portfolio'=>$data,'owners'=>in_array((string)$u['role'],['admin','supervisor'],true)?CommercialAccountService::owners():[],
+  'activeSellerCodes'=>CommercialPortfolioService::activeCrmSellerCodes(),'flash'=>$flash
+ ]);
+};
+$router->get('/my-portfolio',$renderCommercialPortfolio);
+$router->get('/commercial-portfolio',$renderCommercialPortfolio);
+
+$router->get('/commercial/accounts/{code}',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$code=trim((string)$p['code']);
+ $account=CommercialAccountService::get($code);if(!$account){http_response_code(404);exit('Conta CRM não encontrada.');}
+ if(($u['role']??'')==='seller'&&!CommercialAccountService::canWork($u,$code)){http_response_code(403);exit('Esta Conta CRM não pertence à sua carteira operacional.');}
+ $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
+ render('commercial_account',[
+  'account'=>$account,'contacts'=>CommercialAccountService::contacts($code),'profile'=>CommercialAccountService::profile($code),
+  'audit'=>CommercialAccountService::audit($code),'canWork'=>CommercialAccountService::canWork($u,$code),'flash'=>$flash
+ ]);
+});
+
+$router->post('/commercial/accounts/{code}/profile',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$code=trim((string)$p['code']);
+ if(!CommercialAccountService::canWork($u,$code)){http_response_code(403);exit('Sem permissão para alterar esta Conta CRM.');}
+ CommercialAccountService::updateProfile($code,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
+ $_SESSION['commercial_flash']=['type'=>'success','message'=>'Perfil comercial atualizado. A alteração foi auditada e entrou na fila de sincronização do Omie.'];
+ redirect('/commercial/accounts/'.rawurlencode($code));
+});
 $router->get('/clients-ead-reciclagem',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='ead_reciclagem';redirect('/clients?'.http_build_query($query));});
 $router->get('/clients-suporte-pet',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='suporte_pet';redirect('/clients?'.http_build_query($query));});
 $router->get('/clients-sync',function(){
