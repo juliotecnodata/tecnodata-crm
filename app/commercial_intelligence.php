@@ -901,6 +901,7 @@ final class CommercialAccountService {
   $q=trim((string)($filters['q']??''));$classification=(string)($filters['classification']??'all');
   if(!in_array($classification,['all','cfc','reseller','both','unclassified'],true))$classification='all';
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
+  $attention=(string)($filters['attention']??'all');if(!in_array($attention,['all','overdue','today','never','upcoming','unplanned'],true))$attention='all';
   $owner=trim((string)($filters['owner']??''));
   $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
 
@@ -923,6 +924,12 @@ final class CommercialAccountService {
 
   if($link==='linked')$where[]='l.client_id IS NOT NULL';
   elseif($link==='prospect')$where[]='l.client_id IS NULL';
+
+  if($attention==='overdue')$where[]="nt.next_due_at<CURDATE()";
+  elseif($attention==='today')$where[]="nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY";
+  elseif($attention==='never')$where[]='act.last_contact_at IS NULL';
+  elseif($attention==='upcoming')$where[]="nt.next_due_at>=CURDATE()+INTERVAL 1 DAY";
+  elseif($attention==='unplanned')$where[]='nt.next_due_at IS NULL';
 
   if($classification==='cfc')$where[]='COALESCE(ap.is_cfc,0)=1';
   elseif($classification==='reseller')$where[]='COALESCE(ap.is_reseller,0)=1';
@@ -948,7 +955,13 @@ final class CommercialAccountService {
            FROM activities
            WHERE crm_account_code IS NOT NULL
            GROUP BY crm_account_code
-          ) act ON act.crm_account_code=a.omie_code";
+          ) act ON act.crm_account_code=a.omie_code
+          LEFT JOIN (
+           SELECT crm_account_code,MIN(due_at) next_due_at
+           FROM tasks
+           WHERE crm_account_code IS NOT NULL AND status='pending'
+           GROUP BY crm_account_code
+          ) nt ON nt.crm_account_code=a.omie_code";
 
   $total=(int)(DB::scalar("SELECT COUNT(*)".$join." WHERE ".$whereSql,$params)??0);
   $pages=max(1,(int)ceil($total/$perPage));$page=min($page,$pages);$offset=($page-1)*$perPage;
@@ -957,14 +970,22 @@ final class CommercialAccountService {
                         cu.name owner_name,cu.email owner_email,
                         COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,ap.classification_source,
                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,
-                        act.last_contact_at,
+                        act.last_contact_at,nt.next_due_at,
                         CASE WHEN act.last_contact_at IS NULL THEN 999999 ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
                  ".$join."
                  WHERE ".$whereSql."
-                 ORDER BY CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END ASC,act.last_contact_at ASC,a.trade_name ASC,a.name ASC
+                 ORDER BY
+                  CASE
+                   WHEN nt.next_due_at<CURDATE() THEN 0
+                   WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1
+                   WHEN act.last_contact_at IS NULL THEN 2
+                   ELSE 3
+                  END,
+                  CASE WHEN nt.next_due_at IS NOT NULL THEN nt.next_due_at END ASC,
+                  act.last_contact_at ASC,a.trade_name ASC,a.name ASC
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
-  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($where,$params),'filters'=>compact('q','classification','link','owner','scope')];
+  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($where,$params),'filters'=>compact('q','classification','link','attention','owner','scope')];
  }
 
  private static function stats(array $where,array $params): array{
@@ -980,13 +1001,23 @@ final class CommercialAccountService {
            FROM activities
            WHERE crm_account_code IS NOT NULL
            GROUP BY crm_account_code
-          ) act ON act.crm_account_code=a.omie_code";
+          ) act ON act.crm_account_code=a.omie_code
+          LEFT JOIN (
+           SELECT crm_account_code,MIN(due_at) next_due_at
+           FROM tasks
+           WHERE crm_account_code IS NOT NULL AND status='pending'
+           GROUP BY crm_account_code
+          ) nt ON nt.crm_account_code=a.omie_code";
   return DB::one("SELECT COUNT(*) total,
                          SUM(CASE WHEN l.client_id IS NOT NULL THEN 1 ELSE 0 END) linked,
                          SUM(CASE WHEN l.client_id IS NULL THEN 1 ELSE 0 END) prospects,
                          SUM(CASE WHEN act.last_contact_at IS NULL THEN 1 ELSE 0 END) never_contacted,
-                         SUM(CASE WHEN act.last_contact_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(act.last_contact_at))>60 THEN 1 ELSE 0 END) over60
-                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0];
+                         SUM(CASE WHEN act.last_contact_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(act.last_contact_at))>60 THEN 1 ELSE 0 END) over60,
+                         SUM(CASE WHEN nt.next_due_at<CURDATE() THEN 1 ELSE 0 END) overdue_count,
+                         SUM(CASE WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) today_count,
+                         SUM(CASE WHEN nt.next_due_at>=CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) upcoming_count,
+                         SUM(CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END) unplanned_count
+                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
  }
 
  public static function owners(): array{
