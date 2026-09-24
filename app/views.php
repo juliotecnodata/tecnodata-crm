@@ -85,11 +85,11 @@ function render(string $name,array $vars=[]): void{
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <div class="tdh-kpis">
-     <a class="tdh-kpi danger" href="<?=APP_URL?>/my-portfolio?attention=stale30">
+     <a class="tdh-kpi orange" href="<?=APP_URL?>/my-portfolio?attention=stale30">
       <span class="tdh-kpi-icon"><i class="fa-regular fa-clock"></i></span>
       <div><small>Clientes sem contato há 30+ dias</small><strong><?=number_format((int)($home['stale']['count']??0),0,',','.')?></strong><p>Necessitam de atenção</p></div>
      </a>
-     <a class="tdh-kpi orange" href="<?=APP_URL?>/agenda?period=late&type=sales">
+     <a class="tdh-kpi danger" href="<?=APP_URL?>/agenda?period=late&type=sales">
       <span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-xmark"></i></span>
       <div><small>Retornos atrasados</small><strong><?=number_format((int)($home['overdue']['count']??0),0,',','.')?></strong><p>Pendentes de contato</p></div>
      </a>
