@@ -1140,47 +1140,38 @@ final class CommercialAccountService {
 final class CommercialActivityService {
  public static function channels(): array{
   return [
-   ['code'=>'phone','label'=>'Ligação','icon'=>'fa-phone'],
    ['code'=>'whatsapp','label'=>'WhatsApp','icon'=>'fa-brands fa-whatsapp'],
+   ['code'=>'phone','label'=>'Ligação','icon'=>'fa-phone'],
    ['code'=>'email','label'=>'E-mail','icon'=>'fa-envelope'],
    ['code'=>'presential','label'=>'Presencial','icon'=>'fa-user-group'],
-   ['code'=>'video','label'=>'Videoconferência','icon'=>'fa-video'],
    ['code'=>'other','label'=>'Outro','icon'=>'fa-ellipsis'],
   ];
  }
 
  public static function channelLabel(string $code): string{
+  if($code==='video')return 'Videoconferência';
   foreach(self::channels() as $item)if($item['code']===$code)return $item['label'];
   return $code;
  }
 
  public static function types(): array{
   return [
-   ['code'=>'contact_attempt','label'=>'Tentativa de contato','icon'=>'fa-phone-slash'],
-   ['code'=>'contact_completed','label'=>'Contato realizado','icon'=>'fa-comments'],
-   ['code'=>'follow_up','label'=>'Follow-up','icon'=>'fa-arrows-rotate'],
+   ['code'=>'contact_attempt','label'=>'Tentativa de contato','icon'=>'fa-phone'],
+   ['code'=>'contact_completed','label'=>'Contato realizado','icon'=>'fa-comment-dots'],
+   ['code'=>'follow_up','label'=>'Follow-up / Atividade','icon'=>'fa-clipboard-check'],
+   ['code'=>'sale','label'=>'Venda','icon'=>'fa-dollar-sign'],
   ];
  }
 
  public static function categories(string $type=''): array{
+  $types=['contact_attempt','contact_completed','follow_up','sale'];
   $all=[
-   ['code'=>'commercial','label'=>'Comercial','types'=>['contact_completed']],
-   ['code'=>'relationship','label'=>'Relacionamento','types'=>['contact_completed']],
-   ['code'=>'support','label'=>'Suporte','types'=>['contact_completed']],
-   ['code'=>'update','label'=>'Atualização cadastral','types'=>['contact_completed']],
-   ['code'=>'general_follow_up','label'=>'Acompanhamento','types'=>['contact_completed','follow_up']],
-   ['code'=>'boleto','label'=>'Boleto','types'=>['follow_up']],
-   ['code'=>'freight','label'=>'Frete','types'=>['follow_up']],
-   ['code'=>'media','label'=>'Mídia / artes','types'=>['follow_up']],
-   ['code'=>'proposal','label'=>'Proposta','types'=>['follow_up']],
-   ['code'=>'order_follow_up','label'=>'Acompanhamento de pedido','types'=>['follow_up']],
-   ['code'=>'material','label'=>'Material','types'=>['follow_up']],
-   ['code'=>'customer_return','label'=>'Retorno do cliente','types'=>['follow_up']],
-   ['code'=>'access','label'=>'Acesso','types'=>['follow_up']],
-   ['code'=>'product_guidance','label'=>'Orientação de produto','types'=>['follow_up']],
-   ['code'=>'campaign','label'=>'Campanha','types'=>['follow_up']],
-   ['code'=>'activation','label'=>'Ativação','types'=>['follow_up']],
-   ['code'=>'other','label'=>'Outro','types'=>['contact_completed','follow_up']],
+   ['code'=>'commercial','label'=>'Comercial','types'=>$types],
+   ['code'=>'relationship','label'=>'Relacionamento','types'=>$types],
+   ['code'=>'follow_up','label'=>'Follow-up','types'=>$types],
+   ['code'=>'support','label'=>'Suporte','types'=>$types],
+   ['code'=>'update','label'=>'Atualização','types'=>$types],
+   ['code'=>'other','label'=>'Outro','types'=>$types],
   ];
   if($type==='')return $all;
   return array_values(array_filter($all,static fn($item)=>in_array($type,$item['types'],true)));
@@ -1188,6 +1179,7 @@ final class CommercialActivityService {
 
  public static function outcomes(): array{
   return [
+   ['code'=>'attempt','label'=>'Tentativa registrada','types'=>['contact_attempt']],
    ['code'=>'no_answer','label'=>'Não atendeu','types'=>['contact_attempt']],
    ['code'=>'busy','label'=>'Ocupado / indisponível','types'=>['contact_attempt']],
    ['code'=>'wrong_contact','label'=>'Contato incorreto','types'=>['contact_attempt']],
@@ -1199,6 +1191,7 @@ final class CommercialActivityService {
    ['code'=>'pending','label'=>'Pendente de retorno','types'=>['contact_completed','follow_up']],
    ['code'=>'resolved','label'=>'Resolvido','types'=>['contact_completed','follow_up']],
    ['code'=>'progress','label'=>'Em andamento','types'=>['follow_up']],
+   ['code'=>'sale','label'=>'Venda iniciada','types'=>['sale']],
   ];
  }
 
@@ -1219,8 +1212,10 @@ final class CommercialActivityService {
   CommercialSchema::ensure();
   if(!CommercialAccountService::canWork($user,$accountCode))throw new RuntimeException('Esta Conta CRM não pertence à sua carteira operacional.');
   $account=CommercialAccountService::get($accountCode);if(!$account)throw new RuntimeException('Conta CRM não encontrada.');
+  $clientId=(int)($account['client_id']??0);
   $type=trim((string)($data['activity_type']??''));$validTypes=array_column(self::types(),'code');
   if(!in_array($type,$validTypes,true))throw new RuntimeException('Selecione um tipo de atividade válido.');
+  if($type==='sale'&&$clientId<=0)throw new RuntimeException('A venda exige um cliente vinculado ao cadastro geral.');
 
   $channel=trim((string)($data['channel']??''));
   $validChannels=array_column(self::channels(),'code');
@@ -1228,21 +1223,30 @@ final class CommercialActivityService {
 
   $category=trim((string)($data['category_code']??''));
   $validCategories=array_column(self::categories($type),'code');
-  if($type==='contact_attempt')$category='';
-  elseif(!in_array($category,$validCategories,true))throw new RuntimeException('Selecione uma categoria válida para esta atividade.');
+  if(!in_array($category,$validCategories,true))throw new RuntimeException('Selecione um tipo de contato válido.');
 
-  $outcome=trim((string)($data['outcome_code']??''));
+  $defaultOutcomes=['contact_attempt'=>'attempt','contact_completed'=>'contact','follow_up'=>'progress','sale'=>'sale'];
+  $outcome=trim((string)($data['outcome_code']??''));if($outcome==='')$outcome=$defaultOutcomes[$type]??'progress';
   $validOutcomes=array_values(array_filter(self::outcomes(),static fn($item)=>in_array($type,$item['types'],true)));
-  if(!in_array($outcome,array_column($validOutcomes,'code'),true))throw new RuntimeException('Selecione um resultado válido.');
+  if(!in_array($outcome,array_column($validOutcomes,'code'),true))$outcome=$defaultOutcomes[$type]??$outcome;
 
-  $notes=trim((string)($data['notes']??''));if(mb_strlen($notes)>10000)throw new RuntimeException('A anotação deve ter até 10.000 caracteres.');
-  $nextAt=trim((string)($data['next_at']??''));$nextDate=null;
+  $notes=trim((string)($data['notes']??''));if(mb_strlen($notes)>2000)throw new RuntimeException('O registro da atividade deve ter até 2.000 caracteres.');
+  $scheduleFieldPresent=array_key_exists('schedule_return',$data);
+  $scheduleRequested=!empty($data['schedule_return']);
+  $nextAt=trim((string)($data['next_at']??''));
+  if($scheduleFieldPresent){
+   if($scheduleRequested){
+    $nextDateRaw=trim((string)($data['next_date']??''));$nextTimeRaw=trim((string)($data['next_time']??''));
+    if($nextDateRaw===''||$nextTimeRaw==='')throw new RuntimeException('Informe a data e o horário do retorno.');
+    $nextAt=$nextDateRaw.'T'.$nextTimeRaw;
+   }else $nextAt='';
+  }
+  $returnNote=trim((string)($data['return_note']??''));if(mb_strlen($returnNote)>500)throw new RuntimeException('A observação do retorno deve ter até 500 caracteres.');
+  $nextDate=null;
   if($nextAt!==''){
    $nextDate=DateTime::createFromFormat('Y-m-d\TH:i',$nextAt);
    if(!$nextDate||$nextDate->format('Y-m-d\TH:i')!==$nextAt||$nextDate->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida para o retorno.');
   }
-
-  $clientId=(int)($account['client_id']??0);
   DB::exec("INSERT INTO activities(client_id,crm_account_code,user_id,activity_type,category_code,channel,result,outcome_code,notes,next_at,created_at)
             VALUES(?,?,?,?,?,?,?,?,?,?,NOW())",
    [$clientId?:null,$accountCode,(int)$user['id'],$type,$category!==''?$category:null,$channel,$outcome,$outcome,$notes!==''?$notes:null,$nextDate?$nextDate->format('Y-m-d H:i:00'):null]);
@@ -1260,13 +1264,14 @@ final class CommercialActivityService {
    if(!$assigned||!in_array((string)$assigned['role'],['seller','supervisor','admin'],true))throw new RuntimeException('Responsável do retorno inválido.');
    $title='Retorno · '.self::activityTypeLabel($type);
    if($category!=='')$title.=' · '.self::categoryLabel($category);
+   if($returnNote!=='')$title='Retorno · '.$returnNote;
    DB::exec("INSERT INTO tasks(client_id,crm_account_code,assigned_user_id,created_by_user_id,type,task_type_code,source_activity_id,title,due_at,status,created_at,updated_at)
              VALUES(?,?,?,?,'sales','return',?,?,?,'pending',NOW(),NOW())",
     [$clientId?:null,$accountCode,$assignedId,(int)$user['id'],$activityId,$title,$nextDate->format('Y-m-d H:i:00')]);
    $taskId=(int)DB::conn()->lastInsertId();
   }
 
-  return ['activity_id'=>$activityId,'task_id'=>$taskId,'account_code'=>$accountCode,'client_id'=>$clientId?:null];
+  return ['activity_id'=>$activityId,'task_id'=>$taskId,'account_code'=>$accountCode,'client_id'=>$clientId?:null,'activity_type'=>$type];
  }
 
  public static function addNote(string $accountCode,array $user,string $note): int{

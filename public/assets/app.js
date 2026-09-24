@@ -171,68 +171,108 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!form||form.dataset.commercialActivityReady==='1')return;
     form.dataset.commercialActivityReady='1';
     const typeInputs=[...form.querySelectorAll('[name="activity_type"]')];
-    const category=form.querySelector('[data-commercial-category]');
-    const outcome=form.querySelector('[data-commercial-outcome]');
+    const categorySelect=form.querySelector('[data-commercial-category]');
+    const outcomeSelect=form.querySelector('[data-commercial-outcome]');
+    const outcomeHidden=form.querySelector('[data-commercial-outcome-hidden]');
+    const notes=form.querySelector('[data-commercial-notes]');
+    const notesCount=form.querySelector('[data-commercial-notes-count]');
+    const scheduleToggle=form.querySelector('[data-commercial-schedule-toggle]');
+    const scheduleFields=form.querySelector('[data-commercial-schedule-fields]');
+    const nextDate=form.querySelector('[data-commercial-next-date]');
+    const nextTime=form.querySelector('[data-commercial-next-time]');
+    const defaultOutcome={contact_attempt:'attempt',contact_completed:'contact',follow_up:'progress',sale:'sale'};
     const refresh=()=>{
-      const type=typeInputs.find(input=>input.checked)?.value||typeInputs[0]?.value||'contact_attempt';
-      if(category){
+      const type=typeInputs.find(input=>input.checked)?.value||typeInputs.find(input=>!input.disabled)?.value||'contact_attempt';
+      if(categorySelect){
         let firstVisible=null;
-        [...category.options].forEach((option,index)=>{
-          if(index===0){
-            option.hidden=type!=='contact_attempt';
-            option.disabled=type!=='contact_attempt';
-            if(type==='contact_attempt')firstVisible=option;
-            return;
+        [...categorySelect.options].forEach((option,index)=>{
+          if(index===0&&option.value===''){
+            option.hidden=true;option.disabled=true;return;
           }
           const types=String(option.dataset.types||'').split(',').filter(Boolean);
-          const visible=types.includes(type);
+          const visible=!types.length||types.includes(type);
           option.hidden=!visible;option.disabled=!visible;
           if(visible&&!firstVisible)firstVisible=option;
         });
-        if(![...category.options].some(option=>!option.disabled&&option.value===category.value))category.value=firstVisible?.value||'';
+        if(![...categorySelect.options].some(option=>!option.disabled&&option.value===categorySelect.value))categorySelect.value=firstVisible?.value||'';
       }
-      if(outcome){
+      if(outcomeSelect){
         let firstVisible=null;
-        [...outcome.options].forEach(option=>{
+        [...outcomeSelect.options].forEach(option=>{
           const types=String(option.dataset.types||'').split(',').filter(Boolean);
           const visible=types.includes(type);
           option.hidden=!visible;option.disabled=!visible;
           if(visible&&!firstVisible)firstVisible=option;
         });
-        if(![...outcome.options].some(option=>!option.disabled&&option.value===outcome.value))outcome.value=firstVisible?.value||'';
+        if(![...outcomeSelect.options].some(option=>!option.disabled&&option.value===outcomeSelect.value))outcomeSelect.value=firstVisible?.value||'';
       }
+      if(outcomeHidden)outcomeHidden.value=defaultOutcome[type]||'progress';
+    };
+    const refreshCounter=()=>{
+      if(notesCount)notesCount.textContent=String((notes?.value||'').length);
+    };
+    const refreshSchedule=()=>{
+      if(!scheduleToggle||!scheduleFields)return;
+      const enabled=scheduleToggle.checked;
+      scheduleFields.hidden=!enabled;
+      scheduleFields.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=!enabled);
+      if(nextDate){nextDate.required=enabled;nextDate.min=new Date().toISOString().slice(0,10);}
+      if(nextTime)nextTime.required=enabled;
     };
     typeInputs.forEach(input=>input.addEventListener('change',refresh));
-    refresh();
+    notes?.addEventListener('input',refreshCounter);
+    scheduleToggle?.addEventListener('change',refreshSchedule);
+    form.addEventListener('submit',event=>{
+      if(scheduleToggle?.checked&&(!nextDate?.value||!nextTime?.value)){
+        event.preventDefault();
+        (nextDate&&!nextDate.value?nextDate:nextTime)?.focus();
+        window.appNotify?.('warning','Retorno incompleto','Informe a data e o horário antes de salvar.');
+      }
+    });
+    refresh();refreshCounter();refreshSchedule();
   };
   document.querySelectorAll('[data-commercial-activity-form]').forEach(setupCommercialActivityForm);
 
   const commercialActivityDialog=document.querySelector('[data-commercial-activity-dialog]');
   if(commercialActivityDialog){
     const form=commercialActivityDialog.querySelector('[data-commercial-activity-form]');
-    const accountLabel=commercialActivityDialog.querySelector('[data-commercial-activity-account]');
+    const clientLabel=commercialActivityDialog.querySelector('[data-commercial-activity-client]');
+    const ownerLabel=commercialActivityDialog.querySelector('[data-commercial-activity-owner]');
+    const typeLabel=commercialActivityDialog.querySelector('[data-commercial-activity-type]');
     document.addEventListener('click',event=>{
       const button=event.target.closest?.('[data-commercial-activity-open]');
       if(!button||!form)return;
       const code=String(button.dataset.accountCode||'').trim();
       const name=String(button.dataset.accountName||'Conta CRM').trim();
+      const owner=String(button.dataset.accountOwner||'Sem responsável').trim();
+      const customerType=String(button.dataset.accountType||'Cliente').trim();
+      const clientId=Number(button.dataset.clientId||0);
       if(!code)return;
       form.reset();
       form.action=(window.APP_URL||'')+'/commercial/accounts/'+encodeURIComponent(code)+'/activity';
-      if(accountLabel)accountLabel.textContent=name+' · CRM '+code;
+      if(clientLabel)clientLabel.textContent=name;
+      if(ownerLabel)ownerLabel.textContent=owner||'Sem responsável';
+      if(typeLabel)typeLabel.textContent=customerType||'Cliente';
+      const saleInput=form.querySelector('[name="activity_type"][value="sale"]');
+      if(saleInput){
+        saleInput.disabled=clientId<=0;
+        saleInput.closest('label')?.classList.toggle('is-disabled',saleInput.disabled);
+        saleInput.closest('label')?.setAttribute('title',saleInput.disabled?'A venda exige cliente vinculado':'Registrar venda');
+      }
       setupCommercialActivityForm(form);
       const requestedType=String(button.dataset.activityType||'').trim();
-      const requestedInput=requestedType?[...form.querySelectorAll('[name="activity_type"]')].find(input=>input.value===requestedType):null;
-      const firstType=requestedInput||form.querySelector('[name="activity_type"]');
+      let requestedInput=requestedType?[...form.querySelectorAll('[name="activity_type"]')].find(input=>input.value===requestedType&&!input.disabled):null;
+      const firstType=requestedInput||[...form.querySelectorAll('[name="activity_type"]')].find(input=>!input.disabled);
       if(firstType)firstType.checked=true;
       firstType?.dispatchEvent(new Event('change',{bubbles:true}));
+      const counter=form.querySelector('[data-commercial-notes-count]');if(counter)counter.textContent='0';
+      const schedule=form.querySelector('[data-commercial-schedule-toggle]');if(schedule){schedule.checked=false;schedule.dispatchEvent(new Event('change',{bubbles:true}));}
       commercialActivityDialog.showModal();
     });
     commercialActivityDialog.querySelectorAll('[data-commercial-activity-close]').forEach(button=>button.addEventListener('click',()=>commercialActivityDialog.close()));
     commercialActivityDialog.addEventListener('click',event=>{if(event.target===commercialActivityDialog)commercialActivityDialog.close();});
     commercialActivityDialog.addEventListener('cancel',()=>commercialActivityDialog.close());
   }
-
 
   const removeAuditRows=(ids=[])=>{
     const unique=[...new Set((ids||[]).map(Number).filter(Boolean))];

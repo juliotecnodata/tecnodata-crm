@@ -805,6 +805,7 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
  try{
   $result=CommercialActivityService::record($code,$u,$_POST);
   $_SESSION['commercial_flash']=['type'=>'success','message'=>!empty($result['task_id'])?'Atividade registrada e próximo retorno agendado.':'Atividade registrada no histórico comercial.'];
+  if(($result['activity_type']??'')==='sale'&&!empty($result['client_id']))redirect('/orders/new?client_id='.(int)$result['client_id']);
  }catch(Throwable $e){
   $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
  }
