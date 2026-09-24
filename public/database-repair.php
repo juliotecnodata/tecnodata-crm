@@ -91,13 +91,13 @@ addCol($pdo,$log,$t,'seller_omie_code','VARCHAR(80) NULL AFTER uf');
 addCol($pdo,$log,$t,'crm_account_code','VARCHAR(80) NULL AFTER omie_seller_code');
 addCol($pdo,$log,$t,'crm_owner_omie_code','VARCHAR(80) NULL AFTER crm_account_code');
 addCol($pdo,$log,$t,'crm_owner_user_id','INT UNSIGNED NULL AFTER crm_owner_omie_code');
-addIndex($pdo,$log,$t,'idx_clients_crm_owner','crm_owner_user_id,active,crm_inactive');
-addIndex($pdo,$log,$t,'idx_clients_crm_account','crm_account_code');
 addCol($pdo,$log,$t,'crm_inactive','TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
 addCol($pdo,$log,$t,'crm_inactivated_at','DATETIME NULL AFTER crm_inactive');
 addCol($pdo,$log,$t,'crm_inactivated_by','INT UNSIGNED NULL AFTER crm_inactivated_at');
 addCol($pdo,$log,$t,'created_at','DATETIME NULL AFTER crm_inactivated_by');
 addCol($pdo,$log,$t,'omie_created_at','DATETIME NULL AFTER created_at');
+addIndex($pdo,$log,$t,'idx_clients_crm_owner','crm_owner_user_id,active,crm_inactive');
+addIndex($pdo,$log,$t,'idx_clients_crm_account','crm_account_code');
 execStep($pdo,$log,'preencher data inicial conhecida dos clientes','UPDATE '.qi($t).' SET created_at=updated_at WHERE created_at IS NULL');
 execStep($pdo,$log,'recuperar data de inclusão da Omie nos clientes',
  "UPDATE ".qi($t)." SET omie_created_at=COALESCE(
@@ -411,9 +411,17 @@ if(tableExists($pdo,$settings)){
 
 // 7) Diagnóstico final.
 $expected=[
- 'users'=>['id','name','email','password_hash','role','seller_omie_code','active'],
+ 'users'=>['id','name','email','password_hash','role','seller_omie_code','crm_user_omie_code','active'],
  'sellers'=>['omie_code','name','active'],
- 'clients'=>['id','omie_code','name','seller_omie_code','active'],
+ 'crm_users'=>['omie_code','name','email','active'],
+ 'crm_accounts'=>['omie_code','name','document','crm_user_code'],
+ 'clients'=>['id','omie_code','name','seller_omie_code','crm_account_code','crm_owner_omie_code','crm_owner_user_id','active'],
+ 'crm_account_links'=>['crm_account_code','client_id','link_method'],
+ 'crm_contacts'=>['omie_code','crm_account_code'],
+ 'user_omie_identity'=>['user_id','sales_seller_code','crm_user_code'],
+ 'client_commercial_profiles'=>['client_id','is_cfc','is_reseller','classification_source'],
+ 'client_commercial_audit'=>['id','client_id','field_name','source','sync_status'],
+ 'sync_outbox'=>['id','entity_type','entity_id','operation','status'],
  'client_metrics'=>['client_id','last_purchase_at','revenue_12m','orders_12m','avg_ticket_12m','avg_interval_days'],
  'products'=>['id','omie_code','sku','description','unit_price','active'],
  'categories'=>['code','description','active'],
