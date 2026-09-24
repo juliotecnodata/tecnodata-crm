@@ -44,6 +44,7 @@ final class CommercialSchema {
    annual_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
    active TINYINT(1) NOT NULL DEFAULT 1,
    raw_json JSON NULL,
+   last_seen_token VARCHAR(64) NULL,
    updated_at DATETIME NOT NULL,
    INDEX idx_crm_users_email(email),
    INDEX idx_crm_users_active(active,name)
@@ -59,12 +60,20 @@ final class CommercialSchema {
    vertical_code VARCHAR(80) NULL,
    telemarketing_code VARCHAR(80) NULL,
    notes TEXT NULL,
+   active TINYINT(1) NOT NULL DEFAULT 1,
    raw_json JSON NULL,
+   last_seen_token VARCHAR(64) NULL,
    updated_at DATETIME NOT NULL,
    INDEX idx_crm_accounts_document(document),
    INDEX idx_crm_accounts_user(crm_user_code),
    INDEX idx_crm_accounts_integration(integration_code)
   )");
+
+  $crmUserColumns=[];foreach(DB::all("SHOW COLUMNS FROM crm_users") as $row)$crmUserColumns[(string)$row['Field']]=true;
+  if(!isset($crmUserColumns['last_seen_token']))DB::exec("ALTER TABLE crm_users ADD COLUMN last_seen_token VARCHAR(64) NULL AFTER raw_json");
+  $crmAccountColumns=[];foreach(DB::all("SHOW COLUMNS FROM crm_accounts") as $row)$crmAccountColumns[(string)$row['Field']]=true;
+  if(!isset($crmAccountColumns['active']))DB::exec("ALTER TABLE crm_accounts ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1 AFTER notes");
+  if(!isset($crmAccountColumns['last_seen_token']))DB::exec("ALTER TABLE crm_accounts ADD COLUMN last_seen_token VARCHAR(64) NULL AFTER raw_json");
 
   DB::exec("CREATE TABLE IF NOT EXISTS crm_account_links(
    crm_account_code VARCHAR(80) PRIMARY KEY,
@@ -230,6 +239,15 @@ final class CommercialIdentityService {
 final class CommercialPortfolioService {
  private static ?array $clientDocumentMap=null;
 
+ private static function snapshotToken(string $module,int $page): string{
+  if($page===1)return bin2hex(random_bytes(16));
+  $state=DB::one("SELECT context_json FROM sync_state WHERE module_key=? LIMIT 1",[$module]);
+  $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+  $token=is_array($ctx)?trim((string)($ctx['sync_token']??'')):'';
+  if($token==='')throw new RuntimeException('Snapshot de '.$module.' não possui token de retomada. Reinicie a sincronização pela página 1.');
+  return $token;
+ }
+
  private static function clientDocumentMap(): array{
   if(self::$clientDocumentMap!==null)return self::$clientDocumentMap;
   $map=[];
@@ -239,26 +257,30 @@ final class CommercialPortfolioService {
   return self::$clientDocumentMap=$map;
  }
  public static function syncUsersPage(int $page=1): array{
-  CommercialSchema::ensure();$page=max(1,$page);$omie=new OmieClient();
+  CommercialSchema::ensure();$page=max(1,$page);$omie=new OmieClient();$syncToken=self::snapshotToken('crm_users',$page);
   $data=$omie->call('crm_users','ListarUsuarios',[
    'pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','apenas_ativos'=>'S'
   ]);
   $items=(array)($data['cadastros']??[]);
   foreach($items as $row){
    if(!is_array($row))continue;$code=trim((string)($row['nCodigo']??''));if($code==='')continue;
-   DB::exec("INSERT INTO crm_users(omie_code,name,email,phone,mobile,annual_goal,active,raw_json,updated_at)
-             VALUES(?,?,?,?,?,?,1,?,NOW())
-             ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),phone=VALUES(phone),mobile=VALUES(mobile),annual_goal=VALUES(annual_goal),active=1,raw_json=VALUES(raw_json),updated_at=NOW()",
-    [$code,(string)($row['cNome']??$code),$row['cEmail']??null,$row['cTelefone']??null,$row['cCelular']??null,(float)($row['nMetaAnual']??0),json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+   DB::exec("INSERT INTO crm_users(omie_code,name,email,phone,mobile,annual_goal,active,raw_json,last_seen_token,updated_at)
+             VALUES(?,?,?,?,?,?,1,?,?,NOW())
+             ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),phone=VALUES(phone),mobile=VALUES(mobile),annual_goal=VALUES(annual_goal),active=1,raw_json=VALUES(raw_json),last_seen_token=VALUES(last_seen_token),updated_at=NOW()",
+    [$code,(string)($row['cNome']??$code),$row['cEmail']??null,$row['cTelefone']??null,$row['cCelular']??null,(float)($row['nMetaAnual']??0),json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$syncToken]);
   }
   $total=max(1,(int)($data['total_de_paginas']??1));$done=$page>=$total;
-  if($done)CommercialIdentityService::reconcileUsers();
-  self::saveState('crm_users',$page,$total,count($items),$done);
+  if($done){
+   DB::exec("UPDATE crm_users SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
+   DB::exec("UPDATE users u LEFT JOIN crm_users cu ON cu.omie_code=u.crm_user_omie_code AND cu.active=1 SET u.crm_user_omie_code=NULL WHERE u.crm_user_omie_code IS NOT NULL AND cu.omie_code IS NULL");
+   CommercialIdentityService::reconcileUsers();
+  }
+  self::saveState('crm_users',$page,$total,count($items),$done,['sync_token'=>$syncToken]);
   return ['module'=>'crm_users','page'=>$page,'total_pages'=>$total,'count'=>count($items),'done'=>$done];
  }
 
  public static function syncAccountsPage(int $page=1): array{
-  CommercialSchema::ensure();$page=max(1,$page);$omie=new OmieClient();
+  CommercialSchema::ensure();$page=max(1,$page);$omie=new OmieClient();$syncToken=self::snapshotToken('crm_accounts',$page);
   $data=$omie->call('crm_accounts','ListarContas',[
    'pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N'
   ]);
@@ -271,15 +293,15 @@ final class CommercialPortfolioService {
    $code=trim((string)($ident['nCod']??''));if($code==='')continue;
    $document=crm_digits((string)($ident['cDoc']??''));
    $crmUserCode=trim((string)($ident['nCodVend']??''));
-   DB::exec("INSERT INTO crm_accounts(omie_code,integration_code,name,trade_name,document,crm_user_code,vertical_code,telemarketing_code,notes,raw_json,updated_at)
-             VALUES(?,?,?,?,?,?,?,?,?,?,NOW())
-             ON DUPLICATE KEY UPDATE integration_code=VALUES(integration_code),name=VALUES(name),trade_name=VALUES(trade_name),document=VALUES(document),crm_user_code=VALUES(crm_user_code),vertical_code=VALUES(vertical_code),telemarketing_code=VALUES(telemarketing_code),notes=VALUES(notes),raw_json=VALUES(raw_json),updated_at=NOW()",
-    [$code,$ident['cCodInt']??null,(string)($ident['cNome']??$ident['cNomeFantasia']??$code),$ident['cNomeFantasia']??null,$document!==''?$document:null,$crmUserCode!==''?$crmUserCode:null,$ident['nCodVert']??null,$ident['nCodTelemkt']??null,$ident['cObs']??null,json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+   DB::exec("INSERT INTO crm_accounts(omie_code,integration_code,name,trade_name,document,crm_user_code,vertical_code,telemarketing_code,notes,active,raw_json,last_seen_token,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,1,?,?,NOW())
+             ON DUPLICATE KEY UPDATE integration_code=VALUES(integration_code),name=VALUES(name),trade_name=VALUES(trade_name),document=VALUES(document),crm_user_code=VALUES(crm_user_code),vertical_code=VALUES(vertical_code),telemarketing_code=VALUES(telemarketing_code),notes=VALUES(notes),active=1,raw_json=VALUES(raw_json),last_seen_token=VALUES(last_seen_token),updated_at=NOW()",
+    [$code,$ident['cCodInt']??null,(string)($ident['cNome']??$ident['cNomeFantasia']??$code),$ident['cNomeFantasia']??null,$document!==''?$document:null,$crmUserCode!==''?$crmUserCode:null,$ident['nCodVert']??null,$ident['nCodTelemkt']??null,$ident['cObs']??null,json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$syncToken]);
 
    $clientId=self::reconcileAccountClient($code,$document,$stats);
    if($clientId>0){
     $ownerUserId=0;
-    if($crmUserCode!=='')$ownerUserId=(int)(DB::scalar("SELECT id FROM users WHERE crm_user_omie_code=? AND active=1 ORDER BY FIELD(role,'seller','supervisor','admin') LIMIT 1",[$crmUserCode])??0);
+    if($crmUserCode!=='')$ownerUserId=(int)(DB::scalar("SELECT u.id FROM users u JOIN crm_users cu ON cu.omie_code=u.crm_user_omie_code AND cu.active=1 WHERE u.crm_user_omie_code=? AND u.active=1 ORDER BY FIELD(u.role,'seller','supervisor','admin') LIMIT 1",[$crmUserCode])??0);
     DB::exec("UPDATE clients SET crm_account_code=?,crm_owner_omie_code=?,crm_owner_user_id=?,updated_at=updated_at WHERE id=?",
      [$code,$crmUserCode!==''?$crmUserCode:null,$ownerUserId?:null,$clientId]);
     if($ownerUserId>0)$stats['owner_linked']++;
@@ -290,6 +312,11 @@ final class CommercialPortfolioService {
   }
 
   $total=max(1,(int)($data['total_de_paginas']??1));$done=$page>=$total;
+  if($done){
+   DB::exec("UPDATE crm_accounts SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
+   DB::exec("UPDATE clients c JOIN crm_account_links l ON l.client_id=c.id JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=0 SET c.crm_owner_omie_code=NULL,c.crm_owner_user_id=NULL WHERE c.active=1");
+  }
+  $stats['sync_token']=$syncToken;
   self::saveState('crm_accounts',$page,$total,count($items),$done,$stats);
   return ['module'=>'crm_accounts','page'=>$page,'total_pages'=>$total,'count'=>count($items),'done'=>$done,'stats'=>$stats];
  }
@@ -379,7 +406,7 @@ final class CommercialPortfolioService {
  public static function crmPortfolioReady(): bool{
   CommercialSchema::ensure();
   $state=DB::one("SELECT last_success_at,last_error FROM sync_state WHERE module_key='crm_accounts' LIMIT 1");
-  return $state&&!empty($state['last_success_at'])&&empty($state['last_error'])&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts")??0)>0;
+  return $state&&!empty($state['last_success_at'])&&empty($state['last_error'])&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1")??0)>0;
  }
 
  public static function sellerPortfolioCondition(array $user,string $alias='c',?string $month=null): array{
@@ -405,9 +432,9 @@ final class CommercialPortfolioService {
   CommercialSchema::ensure();
   return [
    'crm_users'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_users WHERE active=1")??0),
-   'crm_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts")??0),
+   'crm_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1")??0),
    'linked_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links")??0),
-   'unlinked_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE l.crm_account_code IS NULL")??0),
+   'unlinked_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0),
    'clients_with_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NOT NULL")??0),
    'clients_without_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NULL")??0),
    'profiles'=>(int)(DB::scalar("SELECT COUNT(*) FROM client_commercial_profiles")??0),
