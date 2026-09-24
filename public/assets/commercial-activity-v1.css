@@ -50,12 +50,15 @@
 .tda-type-card.is-disabled{cursor:not-allowed;opacity:.45}
 .tda-type-card input:focus-visible+span,.tda-chip input:focus-visible+span{outline:2px solid var(--td-primary,#007FC7);outline-offset:2px}
 
-.tda-chip-row{display:flex;gap:7px;flex-wrap:wrap}
-.tda-chip{cursor:pointer}
-.tda-chip>span{position:relative;min-height:34px;padding:7px 13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #D6E1E7;border-radius:8px;background:#fff;color:#435966;font-size:9px;font-weight:750;white-space:nowrap}
-.tda-chip>span>i{color:#627987}
+.tda-chip-row{display:flex;gap:8px;flex-wrap:wrap}
+.tda-chip{cursor:pointer;min-width:0}
+.tda-chip>span{position:relative;min-height:36px;padding:7px 13px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #D6E1E7;border-radius:8px;background:#fff;color:#435966;font-size:9px;font-weight:750;white-space:nowrap}
+.tda-chip>span>i{width:14px;flex:0 0 14px;text-align:center;color:#627987}
+.tda-channel-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.tda-channel-row .tda-chip{display:block;width:100%}
+.tda-channel-row .tda-chip>span{width:100%;min-height:38px;padding:7px 10px}
 .tda-channel-row .tda-chip:first-child>span>i{color:#009657}
-.tda-chip>span>b{position:absolute;right:4px;top:3px;display:none;color:var(--td-primary,#007FC7);font-size:8px}
+.tda-chip>span>b{position:absolute;right:5px;top:4px;display:none;color:var(--td-primary,#007FC7);font-size:8px}
 .tda-chip input:checked+span{border-color:var(--td-primary,#007FC7);background:var(--td-primary-soft,#EEF8FC);color:#086C9E}
 .tda-chip input:checked+span>b{display:block}
 
@@ -94,6 +97,8 @@
  .tda-type-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .tda-type-card>span{min-height:62px}
  .tda-chip-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tda-channel-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tda-channel-row .tda-chip:last-child{grid-column:1/-1}
  .tda-chip>span{width:100%;white-space:normal}
  .tda-return-fields{grid-template-columns:1fr 1fr}
  .tda-return-fields .wide{grid-column:1/-1}
