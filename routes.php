@@ -653,6 +653,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
  $clientTagsSelected=client_filter_tags($_GET['tags']??($_GET['tag']??[]));$tag=count($clientTagsSelected)===1?$clientTagsSelected[0]:'';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
+ $classificationFilter=(string)($_GET['classification']??'all');if(!in_array($classificationFilter,['all','cfc','reseller','both','unclassified'],true))$classificationFilter='all';
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);$crmPortfolioReady=CommercialPortfolioService::crmPortfolioReady();
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
  $w=['c.active=1',$segmentSql];$p=$segmentParams;
@@ -667,6 +668,10 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  if($clientUfs){$w[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($p,...$clientUfs);}
  if($ddds){$w[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($p,...$ddds);}
  if($clientTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$clientTagsSelected);$w[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($p,...$tagKeys);}
+ if($classificationFilter==='cfc')$w[]="EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND cpf.is_cfc=1)";
+ elseif($classificationFilter==='reseller')$w[]="EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND cpf.is_reseller=1)";
+ elseif($classificationFilter==='both')$w[]="EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND cpf.is_cfc=1 AND cpf.is_reseller=1)";
+ elseif($classificationFilter==='unclassified')$w[]="NOT EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND (cpf.is_cfc=1 OR cpf.is_reseller=1))";
  if($sellerFilter==='__none__'){
   $w[]=$crmPortfolioReady?'c.crm_owner_user_id IS NULL':"((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  }elseif($sellerFilter!==''){
@@ -712,7 +717,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $baseCounts=client_base_counts_cached();
  if($portfolioOnly&&$u['role']==='seller'){[$statePortfolioSql,$statePortfolioParams]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$stateWhere.=' AND '.$statePortfolioSql;array_push($stateParams,...$statePortfolioParams);}
  $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
- render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
+ render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'classificationFilter'=>$classificationFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
   'orders'=>(int)($summary['orders_12m']??0),
@@ -2521,6 +2526,7 @@ $router->get('/api/clients/datatable',function(){
  $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
  $clientTagsSelected=client_filter_tags($_GET['tags']??($_GET['tag']??[]));$tag=count($clientTagsSelected)===1?$clientTagsSelected[0]:'';
  $sellerFilter=trim((string)($_GET['seller_filter']??''));if(mb_strlen($sellerFilter)>80)$sellerFilter='';
+ $classificationFilter=(string)($_GET['classification']??'all');if(!in_array($classificationFilter,['all','cfc','reseller','both','unclassified'],true))$classificationFilter='all';
  $portfolioMonth=ClientPortfolioService::monthRef($_GET['month']??null);$effectiveSellerSql=client_effective_seller_sql('c',$portfolioMonth);$crmPortfolioReady=CommercialPortfolioService::crmPortfolioReady();
 
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
@@ -2536,6 +2542,10 @@ $router->get('/api/clients/datatable',function(){
  if($clientUfs){$baseWhere[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($baseParams,...$clientUfs);}
  if($ddds){$baseWhere[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($baseParams,...$ddds);}
  if($clientTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$clientTagsSelected);$baseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($baseParams,...$tagKeys);}
+ if($classificationFilter==='cfc')$baseWhere[]="EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND cpf.is_cfc=1)";
+ elseif($classificationFilter==='reseller')$baseWhere[]="EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND cpf.is_reseller=1)";
+ elseif($classificationFilter==='both')$baseWhere[]="EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND cpf.is_cfc=1 AND cpf.is_reseller=1)";
+ elseif($classificationFilter==='unclassified')$baseWhere[]="NOT EXISTS (SELECT 1 FROM client_commercial_profiles cpf WHERE cpf.client_id=c.id AND (cpf.is_cfc=1 OR cpf.is_reseller=1))";
  if($sellerFilter==='__none__'){
   $baseWhere[]=$crmPortfolioReady?'c.crm_owner_user_id IS NULL':"((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
  }elseif($sellerFilter!==''){
