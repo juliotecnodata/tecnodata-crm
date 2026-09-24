@@ -924,8 +924,7 @@ final class CommercialAccountService {
                          m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
                          cu.name owner_name,cu.email owner_email,
                          COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,
-                         ap.strategic_notes,ap.classification_source,ap.updated_at profile_updated_at,
-                         (SELECT MAX(ac.created_at) FROM activities ac WHERE ac.crm_account_code=a.omie_code) last_contact_at
+                         ap.strategic_notes,ap.classification_source,ap.updated_at profile_updated_at
                   FROM crm_accounts a
                   LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
                   LEFT JOIN clients c ON c.id=l.client_id
@@ -938,59 +937,6 @@ final class CommercialAccountService {
  public static function contacts(string $accountCode): array{
   CommercialSchema::ensure();
   return DB::all("SELECT * FROM crm_contacts WHERE crm_account_code=? ORDER BY name,last_name",[$accountCode]);
- }
-
- public static function nextReturn(string $accountCode): ?array{
-  CommercialSchema::ensure();
-  return DB::one("SELECT t.*,assigned.name assigned_name,creator.name created_by_name
-                  FROM tasks t
-                  JOIN users assigned ON assigned.id=t.assigned_user_id
-                  LEFT JOIN users creator ON creator.id=t.created_by_user_id
-                  WHERE t.crm_account_code=? AND t.type='sales' AND t.status='pending'
-                  ORDER BY t.due_at ASC,t.id ASC LIMIT 1",[$accountCode]);
- }
-
- public static function returns(string $accountCode,int $limit=100): array{
-  CommercialSchema::ensure();$limit=max(1,min(300,$limit));
-  return DB::all("SELECT t.*,assigned.name assigned_name,creator.name created_by_name,completed.name completed_by_name
-                  FROM tasks t
-                  JOIN users assigned ON assigned.id=t.assigned_user_id
-                  LEFT JOIN users creator ON creator.id=t.created_by_user_id
-                  LEFT JOIN users completed ON completed.id=t.completed_by_user_id
-                  WHERE t.crm_account_code=? AND t.type='sales'
-                  ORDER BY CASE WHEN t.status='pending' THEN 0 ELSE 1 END,t.due_at DESC,t.id DESC
-                  LIMIT ".$limit,[$accountCode]);
- }
-
- public static function salesHistory(string $accountCode,int $limit=100): array{
-  CommercialSchema::ensure();$limit=max(1,min(300,$limit));
-  $clientOmieCode=trim((string)(DB::scalar("SELECT c.omie_code
-                                            FROM crm_account_links l
-                                            JOIN clients c ON c.id=l.client_id
-                                            WHERE l.crm_account_code=? LIMIT 1",[$accountCode])??''));
-  if($clientOmieCode==='')return [];
-  return DB::all("SELECT x.* FROM (
-                   SELECT 'order' source_type,o.omie_code,o.number reference_number,o.order_date sale_date,o.total,o.status
-                   FROM orders o WHERE o.client_omie_code=?
-                   UNION ALL
-                   SELECT 'service' source_type,s.omie_code,s.omie_code reference_number,s.service_date sale_date,s.total,s.status
-                   FROM service_orders s WHERE s.client_omie_code=?
-                  ) x
-                  ORDER BY x.sale_date DESC,x.omie_code DESC
-                  LIMIT ".$limit,[$clientOmieCode,$clientOmieCode]);
- }
-
- public static function completeReturn(string $accountCode,int $taskId,array $user): void{
-  CommercialSchema::ensure();
-  if(!self::canWork($user,$accountCode))throw new RuntimeException('Sem permissão para concluir este retorno.');
-  $task=DB::one("SELECT id,status FROM tasks WHERE id=? AND crm_account_code=? AND type='sales' LIMIT 1",[$taskId,$accountCode]);
-  if(!$task)throw new RuntimeException('Retorno não encontrado para esta Conta CRM.');
-  if((string)$task['status']!=='pending')throw new RuntimeException('Este retorno já foi finalizado.');
-  DB::exec("UPDATE tasks
-            SET status='done',completion_result_code='completed',completion_notes='Concluído pela ficha do cliente',
-                completed_by_user_id=?,completed_at=NOW(),updated_at=NOW()
-            WHERE id=? AND crm_account_code=? AND status='pending'",
-   [(int)($user['id']??0),$taskId,$accountCode]);
  }
 
  public static function audit(string $accountCode,int $limit=50): array{

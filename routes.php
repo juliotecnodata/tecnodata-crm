@@ -793,8 +793,6 @@ $router->get('/commercial/accounts/{code}',function($p){
   'account'=>$account,'contacts'=>CommercialAccountService::contacts($code),'profile'=>CommercialAccountService::profile($code),
   'audit'=>CommercialAccountService::audit($code),'canWork'=>CommercialAccountService::canWork($u,$code),'flash'=>$flash,
   'activities'=>CommercialActivityService::history($code),'commercialNotes'=>CommercialActivityService::notes($code),
-  'nextReturn'=>CommercialAccountService::nextReturn($code),'returns'=>CommercialAccountService::returns($code),
-  'salesHistory'=>CommercialAccountService::salesHistory($code),
   'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
   'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
   'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
@@ -823,18 +821,6 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
   redirect('/my-portfolio'.($safe?'?'.http_build_query($safe):''));
  }
  redirect('/commercial/accounts/'.rawurlencode($code).'#commercial-operation');
-});
-
-$router->post('/commercial/accounts/{code}/returns/{id}/complete',function($p){
- Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();ensure_task_detail_columns();CSRF::require($_POST['_token']??null);
- $u=Auth::user();$code=trim((string)$p['code']);$taskId=(int)($p['id']??0);
- try{
-  CommercialAccountService::completeReturn($code,$taskId,$u);
-  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Retorno concluído. A ficha e a agenda foram atualizadas.'];
- }catch(Throwable $e){
-  $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
- }
- redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
 $router->post('/commercial/accounts/{code}/note',function($p){
