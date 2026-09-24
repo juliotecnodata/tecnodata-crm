@@ -562,13 +562,32 @@ function render(string $name,array $vars=[]): void{
         <td><?php if(empty($row['last_contact_at'])):?><span class="tdcp-days critical">Nunca</span><?php else:?><span class="tdcp-days <?=$days>60?'critical':($days>30?'warning':'ok')?>"><?=$days?></span><small><?=date('d/m/Y',strtotime((string)$row['last_contact_at']))?></small><?php endif;?></td>
         <td><span class="tdcp-status <?=$linked?'client':'prospect'?>"><i class="fa-solid <?=$linked?'fa-circle-check':'fa-seedling'?>"></i><?=$linked?'Cliente vinculado':'Prospect / Conta CRM'?></span></td>
         <td class="text-end"><strong><?=money($row['revenue_12m']??0)?></strong></td>
-        <td class="text-end"><a class="tdcp-open" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>" title="Abrir conta"><i class="fa-solid fa-arrow-right"></i></a></td>
+        <td class="text-end"><div class="tdcp-row-actions"><button class="tdcp-action-contact" type="button" data-commercial-activity-open data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display!==''?$display:'Conta sem nome')?>" title="Registrar atividade"><i class="fa-solid fa-plus"></i></button><a class="tdcp-open" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>" title="Abrir conta"><i class="fa-solid fa-arrow-right"></i></a></div></td>
        </tr>
       <?php endforeach;?>
       <?php if(!$rows):?><tr><td colspan="8"><div class="tdcp-empty"><i class="fa-solid fa-filter-circle-xmark"></i><strong>Nenhuma Conta CRM encontrada</strong><small>Revise os filtros ou o vínculo do seu usuário com o CRM Omie.</small></div></td></tr><?php endif;?>
      </tbody></table></div>
      <?php if($pages>1):?><nav class="tdcp-pagination"><?php $baseQuery=$filters;unset($baseQuery['page']);?><a class="tdcp-btn <?=$pageNum<=1?'disabled':''?>" href="<?=APP_URL?>/my-portfolio?<?=e(http_build_query(array_merge($baseQuery,['page'=>max(1,$pageNum-1)])))?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><span>Página <strong><?=$pageNum?></strong> de <strong><?=$pages?></strong></span><a class="tdcp-btn <?=$pageNum>=$pages?'disabled':''?>" href="<?=APP_URL?>/my-portfolio?<?=e(http_build_query(array_merge($baseQuery,['page'=>min($pages,$pageNum+1)])))?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
     </section>
+
+    <dialog class="tdcp-dialog" data-commercial-activity-dialog>
+     <form method="post" data-commercial-activity-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="portfolio">
+      <header><div><span><i class="fa-solid fa-comments"></i></span><div><small>REGISTRO RÁPIDO</small><strong>Nova atividade comercial</strong><p data-commercial-activity-account>Conta CRM</p></div></div><button type="button" data-commercial-activity-close><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="tdcp-dialog-body">
+       <div class="tdcp-activity-types"><?php foreach($activityTypes??[] as $idx=>$type):?><label><input type="radio" name="activity_type" value="<?=e($type['code'])?>" <?=$idx===0?'checked':''?>><span><i class="fa-solid <?=e($type['icon'])?>"></i><b><?=e($type['label'])?></b></span></label><?php endforeach;?></div>
+       <div class="tdcp-form-grid">
+        <label><span>Canal</span><select class="form-select" name="channel" required><?php foreach($activityChannels??[] as $channel):?><option value="<?=e($channel['code'])?>"><?=e($channel['label'])?></option><?php endforeach;?></select></label>
+        <label><span>Categoria</span><select class="form-select" name="category_code" data-commercial-category><option value="">Não se aplica</option><?php foreach($activityCategories??[] as $category):?><option value="<?=e($category['code'])?>" data-types="<?=e(implode(',',(array)$category['types']))?>"><?=e($category['label'])?></option><?php endforeach;?></select></label>
+        <label><span>Resultado</span><select class="form-select" name="outcome_code" data-commercial-outcome required><?php foreach($activityOutcomes??[] as $outcome):?><option value="<?=e($outcome['code'])?>" data-types="<?=e(implode(',',(array)$outcome['types']))?>"><?=e($outcome['label'])?></option><?php endforeach;?></select></label>
+        <?php if(count($activityAssignableUsers??[])>1):?><label><span>Responsável pelo retorno</span><select class="form-select" name="assigned_user_id"><?php foreach($activityAssignableUsers as $person):?><option value="<?=(int)$person['id']?>" <?=(int)$person['id']===(int)$u['id']?'selected':''?>><?=e((string)$person['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+        <label><span>Próximo retorno <small>opcional</small></span><input class="form-control" type="datetime-local" name="next_at"></label>
+        <label class="wide"><span>Anotação da atividade</span><textarea class="form-control" name="notes" rows="4" maxlength="10000" placeholder="Registre o contexto útil para o próximo atendimento."></textarea></label>
+       </div>
+      </div>
+      <footer><small>Salvar uma atividade reposiciona a Conta na carteira. Observações livres não fazem isso.</small><div><button class="tdcp-btn" type="button" data-commercial-activity-close>Cancelar</button><button class="tdcp-btn tdcp-btn-primary" type="submit"><i class="fa-solid fa-check"></i>Registrar atividade</button></div></footer>
+     </form>
+    </dialog>
    </section>
   <?php break;
 
@@ -594,6 +613,40 @@ function render(string $name,array $vars=[]): void{
      <section class="tdca-card">
       <div class="tdca-card-head"><span><i class="fa-solid fa-address-book"></i></span><div><strong>Contatos</strong><small>Pessoas registradas na Conta CRM.</small></div><b><?=count($contacts??[])?></b></div>
       <div class="tdca-contact-list"><?php foreach($contacts??[] as $contact):$cn=trim((string)($contact['name']??'').' '.(string)($contact['last_name']??''));?><article><span><?=e(mb_strtoupper(mb_substr($cn!==''?$cn:'?',0,1)))?></span><div><strong><?=e($cn!==''?$cn:'Contato sem nome')?></strong><small><?=e((string)($contact['position_name']??'Cargo não informado'))?></small><p><?php if(!empty($contact['mobile'])):?><a href="tel:<?=e(crm_digits((string)$contact['mobile']))?>"><i class="fa-solid fa-mobile-screen"></i><?=e((string)$contact['mobile'])?></a><?php endif;?><?php if(!empty($contact['email'])):?><a href="mailto:<?=e((string)$contact['email'])?>"><i class="fa-regular fa-envelope"></i><?=e((string)$contact['email'])?></a><?php endif;?></p></div></article><?php endforeach;?><?php if(empty($contacts)):?><div class="tdca-empty">Nenhum contato sincronizado nesta Conta.</div><?php endif;?></div>
+     </section>
+    </div>
+
+    <section class="tdca-card tdca-operation" id="commercial-operation">
+     <div class="tdca-card-head"><span><i class="fa-solid fa-headset"></i></span><div><strong>Operação comercial</strong><small>Registre o trabalho realizado e, quando necessário, já deixe o próximo retorno agendado.</small></div></div>
+     <?php if($canWork):?>
+     <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/activity" data-commercial-activity-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="account">
+      <div class="tdcp-activity-types"><?php foreach($activityTypes??[] as $idx=>$type):?><label><input type="radio" name="activity_type" value="<?=e($type['code'])?>" <?=$idx===0?'checked':''?>><span><i class="fa-solid <?=e($type['icon'])?>"></i><b><?=e($type['label'])?></b></span></label><?php endforeach;?></div>
+      <div class="tdcp-form-grid">
+       <label><span>Canal</span><select class="form-select" name="channel" required><?php foreach($activityChannels??[] as $channel):?><option value="<?=e($channel['code'])?>"><?=e($channel['label'])?></option><?php endforeach;?></select></label>
+       <label><span>Categoria</span><select class="form-select" name="category_code" data-commercial-category><option value="">Não se aplica</option><?php foreach($activityCategories??[] as $category):?><option value="<?=e($category['code'])?>" data-types="<?=e(implode(',',(array)$category['types']))?>"><?=e($category['label'])?></option><?php endforeach;?></select></label>
+       <label><span>Resultado</span><select class="form-select" name="outcome_code" data-commercial-outcome required><?php foreach($activityOutcomes??[] as $outcome):?><option value="<?=e($outcome['code'])?>" data-types="<?=e(implode(',',(array)$outcome['types']))?>"><?=e($outcome['label'])?></option><?php endforeach;?></select></label>
+       <?php if(count($activityAssignableUsers??[])>1):?><label><span>Responsável pelo retorno</span><select class="form-select" name="assigned_user_id"><?php foreach($activityAssignableUsers as $person):?><option value="<?=(int)$person['id']?>" <?=(int)$person['id']===(int)$u['id']?'selected':''?>><?=e((string)$person['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+       <label><span>Próximo retorno <small>opcional</small></span><input class="form-control" type="datetime-local" name="next_at"></label>
+       <label class="wide"><span>Anotação</span><textarea class="form-control" name="notes" rows="4" maxlength="10000"></textarea></label>
+      </div>
+      <footer><small>Uma atividade formal atualiza a prioridade de relacionamento desta Conta.</small><button class="tdcp-btn tdcp-btn-primary" type="submit"><i class="fa-solid fa-check"></i>Registrar atividade</button></footer>
+     </form>
+     <?php else:?><div class="tdca-readonly"><i class="fa-solid fa-lock"></i>Conta fora da sua carteira operacional.</div><?php endif;?>
+    </section>
+
+    <div class="tdca-operation-grid">
+     <section class="tdca-card">
+      <div class="tdca-card-head"><span><i class="fa-solid fa-clock-rotate-left"></i></span><div><strong>Histórico de atividades</strong><small>Tentativas, contatos realizados e follow-ups.</small></div><b><?=count($activities??[])?></b></div>
+      <div class="tdca-activity-list"><?php foreach($activities??[] as $activity):$typeCode=(string)($activity['activity_type']??'contact_completed');$categoryCode=(string)($activity['category_code']??'');$outcomeCode=(string)($activity['outcome_code']??$activity['result']??'');?>
+       <article><span class="type <?=e($typeCode)?>"><i class="fa-solid <?=$typeCode==='contact_attempt'?'fa-phone-slash':($typeCode==='follow_up'?'fa-arrows-rotate':'fa-comments')?>"></i></span><div><header><strong><?=e(CommercialActivityService::activityTypeLabel($typeCode))?></strong><small><?=date('d/m/Y H:i',strtotime((string)$activity['created_at']))?> · <?=e((string)$activity['user_name'])?></small></header><p class="meta"><span><?=e(CommercialActivityService::outcomeLabel($outcomeCode))?></span><?php if($categoryCode!==''):?><span><?=e(CommercialActivityService::categoryLabel($categoryCode))?></span><?php endif;?><span><?=e(ucfirst((string)$activity['channel']))?></span></p><?php if(!empty($activity['notes'])):?><p class="notes"><?=nl2br(e((string)$activity['notes']))?></p><?php endif;?><?php if(!empty($activity['return_due_at'])):?><p class="return <?=e((string)$activity['return_task_status'])?>"><i class="fa-regular fa-calendar-check"></i>Retorno <?=date('d/m/Y H:i',strtotime((string)$activity['return_due_at']))?> · <?=e((string)$activity['return_task_status'])?></p><?php endif;?></div></article>
+      <?php endforeach;?><?php if(empty($activities)):?><div class="tdca-empty">Nenhuma atividade comercial registrada nesta Conta.</div><?php endif;?></div>
+     </section>
+
+     <section class="tdca-card" id="commercial-notes">
+      <div class="tdca-card-head"><span><i class="fa-solid fa-note-sticky"></i></span><div><strong>Observações livres</strong><small>Contexto interno que não altera a prioridade de contato.</small></div><b><?=count($commercialNotes??[])?></b></div>
+      <?php if($canWork):?><form class="tdca-free-note" method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/note"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><textarea class="form-control" name="note" rows="3" maxlength="10000" placeholder="Ex.: particularidade do parceiro, preferência de atendimento, informação interna..." required></textarea><button class="tdcp-btn" type="submit"><i class="fa-solid fa-plus"></i>Adicionar observação</button></form><?php endif;?>
+      <div class="tdca-note-list"><?php foreach($commercialNotes??[] as $note):?><article><p><?=nl2br(e((string)$note['note']))?></p><small><?=e((string)$note['user_name'])?> · <?=date('d/m/Y H:i',strtotime((string)$note['created_at']))?></small></article><?php endforeach;?><?php if(empty($commercialNotes)):?><div class="tdca-empty">Nenhuma observação livre registrada.</div><?php endif;?></div>
      </section>
     </div>
 
