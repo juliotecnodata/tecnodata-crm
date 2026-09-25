@@ -532,7 +532,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       setProgress('Concluído: '+updated+' parceiro(s) salvos como CFC + Revendedor'+(skipped?' · '+skipped+' ignorado(s) por já estarem tratados.':'.'),'success');
       if(saveButton){saveButton.innerHTML='<i class="fa-solid fa-circle-check"></i> Concluído';saveButton.disabled=true;}
       if(window.appNotify)window.appNotify('success','Parceiros atualizados',updated+' cadastro(s) foram classificados como CFC + Revendedor.');
-      if(!hasSavedChanges&&original)saveButton.innerHTML=original;
+      if(saveButton&&!hasSavedChanges&&original)saveButton.innerHTML=original;
     });
   }
 
