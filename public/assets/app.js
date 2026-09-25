@@ -289,12 +289,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     const opener=document.querySelector('[data-partner-sync-open]');
     const form=partnerSyncDialog.querySelector('[data-partner-sync-form]');
     const loading=partnerSyncDialog.querySelector('[data-partner-sync-loading]');
-    const table=partnerSyncDialog.querySelector('[data-partner-sync-table]');
+    const tableWrap=partnerSyncDialog.querySelector('[data-partner-sync-table]');
+    const dataTableEl=partnerSyncDialog.querySelector('[data-partner-sync-datatable]');
     const tbody=partnerSyncDialog.querySelector('[data-partner-sync-body]');
     const errorBox=partnerSyncDialog.querySelector('[data-partner-sync-error]');
     const progressBox=partnerSyncDialog.querySelector('[data-partner-sync-progress]');
+    const omittedBox=partnerSyncDialog.querySelector('[data-partner-sync-omitted]');
     const summary=partnerSyncDialog.querySelector('[data-partner-sync-summary]');
-    const search=partnerSyncDialog.querySelector('[data-partner-sync-search]');
+    const statusFilter=partnerSyncDialog.querySelector('[data-partner-sync-status-filter]');
+    const originFilter=partnerSyncDialog.querySelector('[data-partner-sync-origin-filter]');
     const selectAll=partnerSyncDialog.querySelector('[data-partner-sync-select-all]');
     const selectedCount=partnerSyncDialog.querySelector('[data-partner-sync-selected]');
     const saveButton=partnerSyncDialog.querySelector('[data-partner-sync-save]');
@@ -302,6 +305,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const batchSize=40;
     let previewRows=[];
     let hasSavedChanges=false;
+    let partnerDt=null;
 
     const setError=message=>{
       if(errorBox){errorBox.hidden=!message;errorBox.textContent=message||'';}
@@ -312,7 +316,20 @@ document.addEventListener('DOMContentLoaded',()=>{
       progressBox.className='cix-partner-sync-progress '+type;
       progressBox.textContent=message||'';
     };
-    const checkboxes=()=>[...partnerSyncDialog.querySelectorAll('input[name="account_codes[]"]')];
+    const destroyPartnerDt=()=>{
+      if(partnerDt){
+        try{partnerDt.destroy();}catch(error){}
+        partnerDt=null;
+      }
+      if(dataTableEl)dataTableEl.dataset.dtReady='';
+    };
+    const allRowNodes=()=>{
+      if(partnerDt){
+        try{return Array.from(partnerDt.rows().nodes());}catch(error){}
+      }
+      return [...partnerSyncDialog.querySelectorAll('[data-partner-sync-row]')];
+    };
+    const checkboxes=()=>allRowNodes().flatMap(row=>[...row.querySelectorAll('input[name="account_codes[]"]')]);
     const activeCheckboxes=()=>checkboxes().filter(box=>!box.disabled);
     const checkedBoxes=()=>activeCheckboxes().filter(box=>box.checked);
     const refreshSelected=()=>{
@@ -325,26 +342,65 @@ document.addEventListener('DOMContentLoaded',()=>{
         selectAll.disabled=boxes.length===0;
       }
     };
-    const applySearch=()=>{
-      const q=(search?.value||'').trim().toLocaleLowerCase('pt-BR');
-      partnerSyncDialog.querySelectorAll('[data-partner-sync-row]').forEach(row=>{
-        row.hidden=q!==''&&!String(row.dataset.search||'').includes(q);
-      });
-    };
     const statusMeta=status=>{
       if(status==='pending')return ['Pronto para validar','pending','fa-circle-check'];
-      if(status==='already')return ['Já classificado','already','fa-circle-check'];
       if(status==='not_found')return ['Não localizado','not-found','fa-magnifying-glass'];
       if(status==='saved')return ['Validado e salvo','saved','fa-circle-check'];
       if(status==='failed')return ['Erro ao salvar','failed','fa-triangle-exclamation'];
       if(status==='skipped')return ['Ignorado','skipped','fa-circle-minus'];
       return ['Documento inválido','invalid','fa-triangle-exclamation'];
     };
+    const originMeta=status=>{
+      if(status==='inactive')return ['Inativo','inactive','fa-circle-pause'];
+      if(status==='mixed')return ['Misto','mixed','fa-code-branch'];
+      return ['Ativo','active','fa-circle-check'];
+    };
     const addText=(parent,tag,text,className='')=>{
       const el=document.createElement(tag);if(className)el.className=className;el.textContent=String(text??'');parent.appendChild(el);return el;
     };
+    const applyDataTableFilters=()=>{
+      if(!partnerDt)return;
+      const statusLabels={pending:'Pronto para validar',not_found:'Não localizado',invalid:'Documento inválido',failed:'Erro ao salvar'};
+      const originLabels={active:'Ativo',inactive:'Inativo',mixed:'Misto'};
+      const statusValue=statusLabels[statusFilter?.value]||'';
+      const originValue=originLabels[originFilter?.value]||'';
+      try{
+        partnerDt.column(7).search(statusValue?('^'+statusValue+'$'):'',true,false);
+        partnerDt.column(2).search(originValue?('^'+originValue+'$'):'',true,false);
+        partnerDt.draw();
+      }catch(error){}
+    };
+    const initPartnerDataTable=()=>{
+      if(!window.DataTable||!dataTableEl)return;
+      destroyPartnerDt();
+      partnerDt=new DataTable(dataTableEl,{
+        pageLength:25,
+        lengthChange:true,
+        lengthMenu:[[10,25,50,100],[10,25,50,100]],
+        searching:true,
+        ordering:true,
+        paging:true,
+        info:true,
+        autoWidth:false,
+        order:[[1,'asc']],
+        columnDefs:[{targets:0,orderable:false,searchable:false}],
+        language:{
+          search:'',
+          searchPlaceholder:'Buscar parceiro, CPF/CNPJ, CRM ou responsável...',
+          lengthMenu:'Mostrar _MENU_ registros',
+          info:'Exibindo _START_–_END_ de _TOTAL_ pendências',
+          infoEmpty:'Nenhuma pendência',
+          infoFiltered:'(filtrado de _MAX_)',
+          zeroRecords:'Nenhum registro encontrado com estes filtros',
+          emptyTable:'Nenhuma pendência para analisar',
+          paginate:{first:'Primeira',last:'Última',next:'›',previous:'‹'}
+        }
+      });
+      applyDataTableFilters();
+      refreshSelected();
+    };
     const updateRowStatus=(accountCode,statusKey,message='')=>{
-      const row=[...partnerSyncDialog.querySelectorAll('[data-partner-sync-row]')].find(item=>String(item.dataset.accountCode||'')===String(accountCode||''));
+      const row=allRowNodes().find(item=>String(item.dataset.accountCode||'')===String(accountCode||''));
       if(!row)return;
       const [label,statusClass,icon]=statusMeta(statusKey);
       const status=row.querySelector('.cix-partner-sync-status');
@@ -360,19 +416,26 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(statusKey==='failed'){box.checked=true;box.disabled=false;}
       }
       row.dataset.status=statusKey;
+      try{partnerDt?.row(row)?.invalidate('dom');}catch(error){}
     };
     const renderRows=rows=>{
-      if(!tbody)return;tbody.innerHTML='';previewRows=Array.isArray(rows)?rows:[];
+      if(!tbody)return;
+      destroyPartnerDt();
+      tbody.innerHTML='';
+      previewRows=Array.isArray(rows)?rows:[];
       previewRows.forEach(item=>{
         const tr=document.createElement('tr');tr.dataset.partnerSyncRow='1';
         tr.dataset.status=String(item.status||'');
+        tr.dataset.origin=String(item.source_status||'active');
         tr.dataset.accountCode=String(item.account_code||'');
-        tr.dataset.search=[item.source_name,item.document,item.account_name,item.account_code,item.owner_name,item.city_uf,item.current_classification].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR');
+        if(item.status==='not_found')tr.classList.add('is-not-found');
+        if(item.source_status==='inactive')tr.classList.add('is-inactive-source');
+        if(item.source_status==='mixed')tr.classList.add('is-mixed-source');
 
         const tdSelect=document.createElement('td');tdSelect.className='select';
         if(item.selectable&&item.account_code){
           const label=document.createElement('label');label.className='cix-partner-sync-check';
-          const input=document.createElement('input');input.type='checkbox';input.name='account_codes[]';input.value=String(item.account_code);input.checked=true;
+          const input=document.createElement('input');input.type='checkbox';input.name='account_codes[]';input.value=String(item.account_code);input.checked=item.default_selected!==false;
           const mark=document.createElement('span');mark.innerHTML='<i class="fa-solid fa-check"></i>';
           label.append(input,mark);tdSelect.appendChild(label);
           input.addEventListener('change',refreshSelected);
@@ -382,9 +445,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         tr.appendChild(tdSelect);
 
         const tdSource=document.createElement('td');addText(tdSource,'strong',item.source_name||'Sem nome');
-        const sourceDetails=[item.city_uf,item.source_active?'Ativo na origem':'Inativo na origem'];
+        const sourceDetails=[item.city_uf];
         if(Number(item.source_count||0)>1)sourceDetails.push(String(item.source_count)+' registros na origem');
         addText(tdSource,'small',sourceDetails.filter(Boolean).join(' · '));tr.appendChild(tdSource);
+
+        const tdOrigin=document.createElement('td');const [originLabel,originClass,originIcon]=originMeta(item.source_status);
+        const originBadge=document.createElement('span');originBadge.className='cix-partner-origin '+originClass;
+        originBadge.innerHTML='<i class="fa-solid '+originIcon+'"></i>';addText(originBadge,'b',originLabel);tdOrigin.appendChild(originBadge);tr.appendChild(tdOrigin);
 
         const tdDoc=document.createElement('td');addText(tdDoc,'strong',item.document||'—');tr.appendChild(tdDoc);
 
@@ -404,24 +471,32 @@ document.addEventListener('DOMContentLoaded',()=>{
         status.innerHTML='<i class="fa-solid '+icon+'"></i>';addText(status,'b',label);tdStatus.appendChild(status);tr.appendChild(tdStatus);
         tbody.appendChild(tr);
       });
+
       if(!previewRows.length){
-        const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=7;td.className='cix-empty';td.textContent='Nenhum cadastro retornado pela base de parceiros.';tr.appendChild(td);tbody.appendChild(tr);
+        const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.className='cix-empty';td.textContent='Nenhuma pendência encontrada. Os parceiros já validados não são mais exibidos.';tr.appendChild(td);tbody.appendChild(tr);
       }
-      applySearch();refreshSelected();
+      refreshSelected();
     };
     const renderSummary=data=>{
-      if(!summary)return;
-      const values=[
-        [data?.source_rows||0,'registros em cfcs'],
-        [data?.matched_accounts||0,'contas correspondentes'],
-        [data?.pending_accounts||0,'selecionáveis'],
-        [data?.not_found_documents||0,'revisar cadastro']
-      ];
-      [...summary.querySelectorAll('article')].forEach((article,index)=>{
-        const strong=article.querySelector('strong');const span=article.querySelector('span');
-        if(strong)strong.textContent=Number(values[index]?.[0]||0).toLocaleString('pt-BR');
-        if(span)span.textContent=values[index]?.[1]||'';
-      });
+      if(summary){
+        const values=[
+          [data?.source_rows||0,'registros em cfcs'],
+          [data?.pending_accounts||0,'pendentes no CRM'],
+          [data?.not_found_documents||0,'revisar cadastro'],
+          [data?.inactive_source_rows||0,'revisão do supervisor']
+        ];
+        [...summary.querySelectorAll('article')].forEach((article,index)=>{
+          const strong=article.querySelector('strong');const span=article.querySelector('span');
+          if(strong)strong.textContent=Number(values[index]?.[0]||0).toLocaleString('pt-BR');
+          if(span)span.textContent=values[index]?.[1]||'';
+        });
+      }
+      if(omittedBox){
+        const omitted=Number(data?.omitted_already_classified||0);
+        omittedBox.hidden=omitted<=0;
+        const span=omittedBox.querySelector('span');
+        if(span)span.textContent=omitted.toLocaleString('pt-BR')+' parceiro(s) já estavam como CFC + Revendedor e foram ocultados desta análise.';
+      }
     };
     const responseErrorText=raw=>{
       const holder=document.createElement('div');holder.innerHTML=String(raw||'');
@@ -443,17 +518,24 @@ document.addEventListener('DOMContentLoaded',()=>{
       return body;
     };
     const loadPreview=async()=>{
-      setError('');setProgress('');hasSavedChanges=false;
-      if(tbody)tbody.innerHTML='';if(search)search.value='';if(table)table.hidden=true;if(loading)loading.hidden=false;
+      setError('');setProgress('');hasSavedChanges=false;destroyPartnerDt();
+      if(tbody)tbody.innerHTML='';
+      if(statusFilter)statusFilter.value='';
+      if(originFilter)originFilter.value='';
+      if(tableWrap)tableWrap.hidden=true;
+      if(loading)loading.hidden=false;
       if(saveButton){saveButton.disabled=true;saveButton.innerHTML='<i class="fa-solid fa-check"></i>Validar selecionados';}
-      if(selectedCount)selectedCount.textContent='0';if(selectAll){selectAll.checked=true;selectAll.indeterminate=false;selectAll.disabled=false;}
+      if(selectedCount)selectedCount.textContent='0';
+      if(selectAll){selectAll.checked=false;selectAll.indeterminate=false;selectAll.disabled=false;}
       renderSummary({});
       try{
         const payload=new FormData();payload.append('_token',csrf);
         const response=await fetch((window.APP_URL||'')+'/commercial-partners/sync-preview',{method:'POST',body:payload,headers:{Accept:'application/json'}});
         const body=await readJson(response);
-        renderSummary(body.data?.summary||{});renderRows(body.data?.rows||[]);
-        if(table)table.hidden=false;
+        renderSummary(body.data?.summary||{});
+        renderRows(body.data?.rows||[]);
+        if(tableWrap)tableWrap.hidden=false;
+        setTimeout(initPartnerDataTable,0);
       }catch(error){
         setError(error?.message||'Não foi possível consultar a base de parceiros.');
       }finally{
@@ -461,6 +543,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
     };
     const closePartnerSync=()=>{
+      destroyPartnerDt();
       partnerSyncDialog.close();
       if(hasSavedChanges)window.location.reload();
     };
@@ -468,7 +551,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     opener?.addEventListener('click',()=>{partnerSyncDialog.showModal();loadPreview();});
     partnerSyncDialog.querySelectorAll('[data-partner-sync-close]').forEach(button=>button.addEventListener('click',closePartnerSync));
     partnerSyncDialog.addEventListener('click',event=>{if(event.target===partnerSyncDialog)closePartnerSync();});
-    search?.addEventListener('input',applySearch);
+    statusFilter?.addEventListener('change',applyDataTableFilters);
+    originFilter?.addEventListener('change',applyDataTableFilters);
     selectAll?.addEventListener('change',()=>{
       activeCheckboxes().forEach(box=>{box.checked=!!selectAll.checked;});refreshSelected();
     });
@@ -514,6 +598,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       }
 
+      applyDataTableFilters();
       refreshSelected();
       if(errors.length){
         const remaining=checkedBoxes().length;
@@ -529,7 +614,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
 
       setError('');
-      setProgress('Concluído: '+updated+' parceiro(s) salvos como CFC + Revendedor'+(skipped?' · '+skipped+' ignorado(s) por já estarem tratados.':'.'),'success');
+      setProgress('Concluído: '+updated+' parceiro(s) salvos como CFC + Revendedor'+(skipped?' · '+skipped+' ignorado(s) por já estarem tratados.':'.')+' Ao abrir a sincronização novamente, estes registros não aparecerão mais.','success');
       if(saveButton){saveButton.innerHTML='<i class="fa-solid fa-circle-check"></i> Concluído';saveButton.disabled=true;}
       if(window.appNotify)window.appNotify('success','Parceiros atualizados',updated+' cadastro(s) foram classificados como CFC + Revendedor.');
       if(saveButton&&!hasSavedChanges&&original)saveButton.innerHTML=original;
@@ -1237,6 +1322,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       return table._dataTable;
   };
   document.querySelectorAll('.table-card table').forEach(initDataTable);
+  document.querySelectorAll('.cix-partners-datatable').forEach(initDataTable);
 
   const clientBulk=document.querySelector('[data-client-bulk]');
   const clientBulkTable=document.querySelector('.clients-datatable');
