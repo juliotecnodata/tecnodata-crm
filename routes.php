@@ -717,7 +717,7 @@ $router->post('/clients/{id}/omie-sync',function($p){
  Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de sincronizar com a Omie.');
-  if((string)($u['role']??'')==='supervisor'&&!client_central_supervisor_accessible($id))throw new RuntimeException('Este cadastro não pertence às carteiras comerciais sob supervisão.');
+  if((string)($u['role']??'')==='supervisor'&&!client_central_crm_accessible($id))throw new RuntimeException('Este cadastro não pertence à base CRM ativa.');
   $result=ClientService::syncLocalWithOmie($id,$u);
   $_SESSION['client_flash']=['type'=>'success','message'=>$result['message']];
  }catch(Throwable $e){
@@ -1317,7 +1317,7 @@ $router->get('/clients-sync',function(){
  $q=trim((string)($_GET['q']??''));if(mb_strlen($q)>120)$q=mb_substr($q,0,120);
  [$syncSql,$syncParams]=client_sync_condition($status,'c');$where=['c.active=1',$syncSql];$params=$syncParams;$syncRole=(string)(Auth::user()['role']??'');
  $summaryWhere=['c.active=1'];$summaryParams=[];
- if($syncRole==='supervisor'){[$teamSql,$teamParams]=commercial_team_client_scope('c');$where[]=$teamSql;$summaryWhere[]=$teamSql;array_push($params,...$teamParams);array_push($summaryParams,...$teamParams);}
+ if($syncRole==='supervisor'){$crmScope=commercial_active_crm_link_sql('c');$where[]=$crmScope;$summaryWhere[]=$crmScope;}
  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('c'),['ps.name','os.name']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
  $summary=DB::one("SELECT
   SUM(CASE WHEN (c.omie_code LIKE 'LOCAL-%' OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update','error') OR COALESCE(c.seller_omie_code,'')<>COALESCE(c.omie_seller_code,'')) THEN 1 ELSE 0 END) total,
@@ -1351,7 +1351,7 @@ $router->post('/api/clients-sync/bulk',function(){
   $ids=[];foreach((array)($input['client_ids']??[]) as $id){$id=(int)$id;if($id>0)$ids[$id]=$id;}$excluded=[];foreach((array)($input['excluded_ids']??[]) as $id){$id=(int)$id;if($id>0)$excluded[$id]=$id;}
   if($selection==='selected'&&!$ids)throw new RuntimeException('Selecione pelo menos um cliente.');
   [$syncSql,$syncParams]=client_sync_condition($status,'c');$where=['c.active=1',$syncSql];$params=$syncParams;
-  if((string)(Auth::user()['role']??'')==='supervisor'){[$teamSql,$teamParams]=commercial_team_client_scope('c');$where[]=$teamSql;array_push($params,...$teamParams);}
+  if((string)(Auth::user()['role']??'')==='supervisor')$where[]=commercial_active_crm_link_sql('c');
   if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('c'),['ps.name','os.name']));if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}}
   if($selection==='selected'){$where[]='c.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';array_push($params,...array_values($ids));}
   if($excluded){$where[]='c.id NOT IN ('.implode(',',array_fill(0,count($excluded),'?')).')';array_push($params,...array_values($excluded));}
