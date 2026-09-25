@@ -55,40 +55,88 @@ final class DB {
 final class PartnerDB {
  private static ?\PDO $pdo=null;
 
- public static function conn(): \PDO {
-  if(self::$pdo)return self::$pdo;
+ private static function baseConfig(): array{
   $environment=defined('APP_ENV')?APP_ENV:'local';
-  $main=$GLOBALS['config']['database'][$environment]??[];
   $source=$GLOBALS['config']['partner_database'][$environment]??[];
-  if(!is_array($main))$main=[];if(!is_array($source))$source=[];
-
-  $d=[
-   'host'=>$source['host']??($main['host']??'127.0.0.1'),
-   'port'=>(int)($source['port']??($main['port']??3306)),
-   'database'=>$source['database']??'u695906402_Tecno_Loja_BD',
-   'username'=>$source['username']??($main['username']??''),
-   'password'=>$source['password']??($main['password']??''),
-   'charset'=>$source['charset']??($main['charset']??'utf8mb4'),
+  if(!is_array($source))$source=[];
+  return [
+   'host'=>(string)($source['host']??'127.0.0.1'),
+   'port'=>(int)($source['port']??3306),
+   'database'=>(string)($source['database']??'u695906402_Tecno_Loja_BD'),
+   'username'=>(string)($source['username']??''),
+   'password'=>(string)($source['password']??''),
+   'charset'=>(string)($source['charset']??'utf8mb4'),
   ];
+ }
 
+ private static function savedConfig(): array{
+  try{
+   $raw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='partner_database_connection' LIMIT 1");
+   $saved=$raw?json_decode((string)$raw,true):null;
+   return is_array($saved)?$saved:[];
+  }catch(Throwable $e){return [];}
+ }
+
+ public static function config(bool $includePassword=false): array{
+  $environment=defined('APP_ENV')?APP_ENV:'local';
+  $d=array_replace(self::baseConfig(),self::savedConfig());
   $envPrefix=$environment==='local'?'TDPARTNER_DB_LOCAL_':'TDPARTNER_DB_PROD_';
   $envMap=['HOST'=>'host','PORT'=>'port','NAME'=>'database','USER'=>'username','PASS'=>'password'];
   foreach($envMap as $envKey=>$configKey){
    $value=getenv($envPrefix.$envKey);
    if($value!==false&&$value!=='')$d[$configKey]=$configKey==='port'?(int)$value:$value;
   }
-  if(trim((string)$d['database'])==='')throw new \RuntimeException('Banco de parceiros não configurado.');
+  $d['port']=max(1,min(65535,(int)($d['port']??3306)));
+  $d['charset']=preg_match('/^[A-Za-z0-9_]+$/',(string)($d['charset']??''))?(string)$d['charset']:'utf8mb4';
+  if(!$includePassword)unset($d['password']);
+  return $d;
+ }
+
+ public static function saveConfig(array $data): array{
+  $current=array_replace(self::baseConfig(),self::savedConfig());
+  $host=trim((string)($data['host']??''));$database=trim((string)($data['database']??''));
+  $username=trim((string)($data['username']??''));$password=(string)($data['password']??'');
+  $port=(int)($data['port']??3306);
+  if($host==='')throw new \RuntimeException('Informe o host do banco de parceiros.');
+  if($database==='')throw new \RuntimeException('Informe o nome do banco de parceiros.');
+  if($username==='')throw new \RuntimeException('Informe o usuário do banco de parceiros.');
+  if($port<1||$port>65535)throw new \RuntimeException('Informe uma porta válida.');
+  if($password==='')$password=(string)($current['password']??'');
+  if($password==='')throw new \RuntimeException('Informe a senha do banco de parceiros.');
+
+  $saved=[
+   'host'=>$host,'port'=>$port,'database'=>$database,'username'=>$username,
+   'password'=>$password,'charset'=>'utf8mb4'
+  ];
+  DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('partner_database_connection',?,NOW())
+            ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
+   [json_encode($saved,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+  self::$pdo=null;
+  return self::config(false);
+ }
+
+ public static function conn(): \PDO {
+  if(self::$pdo)return self::$pdo;
+  $d=self::config(true);
+  if(trim((string)($d['database']??''))==='')throw new \RuntimeException('Banco de parceiros não configurado.');
+  if(trim((string)($d['username']??''))==='')throw new \RuntimeException('Usuário do banco de parceiros não configurado.');
 
   try{
    self::$pdo=new \PDO(
     sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s',$d['host'],$d['port'],$d['database'],$d['charset']),
-    $d['username'],$d['password'],
+    $d['username'],$d['password']??'',
     [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_DEFAULT_FETCH_MODE=>\PDO::FETCH_ASSOC,\PDO::ATTR_EMULATE_PREPARES=>false]
    );
    return self::$pdo;
   }catch(Throwable $e){
    throw new \RuntimeException('Falha ao conectar ao banco de parceiros: '.$e->getMessage(),0,$e);
   }
+ }
+
+ public static function test(): array{
+  $pdo=self::conn();
+  $count=(int)$pdo->query("SELECT COUNT(*) FROM cfcs")->fetchColumn();
+  return ['ok'=>true,'cfcs'=>$count];
  }
 
  public static function all(string $sql,array $params=[]): array{
