@@ -1389,9 +1389,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       table._dataTable=new DataTable(table,options);
       return table._dataTable;
   };
-  document.querySelectorAll('.table-card table, .cix-partners-datatable, [data-datatable]').forEach(initDataTable);
+  document.querySelectorAll('.table-card table, .cix-partners-datatable, [data-datatable]').forEach(table=>{
+    if(table.classList.contains('tdcentral-datatable'))return;
+    initDataTable(table);
+  });
   document.querySelectorAll('.tdcrm-content table').forEach(table=>{
-    if(table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable'))return;
+    if(table.classList.contains('tdcentral-datatable')||table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable'))return;
     initDataTable(table);
   });
   document.querySelectorAll('.cix-partners-datatable').forEach(initDataTable);
