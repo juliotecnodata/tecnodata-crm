@@ -823,6 +823,117 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  'identityFilter'=>$identityFilter,'identitySummary'=>$identitySummary,'crmOnlyAccounts'=>$crmOnlyAccounts
  ]);
 };
+$router->get('/api/client-quick-view',function(){
+ Auth::requireLogin();ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();
+ $u=Auth::user();$role=(string)($u['role']??'');$accountCode=trim((string)($_GET['account_code']??''));$clientId=max(0,(int)($_GET['client_id']??0));
+ $account=null;$client=null;
+ if($accountCode!==''){
+  if((int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1",[$accountCode])??0)!==1)json_response(['ok'=>false,'error'=>'Conta CRM não encontrada.'],404);
+  $account=CommercialAccountService::get($accountCode);$clientId=(int)($account['client_id']??0);
+ }elseif($clientId>0){
+  $client=DB::one("SELECT c.*,m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days
+                   FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=? LIMIT 1",[$clientId]);
+  if(!$client)json_response(['ok'=>false,'error'=>'Cliente não encontrado.'],404);
+  $linkedCode=trim((string)(DB::scalar("SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=? ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1",[$clientId])??''));
+  if($linkedCode!==''){$accountCode=$linkedCode;$account=CommercialAccountService::get($accountCode);}
+ }else json_response(['ok'=>false,'error'=>'Informe o cliente que deseja consultar.'],422);
+
+ if($clientId>0&&!$client)$client=DB::one("SELECT c.*,m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days
+                                         FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id WHERE c.id=? LIMIT 1",[$clientId]);
+
+ $isAdmin=in_array($role,['admin','supervisor'],true);
+ if($role==='seller'){
+  $allowed=$accountCode!==''?CommercialAccountService::canView($u,$accountCode):($clientId>0&&client_central_seller_accessible($clientId));
+  if(!$allowed)json_response(['ok'=>false,'error'=>'Este cadastro não está disponível na sua Central de Clientes.'],403);
+ }elseif($role==='collector'){
+  if(!$client||empty($client['active'])||!empty($client['crm_inactive']))json_response(['ok'=>false,'error'=>'Cliente indisponível para consulta.'],403);
+ }elseif(!$isAdmin)json_response(['ok'=>false,'error'=>'Sem permissão para consultar este cadastro.'],403);
+
+ if($client&&$role!=='admin'&&$role!=='supervisor'&&(!empty($client['crm_inactive'])||empty($client['active'])))json_response(['ok'=>false,'error'=>'Cliente indisponível para consulta.'],404);
+
+ $profile=$accountCode!==''?CommercialAccountService::profile($accountCode):($clientId>0?CommercialClassificationService::get($clientId):['is_cfc'=>0,'is_reseller'=>0,'strategic_notes'=>'']);
+ $contacts=$accountCode!==''?CommercialAccountService::contacts($accountCode):[];
+ $activities=$accountCode!==''?CommercialActivityService::history($accountCode,12):($clientId>0?DB::all("SELECT a.*,u.name user_name,NULL return_task_id,NULL return_task_status,NULL return_due_at FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC,a.id DESC LIMIT 12",[$clientId]):[]);
+ $notes=$accountCode!==''?CommercialAccountService::notes($accountCode,5):[];
+
+ $nextTask=null;
+ if($accountCode!=='')$nextTask=DB::one("SELECT id,title,due_at,status FROM tasks WHERE crm_account_code=? AND type='sales' AND status='pending' ORDER BY due_at ASC,id ASC LIMIT 1",[$accountCode]);
+ elseif($clientId>0)$nextTask=DB::one("SELECT id,title,due_at,status FROM tasks WHERE client_id=? AND type='sales' AND status='pending' ORDER BY due_at ASC,id ASC LIMIT 1",[$clientId]);
+
+ $lastContactAt='';foreach($activities as $activity){if(!empty($activity['created_at'])){$lastContactAt=(string)$activity['created_at'];break;}}
+ $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''))?:trim((string)($client['name']??''))?:'Cliente';
+ $document=trim((string)($account['document']??''))?:trim((string)($client['document']??''));
+ $city=trim((string)($client['city']??''));$uf=trim((string)($client['uf']??''));
+ $ownerName=trim((string)($account['owner_name']??''));if($ownerName===''&&!empty($client['crm_owner_user_id']))$ownerName=trim((string)(DB::scalar("SELECT name FROM users WHERE id=?",[(int)$client['crm_owner_user_id']])??''));
+ if($ownerName==='')$ownerName='Sem responsável';
+
+ $primaryContact=null;foreach($contacts as $contact){if(!$primaryContact||!empty($contact['mobile'])||!empty($contact['phone'])||!empty($contact['email'])){$primaryContact=$contact;if(!empty($contact['mobile']))break;}}
+ $contactName=$primaryContact?trim((string)($primaryContact['name']??'').' '.(string)($primaryContact['last_name']??'')):'';
+ $contactRole=trim((string)($primaryContact['position_name']??''));
+ $phone=trim((string)($primaryContact['phone']??''));$mobile=trim((string)($primaryContact['mobile']??''));$email=trim((string)($primaryContact['email']??''));
+ if($client){
+  if($phone==='')$phone=trim((string)($client['phone_ddd']??'').' '.(string)($client['phone_number']??''));
+  if($mobile==='')$mobile=$phone;
+  if($email===''){ $emails=ClientService::emailList($client['email']??'');$email=(string)($emails[0]??''); }
+ }
+ if($contactName==='')$contactName=$display;
+
+ $isCfc=!empty($profile['is_cfc']);$isReseller=!empty($profile['is_reseller']);
+ $classification=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':'Sem classificação'));
+ $nextAt=(string)($nextTask['due_at']??'');$today=date('Y-m-d');$status='Em dia';$statusTone='ok';
+ if($nextAt!==''){
+  $nextDay=date('Y-m-d',strtotime($nextAt));
+  if($nextDay<$today){$status='Atrasado';$statusTone='danger';}
+  elseif($nextDay===$today){$status='Retorno hoje';$statusTone='today';}
+  else{$status='Agendado';$statusTone='scheduled';}
+ }elseif($lastContactAt===''){$status='Sem contato';$statusTone='neutral';}
+
+ $canWork=$isAdmin||($role==='seller'&&$accountCode!==''&&CommercialAccountService::canWork($u,$accountCode));
+ $strategicNotes=trim((string)($profile['strategic_notes']??''));if($strategicNotes===''&&!empty($notes[0]['note']))$strategicNotes=trim((string)$notes[0]['note']);
+ if($strategicNotes===''&&$client)$strategicNotes=trim((string)($client['notes']??''));
+
+ $interactionItems=[];foreach($activities as $activity){
+  $type=(string)($activity['activity_type']??'follow_up');$channel=(string)($activity['channel']??'other');
+  $interactionItems[]=[
+   'id'=>(int)($activity['id']??0),'type'=>$type,'type_label'=>CommercialActivityService::activityTypeLabel($type),
+   'channel'=>$channel,'channel_label'=>CommercialActivityService::channelLabel($channel),
+   'notes'=>trim((string)($activity['notes']??'')),'created_at'=>(string)($activity['created_at']??''),'user_name'=>(string)($activity['user_name']??'')
+  ];
+ }
+ $contactItems=[];foreach(array_slice($contacts,0,12) as $contact)$contactItems[]=[
+  'name'=>trim((string)($contact['name']??'').' '.(string)($contact['last_name']??''))?:'Contato sem nome',
+  'position'=>(string)($contact['position_name']??''),'phone'=>(string)($contact['phone']??''),'mobile'=>(string)($contact['mobile']??''),'email'=>(string)($contact['email']??'')
+ ];
+
+ $fullUrl=$accountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($accountCode):APP_URL.'/clients/'.$clientId;
+ json_response([
+  'ok'=>true,
+  'client'=>[
+   'id'=>$clientId?:null,'crm_account_code'=>$accountCode?:null,'name'=>$display,'document'=>$document,'city'=>$city,'uf'=>$uf,
+   'classification'=>$classification,'status'=>$status,'status_tone'=>$statusTone,'owner_name'=>$ownerName,
+   'last_contact_at'=>$lastContactAt?:null,'next_return_at'=>$nextAt?:null,'next_return_title'=>(string)($nextTask['title']??''),
+   'first_purchase_at'=>$client['first_purchase_at']??null,'last_purchase_at'=>$client['last_purchase_at']??null,
+   'revenue_12m'=>(float)($client['revenue_12m']??0),'orders_12m'=>(int)($client['orders_12m']??0),
+   'strategic_notes'=>$strategicNotes,'full_url'=>$fullUrl,'can_work'=>$canWork,
+   'linked_client'=>$clientId>0,'source'=>$accountCode!==''?'crm_account':'client'
+  ],
+  'primary_contact'=>['name'=>$contactName,'position'=>$contactRole,'phone'=>$phone,'mobile'=>$mobile,'email'=>$email],
+  'contacts'=>$contactItems,'interactions'=>$interactionItems,
+  'counts'=>['contacts'=>count($contactItems),'activities'=>count($interactionItems),'orders'=>(int)($client['orders_12m']??0)]
+ ]);
+});
+
+$router->post('/api/client-quick-view/activity',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$accountCode=trim((string)($_POST['crm_account_code']??''));if($accountCode==='')json_response(['ok'=>false,'error'=>'A Conta CRM é obrigatória para registrar a atividade.'],422);
+ try{
+  $payload=$_POST;$payload['category_code']='commercial';
+  if(empty($payload['activity_type']))$payload['activity_type']='contact_completed';
+  $result=CommercialActivityService::record($accountCode,$u,$payload);
+  json_response(['ok'=>true,'message'=>!empty($result['task_id'])?'Atividade registrada e retorno agendado.':'Atividade registrada no histórico comercial.','result'=>$result]);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
+});
+
 $router->get('/clients',function()use($renderClients){
  $u=Auth::user();
  if((string)($u['role']??'')==='seller'){
