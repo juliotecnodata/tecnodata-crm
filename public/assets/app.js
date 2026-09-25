@@ -2511,6 +2511,9 @@ document.addEventListener('DOMContentLoaded',()=>{
  if(autoEdit){
   let path=location.pathname;if(basePath&&path.startsWith(basePath))path=path.slice(basePath.length)||'/';
   const match=path.match(/^\/clients\/(\d+)\/?$/);
-  if(match)load({client_id:match[1]},'edit');
+  if(match){
+   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('edit');history.replaceState(null,'',cleanUrl.pathname+(cleanUrl.searchParams.toString()?'?'+cleanUrl.searchParams.toString():'')+cleanUrl.hash);
+   load({client_id:match[1]},'edit');
+  }
  }
 })();
