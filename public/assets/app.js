@@ -1396,6 +1396,52 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   document.querySelectorAll('.cix-partners-datatable').forEach(initDataTable);
 
+  // A Central de Clientes usa uma base CRM grande e precisa de inicializacao
+  // server-side explicita. Nao depende da heuristica das demais tabelas.
+  document.querySelectorAll('.tdcentral-datatable').forEach(table=>{
+    if(!window.DataTable||table._dataTable)return;
+    const serverUrl=table.dataset.serverUrl||'';
+    if(!serverUrl)return;
+    table.dataset.dtReady='1';
+    table._dataTable=new DataTable(table,{
+      processing:true,
+      serverSide:true,
+      pageLength:10,
+      lengthChange:true,
+      lengthMenu:[[10,25,50,100],[10,25,50,100]],
+      searching:false,
+      ordering:true,
+      paging:true,
+      info:true,
+      autoWidth:false,
+      order:[[0,'asc']],
+      ajax:{
+        url:serverUrl,
+        dataSrc:'data',
+        error:xhr=>{
+          let detail='Não foi possível carregar a Base de clientes CRM.';
+          try{
+            const payload=xhr?.responseJSON||JSON.parse(xhr?.responseText||'{}');
+            if(payload?.error)detail=String(payload.error);
+          }catch(e){}
+          showNotice('danger','Erro ao carregar os clientes',detail);
+        }
+      },
+      language:{
+        processing:'Carregando clientes...',
+        search:'',
+        searchPlaceholder:'Buscar nesta tabela...',
+        lengthMenu:'Mostrar _MENU_ registros',
+        info:'Exibindo _START_–_END_ de _TOTAL_',
+        infoEmpty:'Nenhum registro',
+        infoFiltered:'(filtrado de _MAX_)',
+        zeroRecords:'Nenhum registro encontrado',
+        emptyTable:'Nenhum registro disponível',
+        paginate:{first:'Primeira',last:'Última',next:'›',previous:'‹'}
+      }
+    });
+  });
+
   const clientBulk=document.querySelector('[data-client-bulk]');
   const clientBulkTable=document.querySelector('.clients-datatable');
   if(clientBulk&&clientBulkTable?._dataTable){
