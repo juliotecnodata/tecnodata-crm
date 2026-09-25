@@ -2324,7 +2324,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   const query=new URLSearchParams(params);
   try{
    const response=await fetch(base+'/api/client-quick-view?'+query.toString(),{credentials:'same-origin',headers:{Accept:'application/json'}});
-   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível abrir a ficha do cliente.');
+   const raw=await response.text();let data={};
+   try{data=raw?JSON.parse(raw):{};}catch(e){data={};}
+   if(!response.ok||!data.ok){
+    const clean=String(raw||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    throw new Error(data.error||clean||'Não foi possível abrir a ficha do cliente.');
+   }
    render(data);
   }catch(error){modal.close();notify('danger','Cliente',error.message||'Não foi possível carregar o cadastro.');}
  };
