@@ -1168,7 +1168,9 @@ final class CommercialAccountService {
   return [
    'has_crm'=>true,'crm_account_code'=>$accountCode,'crm_owner_code'=>(string)($account['crm_user_code']??''),'crm_owner_name'=>(string)($account['owner_name']??''),
    'contacts_count'=>$contacts,'has_contacts'=>$contacts>0,
-   'client_id'=>$clientId,'client_omie_code'=>$clientOmieCode,'has_sales_client'=>$clientId>0&&$clientOmieCode!=='',
+   'client_id'=>$clientId,'client_omie_code'=>$clientOmieCode,
+   'sales_client_active'=>$clientId>0&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']),
+   'has_sales_client'=>$clientId>0&&$clientOmieCode!==''&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']),
    'orders_count'=>$orders,'orders_amount'=>$orderAmount,'last_order_at'=>$lastOrder,
    'services_count'=>$services,'services_amount'=>$serviceAmount,'last_service_at'=>$lastService,'has_sales_history'=>($orders+$services)>0,
    'financial_titles_count'=>$financialTitles,'financial_open_amount'=>$financialOpen,'has_financial'=>$financialTitles>0,
@@ -1463,9 +1465,10 @@ final class CommercialActivityService {
   if(!CommercialAccountService::canWork($user,$accountCode))throw new RuntimeException('Esta Conta CRM não pertence à sua carteira operacional.');
   $account=CommercialAccountService::get($accountCode);if(!$account)throw new RuntimeException('Conta CRM não encontrada.');
   $clientId=(int)($account['client_id']??0);
+  $clientOperational=$clientId>0&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']);
   $type=trim((string)($data['activity_type']??''));$validTypes=array_column(self::types(),'code');
   if(!in_array($type,$validTypes,true))throw new RuntimeException('Selecione um tipo de atividade válido.');
-  if($type==='sale'&&$clientId<=0)throw new RuntimeException('A venda exige um cliente vinculado ao cadastro geral.');
+  if($type==='sale'&&!$clientOperational)throw new RuntimeException('A venda exige um Cliente Geral Omie ativo e vinculado à Conta CRM.');
 
   $channel=trim((string)($data['channel']??''));
   $validChannels=array_column(self::channels(),'code');

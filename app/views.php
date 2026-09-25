@@ -886,8 +886,8 @@ function render(string $name,array $vars=[]): void{
   <?php break;
 
   case 'commercial_account':
-   $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$linked=!empty($account['client_id']);$profile=$profile??[];
-   $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$linked;$canCreateLink=$canAdminLink||$canSellerLink;
+   $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$hasClientLink=!empty($account['client_id']);$linked=$hasClientLink&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']);$profile=$profile??[];
+   $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=$canAdminLink||$canSellerLink;
    $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
    $contacts=array_values($contacts??[]);
    $activities=array_values($activities??[]);$commercialNotes=array_values($commercialNotes??[]);$audit=array_values($audit??[]);
@@ -998,8 +998,8 @@ function render(string $name,array $vars=[]): void{
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <section class="tdf-integration <?=$linked?'linked':'unlinked'?>" data-commercial-client-link>
-     <div class="tdf-integration-icon"><i class="fa-solid <?=$linked?'fa-link':'fa-link-slash'?>"></i></div>
+    <section class="tdf-integration <?=$linked?'linked':($hasClientLink?'historical':'unlinked')?>" data-commercial-client-link>
+     <div class="tdf-integration-icon"><i class="fa-solid <?=$linked?'fa-link':($hasClientLink?'fa-clock-rotate-left':'fa-link-slash')?>"></i></div>
      <div class="tdf-integration-copy">
       <small>INTEGRAÇÃO OMIE · CONTA CRM ↔ CLIENTE GERAL</small>
       <?php if($linked):?>
@@ -1009,14 +1009,17 @@ function render(string $name,array $vars=[]): void{
         <a href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>"><i class="fa-regular fa-address-card"></i>Abrir Cliente Geral</a>
         <?php if(($account['collection_status']??'')==='open'):?><a href="<?=APP_URL?>/collection/<?=(int)$account['client_id']?>"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança · <?=money($account['collection_open_amount']??0)?></a><?php endif;?>
        </div>
+      <?php elseif($hasClientLink):?>
+       <strong>Vínculo histórico preservado com <?=e((string)($account['client_name']??'Cliente Geral'))?></strong>
+       <p>O Cliente Geral Omie vinculado está inativo. Histórico e tarefas permanecem preservados, mas novas vendas ficam bloqueadas até a identidade de vendas ser regularizada.</p>
       <?php else:?>
        <strong>Conta CRM ainda sem vínculo financeiro</strong>
        <p>O relacionamento comercial pode continuar, mas vendas, pedidos e cobrança não devem ser associados até esta Conta CRM ser ligada ao Cliente Geral correto da Omie.</p>
       <?php endif;?>
      </div>
-     <?php if(($linked&&$canAdminLink)||(!$linked&&$canCreateLink)):?>
+     <?php if(($hasClientLink&&$canAdminLink)||(!$hasClientLink&&$canCreateLink)):?>
       <div class="tdf-integration-manage">
-       <?php if($linked):?>
+       <?php if($hasClientLink):?>
         <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/client-unlink"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="notes" value="Vínculo removido pela ficha comercial"><button type="submit" data-confirm="Remover o vínculo entre esta Conta CRM e o Cliente Geral? Os históricos serão preservados, mas vendas e cobrança deixarão de aparecer nesta ficha."><i class="fa-solid fa-link-slash"></i>Desvincular</button></form>
        <?php else:?>
         <button type="button" data-commercial-client-link-open><i class="fa-solid fa-link"></i>Vincular Cliente Geral</button>
@@ -1056,7 +1059,7 @@ function render(string $name,array $vars=[]): void{
     </div>
     <?php endif;?>
 
-    <?php if($canCreateLink&&!$linked):?>
+    <?php if($canCreateLink&&!$hasClientLink):?>
     <dialog class="tdf-link-dialog" data-commercial-client-link-dialog>
      <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/client-link" data-commercial-client-link-form>
       <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="client_id" data-commercial-client-link-id>

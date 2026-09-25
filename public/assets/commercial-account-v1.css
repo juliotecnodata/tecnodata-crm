@@ -80,3 +80,5 @@
 @media(max-width:1150px){.tdf-ecosystem{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.tdf-ecosystem{grid-template-columns:1fr 1fr}.tdf-source-actions span{width:100%;margin-left:0}}
 @media(max-width:460px){.tdf-ecosystem{grid-template-columns:1fr}.tdf-source-actions a,.tdf-source-actions button{width:100%;justify-content:center}}
+
+.tdf-integration.historical{border-color:#F5D58C;background:#FFFBEB}.tdf-integration.historical .tdf-integration-icon{background:#FEF3C7;color:#8A6900}
