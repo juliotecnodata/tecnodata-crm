@@ -1479,6 +1479,23 @@ final class CommercialAccountService {
 
   $total=(int)(DB::scalar("SELECT COUNT(*)".$join." WHERE ".$whereSql,$params)??0);
   $pages=max(1,(int)ceil($total/$perPage));$page=min($page,$pages);$offset=($page-1)*$perPage;
+  if($sort==='name'){
+   $orderBy="COALESCE(NULLIF(a.trade_name,''),a.name) ASC,a.name ASC";
+  }elseif($sort==='stale'){
+   $orderBy="CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC,a.trade_name ASC,a.name ASC";
+  }elseif($sort==='next'){
+   $orderBy="CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC,a.trade_name ASC,a.name ASC";
+  }else{
+   $orderBy="CASE
+               WHEN nt.next_due_at<CURDATE() THEN 0
+               WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN 1
+               WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 2
+               ELSE 3
+              END,
+              CASE WHEN nt.next_due_at<CURDATE() THEN nt.next_due_at END ASC,
+              CASE WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN act.last_contact_at END ASC,
+              nt.next_due_at ASC,a.trade_name ASC,a.name ASC";
+  }
   $rows=DB::all("SELECT a.omie_code,a.integration_code,a.name,a.trade_name,a.document,a.crm_user_code,a.updated_at,
                         l.client_id,c.name client_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
                         cu.name owner_name,cu.email owner_email,
@@ -1488,23 +1505,8 @@ final class CommercialAccountService {
                         CASE WHEN act.last_contact_at IS NULL THEN 999999 ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
                  ".$join."
                  WHERE ".$whereSql."
-                 ORDER BY ".
-                  ($sort==='name'
-                   ?"COALESCE(NULLIF(a.trade_name,''),a.name) ASC,a.name ASC"
-                   :($sort==='stale'
-                   ?"CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC,a.trade_name ASC,a.name ASC"
-                   :($sort==='next'
-                   ?"CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC,a.trade_name ASC,a.name ASC"
-                    :"CASE
-                        WHEN nt.next_due_at<CURDATE() THEN 0
-                        WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN 1
-                        WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 2
-                        ELSE 3
-                       END,
-                       CASE WHEN nt.next_due_at<CURDATE() THEN nt.next_due_at END ASC,
-                       CASE WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN act.last_contact_at END ASC,
-                       nt.next_due_at ASC,a.trade_name ASC,a.name ASC")))
-                 ." LIMIT ".$perPage." OFFSET ".$offset,$params);
+                 ORDER BY ".$orderBy."
+                 LIMIT ".$perPage." OFFSET ".$offset,$params);
 
   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
   $sellerOperational=$role!=='seller'||($crmUserCode!==''&&in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true));
