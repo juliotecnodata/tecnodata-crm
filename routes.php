@@ -2175,14 +2175,18 @@ $router->get('/agenda',function(){
  $filterUser=$teamAgenda?max(0,(int)($_GET['user_id']??0)):(int)$u['id'];
  $agendaType=(string)($_GET['type']??'all');if(!in_array($agendaType,['all','sales','collection'],true))$agendaType='all';
  if($role==='collector')$agendaType='collection';
+ elseif($role==='seller')$agendaType='sales';
  $agendaPeriod=(string)($_GET['period']??'all');if(!in_array($agendaPeriod,['all','late','today','next7','upcoming'],true))$agendaPeriod='all';
+ if($role==='seller')$agendaPeriod='all';
  $validAgendaDate=static fn(string $value): bool=>(bool)preg_match('/^\d{4}-\d{2}-\d{2}$/',$value)&&date('Y-m-d',strtotime($value))===$value;
  $createdDate=trim((string)($_GET['created_date']??''));if($createdDate!==''&&!$validAgendaDate($createdDate))$createdDate='';
+ if($role==='seller')$createdDate='';
  $createdNext=$createdDate!==''?date('Y-m-d',strtotime($createdDate.' +1 day')):'';
- $flash=$_SESSION['agenda_flash']??null;unset($_SESSION['agenda_flash']);
+ $flash=$_SESSION['agenda_flash']??($_SESSION['commercial_flash']??null);unset($_SESSION['agenda_flash'],$_SESSION['commercial_flash']);
 
  $baseWhere=["t.status='pending'"];$baseParams=[];
- if(!$teamAgenda)$baseWhere[]="((t.crm_account_code IS NOT NULL AND EXISTS (SELECT 1 FROM crm_accounts agenda_account WHERE agenda_account.omie_code=t.crm_account_code AND agenda_account.active=1)) OR (t.client_id IS NOT NULL AND EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)))";
+ if($role==='seller')$baseWhere[]="t.crm_account_code IS NOT NULL AND EXISTS (SELECT 1 FROM crm_accounts agenda_account WHERE agenda_account.omie_code=t.crm_account_code AND agenda_account.active=1)";
+ elseif(!$teamAgenda)$baseWhere[]="((t.crm_account_code IS NOT NULL AND EXISTS (SELECT 1 FROM crm_accounts agenda_account WHERE agenda_account.omie_code=t.crm_account_code AND agenda_account.active=1)) OR (t.client_id IS NOT NULL AND EXISTS (SELECT 1 FROM clients agenda_client WHERE agenda_client.id=t.client_id AND agenda_client.crm_inactive=0)))";
  if($teamAgenda){
   if($filterUser>0){$baseWhere[]='t.assigned_user_id=?';$baseParams[]=$filterUser;}
  }else{
@@ -2263,10 +2267,26 @@ $router->get('/agenda',function(){
   );
  }
 
+ $sellerAgenda=$role==='seller';
+ $agendaCalendarMonth=trim((string)($_GET['calendar_month']??date('Y-m')));
+ if(!preg_match('/^\\d{4}-(0[1-9]|1[0-2])$/',$agendaCalendarMonth))$agendaCalendarMonth=date('Y-m');
+ $agendaCalendarDays=[];$agendaCalendarTotal=0;
+ if($sellerAgenda){
+  $calendarStart=$agendaCalendarMonth.'-01';
+  $calendarEnd=date('Y-m-d',strtotime($calendarStart.' +1 month'));
+  $calendarWhere=$baseWhere;$calendarParams=$baseParams;
+  $calendarWhere[]='t.due_at>=? AND t.due_at<?';array_push($calendarParams,$calendarStart.' 00:00:00',$calendarEnd.' 00:00:00');
+  foreach(DB::all("SELECT DATE(t.due_at) agenda_date,COUNT(*) return_count FROM tasks t WHERE ".implode(' AND ',$calendarWhere)." GROUP BY DATE(t.due_at) ORDER BY agenda_date",$calendarParams) as $calendarRow){
+   $key=(string)$calendarRow['agenda_date'];$count=(int)$calendarRow['return_count'];$agendaCalendarDays[$key]=$count;$agendaCalendarTotal+=$count;
+  }
+ }
+
  render('agenda',[
   'rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
   'agendaType'=>$agendaType,'agendaPeriod'=>$agendaPeriod,'agendaStats'=>$stats,'agendaWorkload'=>$workload,'agendaVision'=>$vision,
-  'agendaCreatedDate'=>$createdDate,'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash,
+  'agendaCreatedDate'=>$createdDate,'sellerAgenda'=>$sellerAgenda,'agendaCalendarMonth'=>$agendaCalendarMonth,
+  'agendaCalendarDays'=>$agendaCalendarDays,'agendaCalendarTotal'=>$agendaCalendarTotal,
+  'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash,
   'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),'activityCategories'=>CommercialActivityService::categories(),'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
  ]);
 });
