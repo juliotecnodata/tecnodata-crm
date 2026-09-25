@@ -1425,19 +1425,21 @@ function render(string $name,array $vars=[]): void{
       <div class="cix-partner-sync-content">
        <section class="cix-partner-sync-summary" data-partner-sync-summary>
         <article><small>Base consultada</small><strong>—</strong><span>registros em cfcs</span></article>
-        <article><small>Encontrados no CRM</small><strong>—</strong><span>contas correspondentes</span></article>
-        <article><small>Para validar</small><strong>—</strong><span>selecionáveis</span></article>
-        <article><small>Não localizados</small><strong>—</strong><span>revisar cadastro</span></article>
+        <article><small>Para validar</small><strong>—</strong><span>pendentes no CRM</span></article>
+        <article class="attention"><small>Não localizados</small><strong>—</strong><span>revisar cadastro</span></article>
+        <article class="inactive"><small>Inativos nos parceiros</small><strong>—</strong><span>revisão do supervisor</span></article>
        </section>
+       <div class="cix-partner-sync-omitted" data-partner-sync-omitted hidden><i class="fa-solid fa-circle-check"></i><span></span></div>
        <div class="cix-partner-sync-toolbar">
-        <label class="grow"><span>Filtrar resultados</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="form-control" placeholder="Parceiro, CPF/CNPJ, Conta CRM ou responsável" data-partner-sync-search></div></label>
-        <label class="cix-partner-sync-toggle"><input type="checkbox" data-partner-sync-select-all checked><span>Selecionar todos os elegíveis</span></label>
+        <label><span>Situação</span><select class="form-select" data-partner-sync-status-filter><option value="">Todas as pendências</option><option value="pending">Prontos para validar</option><option value="not_found">Não localizados</option><option value="invalid">Documento inválido</option><option value="failed">Erro ao salvar</option></select></label>
+        <label><span>Origem parceiros</span><select class="form-select" data-partner-sync-origin-filter><option value="">Ativos e inativos</option><option value="active">Ativos</option><option value="inactive">Inativos</option><option value="mixed">Cadastro duplicado/misto</option></select></label>
+        <label class="cix-partner-sync-toggle"><input type="checkbox" data-partner-sync-select-all><span>Selecionar todos os elegíveis</span></label>
         <div class="cix-partner-sync-selected"><small>Selecionados</small><strong data-partner-sync-selected>0</strong></div>
        </div>
        <div class="cix-partner-sync-loading" data-partner-sync-loading><i class="fa-solid fa-spinner fa-spin"></i><strong>Consultando base de parceiros...</strong><span>Nenhuma classificação será alterada nesta etapa.</span></div>
        <div class="cix-partner-sync-table-wrap" data-partner-sync-table hidden>
-        <table class="cix-partner-sync-table">
-         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>CPF/CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
+        <table class="cix-partner-sync-table" data-partner-sync-datatable>
+         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>Origem</th><th>CPF/CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
          <tbody data-partner-sync-body></tbody>
         </table>
        </div>
@@ -1445,14 +1447,14 @@ function render(string $name,array $vars=[]): void{
        <div class="cix-partner-sync-error" data-partner-sync-error hidden></div>
       </div>
       <footer class="cix-partner-sync-footer">
-       <div><i class="fa-solid fa-shield-halved"></i><span>Somente os itens marcados serão salvos. Desmarcar um cadastro não altera nada no CRM.</span></div>
+       <div><i class="fa-solid fa-shield-halved"></i><span>Já validados ficam ocultos. Inativos vêm desmarcados para revisão. Somente os itens marcados serão salvos.</span></div>
        <div><button class="cix-btn" type="button" data-partner-sync-close>Cancelar</button><button class="cix-btn primary" type="submit" data-partner-sync-save disabled><i class="fa-solid fa-check"></i>Validar selecionados</button></div>
       </footer>
      </form>
     </dialog>
     <?php endif;?>
     <form class="cix-filters" method="get"><label class="grow"><span>Buscar parceiro</span><input class="form-control" type="search" name="q" value="<?=e($partnerFilters['q']??'')?>" placeholder="Nome, CNPJ ou CPF"></label><label><span>Situação</span><select class="form-select" name="status"><option value="all">Todos</option><option value="active" <?=($partnerFilters['status']??'')==='active'?'selected':''?>>Ativos</option><option value="activation" <?=($partnerFilters['status']??'')==='activation'?'selected':''?>>Em ativação</option><option value="reactivation" <?=($partnerFilters['status']??'')==='reactivation'?'selected':''?>>Precisam de reativação</option></select></label><button class="cix-btn primary"><i class="fa-solid fa-filter"></i>Aplicar</button><a class="cix-btn" href="<?=APP_URL?>/commercial-partners">Limpar</a></form>
-    <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table"><thead><tr><th>Parceiro</th><th>Tipo</th><th>Último trabalho</th><th>Dias sem trabalho</th><th>Desenvolvimento</th><th>Próximo passo</th><th>Ações</th></tr></thead><tbody>
+    <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table cix-partners-datatable" data-page-length="25" data-order-column="0" data-order-direction="asc"><thead><tr><th>Parceiro</th><th>Tipo</th><th>Último trabalho</th><th>Dias sem trabalho</th><th>Desenvolvimento</th><th>Próximo passo</th><th>Ações</th></tr></thead><tbody>
      <?php foreach($partnerRows as $row):$days=$row['last_work_at']===null?9999:(int)$row['days_without_work'];$stage=$days>30?['Precisa reativação','danger']:($days>14?['Em ativação','blue']:['Ativado e acompanhado','green']);$name=trim((string)($row['trade_name']??''))?:$row['name'];$type=!empty($row['is_cfc'])?'CFC + Revendedor':'Revendedor';?>
       <tr><td><a class="cix-account" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($name)?></strong><small><?=e($row['document']?:'Documento não informado')?></small></a></td><td><span class="cix-badge <?=!empty($row['is_cfc'])?'both':'reseller'?>"><?=e($type)?></span></td><td><?=!empty($row['last_work_at'])?'<strong>'.date('d/m/Y',strtotime($row['last_work_at'])).'</strong><small>'.e(mb_strimwidth((string)$row['last_work_description'],0,52,'…')).'</small>':'<strong>—</strong><small>Nunca trabalhado</small>'?></td><td><span class="cix-days <?=$days>30?'danger':($days>14?'warning':'green')?>"><?=$days===9999?'Nunca':$days.' dias'?></span></td><td><span class="cix-stage <?=$stage[1]?>"><?=$stage[0]?></span></td><td><?=e($row['next_step']?:'Definir próximo passo')?></td><td><button class="cix-btn primary" type="button" data-partner-work-open data-account-code="<?=e($row['omie_code'])?>" data-account-name="<?=e($name)?>"><i class="fa-solid fa-plus"></i>Registrar trabalho</button></td></tr>
      <?php endforeach;?><?php if(!$partnerRows):?><tr><td colspan="7" class="cix-empty">Nenhum parceiro encontrado para os filtros atuais.</td></tr><?php endif;?>
