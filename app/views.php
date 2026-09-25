@@ -1441,6 +1441,7 @@ function render(string $name,array $vars=[]): void{
          <tbody data-partner-sync-body></tbody>
         </table>
        </div>
+       <div class="cix-partner-sync-progress info" data-partner-sync-progress hidden></div>
        <div class="cix-partner-sync-error" data-partner-sync-error hidden></div>
       </div>
       <footer class="cix-partner-sync-footer">
