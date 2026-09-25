@@ -1,4 +1,5 @@
 /config/config.php
+/config/partner_database.php
 /.idea
 /.vscode
 /vendor
