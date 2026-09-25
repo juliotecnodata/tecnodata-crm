@@ -1060,7 +1060,7 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
 
     <?php if($canCreateLink&&!$hasClientLink):?>
-    <dialog class="tdf-link-dialog" data-commercial-client-link-dialog>
+    <dialog class="tdf-link-dialog" data-commercial-client-link-dialog data-commercial-link-account="<?=e((string)$account['omie_code'])?>">
      <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/client-link" data-commercial-client-link-form>
       <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="client_id" data-commercial-client-link-id>
       <header><div><strong>Vincular Cliente Geral da Omie</strong><small>Selecione a identidade fiscal usada por vendas e cobrança.</small></div><button type="button" data-commercial-client-link-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>

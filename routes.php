@@ -858,6 +858,33 @@ $router->get('/commercial/accounts/{code}',function($p){
  ]);
 });
 
+$router->get('/api/commercial/accounts/{code}/link-candidates',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$code=trim((string)$p['code']);$q=trim((string)($_GET['q']??''));
+ $account=CommercialAccountService::get($code);if(!$account)json_response(['items'=>[],'message'=>'Conta CRM não encontrada.'],404);
+ $isSeller=(string)($u['role']??'')==='seller';
+ if($isSeller&&!CommercialAccountService::canWork($u,$code))json_response(['items'=>[],'message'=>'Esta Conta CRM não pertence à sua carteira.'],403);
+ $where=['c.active=1','c.crm_inactive=0'];$params=[];
+ if($isSeller){
+  $document=crm_digits((string)($account['document']??''));
+  if($document==='')json_response(['items'=>[],'message'=>'A Conta CRM está sem CPF/CNPJ. O supervisor precisa revisar o vínculo.']);
+  $where[]="REGEXP_REPLACE(COALESCE(c.document,''),'[^0-9]','')=?";$params[]=$document;
+ }elseif($q!==''){
+  [$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('c'),['CAST(c.id AS CHAR)']));
+  if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}
+ }
+ if($isSeller&&$q!==''){
+  [$searchSql,$searchParams]=crm_search_filter($q,['c.name','c.legal_name','c.document','c.omie_code']);
+  if($searchSql!==''){$where[]=$searchSql;array_push($params,...$searchParams);}
+ }
+ $items=DB::all("SELECT c.id,c.omie_code,c.name,c.legal_name,c.document,c.email,c.city,c.uf,
+                        (SELECT COUNT(*) FROM crm_account_links l WHERE l.client_id=c.id) crm_link_count
+                 FROM clients c WHERE ".implode(' AND ',$where)." ORDER BY c.name LIMIT 25",$params);
+ if($isSeller&&count($items)!==1){
+  json_response(['items'=>[],'message'=>count($items)>1?'Há mais de um Cliente Geral ativo com este CPF/CNPJ. O supervisor deve revisar a duplicidade.':'Nenhum Cliente Geral ativo com o mesmo CPF/CNPJ foi localizado.']);
+ }
+ json_response(['items'=>$items,'message'=>'']);
+});
+
 $router->post('/commercial/accounts/{code}/client-link',function($p){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  $code=trim((string)$p['code']);$u=Auth::user();$isSeller=(string)($u['role']??'')==='seller';

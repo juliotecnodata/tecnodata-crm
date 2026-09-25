@@ -1648,10 +1648,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     const searchClients=async()=>{
       const query=searchInput.value.trim();if(query.length<2){results.innerHTML='';return;}
       try{
-        const response=await fetch((window.APP_URL||'')+'/api/clients?scope=task&q='+encodeURIComponent(query),{credentials:'same-origin'});
+        const accountCode=String(commercialLinkDialog.dataset.commercialLinkAccount||'').trim();
+        const endpoint=(window.APP_URL||'')+'/api/commercial/accounts/'+encodeURIComponent(accountCode)+'/link-candidates?q='+encodeURIComponent(query);
+        const response=await fetch(endpoint,{credentials:'same-origin'});
         const data=await response.json().catch(()=>({error:'Resposta inválida do servidor.'}));
-        if(!response.ok)throw new Error(data.error||'Não foi possível buscar os Clientes Gerais.');
-        results.innerHTML=(data.items||[]).map(client=>'<button type="button" data-commercial-link-client="'+encodeURIComponent(JSON.stringify(client))+'"><span><strong>'+escapeLink(client.name)+'</strong><small>'+escapeLink([client.omie_code,client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-plus"></i></button>').join('')||'<p>Nenhum Cliente Geral encontrado.</p>';
+        if(!response.ok)throw new Error(data.error||data.message||'Não foi possível buscar os Clientes Gerais.');
+        results.innerHTML=(data.items||[]).map(client=>'<button type="button" data-commercial-link-client="'+encodeURIComponent(JSON.stringify(client))+'"><span><strong>'+escapeLink(client.name)+'</strong><small>'+escapeLink([client.omie_code,client.document,client.city,client.uf].filter(Boolean).join(' • '))+'</small></span><i class="fa-solid fa-plus"></i></button>').join('')||'<p>'+escapeLink(data.message||'Nenhum Cliente Geral encontrado.')+'</p>';
         results.querySelectorAll('[data-commercial-link-client]').forEach(button=>button.addEventListener('click',()=>chooseClient(JSON.parse(decodeURIComponent(button.dataset.commercialLinkClient)))));
       }catch(error){results.innerHTML='<p>'+escapeLink(error.message||'Erro ao buscar clientes.')+'</p>';}
     };
