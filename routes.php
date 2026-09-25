@@ -1277,22 +1277,18 @@ $router->get('/commercial-partners',function(){
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_partners',['partners'=>CommercialPartnerService::listing($u,$_GET),'partnerCatalog'=>CommercialPartnerService::catalog(),'flash'=>$flash]);
 });
-$router->post('/commercial-partners/sync-registry',function(){
+$router->post('/commercial-partners/sync-preview',function(){
+ Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ try{json_response(['ok'=>true,'data'=>CommercialPartnerRegistryService::preview()]);}
+ catch(Throwable $e){json_response(['ok'=>false,'error'=>'Não foi possível consultar a base de parceiros: '.$e->getMessage()],422);}
+});
+$router->post('/commercial-partners/sync-apply',function(){
  Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  try{
-  $stats=CommercialPartnerRegistryService::sync(Auth::id());
-  $message='Parceiros sincronizados: '
-   .number_format((int)$stats['matched_documents'],0,',','.').' CNPJ(s) encontrados no CRM; '
-   .number_format((int)$stats['updated_accounts'],0,',','.').' conta(s) atualizada(s) para CFC + Revendedor; '
-   .number_format((int)$stats['already_classified'],0,',','.').' já estavam classificadas; '
-   .number_format((int)$stats['not_found_documents'],0,',','.').' CNPJ(s) da base de parceiros ainda não foram localizados no CRM.';
-  if(!empty($stats['invalid_documents']))$message.=' '.number_format((int)$stats['invalid_documents'],0,',','.').' documento(s) inválido(s) foram ignorados.';
-  if(!empty($stats['duplicate_crm_documents']))$message.=' '.number_format((int)$stats['duplicate_crm_documents'],0,',','.').' CNPJ(s) possuem mais de uma Conta CRM ativa e todas as correspondências foram classificadas.';
-  $_SESSION['commercial_flash']=['type'=>'success','message'=>$message];
- }catch(Throwable $e){
-  $_SESSION['commercial_flash']=['type'=>'danger','message'=>'Não foi possível sincronizar a base de parceiros: '.$e->getMessage()];
- }
- redirect('/commercial-partners');
+  $result=CommercialPartnerRegistryService::apply((array)($_POST['account_codes']??[]),Auth::id());
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>number_format((int)$result['updated_accounts'],0,',','.').' parceiro(s) classificado(s) como CFC + Revendedor. '.number_format((int)$result['skipped_accounts'],0,',','.').' seleção(ões) foram ignoradas por não estarem mais elegíveis.'];
+  json_response(['ok'=>true,'result'=>$result]);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>'Não foi possível salvar a classificação dos parceiros: '.$e->getMessage()],422);}
 });
 
 $router->post('/commercial-partners/{code}/work',function($p){
@@ -2827,28 +2823,10 @@ $router->get('/settings',function(){
  ];
  if($isAdmin)$data=array_merge($data,[
   'defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
-  'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),'carriers'=>OrderService::carrierCandidates(),'profiles'=>OrderService::profiles(),
-  'partnerDbConfig'=>PartnerDB::editableConfig()
+  'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),'carriers'=>OrderService::carrierCandidates(),'profiles'=>OrderService::profiles()
  ]);
  render('settings',$data);
 });
-$router->post('/settings/partner-database',function(){
- Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
- try{
-  PartnerDB::saveConfig($_POST);
-  $action=(string)($_POST['action']??'save');
-  if($action==='save_test'){
-   $test=PartnerDB::test();
-   $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva e testada com sucesso. '.number_format((int)($test['cfcs']??0),0,',','.').' registro(s) encontrados na tabela cfcs.'];
-  }else{
-   $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva.'];
-  }
- }catch(Throwable $e){
-  $_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível configurar o banco de parceiros: '.$e->getMessage()];
- }
- redirect('/settings#partner-database');
-});
-
 $router->post('/settings/contact-monitoring',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
