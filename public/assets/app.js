@@ -1352,6 +1352,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!window.DataTable)return null;
       if(table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable')||!table.tHead)return;
       if(table.closest('details:not([open])'))return null;
+      const bodyRows=table.tBodies?.[0]?.rows?[...table.tBodies[0].rows]:[];
+      const hasBodyColspan=bodyRows.some(row=>[...row.cells].some(cell=>(Number(cell.colSpan)||1)>1));
+      if(hasBodyColspan&&bodyRows.length<=1)return null;
       table.dataset.dtReady='1';
       const orderColumn=Number.parseInt(table.dataset.orderColumn??'',10);
       const orderDirection=table.dataset.orderDirection==='asc'?'asc':'desc';
