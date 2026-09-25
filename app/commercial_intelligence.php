@@ -1834,9 +1834,9 @@ final class CommercialPartnerRegistryService {
 
  private static function formatDocument(string|int $digits): string{
   $digits=(string)$digits;
-  return strlen($digits)===14
-   ?substr($digits,0,2).'.'.substr($digits,2,3).'.'.substr($digits,5,3).'/'.substr($digits,8,4).'-'.substr($digits,12,2)
-   :$digits;
+  if(strlen($digits)===11)return substr($digits,0,3).'.'.substr($digits,3,3).'.'.substr($digits,6,3).'-'.substr($digits,9,2);
+  if(strlen($digits)===14)return substr($digits,0,2).'.'.substr($digits,2,3).'.'.substr($digits,5,3).'/'.substr($digits,8,4).'-'.substr($digits,12,2);
+  return $digits;
  }
 
  public static function preview(): array{
@@ -1845,7 +1845,7 @@ final class CommercialPartnerRegistryService {
   $sourceByDocument=[];$invalidRows=[];
   foreach($source as $row){
    $document=crm_digits((string)($row['cnpj']??''));
-   if(strlen($document)!==14){
+   if(!in_array(strlen($document),[11,14],true)){
     $invalidRows[]=[
      'source_id'=>(int)($row['id']??0),
      'source_name'=>trim((string)($row['nomefantasia']??''))?:trim((string)($row['razao']??'')),
@@ -1859,7 +1859,7 @@ final class CommercialPartnerRegistryService {
     ];
     continue;
    }
-   $sourceByDocument['cnpj:'.$document][]=$row;
+   $sourceByDocument['doc:'.$document][]=$row;
   }
 
   $crmByDocument=[];
@@ -1872,12 +1872,12 @@ final class CommercialPartnerRegistryService {
                     ORDER BY a.name,a.omie_code");
   foreach($crmRows as $account){
    $document=crm_digits((string)($account['document']??''));
-   if($document!=='')$crmByDocument['cnpj:'.$document][]=$account;
+   if(in_array(strlen($document),[11,14],true))$crmByDocument['doc:'.$document][]=$account;
   }
 
   $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;
   foreach($sourceByDocument as $documentKey=>$sourceRows){
-   $document=str_starts_with((string)$documentKey,'cnpj:')?substr((string)$documentKey,5):(string)$documentKey;
+   $document=str_starts_with((string)$documentKey,'doc:')?substr((string)$documentKey,4):(string)$documentKey;
    $names=[];$ids=[];$places=[];$activeCount=0;
    foreach($sourceRows as $sourceRow){
     $name=trim((string)($sourceRow['nomefantasia']??''))?:trim((string)($sourceRow['razao']??''));
@@ -1946,23 +1946,39 @@ final class CommercialPartnerRegistryService {
   ];
  }
 
- public static function apply(array $accountCodes,int $actorUserId): array{
+ public static function apply(array $accountCodes,int $actorUserId,array $eligibleAccountCodes=[]): array{
   CommercialSchema::ensure();
   $requested=array_values(array_unique(array_filter(array_map(static fn($v)=>trim((string)$v),$accountCodes),static fn($v)=>$v!=='')));
-  if(!$requested)return ['requested'=>0,'updated_accounts'=>0,'skipped_accounts'=>0];
+  if(count($requested)>100)throw new RuntimeException('Envie no máximo 100 parceiros por lote.');
+  if(!$requested)return ['requested'=>0,'updated_accounts'=>0,'updated_codes'=>[],'skipped_accounts'=>0,'skipped_codes'=>[],'errors'=>[]];
 
-  $preview=self::preview();$allowed=[];
-  foreach($preview['rows'] as $row){
-   $code=trim((string)($row['account_code']??''));
-   if($code!==''&&!empty($row['selectable'])&&($row['status']??'')==='pending')$allowed[$code]=$row;
-  }
+  $eligible=array_fill_keys(array_values(array_unique(array_filter(array_map('strval',$eligibleAccountCodes)))),true);
+  $placeholders=implode(',',array_fill(0,count($requested),'?'));
+  $accounts=$requested?DB::all("SELECT omie_code,name,trade_name FROM crm_accounts WHERE active=1 AND omie_code IN (".$placeholders.")",$requested):[];
+  $accountMap=[];foreach($accounts as $account)$accountMap[(string)$account['omie_code']]=$account;
 
-  $updated=0;$skipped=0;
-  DB::conn()->beginTransaction();
-  try{
-   foreach($requested as $accountCode){
-    if(!isset($allowed[$accountCode])){$skipped++;continue;}
+  $updatedCodes=[];$skippedCodes=[];$errors=[];
+  foreach($requested as $accountCode){
+   $account=$accountMap[$accountCode]??null;
+   $displayName=$account?(trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''))):$accountCode;
+
+   if(!$eligible||!isset($eligible[$accountCode])){
+    $skippedCodes[]=['account_code'=>$accountCode,'name'=>$displayName,'reason'=>'A conta não faz parte da prévia aprovada desta conciliação.'];
+    continue;
+   }
+   if(!$account){
+    $skippedCodes[]=['account_code'=>$accountCode,'name'=>$displayName,'reason'=>'Conta CRM inexistente ou inativa.'];
+    continue;
+   }
+
+   try{
     $profile=CommercialAccountService::profile($accountCode);
+    if(!empty($profile['is_cfc'])&&!empty($profile['is_reseller'])){
+     $skippedCodes[]=['account_code'=>$accountCode,'name'=>$displayName,'reason'=>'Já estava classificado como CFC + Revendedor.'];
+     continue;
+    }
+
+    DB::conn()->beginTransaction();
     CommercialAccountService::updateProfile(
      $accountCode,
      true,
@@ -1970,14 +1986,27 @@ final class CommercialPartnerRegistryService {
      $actorUserId,
      (string)($profile['strategic_notes']??'')
     );
-    $updated++;
+    DB::conn()->commit();
+    $updatedCodes[]=$accountCode;
+   }catch(Throwable $e){
+    if(DB::conn()->inTransaction())DB::conn()->rollBack();
+    $errors[]=[
+     'account_code'=>$accountCode,
+     'name'=>$displayName,
+     'message'=>$e->getMessage(),
+     'type'=>get_class($e)
+    ];
    }
-   DB::conn()->commit();
-  }catch(Throwable $e){
-   if(DB::conn()->inTransaction())DB::conn()->rollBack();
-   throw $e;
   }
-  return ['requested'=>count($requested),'updated_accounts'=>$updated,'skipped_accounts'=>$skipped];
+
+  return [
+   'requested'=>count($requested),
+   'updated_accounts'=>count($updatedCodes),
+   'updated_codes'=>$updatedCodes,
+   'skipped_accounts'=>count($skippedCodes),
+   'skipped_codes'=>$skippedCodes,
+   'errors'=>$errors
+  ];
  }
 }
 
