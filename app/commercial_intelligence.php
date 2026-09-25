@@ -1142,18 +1142,21 @@ final class CommercialHomeService {
 final class CommercialAccountService {
  public static function canView(array $user,string $accountCode): bool{
   CommercialSchema::ensure();
-  if(in_array((string)($user['role']??''),['admin','supervisor'],true))return true;
-  if((string)($user['role']??'')!=='seller')return false;
-  return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1",[$accountCode])??0)>0;
- }
-
- public static function canWork(array $user,string $accountCode): bool{
-  CommercialSchema::ensure();
-  if(in_array((string)($user['role']??''),['admin','supervisor'],true))return true;
-  if(($user['role']??'')!=='seller')return false;
+  $role=(string)($user['role']??'');
+  if($role==='admin')return true;
+  if($role==='supervisor'){
+   $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
+   if(!$activeCodes)return false;
+   return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1 AND crm_user_code IN (".implode(',',array_fill(0,count($activeCodes),'?')).")",array_merge([$accountCode],$activeCodes))??0)>0;
+  }
+  if($role!=='seller')return false;
   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return false;
   return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1 AND crm_user_code=?",[$accountCode,$crmUserCode])??0)>0;
+ }
+
+ public static function canWork(array $user,string $accountCode): bool{
+  return self::canView($user,$accountCode);
  }
 
  public static function get(string $accountCode): ?array{
@@ -1415,26 +1418,33 @@ final class CommercialAccountService {
 
   $where=['a.active=1'];$params=[];
   $role=(string)($user['role']??'');
-  $sellerCentral=$role==='seller'&&!empty($filters['_seller_central']);
-  if($role==='seller'&&!$sellerCentral){
+  $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
+  if($role==='seller'){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>$perPage,'stats'=>self::stats([],[]),'filters'=>['q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>$owner,'scope'=>$scope,'sort'=>$sort,'per_page'=>$perPage]];
-   $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
-  }elseif($sellerCentral){
-   if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
+   if($crmUserCode===''||!in_array($crmUserCode,$activeCodes,true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>$perPage,'stats'=>self::stats([],[]),'filters'=>['q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>'','scope'=>'active','sort'=>$sort,'per_page'=>$perPage]];
+   $where[]='a.crm_user_code=?';$params[]=$crmUserCode;$owner='';$scope='active';
+  }elseif($role==='supervisor'){
+   if(!$activeCodes)$where[]='1=0';
+   else{
+    $where[]='a.crm_user_code IN ('.implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);
+    if($owner!==''){
+     if(in_array($owner,$activeCodes,true)){$where[]='a.crm_user_code=?';$params[]=$owner;}
+     else $where[]='1=0';
+    }
+   }
+   $scope='active';
   }else{
-   $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
    if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
    elseif($scope==='active'){
     if($activeCodes){$where[]='a.crm_user_code IN ('.implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);}
     else $where[]='1=0';
    }elseif($scope==='legacy'){
-    if($activeCodes){$where[]="(a.crm_user_code IS NULL OR a.crm_user_code NOT IN (".implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);}
+    if($activeCodes){$where[]="(a.crm_user_code IS NULL OR a.crm_user_code NOT IN (".implode(',',array_fill(0,count($activeCodes),'?')).')";array_push($params,...$activeCodes);}
    }
   }
 
   $linkCondition=$link==='linked'?'l.client_id IS NOT NULL':($link==='prospect'?'l.client_id IS NULL':'');
-  if(!$sellerCentral&&$linkCondition!=='')$where[]=$linkCondition;
+  if($linkCondition!=='')$where[]=$linkCondition;
 
   if($classification==='cfc')$where[]='COALESCE(ap.is_cfc,0)=1';
   elseif($classification==='reseller')$where[]='COALESCE(ap.is_reseller,0)=1';
@@ -1449,7 +1459,6 @@ final class CommercialAccountService {
   }
 
   $statsWhere=$where;$statsParams=$params;
-  if($sellerCentral&&$linkCondition!=='')$where[]=$linkCondition;
   if($attention==='overdue')$where[]="nt.next_due_at<CURDATE()";
   elseif($attention==='today')$where[]="nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY";
   elseif($attention==='never')$where[]='act.last_contact_at IS NULL';
@@ -1556,22 +1565,33 @@ final class CommercialAccountService {
                   ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'cfc'=>0,'resellers'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
  }
 
- public static function centralStats(): array{
+ public static function centralStats(array $user=[]): array{
   CommercialSchema::ensure();
-  return self::stats(['a.active=1'],[]);
+  $where=['a.active=1'];$params=[];$role=(string)($user['role']??'admin');$activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
+  if($role==='seller'){
+   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
+   if($crmUserCode===''||!in_array($crmUserCode,$activeCodes,true))return self::stats([],[]);
+   $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
+  }elseif($role==='supervisor'){
+   if(!$activeCodes)return self::stats([],[]);
+   $where[]='a.crm_user_code IN ('.implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);
+  }
+  return self::stats($where,$params);
  }
 
- public static function owners(): array{
-  CommercialSchema::ensure();
-  return DB::all("SELECT cu.omie_code,cu.name,cu.email,
-                         COUNT(a.omie_code) account_count,
-                         CASE WHEN cu.omie_code IN (".implode(',',array_fill(0,max(1,count(CommercialPortfolioService::activeCrmSellerCodes())),'?')).") THEN 1 ELSE 0 END operational
-                  FROM crm_users cu
-                  LEFT JOIN crm_accounts a ON a.crm_user_code=cu.omie_code AND a.active=1
-                  GROUP BY cu.omie_code,cu.name,cu.email
-                  HAVING account_count>0
-                  ORDER BY operational DESC,account_count DESC,cu.name",
-   CommercialPortfolioService::activeCrmSellerCodes()?:['__NONE__']);
+ public static function owners(bool $operationalOnly=false): array{
+  CommercialSchema::ensure();$activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
+  $rows=DB::all("SELECT cu.omie_code,cu.name,cu.email,
+                       COUNT(a.omie_code) account_count,
+                       CASE WHEN cu.omie_code IN (".implode(',',array_fill(0,max(1,count($activeCodes)),'?')).") THEN 1 ELSE 0 END operational
+                FROM crm_users cu
+                LEFT JOIN crm_accounts a ON a.crm_user_code=cu.omie_code AND a.active=1
+                GROUP BY cu.omie_code,cu.name,cu.email
+                HAVING account_count>0
+                ORDER BY operational DESC,account_count DESC,cu.name",
+   $activeCodes?:['__NONE__']);
+  if(!$operationalOnly)return $rows;
+  return array_values(array_filter($rows,static fn($row)=>!empty($row['operational'])));
  }
 }
 
