@@ -887,6 +887,9 @@ function render(string $name,array $vars=[]): void{
    <?php if($centralMode):
     $centralSummary=is_array($centralStats??null)?$centralStats:$stats;
     $centralPending=(int)($centralPendingSync??0);
+    $centralIsAdmin=(string)($u['role']??'')==='admin';
+    $centralTitle=$centralIsAdmin?'Central de Clientes':'Clientes da equipe';
+    $centralDescription=$centralIsAdmin?'Todas as contas CRM ativas da empresa, com dados sincronizados do Omie. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.':'Base comercial das carteiras ativas da equipe. O supervisor enxerga o mesmo universo operacional dos vendedores para distribuir, acompanhar e corrigir as carteiras; a base geral permanece exclusiva do administrador.';
     $perPage=(int)($portfolio['per_page']??10);
     $centralClassification=(string)($filters['classification']??'all');
     $centralLink=(string)($filters['link']??'all');
@@ -907,8 +910,8 @@ function render(string $name,array $vars=[]): void{
     <header class="tdcentral-head">
      <div>
       <span class="tdcentral-kicker">CRM OMIE / CLIENTES</span>
-      <h1>Central de Clientes</h1>
-      <p>Todas as contas CRM ativas da empresa, com dados sincronizados do Omie. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.</p>
+      <h1><?=e($centralTitle)?></h1>
+      <p><?=e($centralDescription)?></p>
      </div>
      <div class="tdcentral-head-actions">
       <a class="tdcentral-btn primary" href="<?=$portfolioUrl(['page'=>1])?>"><i class="fa-solid fa-rotate"></i>Atualizar CRM</a>
@@ -920,7 +923,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <nav class="tdcentral-kpis" aria-label="Resumo da Central de Clientes">
-     <a class="all" href="<?=$portfolioUrl(['q'=>'','classification'=>'all','link'=>'all','owner'=>'','attention'=>'all','page'=>1])?>"><span><i class="fa-solid fa-user-group"></i></span><div><small>Todas no CRM</small><strong><?=number_format((int)($centralSummary['total']??0),0,',','.')?></strong><em>Contas CRM ativas</em></div></a>
+     <a class="all" href="<?=$portfolioUrl(['q'=>'','classification'=>'all','link'=>'all','owner'=>'','attention'=>'all','page'=>1])?>"><span><i class="fa-solid fa-user-group"></i></span><div><small><?=$centralIsAdmin?'Todas no CRM':'Base comercial da equipe'?></small><strong><?=number_format((int)($centralSummary['total']??0),0,',','.')?></strong><em><?=$centralIsAdmin?'Contas CRM ativas':'Carteiras comerciais ativas'?></em></div></a>
      <a class="linked" href="<?=$portfolioUrl(['link'=>'linked','page'=>1])?>"><span><i class="fa-solid fa-link"></i></span><div><small>CRM + Cliente Geral</small><strong><?=number_format((int)($centralSummary['linked']??0),0,',','.')?></strong><em>Com vínculo ativo</em></div></a>
      <a class="crm" href="<?=$portfolioUrl(['link'=>'prospect','page'=>1])?>"><span><i class="fa-regular fa-file-lines"></i></span><div><small>Somente CRM</small><strong><?=number_format((int)($centralSummary['prospects']??0),0,',','.')?></strong><em>Ainda sem Cliente Geral</em></div></a>
      <a class="cfc" href="<?=$portfolioUrl(['classification'=>'cfc','page'=>1])?>"><span><i class="fa-solid fa-graduation-cap"></i></span><div><small>CFC</small><strong><?=number_format((int)($centralSummary['cfc']??0),0,',','.')?></strong><em>Centros de formação</em></div></a>
@@ -979,7 +982,7 @@ function render(string $name,array $vars=[]): void{
         <a href="<?=$accountHref?>" title="Ficha rápida"><i class="fa-regular fa-address-card"></i><span>Ficha rápida</span></a>
         <?php if($linked):?><a href="<?=$editHref?>" title="Editar cadastro"><i class="fa-solid fa-pen"></i><span>Editar</span></a><?php else:?><span class="disabled" title="Vincule um Cliente Geral antes de editar"><i class="fa-solid fa-pen"></i><span>Editar</span></span><?php endif;?>
         <?php if(!$linked&&$canWork):?><a href="<?=$linkHref?>" data-no-client-modal title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a><?php elseif($linked):?><span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span><?php else:?><span class="disabled" title="Vínculo restrito à carteira responsável"><i class="fa-solid fa-link"></i><span>Vincular</span></span><?php endif;?>
-        <?php if($linked):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$row['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form><?php else:?><span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span><?php endif;?>
+        <?php if($linked&&Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$row['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form><?php elseif($linked):?><span class="disabled" title="A sincronização é executada por supervisor ou administrador"><i class="fa-regular fa-clock"></i><span>Pendente</span></span><?php else:?><span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span><?php endif;?>
         <a href="<?=$classHref?>" <?=$linked?'':'data-no-client-modal'?> title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a>
         <a class="more" href="<?=$accountHref?>?from=clients" data-no-client-modal title="Abrir ficha completa"><i class="fa-solid fa-ellipsis"></i></a>
        </div>
@@ -1259,7 +1262,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($linked&&$canWork):?>
     <div class="tdf-source-actions">
      <a href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/edit"><i class="fa-solid fa-pen"></i>Editar Cliente Omie</a>
-     <form method="post" action="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit"><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Cliente Omie</button></form>
+     <?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit"><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Cliente Omie</button></form><?php else:?><span><i class="fa-regular fa-clock"></i>Alterações do vendedor ficam pendentes para sincronização pela supervisão.</span><?php endif;?>
      <span><i class="fa-solid fa-circle-info"></i>Responsável e contatos pertencem à Conta CRM Omie. Cadastro fiscal e vendas pertencem ao Cliente Geral Omie.</span>
     </div>
     <?php endif;?>
@@ -3280,8 +3283,12 @@ function layout(string $body,?array $u,string $page=''): void{
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Minha Home</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-address-book"></i><span>Central de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
-     <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a><a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
+     <a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a>
+     <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a>
+     <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
+     <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?>
+     <a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
+     <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a>
      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
     <?php elseif($u['role']==='collector'):?>
@@ -3303,7 +3310,7 @@ function layout(string $body,?array $u,string $page=''): void{
        <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span>Carteira comercial</span></a>
        <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
        <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-cart-shopping"></i><span>Vendas</span></a>
-       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-database"></i><span>Base cadastral Omie</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-database"></i><span><?=$u['role']==='admin'?'Central geral de clientes':'Clientes da equipe'?></span></a>
        <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
        <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
        <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
