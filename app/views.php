@@ -2245,12 +2245,13 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        <div class="tds-return-list">
         <?php foreach($groups['late'] as $r):
          $due=strtotime((string)$r['due_at']);$lateDays=max(1,(int)((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',$due)))/86400));$taskAccountCode=trim((string)($r['crm_account_code']??''));
+         $agendaDescription=trim((string)preg_replace('/^Retorno\s*[·:\-]\s*/iu','',(string)($r['title']??'')));
         ?>
          <article class="tds-return-row late">
           <span class="tds-company-icon"><i class="fa-regular fa-building"></i></span>
           <div class="tds-return-client"><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($taskAccountCode)?>"><?=e((string)$r['name'])?></a><small>Agendado para <?=date('d/m',$due)?> às <?=e($sellerAgendaHour($due))?></small></div>
           <span class="tds-delay-badge">atrasado há <?=$lateDays?> dia<?=$lateDays===1?'':'s'?></span>
-          <p><?=e((string)$r['title'])?></p>
+          <p><?=e($agendaDescription)?></p>
           <div class="tds-return-actions">
            <button class="tds-return-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
            <button class="tds-return-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-file-lines"></i>Registrar atividade</button>
@@ -2266,11 +2267,12 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        <div class="tds-return-list">
         <?php foreach($groups['today'] as $r):
          $due=strtotime((string)$r['due_at']);$taskAccountCode=trim((string)($r['crm_account_code']??''));
+         $agendaDescription=trim((string)preg_replace('/^Retorno\s*[·:\-]\s*/iu','',(string)($r['title']??'')));
         ?>
          <article class="tds-return-row today">
           <time class="tds-time-pill"><?=date('H:i',$due)?></time>
           <div class="tds-return-client"><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($taskAccountCode)?>"><?=e((string)$r['name'])?></a></div>
-          <p><?=e((string)$r['title'])?></p>
+          <p><?=e($agendaDescription)?></p>
           <div class="tds-return-actions">
            <button class="tds-return-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
            <button class="tds-return-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-file-lines"></i>Registrar atividade</button>
@@ -2286,11 +2288,12 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
        <div class="tds-return-list">
         <?php foreach($groups['upcoming'] as $r):
          $due=strtotime((string)$r['due_at']);$taskAccountCode=trim((string)($r['crm_account_code']??''));
+         $agendaDescription=trim((string)preg_replace('/^Retorno\s*[·:\-]\s*/iu','',(string)($r['title']??'')));
         ?>
          <article class="tds-return-row upcoming">
           <div class="tds-upcoming-time"><time><?=date('d/m',$due)?></time><span><?=e($sellerAgendaHour($due))?></span></div>
           <div class="tds-return-client"><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($taskAccountCode)?>"><?=e((string)$r['name'])?></a></div>
-          <p><?=e((string)$r['title'])?></p>
+          <p><?=e($agendaDescription)?></p>
           <div class="tds-return-actions">
            <button class="tds-return-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
            <button class="tds-return-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-file-lines"></i>Registrar atividade</button>
