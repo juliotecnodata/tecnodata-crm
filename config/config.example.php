@@ -57,8 +57,9 @@ return [
  ],
 
  'partner_database'=>[
+  // Configuração feita somente em config/config.php (não é exibida na interface do CRM).
   // Base externa de parceiros/CFCs. O sistema lê somente dados cadastrais necessários
-  // para conciliar CNPJ com a Conta CRM; campos sensíveis como senha não são consultados.
+  // para conciliar CNPJ com a Conta CRM; o campo senha da tabela cfcs não é consultado.
   'local'=>[
    'host'=>'127.0.0.1',
    'port'=>3306,
