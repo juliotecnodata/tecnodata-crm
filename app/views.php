@@ -1001,7 +1001,6 @@ function render(string $name,array $vars=[]): void{
     </section>
    </section>
    <?php break; endif;?>
-   ?>
    <section class="tdw-page tdw-portfolio">
     <header class="tdw-page-head">
      <div class="tdw-page-title">
