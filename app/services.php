@@ -1407,7 +1407,11 @@ final class OrderService {
   if($id>0){
    $draft=DB::one("SELECT * FROM local_order_drafts WHERE id=?",[$id]);
    if(!$draft)throw new RuntimeException('Rascunho não encontrado.');
-   if(($u['role']??'')==='seller'&&(int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para editar este rascunho.');
+   if(($u['role']??'')==='seller'){
+    $draftClientId=(int)($draft['client_id']??0);
+    if($draftClientId>0)self::assertSellerCommercialClient($draftClientId,$u);
+    elseif((int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para editar este rascunho sem cliente.');
+   }
    if((string)$draft['status']!=='draft')throw new RuntimeException('Este rascunho já foi enviado.');
    DB::exec("UPDATE local_order_drafts SET request_token=?,client_id=?,seller_omie_code=?,total=?,form_json=?,updated_at=NOW() WHERE id=?",
     [$token,$clientId,$seller,$total,json_encode($safe,JSON_UNESCAPED_UNICODE),$id]);
@@ -1433,7 +1437,11 @@ final class OrderService {
   self::reconcileSentDrafts();
   $draft=DB::one("SELECT d.*,c.name client_name FROM local_order_drafts d LEFT JOIN clients c ON c.id=d.client_id WHERE d.id=?",[$id]);
   if(!$draft)throw new RuntimeException('Rascunho não encontrado.');
-  if(($u['role']??'')==='seller'&&(int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para acessar este rascunho.');
+  if(($u['role']??'')==='seller'){
+   $draftClientId=(int)($draft['client_id']??0);
+   if($draftClientId>0)self::assertSellerCommercialClient($draftClientId,$u);
+   elseif((int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para acessar este rascunho sem cliente.');
+  }
   if((string)$draft['status']!=='draft')throw new RuntimeException('Este pedido já foi integrado à Omie e não é mais um rascunho.');
   $form=json_decode((string)$draft['form_json'],true);
   $draft['form']=is_array($form)?$form:[];
@@ -1444,7 +1452,18 @@ final class OrderService {
   self::ensureDraftTable();
   self::reconcileSentDrafts();
   $where="d.status='draft'";$p=[];
-  if(($u['role']??'')==='seller'){$where.=" AND d.created_by=?";$p[]=(int)$u['id'];}
+  if(($u['role']??'')==='seller'){
+   $crmCode=trim((string)($u['crm_user_omie_code']??''));
+   if($crmCode===''){$where.=" AND d.client_id IS NULL AND d.created_by=?";$p[]=(int)$u['id'];}
+   else{
+    $where.=" AND ((d.client_id IS NULL AND d.created_by=?) OR EXISTS (
+      SELECT 1 FROM crm_account_links draft_link
+      JOIN crm_accounts draft_account ON draft_account.omie_code=draft_link.crm_account_code AND draft_account.active=1
+      WHERE draft_link.client_id=d.client_id AND draft_account.crm_user_code=?
+     ))";
+    array_push($p,(int)$u['id'],$crmCode);
+   }
+  }
   return DB::all("SELECT d.*,c.name client_name,s.name seller_name,u.name author_name
                   FROM local_order_drafts d
                   LEFT JOIN clients c ON c.id=d.client_id
@@ -1458,7 +1477,11 @@ final class OrderService {
   self::ensureDraftTable();
   $draft=DB::one("SELECT * FROM local_order_drafts WHERE id=?",[$id]);
   if(!$draft)return;
-  if(($u['role']??'')==='seller'&&(int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para excluir este rascunho.');
+  if(($u['role']??'')==='seller'){
+   $draftClientId=(int)($draft['client_id']??0);
+   if($draftClientId>0)self::assertSellerCommercialClient($draftClientId,$u);
+   elseif((int)$draft['created_by']!==(int)$u['id'])throw new RuntimeException('Sem permissão para excluir este rascunho sem cliente.');
+  }
   if((string)$draft['status']!=='draft')throw new RuntimeException('Pedido já enviado não pode ser excluído como rascunho.');
   DB::exec("DELETE FROM local_order_drafts WHERE id=?",[$id]);
  }
