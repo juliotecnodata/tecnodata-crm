@@ -674,16 +674,13 @@ $router->post('/clients/save-local',function(){
 
 $router->post('/clients/{id}/omie-sync',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
- $sellerAccount=(string)($u['role']??'')==='seller'?commercial_account_for_client_user($id,$u):null;
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de sincronizar com a Omie.');
-  if((string)($u['role']??'')==='seller'&&!$sellerAccount)throw new RuntimeException('Cliente não pertence à sua carteira CRM.');
   $result=ClientService::syncLocalWithOmie($id,$u);
   $_SESSION['client_flash']=['type'=>'success','message'=>$result['message']];
  }catch(Throwable $e){
   $_SESSION['client_flash']=['type'=>'danger','message'=>'Não foi possível concluir a verificação na Omie: '.$e->getMessage()];
  }
- if($sellerAccount){$_SESSION['commercial_flash']=$_SESSION['client_flash'];unset($_SESSION['client_flash']);redirect('/commercial/accounts/'.rawurlencode((string)$sellerAccount['omie_code']));}
  redirect('/clients/'.$id);
 });
 
@@ -701,8 +698,9 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
- $identityFilter=$canManage?(string)($_GET['identity']??'linked'):'linked';
- if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter='linked';
+ $identityDefault=(string)($u['role']??'')==='seller'?'all':'linked';
+ $identityFilter=(string)($_GET['identity']??$identityDefault);
+ if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter=$identityDefault;
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
@@ -824,7 +822,6 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  ]);
 };
 $router->get('/clients',function()use($renderClients){
- if((string)(Auth::user()['role']??'')==='seller')redirect('/my-portfolio');
  $renderClients(false);
 });
 
@@ -1384,7 +1381,6 @@ $router->get('/clients/{id}/edit',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$id=(int)$p['id'];
  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
  if(!$client){http_response_code(404);exit('Cliente não encontrado.');}
- if((string)($u['role']??'')==='seller'&&!commercial_account_for_client_user($id,$u)){http_response_code(404);exit('Cliente não pertence à sua carteira CRM.');}
  $old=$_SESSION['client_edit_old']??ClientService::formFromClient($client);
  $error=$_SESSION['client_edit_error']??null;
  unset($_SESSION['client_edit_old'],$_SESSION['client_edit_error']);
@@ -1399,11 +1395,8 @@ $router->post('/clients/{id}/update',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de editar.');
-  $sellerAccount=(string)($u['role']??'')==='seller'?commercial_account_for_client_user($id,$u):null;
-  if((string)($u['role']??'')==='seller'&&!$sellerAccount)throw new RuntimeException('Cliente não pertence à sua carteira CRM.');
   ClientService::updateInOmie($id,$_POST,$u);
   $_SESSION['client_flash']=['type'=>'success','message'=>'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.'];
-  if($sellerAccount){$_SESSION['commercial_flash']=$_SESSION['client_flash'];unset($_SESSION['client_flash']);redirect('/commercial/accounts/'.rawurlencode((string)$sellerAccount['omie_code']));}
   redirect('/clients/'.$id);
  }catch(Throwable $e){
   $_SESSION['client_edit_error']=$e->getMessage();
@@ -1502,11 +1495,6 @@ $router->get('/clients/{id}',function($p){
  $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
  if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&(!empty($c['crm_inactive'])||(int)($c['active']??0)!==1)){http_response_code(404);exit('Cliente não encontrado.');}
- if((string)($u['role']??'')==='seller'){
-  $account=commercial_account_for_client_user($id,$u);
-  if(!$account){http_response_code(404);exit('Cliente não pertence à sua carteira CRM.');}
-  redirect('/commercial/accounts/'.rawurlencode((string)$account['omie_code']));
- }
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioAssignment=ClientPortfolioService::assignment($id,$portfolioMonth);$effectiveSellerCode=ClientPortfolioService::effectiveSellerCode($id,$portfolioMonth);
  $isUnassigned=$effectiveSellerCode==='';
  $a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);
@@ -1530,7 +1518,6 @@ $router->post('/clients/{id}/commercial-profile',function($p){
  $id=(int)$p['id'];$u=Auth::user();
  $client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
  if(!$client||(int)($client['active']??0)!==1||!empty($client['crm_inactive'])){http_response_code(404);exit('Cliente não encontrado.');}
- if(($u['role']??'')==='seller'&&!CommercialPortfolioService::canSellerWorkClient($u,$id)){http_response_code(403);exit('A classificação comercial só pode ser alterada dentro da sua carteira oficial.');}
  $isCfc=!empty($_POST['is_cfc']);$isReseller=!empty($_POST['is_reseller']);
  $notes=trim((string)($_POST['strategic_notes']??''));if(mb_strlen($notes)>10000)throw new RuntimeException('A observação estratégica deve ter até 10.000 caracteres.');
  CommercialClassificationService::update($id,$isCfc,$isReseller,(int)$u['id'],$notes);
@@ -2938,7 +2925,8 @@ $router->get('/api/clients/datatable',function(){
  if($portfolioOnly)$segment='general';
  elseif(($u['role']??'')==='seller')$segment='all';
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
- $identityFilter=$canManage?(string)($_GET['identity']??'linked'):'linked';if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter='linked';
+ $identityDefault=(string)($u['role']??'')==='seller'?'all':'linked';
+ $identityFilter=(string)($_GET['identity']??$identityDefault);if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter=$identityDefault;
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
@@ -3037,7 +3025,7 @@ $router->get('/api/clients/datatable',function(){
   $inactiveBadge=$crmInactive?'<b class="client-crm-inactive-badge"><i class="fa-solid fa-user-slash"></i> Inativo no CRM</b>':'';
   $crmAccountCode=trim((string)($row['active_crm_account_code']??''));$crmAccountName=trim((string)($row['active_crm_account_name']??''));
   $activeCrmCount=(int)($row['active_crm_account_count']??0);$historicalCrmCount=(int)($row['historical_crm_account_count']??0);
-  $primaryHref=$crmAccountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($crmAccountCode):APP_URL.'/clients/'.$id;
+  $primaryHref=(string)($u['role']??'')==='seller'?APP_URL.'/clients/'.$id:($crmAccountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($crmAccountCode):APP_URL.'/clients/'.$id);
   $identity='<div class="client-table-identity'.($crmInactive?' is-inactive':'').'"><span>'.e($initial).'</span><div>'.($canOpen?'<a href="'.e($primaryHref).'"><strong>'.e($name).'</strong></a>':'<strong>'.e($name).'</strong>').$inactiveBadge.'<small>'.e($document!==''?$document:'Documento não informado').'</small></div></div>';
   if($activeCrmCount>0){
    $integrationHtml='<div class="tdc-integration linked"><span><i class="fa-solid fa-link"></i>CRM + Vendas</span><small>'.e($crmAccountName!==''?$crmAccountName:$crmAccountCode).($activeCrmCount>1?' · '.$activeCrmCount.' Contas CRM':'').'</small></div>';
@@ -3076,7 +3064,7 @@ $router->get('/api/clients/datatable',function(){
   }
   $openLabel=$canEdit?'Abrir cliente':($unassigned?'Selecionar cliente disponível':'Cliente vinculado a outro vendedor');
   $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.e($primaryHref).'" title="'.e($crmAccountCode!==''?'Abrir ficha comercial integrada':$openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
-  if($canEdit)$actions.='<a class="client-action client-action-edit" href="'.e($crmAccountCode!==''?$primaryHref:APP_URL.'/clients/'.$id.'/edit').'" title="'.e($crmAccountCode!==''?'Gerenciar cliente pela ficha CRM':'Editar Cliente Omie').'"><i class="fa-regular fa-pen-to-square"></i><span>'.($crmAccountCode!==''?'Gerenciar':'Editar').'</span></a>';
+  if($canEdit){$editHref=(string)($u['role']??'')==='seller'?APP_URL.'/clients/'.$id.'/edit':($crmAccountCode!==''?$primaryHref:APP_URL.'/clients/'.$id.'/edit');$actions.='<a class="client-action client-action-edit" href="'.e($editHref).'" title="'.e((string)($u['role']??'')==='seller'?'Corrigir cadastro do Cliente Omie':($crmAccountCode!==''?'Gerenciar cliente pela ficha CRM':'Editar Cliente Omie')).'"><i class="fa-regular fa-pen-to-square"></i><span>'.((string)($u['role']??'')==='seller'?'Editar':($crmAccountCode!==''?'Gerenciar':'Editar')).'</span></a>';}
   if($canManage){
    if($crmInactive){
     $actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/crm-status"><input type="hidden" name="_token" value="'.e($token).'"><input type="hidden" name="inactive" value="0"><button class="client-action client-action-reactivate" type="submit" title="Reativar no CRM" data-confirm="Reativar este cliente no CRM e devolvê-lo às carteiras e buscas operacionais?"><i class="fa-solid fa-user-check"></i><span>Reativar</span></button></form>';
