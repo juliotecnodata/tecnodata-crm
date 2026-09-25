@@ -1410,7 +1410,7 @@ final class CommercialAccountService {
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
   $attention=(string)($filters['attention']??'all');if(!in_array($attention,['all','overdue','today','never','stale30','upcoming','unplanned'],true))$attention='all';
   $owner=trim((string)($filters['owner']??''));
-  $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next'],true))$sort='urgent';
+  $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next','name'],true))$sort='urgent';
   $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
 
   $where=['a.active=1'];$params=[];
@@ -1489,10 +1489,12 @@ final class CommercialAccountService {
                  ".$join."
                  WHERE ".$whereSql."
                  ORDER BY ".
-                  ($sort==='stale'
-                   ?"CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC"
+                  ($sort==='name'
+                   ?"COALESCE(NULLIF(a.trade_name,''),a.name) ASC,a.name ASC"
+                   :($sort==='stale'
+                   ?"CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC,a.trade_name ASC,a.name ASC"
                    :($sort==='next'
-                   ?"CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC"
+                   ?"CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC,a.trade_name ASC,a.name ASC"
                     :"CASE
                         WHEN nt.next_due_at<CURDATE() THEN 0
                         WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN 1
@@ -1501,8 +1503,7 @@ final class CommercialAccountService {
                        END,
                        CASE WHEN nt.next_due_at<CURDATE() THEN nt.next_due_at END ASC,
                        CASE WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN act.last_contact_at END ASC,
-                       nt.next_due_at ASC"))
-                  .",a.trade_name ASC,a.name ASC
+                       nt.next_due_at ASC,a.trade_name ASC,a.name ASC"))
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
