@@ -403,3 +403,163 @@ div.dt-container .dt-paging .dt-paging-button{font-size:11px!important}
  .tdcrm-main table thead th,.tdcrm-content table thead th{font-size:10px!important}
  .tdcrm-main table tbody td,.tdcrm-content table tbody td{font-size:11px!important}
 }
+
+
+/* ===== DataTable global — todas as listas tabulares do CRM ===== */
+.tdcrm-content div.dt-container{
+ width:100%;
+ max-width:100%;
+ color:var(--td-text);
+}
+.tdcrm-content div.dt-container>.dt-layout-row{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ margin:0!important;
+ padding:10px 12px!important;
+ background:#fff;
+}
+.tdcrm-content div.dt-container>.dt-layout-row:first-child{
+ border:1px solid var(--td-border);
+ border-bottom:0;
+ border-radius:10px 10px 0 0;
+}
+.tdcrm-content div.dt-container>.dt-layout-row:last-child{
+ border:1px solid var(--td-border);
+ border-top:0;
+ border-radius:0 0 10px 10px;
+}
+.tdcrm-content div.dt-container .dt-layout-table{
+ margin:0!important;
+ overflow-x:auto;
+ border-left:1px solid var(--td-border);
+ border-right:1px solid var(--td-border);
+ background:#fff;
+}
+.tdcrm-content div.dt-container .dt-layout-cell{
+ min-width:0;
+}
+.tdcrm-content div.dt-container .dt-length,
+.tdcrm-content div.dt-container .dt-search{
+ display:flex;
+ align-items:center;
+ gap:7px;
+ margin:0;
+ color:var(--td-muted);
+ font-weight:700;
+}
+.tdcrm-content div.dt-container .dt-length select{
+ min-width:70px;
+ height:36px;
+ margin:0 4px;
+ padding:5px 26px 5px 9px;
+ border:1px solid var(--td-border)!important;
+ border-radius:8px!important;
+ background-color:#fff!important;
+ color:var(--td-text)!important;
+ box-shadow:none!important;
+}
+.tdcrm-content div.dt-container .dt-search label{display:none}
+.tdcrm-content div.dt-container .dt-search input{
+ min-width:260px;
+ height:36px;
+ margin:0!important;
+ padding:7px 10px!important;
+ border:1px solid var(--td-border)!important;
+ border-radius:8px!important;
+ background:#fff!important;
+ color:var(--td-text)!important;
+ box-shadow:none!important;
+}
+.tdcrm-content div.dt-container .dt-search input:focus,
+.tdcrm-content div.dt-container .dt-length select:focus{
+ outline:0!important;
+ border-color:var(--td-green)!important;
+ box-shadow:0 0 0 2px rgba(0,150,87,.08)!important;
+}
+.tdcrm-content div.dt-container .dt-info{
+ padding:0!important;
+ color:var(--td-muted)!important;
+ font-weight:600;
+}
+.tdcrm-content div.dt-container .dt-paging{
+ display:flex;
+ align-items:center;
+ justify-content:flex-end;
+ gap:4px;
+}
+.tdcrm-content div.dt-container .dt-paging .dt-paging-button{
+ min-width:32px!important;
+ height:32px!important;
+ margin:0 2px!important;
+ padding:0 8px!important;
+ border:1px solid var(--td-border)!important;
+ border-radius:7px!important;
+ background:#fff!important;
+ color:var(--td-text)!important;
+ box-shadow:none!important;
+}
+.tdcrm-content div.dt-container .dt-paging .dt-paging-button:hover{
+ border-color:var(--td-green)!important;
+ background:#F4FAF7!important;
+ color:var(--td-green)!important;
+}
+.tdcrm-content div.dt-container .dt-paging .dt-paging-button.current{
+ border-color:var(--td-navy)!important;
+ background:var(--td-navy)!important;
+ color:#fff!important;
+}
+.tdcrm-content div.dt-container .dt-paging .dt-paging-button.disabled{
+ opacity:.38!important;
+ cursor:default!important;
+}
+.tdcrm-content div.dt-container table.dataTable{
+ width:100%!important;
+ margin:0!important;
+ border-collapse:separate!important;
+ border-spacing:0!important;
+}
+.tdcrm-content div.dt-container table.dataTable thead th{
+ white-space:nowrap;
+ background:#F1F5F7!important;
+ color:#425D6E!important;
+ border-bottom:1px solid var(--td-border)!important;
+ padding-top:11px!important;
+ padding-bottom:11px!important;
+}
+.tdcrm-content div.dt-container table.dataTable tbody td{
+ border-bottom:1px solid #EDF2F5!important;
+ background:#fff;
+}
+.tdcrm-content div.dt-container table.dataTable tbody tr:nth-child(even) td{
+ background:#FBFCFD;
+}
+.tdcrm-content div.dt-container table.dataTable tbody tr:hover td{
+ background:#F5F9FB!important;
+}
+.tdcrm-content div.dt-container table.dataTable tbody tr:hover td:first-child{
+ box-shadow:inset 3px 0 0 var(--td-lime);
+}
+.tdcrm-content div.dt-container table.dataTable.no-footer{
+ border-bottom:0!important;
+}
+@media(max-width:760px){
+ .tdcrm-content div.dt-container>.dt-layout-row{
+  align-items:stretch;
+  flex-direction:column;
+  padding:9px!important;
+ }
+ .tdcrm-content div.dt-container .dt-layout-cell{
+  width:100%!important;
+ }
+ .tdcrm-content div.dt-container .dt-search,
+ .tdcrm-content div.dt-container .dt-search input{
+  width:100%;
+  min-width:0;
+ }
+ .tdcrm-content div.dt-container .dt-paging{
+  justify-content:flex-start;
+  overflow-x:auto;
+ }
+}
