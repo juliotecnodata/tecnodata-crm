@@ -1496,7 +1496,7 @@ function render(string $name,array $vars=[]): void{
   <?php break;
 
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
-   <section class="tdc-page">
+   <section class="tdc-page tdc-client-editor-page">
     <header class="tdc-head"><div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span><div><span class="tdc-kicker"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Atualize as informações e mantenha o cadastro alinhado com a Omie.':'Cadastre o cliente com CNPJ e CEP inteligentes e organização comercial completa.'?></p></div></div><div class="tdc-head-actions"><?php if($editClient&&Auth::can('admin','supervisor')):?><button class="tdc-btn tdc-btn-omie-check" type="button" data-client-omie-check data-client-id="<?=(int)$editClient['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i>Consultar Omie</button><?php endif;?><a class="tdc-btn" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a></div></header>
 
     <?php if($editClient&&Auth::can('admin','supervisor')):?><dialog class="tdc-omie-check-modal" data-client-omie-modal data-client-id="<?=(int)$editClient['id']?>" data-csrf="<?=e(CSRF::token())?>">
