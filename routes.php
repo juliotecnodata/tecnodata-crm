@@ -199,6 +199,11 @@ function commercial_historical_crm_link_sql(string $clientAlias='c'): string{
                  JOIN crm_accounts historical_account ON historical_account.omie_code=historical_link.crm_account_code AND historical_account.active=0
                  WHERE historical_link.client_id=".$clientAlias.".id)";
 }
+function client_central_seller_accessible(int $clientId): bool{
+ if($clientId<=0)return false;
+ CommercialSchema::ensure();
+ return (bool)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE c.id=? AND c.active=1 AND c.crm_inactive=0 AND ".commercial_active_crm_link_sql('c'),[$clientId])??0);
+}
 function commercial_account_for_client_user(int $clientId,array $user): ?array{
  if($clientId<=0)return null;CommercialSchema::ensure();
  $where=['l.client_id=?','a.active=1'];$params=[$clientId];
@@ -676,6 +681,7 @@ $router->post('/clients/{id}/omie-sync',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de sincronizar com a Omie.');
+  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cadastro não pertence à Central de Clientes CRM.');
   $result=ClientService::syncLocalWithOmie($id,$u);
   $_SESSION['client_flash']=['type'=>'success','message'=>$result['message']];
  }catch(Throwable $e){
@@ -698,12 +704,11 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
- $identityDefault=(string)($u['role']??'')==='seller'?'all':'linked';
- $identityFilter=(string)($_GET['identity']??$identityDefault);
- if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter=$identityDefault;
+ $identityFilter=$canManage?(string)($_GET['identity']??'linked'):'linked';
+ if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter='linked';
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
- $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
+ $clientScope=$portfolioOnly?'mine':'all';
  $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
  $uf=count($clientUfs)===1?$clientUfs[0]:'';
  $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
@@ -718,12 +723,8 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  if($identityFilter==='linked')$w[]=$activeIdentitySql;
  elseif($identityFilter==='sales_only')$w[]='NOT ('.$activeIdentitySql.')';
  elseif($identityFilter==='historical'){$w[]='NOT ('.$activeIdentitySql.')';$w[]=$historicalIdentitySql;}
- if($u['role']==='seller'){
-  if($portfolioOnly){[$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$w[]=$portfolioSql;array_push($p,...$portfolioParams);}
-  elseif($clientScope==='unassigned'){
-   if(CommercialPortfolioService::crmPortfolioReady())$w[]='c.crm_owner_user_id IS NULL';
-   else $w[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
-  }
+ if($u['role']==='seller'&&$portfolioOnly){
+  [$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$w[]=$portfolioSql;array_push($p,...$portfolioParams);
  }
  if($clientUfs){$w[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($p,...$clientUfs);}
  if($ddds){$w[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($p,...$ddds);}
@@ -772,6 +773,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  [$stateSegmentSql,$stateSegmentParams]=client_segment_filter($segment,'c');
  $stateWhere='c.active=1 AND '.$stateSegmentSql;$stateParams=$stateSegmentParams;$stateEffectiveSql=client_effective_seller_sql('c',$portfolioMonth);
  if($crmStatus==='active')$stateWhere.=' AND c.crm_inactive=0';elseif($crmStatus==='inactive')$stateWhere.=' AND c.crm_inactive=1';
+ if(($u['role']??'')==='seller')$stateWhere.=' AND '.commercial_active_crm_link_sql('c');
  $statePortfolioJoin=" LEFT JOIN client_portfolio_assignments pa_state ON pa_state.client_id=c.id AND pa_state.month_ref='".$portfolioMonth."'";
  $stateEffectiveExpr="CASE WHEN pa_state.id IS NOT NULL THEN pa_state.seller_omie_code ELSE c.seller_omie_code END";
  $baseCounts=client_base_counts_cached();
@@ -813,7 +815,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  'bulkSellers'=>Auth::can('admin','supervisor')?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
  'portfolioSourceSellers'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE c.active=1 AND c.crm_inactive=0 AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>''".($virtualCodes?' AND ('.$stateEffectiveExpr.') NOT IN ('.implode(',',array_fill(0,count($virtualCodes),'?')).')':'')." ORDER BY active DESC,name",$virtualCodes):[],
  'clientSellerFilters'=>$crmPortfolioReady
-   ?DB::all("SELECT DISTINCT CONCAT('crm:',u.id) omie_code,u.name,1 active FROM clients c JOIN users u ON u.id=c.crm_owner_user_id WHERE c.active=1 AND c.crm_inactive=0 ORDER BY u.name")
+   ?DB::all("SELECT DISTINCT CONCAT('crm:',u.id) omie_code,u.name,1 active FROM clients c JOIN users u ON u.id=c.crm_owner_user_id WHERE c.active=1 AND c.crm_inactive=0".(($u['role']??'')==='seller'?' AND '.commercial_active_crm_link_sql('c'):'')." ORDER BY u.name")
    :DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE ".$stateWhereJoined." AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>'' ORDER BY active DESC,name",$stateParams),
  'portfolioStates'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams):[],
  'clientStates'=>DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams),
@@ -1380,7 +1382,7 @@ $router->post('/clients/portfolio/assign',function(){
 $router->get('/clients/{id}/edit',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$id=(int)$p['id'];
  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
- if(!$client){http_response_code(404);exit('Cliente não encontrado.');}
+ if(!$client||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
  $old=$_SESSION['client_edit_old']??ClientService::formFromClient($client);
  $error=$_SESSION['client_edit_error']??null;
  unset($_SESSION['client_edit_old'],$_SESSION['client_edit_error']);
@@ -1395,6 +1397,7 @@ $router->post('/clients/{id}/update',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de editar.');
+  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cadastro não pertence à Central de Clientes CRM.');
   ClientService::updateInOmie($id,$_POST,$u);
   $_SESSION['client_flash']=['type'=>'success','message'=>'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.'];
   redirect('/clients/'.$id);
@@ -1495,6 +1498,7 @@ $router->get('/clients/{id}',function($p){
  $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
  if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&(!empty($c['crm_inactive'])||(int)($c['active']??0)!==1)){http_response_code(404);exit('Cliente não encontrado.');}
+ if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id)){http_response_code(404);exit('Cliente não encontrado.');}
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioAssignment=ClientPortfolioService::assignment($id,$portfolioMonth);$effectiveSellerCode=ClientPortfolioService::effectiveSellerCode($id,$portfolioMonth);
  $isUnassigned=$effectiveSellerCode==='';
  $a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);
@@ -1517,7 +1521,7 @@ $router->post('/clients/{id}/commercial-profile',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();
  $client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
- if(!$client||(int)($client['active']??0)!==1||!empty($client['crm_inactive'])){http_response_code(404);exit('Cliente não encontrado.');}
+ if(!$client||(int)($client['active']??0)!==1||!empty($client['crm_inactive'])||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
  $isCfc=!empty($_POST['is_cfc']);$isReseller=!empty($_POST['is_reseller']);
  $notes=trim((string)($_POST['strategic_notes']??''));if(mb_strlen($notes)>10000)throw new RuntimeException('A observação estratégica deve ter até 10.000 caracteres.');
  CommercialClassificationService::update($id,$isCfc,$isReseller,(int)$u['id'],$notes);
@@ -2925,11 +2929,10 @@ $router->get('/api/clients/datatable',function(){
  if($portfolioOnly)$segment='general';
  elseif(($u['role']??'')==='seller')$segment='all';
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
- $identityDefault=(string)($u['role']??'')==='seller'?'all':'linked';
- $identityFilter=(string)($_GET['identity']??$identityDefault);if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter=$identityDefault;
+ $identityFilter=$canManage?(string)($_GET['identity']??'linked'):'linked';if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter='linked';
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
- $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
+ $clientScope=$portfolioOnly?'mine':'all';
  $clientUfs=client_filter_ufs($_GET['ufs']??($_GET['uf']??[]));
  $uf=count($clientUfs)===1?$clientUfs[0]:'';
  $ddds=$uf!==''?client_portfolio_ddds($_GET['ddds']??[],$uf):[];
@@ -2945,12 +2948,8 @@ $router->get('/api/clients/datatable',function(){
  if($identityFilter==='linked')$baseWhere[]=$activeIdentitySql;
  elseif($identityFilter==='sales_only')$baseWhere[]='NOT ('.$activeIdentitySql.')';
  elseif($identityFilter==='historical'){$baseWhere[]='NOT ('.$activeIdentitySql.')';$baseWhere[]=$historicalIdentitySql;}
- if(($u['role']??'')==='seller'){
-  if($portfolioOnly){[$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$baseWhere[]=$portfolioSql;array_push($baseParams,...$portfolioParams);}
-  elseif($clientScope==='unassigned'){
-   if(CommercialPortfolioService::crmPortfolioReady())$baseWhere[]='c.crm_owner_user_id IS NULL';
-   else $baseWhere[]="((".$effectiveSellerSql.") IS NULL OR TRIM((".$effectiveSellerSql."))='')";
-  }
+ if(($u['role']??'')==='seller'&&$portfolioOnly){
+  [$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$baseWhere[]=$portfolioSql;array_push($baseParams,...$portfolioParams);
  }
  if($clientUfs){$baseWhere[]='UPPER(TRIM(c.uf)) IN ('.implode(',',array_fill(0,count($clientUfs),'?')).')';array_push($baseParams,...$clientUfs);}
  if($ddds){$baseWhere[]=client_ddd_sql('c').' IN ('.implode(',',array_fill(0,count($ddds),'?')).')';array_push($baseParams,...$ddds);}
