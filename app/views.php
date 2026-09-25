@@ -3525,6 +3525,20 @@ function layout(string $body,?array $u,string $page=''): void{
   </main>
  </div>
  <?php if($u):?>
+ <?php
+  $hasCommercialActivityDialog=str_contains($body,'data-commercial-activity-dialog');
+  if(!$hasCommercialActivityDialog&&in_array((string)($u['role']??''),['admin','supervisor','seller'],true)){
+   render_commercial_activity_dialog([
+    'user'=>$u,
+    'types'=>CommercialActivityService::types(),
+    'channels'=>CommercialActivityService::channels(),
+    'categories'=>CommercialActivityService::categories(),
+    'assignable'=>CommercialActivityService::assignableUsers($u),
+    'return_to'=>'account',
+    'return_query'=>''
+   ]);
+  }
+ ?>
  <dialog class="product-detail-modal" data-product-detail-modal>
   <div class="product-detail-shell">
    <header><span><i class="fa-solid fa-box-open"></i></span><div><small>CATÁLOGO LOCAL</small><strong data-product-detail-title>Detalhes do produto</strong><p data-product-detail-subtitle>Informações sincronizadas da Omie</p></div><button type="button" data-product-detail-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
@@ -3696,7 +3710,7 @@ function layout(string $body,?array $u,string $page=''): void{
    </form>
   </dialog>
  <?php $floatingCall=is_array($_SESSION['baldussi_test_state']['last_call']??null)?$_SESSION['baldussi_test_state']['last_call']:null;if($floatingCall&&!empty($floatingCall['active'])&&!empty($floatingCall['ok'])&&(int)($floatingCall['requested_by']??0)===(int)($u['id']??0)):$floatingStartedAt=strtotime((string)($floatingCall['started_at']??$floatingCall['at']??'now'));$floatingActivityNotes='Ligação iniciada pelo CRM em '.date('d/m/Y',$floatingStartedAt).' às '.date('H:i',$floatingStartedAt).', via telefonia Baldussi (ramal '.(string)$floatingCall['origin'].').';?>
-  <aside class="tdb-call-dock" data-baldussi-call-dock data-started-at="<?=e((string)$floatingStartedAt)?>" data-finish-url="<?=APP_URL?>/settings/baldussi/finish-tracking" data-account-code="<?=e((string)($floatingCall['crm_account_code']??''))?>" data-account-name="<?=e((string)($floatingCall['account_name']??'Cliente'))?>" data-activity-notes="<?=e($floatingActivityNotes)?>" aria-live="polite">
+  <aside class="tdb-call-dock" data-baldussi-call-dock data-started-at="<?=e((string)$floatingStartedAt)?>" data-finish-url="<?=APP_URL?>/settings/baldussi/finish-tracking" data-account-code="<?=e((string)($floatingCall['crm_account_code']??''))?>" data-account-name="<?=e((string)($floatingCall['account_name']??'Cliente'))?>" data-account-owner="<?=e((string)($floatingCall['account_owner']??'Sem responsável'))?>" data-account-type="<?=e((string)($floatingCall['account_type']??'Cliente'))?>" data-client-id="<?=(int)($floatingCall['client_id']??0)?>" data-activity-notes="<?=e($floatingActivityNotes)?>" aria-live="polite">
    <header data-baldussi-call-drag>
     <div><span class="tdb-call-live"><i></i>CHAMADA</span><strong>Acompanhamento da ligação</strong></div>
     <button type="button" data-baldussi-call-minimize title="Minimizar" aria-label="Minimizar acompanhamento"><i class="fa-solid fa-minus"></i></button>
@@ -3707,7 +3721,7 @@ function layout(string $body,?array $u,string $page=''): void{
     <time data-baldussi-call-timer>00:00</time>
    </div>
    <div class="tdb-call-dock-note"><i class="fa-solid fa-circle-info"></i><span><b>Encerre a ligação no telefone ou softphone.</b> Os botões abaixo encerram apenas este acompanhamento visual no CRM.</span></div>
-   <footer><button type="button" class="secondary" data-baldussi-call-finish><i class="fa-solid fa-xmark"></i>Só encerrar</button><?php if(!empty($floatingCall['crm_account_code'])):?><button type="button" data-baldussi-call-register><i class="fa-regular fa-note-sticky"></i>Registrar atividade</button><?php else:?><a href="<?=APP_URL?>/settings/baldussi" title="Selecione uma conta antes da próxima ligação"><i class="fa-solid fa-circle-info"></i>Sem cliente vinculado</a><?php endif;?></footer>
+   <footer><button type="button" class="secondary" data-baldussi-call-finish><i class="fa-solid fa-xmark"></i>Só encerrar</button><?php if(!empty($floatingCall['crm_account_code'])):?><button type="button" data-baldussi-call-register><i class="fa-regular fa-note-sticky"></i>Encerrar e atividade</button><?php else:?><a href="<?=APP_URL?>/settings/baldussi" title="Selecione uma conta antes da próxima ligação"><i class="fa-solid fa-circle-info"></i>Sem cliente vinculado</a><?php endif;?></footer>
   </aside>
  <?php endif;?>
  <?php endif;?>
