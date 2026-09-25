@@ -799,6 +799,84 @@ function render(string $name,array $vars=[]): void{
    $portfolioBasePath=$centralMode?'/clients':'/my-portfolio';
    $portfolioUrl=static function(array $changes=[])use($filters,$portfolioBasePath): string{$query=array_merge($filters,$changes);foreach($query as $key=>$value)if($value===''||$value==='all'||$value===null)unset($query[$key]);return APP_URL.$portfolioBasePath.($query?'?'.http_build_query($query):'');};
    $attention=(string)($filters['attention']??'all');
+   $sellerPortfolioMode=!$centralMode&&(string)($u['role']??'')==='seller';
+   if($sellerPortfolioMode):
+    $sellerPortfolioStats=$stats;
+   ?>
+   <section class="tdp-portfolio">
+    <header class="tdp-head">
+     <div><span>COMERCIAL / CARTEIRA</span><h1>Minha Carteira</h1><p>Clientes da sua carteira comercial. Consulte, contate e registre o próximo passo sem sair desta tela.</p></div>
+     <a class="tdp-refresh" href="<?=$portfolioUrl()?>"><i class="fa-solid fa-rotate-right"></i>Atualizar carteira</a>
+    </header>
+
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <div class="tdp-kpis">
+     <article class="clients"><span><i class="fa-solid fa-user-group"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['total']??0),0,',','.')?></strong><small>Clientes na carteira</small></div></article>
+     <a class="today" href="<?=$portfolioUrl(['attention'=>'today','page'=>1])?>"><span><i class="fa-regular fa-calendar-check"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['today_count']??0),0,',','.')?></strong><small>Retornos hoje</small></div></a>
+     <a class="late" href="<?=$portfolioUrl(['attention'=>'overdue','page'=>1])?>"><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['overdue_count']??0),0,',','.')?></strong><small>Atrasados</small></div></a>
+     <a class="stale" href="<?=$portfolioUrl(['attention'=>'stale30','page'=>1])?>"><span><i class="fa-regular fa-clock"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['over30']??0),0,',','.')?></strong><small>Sem contato &gt; 30 dias</small></div></a>
+    </div>
+
+    <form class="tdp-filters" method="get" action="<?=APP_URL?>/my-portfolio">
+     <label class="tdp-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="<?=e((string)($filters['q']??''))?>" placeholder="Buscar por cliente, CNPJ/CPF ou responsável"></label>
+     <label><select class="form-select" name="classification"><option value="all">Todas as classificações</option><option value="cfc" <?=($filters['classification']??'')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($filters['classification']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($filters['classification']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=($filters['classification']??'')==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
+     <label><select class="form-select" name="attention"><option value="all">Todos os status</option><option value="today" <?=$attention==='today'?'selected':''?>>Retorno hoje</option><option value="overdue" <?=$attention==='overdue'?'selected':''?>>Atrasados</option><option value="stale30" <?=$attention==='stale30'?'selected':''?>>Sem contato &gt; 30 dias</option><option value="never" <?=$attention==='never'?'selected':''?>>Nunca contatados</option><option value="upcoming" <?=$attention==='upcoming'?'selected':''?>>Próximos retornos</option><option value="unplanned" <?=$attention==='unplanned'?'selected':''?>>Sem retorno agendado</option></select></label>
+     <button type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button>
+     <a href="<?=APP_URL?>/my-portfolio" title="Limpar filtros"><i class="fa-solid fa-rotate-left"></i></a>
+    </form>
+
+    <section class="tdp-table-card">
+     <div class="tdp-table-wrap">
+      <table class="tdp-table">
+       <thead><tr><th>Cliente</th><th>UF</th><th>Classificação</th><th>Último contato</th><th>Próximo retorno</th><th>Status</th><th>Ações</th></tr></thead>
+       <tbody>
+       <?php foreach($rows as $row):
+        $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
+        $city=trim((string)($row['client_city']??''));$uf=trim((string)($row['client_uf']??''));
+        $linked=!empty($row['client_id']);$canWork=!empty($row['can_work']);
+        $classification=!empty($row['is_cfc'])&&!empty($row['is_reseller'])?'CFC + Revendedor':(!empty($row['is_cfc'])?'CFC':(!empty($row['is_reseller'])?'Revendedor':'Sem classificação'));
+        $classTone=!empty($row['is_cfc'])&&!empty($row['is_reseller'])?'both':(!empty($row['is_cfc'])?'cfc':(!empty($row['is_reseller'])?'reseller':'neutral'));
+        $lastAt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):false;$days=(int)($row['days_without_contact']??999999);
+        $nextAt=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;$today=date('Y-m-d');
+        $statusLabel='Em dia';$statusTone='ok';
+        if($nextAt&&date('Y-m-d',$nextAt)<$today){$statusLabel='Atrasado';$statusTone='late';}
+        elseif($nextAt&&date('Y-m-d',$nextAt)===$today){$statusLabel='Hoje';$statusTone='today';}
+        elseif(!$lastAt){$statusLabel='Sem contato';$statusTone='neutral';}
+        elseif($nextAt){$statusLabel='Pendente';$statusTone='pending';}
+        $phone=trim((string)($row['contact_phone']??''));if($phone===''&&!empty($row['client_phone_number']))$phone=trim((string)($row['client_phone_ddd']??'').' '.(string)$row['client_phone_number']);
+        $mobile=trim((string)($row['contact_mobile']??''));if($mobile==='')$mobile=$phone;
+        $phoneDigits=preg_replace('/\D+/','',$phone);$mobileDigits=preg_replace('/\D+/','',$mobile);if(in_array(strlen($mobileDigits),[10,11],true))$mobileDigits='55'.$mobileDigits;
+        $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
+       ?>
+        <tr>
+         <td><div class="tdp-client"><span><?=e(mb_strtoupper(mb_substr($display,0,1)))?></span><div><a href="<?=$accountHref?>"><strong><?=e($display)?></strong></a><small><?=e($city!==''?($city.($uf!==''?' - '.$uf:'')):($linked?'Cliente vinculado':'Conta CRM'))?><?=!empty($row['document'])?' · '.e((string)$row['document']):''?></small></div></div></td>
+         <td><span class="tdp-uf"><?=e($uf?:'—')?></span></td>
+         <td><span class="tdp-class <?=$classTone?>"><?=e($classification)?></span></td>
+         <td><?php if($lastAt):?><strong><?=date('d/m/Y',$lastAt)?></strong><small><?=$days===0?'Hoje':('Há '.$days.' dia'.($days===1?'':'s'))?></small><?php else:?><strong>—</strong><small>Nunca</small><?php endif;?></td>
+         <td><?php if($nextAt):?><strong class="<?=date('Y-m-d',$nextAt)===$today?'today':''?>"><?=date('d/m/Y',$nextAt)?></strong><small><?=date('Y-m-d',$nextAt)===$today?'Hoje':date('H:i',$nextAt)?></small><?php else:?><strong>—</strong><small>Não agendado</small><?php endif;?></td>
+         <td><span class="tdp-status <?=$statusTone?>"><i></i><?=e($statusLabel)?></span></td>
+         <td><div class="tdp-actions">
+          <?php if($canWork&&$phoneDigits!==''):?><a class="phone" href="tel:<?=e($phoneDigits)?>" title="Ligar para <?=e($display)?>"><i class="fa-solid fa-phone"></i></a><?php else:?><span class="phone disabled" title="Telefone indisponível"><i class="fa-solid fa-phone"></i></span><?php endif;?>
+          <a class="quick" href="<?=$accountHref?>" title="Abrir ficha rápida"><i class="fa-regular fa-comment-dots"></i></a>
+          <button class="activity" type="button" <?=$canWork?'':'disabled'?> data-commercial-activity-open data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>" data-account-owner="<?=e((string)($row['owner_name']??$u['name']))?>" data-account-type="<?=e($classification)?>" data-client-id="<?=$linked?(int)$row['client_id']:''?>" data-activity-type="contact_completed" title="Registrar atividade"><i class="fa-regular fa-clipboard"></i></button>
+          <?php if($canWork&&$mobileDigits!==''):?><a class="whatsapp" href="https://wa.me/<?=e($mobileDigits)?>" target="_blank" rel="noopener" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a><?php else:?><span class="whatsapp disabled" title="WhatsApp indisponível"><i class="fa-brands fa-whatsapp"></i></span><?php endif;?>
+         </div></td>
+        </tr>
+       <?php endforeach;?>
+       <?php if(!$rows):?><tr><td colspan="7"><div class="tdp-empty"><i class="fa-solid fa-circle-check"></i><strong>Nenhum cliente encontrado</strong><p>Não há clientes na sua carteira para os filtros atuais.</p></div></td></tr><?php endif;?>
+       </tbody>
+      </table>
+     </div>
+     <?php if($pages>1):?><footer class="tdp-pagination"><span>Mostrando página <strong><?=$pageNum?></strong> de <strong><?=$pages?></strong> · <?=number_format($total,0,',','.')?> clientes</span><div><a class="<?=$pageNum<=1?'disabled':''?>" href="<?=$portfolioUrl(['page'=>max(1,$pageNum-1)])?>"><i class="fa-solid fa-chevron-left"></i></a><?php $start=max(1,$pageNum-2);$end=min($pages,$pageNum+2);for($p=$start;$p<=$end;$p++):?><a class="<?=$p===$pageNum?'active':''?>" href="<?=$portfolioUrl(['page'=>$p])?>"><?=$p?></a><?php endfor;?><a class="<?=$pageNum>=$pages?'disabled':''?>" href="<?=$portfolioUrl(['page'=>min($pages,$pageNum+1)])?>"><i class="fa-solid fa-chevron-right"></i></a></div></footer><?php endif;?>
+    </section>
+
+    <?php render_commercial_activity_dialog([
+     'user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],
+     'return_to'=>'portfolio','return_query'=>http_build_query(array_merge($filters,['page'=>$pageNum]))
+    ]);?>
+   </section>
+   <?php break; endif;?>
    ?>
    <section class="tdw-page tdw-portfolio">
     <header class="tdw-page-head">
