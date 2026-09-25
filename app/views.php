@@ -1074,7 +1074,7 @@ function render(string $name,array $vars=[]): void{
         <?php if($isCfc):?><span class="tdf-badge cfc">CFC</span><?php endif;?>
         <?php if($isReseller):?><span class="tdf-badge reseller">Revendedor</span><?php endif;?>
         <?php if(!$isCfc&&!$isReseller):?><span class="tdf-badge neutral">Sem classificação</span><?php endif;?>
-        <?php if($canMaintain):?><button class="tdf-edit" type="button" data-tdf-classification-open><i class="fa-solid fa-pen"></i>Editar</button><?php endif;?>
+        <?php if($canMaintain):?><?php if($linked):?><a class="tdf-edit" href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/edit"><i class="fa-solid fa-pen"></i>Editar cadastro</a><?php else:?><button class="tdf-edit" type="button" data-tdf-classification-open><i class="fa-solid fa-pen"></i>Editar classificação CRM</button><?php endif;?><?php endif;?>
        </div>
        <div class="tdf-document"><?=e((string)($account['document']?:'Documento não informado'))?></div>
        <div class="tdf-customer-meta">
@@ -1266,7 +1266,7 @@ function render(string $name,array $vars=[]): void{
      </section>
     </div>
 
-    <?php if($canMaintain):?>
+    <?php if($canMaintain&&!$linked):?>
     <dialog class="tdf-classification-dialog" data-tdf-classification-dialog>
      <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/profile">
       <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="<?=$accountFromClients?'clients':'portfolio'?>"><input type="hidden" name="strategic_notes" value="<?=e((string)($profile['strategic_notes']??''))?>">
@@ -1638,17 +1638,10 @@ function render(string $name,array $vars=[]): void{
        <span class="<?=!empty($commercialProfile['is_reseller'])?'active reseller':'inactive'?>"><i class="fa-solid fa-handshake"></i>Revendedor</span>
        <?php if(empty($commercialProfile['is_cfc'])&&empty($commercialProfile['is_reseller'])):?><em>Sem classificação comercial definida</em><?php endif;?>
       </div>
-      <?php if($operationalAccess||Auth::can('admin','supervisor')):?>
-      <form class="tdc-commercial-form" method="post" action="<?=APP_URL?>/clients/<?=$client['id']?>/commercial-profile">
-       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-       <div class="tdc-commercial-options">
-        <label><input type="checkbox" name="is_cfc" value="1" <?=!empty($commercialProfile['is_cfc'])?'checked':''?>><span><i class="fa-solid fa-building-columns"></i><b>CFC</b><small>Centro de Formação de Condutores</small></span></label>
-        <label><input type="checkbox" name="is_reseller" value="1" <?=!empty($commercialProfile['is_reseller'])?'checked':''?>><span><i class="fa-solid fa-handshake"></i><b>Revendedor</b><small>Parceiro comercial / revenda</small></span></label>
-       </div>
-       <label class="tdc-commercial-note"><span>Observação estratégica</span><textarea class="form-control" name="strategic_notes" rows="3" maxlength="10000" placeholder="Ex.: prefere WhatsApp, compra na primeira semana do mês..."><?=e((string)($commercialProfile['strategic_notes']??''))?></textarea></label>
-       <footer><small>Origem atual: <?=e($classificationSourceLabel)?>. Alterações são auditadas e entram na fila de sincronização do CRM Omie.</small><button class="tdc-btn tdc-btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i>Salvar classificação</button></footer>
-      </form>
-      <?php else:?><div class="tdc-commercial-readonly"><i class="fa-solid fa-lock"></i>Você pode consultar esta classificação, mas a edição pertence à carteira responsável.</div><?php endif;?>
+      <div class="tdc-commercial-readonly tdc-commercial-unified-edit">
+       <div><i class="fa-solid fa-circle-info"></i><span><strong>Cadastro unificado</strong><small>Classificação, observação estratégica e demais dados agora são alterados no mesmo editor do cliente.</small></span></div>
+       <?php if(!$crmInactive&&!$originInactive&&Auth::can('admin','supervisor','seller')):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/<?=$client['id']?>/edit"><i class="fa-regular fa-pen-to-square"></i>Editar cadastro</a><?php endif;?>
+      </div>
      </section>
 
      <section class="tdc-card tdc-crm-contacts">
