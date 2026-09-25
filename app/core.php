@@ -100,7 +100,7 @@ final class Auth {
   }catch(Throwable $e){return self::$requestUser=$session;}
  }
  public static function id(): int{return (int)(self::user()['id']??0);}
- public static function check(): bool{return self::id()>0;
+ public static function check(): bool{return self::id()>0;}
  public static function can(string ...$roles): bool{$u=self::user();return $u&&in_array((string)$u['role'],$roles,true);}
  public static function attempt(string $email,string $password): bool{
   $u=DB::one("SELECT id,name,email,password_hash,role,seller_omie_code,crm_user_omie_code,active FROM users WHERE email=? LIMIT 1",[mb_strtolower(trim($email))]);
