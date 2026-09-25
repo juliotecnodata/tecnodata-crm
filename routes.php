@@ -966,7 +966,13 @@ $router->get('/api/client-quick-view',function(){
     'linked_client'=>$clientId>0,'source'=>$accountCode!==''?'crm_account':'client'
    ],
    'primary_contact'=>['name'=>$contactName,'position'=>$contactRole,'phone'=>$phone,'mobile'=>$mobile,'email'=>$email],
-   'contacts'=>$contactItems,'interactions'=>$interactionItems,'edit_form'=>$editForm,'seller_options'=>$sellerOptions,
+   'contacts'=>$contactItems,'interactions'=>$interactionItems,
+   'edit_form'=>$editForm?array_merge($editForm,[
+    'is_cfc'=>!empty($profile['is_cfc'])?1:0,
+    'is_reseller'=>!empty($profile['is_reseller'])?1:0,
+    'strategic_notes'=>(string)($profile['strategic_notes']??'')
+   ]):null,
+   'seller_options'=>$sellerOptions,
    'counts'=>['contacts'=>count($contactItems),'activities'=>count($interactionItems),'orders'=>(int)($client['orders_12m']??0)]
   ]);
  }catch(Throwable $e){
@@ -983,7 +989,11 @@ $router->post('/api/client-quick-view/{id}/update',function($p){
   if(!$client||empty($client['active'])||!empty($client['crm_inactive']))throw new RuntimeException('Cliente não está disponível para edição.');
   if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cliente não pertence ao universo CRM disponível para manutenção.');
   ClientService::updateInOmie($id,$_POST,$u);
-  json_response(['ok'=>true,'message'=>'Cadastro atualizado no CRM. A sincronização com a Omie continua explícita.']);
+  $accountCode=trim((string)(DB::scalar("SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=? ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1",[$id])??''));
+  if($accountCode!==''){
+   CommercialAccountService::updateProfile($accountCode,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
+  }
+  json_response(['ok'=>true,'message'=>'Cadastro completo atualizado no CRM. A sincronização com a Omie continua explícita.']);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
@@ -1575,17 +1585,9 @@ $router->post('/clients/portfolio/assign',function(){
 });
 $router->get('/clients/{id}/edit',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$id=(int)$p['id'];
- $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
+ $client=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
  if(!$client||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
- $old=$_SESSION['client_edit_old']??ClientService::formFromClient($client);
- $error=$_SESSION['client_edit_error']??null;
- unset($_SESSION['client_edit_old'],$_SESSION['client_edit_error']);
- render('client_new',[
-  'preview'=>null,'error'=>null,'old'=>$old,'createSuccess'=>null,'createError'=>null,
-  'editClient'=>$client,'editError'=>$error,
-  'editSellerName'=>$client['seller_omie_code']?(DB::scalar("SELECT name FROM sellers WHERE omie_code=?",[(string)$client['seller_omie_code']])?:$client['seller_omie_code']):'Sem vendedor',
-  'sellers'=>DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name")
- ]);
+ redirect('/clients/'.$id.'?edit=1');
 });
 $router->post('/clients/{id}/update',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
@@ -1596,9 +1598,8 @@ $router->post('/clients/{id}/update',function($p){
   $_SESSION['client_flash']=['type'=>'success','message'=>'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.'];
   redirect('/clients/'.$id);
  }catch(Throwable $e){
-  $_SESSION['client_edit_error']=$e->getMessage();
-  $_SESSION['client_edit_old']=$_POST;
-  redirect('/clients/'.$id.'/edit');
+  $_SESSION['client_flash']=['type'=>'danger','message'=>'Não foi possível salvar o cadastro: '.$e->getMessage()];
+  redirect('/clients/'.$id.'?edit=1');
  }
 });
 $router->post('/api/clients/omie-batch-delete-inactive',function(){
