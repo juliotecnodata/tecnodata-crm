@@ -861,6 +861,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       page.querySelectorAll('[data-tdf-classification-open]').forEach(button=>button.addEventListener('click',()=>dialog.showModal()));
       dialog.querySelectorAll('[data-tdf-classification-close]').forEach(button=>button.addEventListener('click',()=>dialog.close()));
       dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+      if(new URLSearchParams(location.search).get('classify')==='1')setTimeout(()=>dialog.showModal(),0);
     }
   };
   setupCommercialAccountPage();
@@ -1658,6 +1659,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }catch(error){results.innerHTML='<p>'+escapeLink(error.message||'Erro ao buscar clientes.')+'</p>';}
     };
     openButton?.addEventListener('click',()=>{commercialLinkDialog.showModal();searchInput.focus();});
+    if(new URLSearchParams(location.search).get('link')==='1')setTimeout(()=>{commercialLinkDialog.showModal();searchInput.focus();},0);
     closeButtons.forEach(button=>button.addEventListener('click',()=>commercialLinkDialog.close()));
     searchInput.addEventListener('input',()=>{clearTimeout(linkTimer);linkTimer=setTimeout(searchClients,250);});
     linkForm.addEventListener('submit',event=>{if(!clientId.value){event.preventDefault();showNotice('warning','Selecione o Cliente Geral','Busque e escolha o cadastro da Omie que será usado por vendas e cobrança.');searchInput.focus();}});
