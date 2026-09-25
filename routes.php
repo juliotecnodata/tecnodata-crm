@@ -3108,7 +3108,7 @@ $router->post('/api/freight/quote',function(){
 
 $router->get('/api/contact-monitoring/datatable',function(){
  Auth::requireRole('admin','supervisor');
- $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??5)));
+ $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??10)));
  $context=contact_monitoring_context($_GET);$baseWhere=$context['where'];$baseParams=$context['params'];$effectiveSellerSql=client_effective_seller_sql('c');
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioJoin=" LEFT JOIN client_portfolio_assignments pa_monitor ON pa_monitor.client_id=c.id AND pa_monitor.month_ref='".$portfolioMonth."'";
  $effectiveSellerExpr="CASE WHEN pa_monitor.id IS NOT NULL THEN pa_monitor.seller_omie_code ELSE c.seller_omie_code END";
@@ -3223,7 +3223,7 @@ $router->get('/api/clients/datatable',function(){
  $u=Auth::user();
  $draw=max(0,(int)($_GET['draw']??0));
  $start=max(0,(int)($_GET['start']??0));
- $length=(int)($_GET['length']??5);$length=$length<1?5:min(100,$length);
+ $length=(int)($_GET['length']??10);$length=$length<1?10:min(100,$length);
  $defaultSegment='all';
  $segment=(string)($_GET['segment']??$defaultSegment);if($segment!=='all'&&!isset(client_segment_catalog()[$segment]))$segment=$defaultSegment;
  $portfolioOnly=$u['role']==='seller'&&(string)($_GET['portfolio']??'')==='mine';
@@ -3679,7 +3679,7 @@ $router->get('/api/collection/recoveries/datatable',function(){
 
 $router->get('/api/products/datatable',function(){
  Auth::requireRole('admin','supervisor','seller');
- $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??5)));
+ $draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));$length=max(1,min(50,(int)($_GET['length']??10)));
  $status=(string)($_GET['status']??'active');if(!in_array($status,['all','active','inactive'],true))$status='active';
  $unit=mb_strtoupper(trim((string)($_GET['unit']??'')));
  $baseWhere=[];$baseParams=[];
