@@ -52,6 +52,50 @@ final class DB {
  public static function scalar(string $sql,array $p=[]): mixed{$s=self::conn()->prepare(self::sql($sql));$s->execute($p);return $s->fetchColumn();}
 }
 
+final class PartnerDB {
+ private static ?\PDO $pdo=null;
+
+ public static function conn(): \PDO {
+  if(self::$pdo)return self::$pdo;
+  $environment=defined('APP_ENV')?APP_ENV:'local';
+  $main=$GLOBALS['config']['database'][$environment]??[];
+  $source=$GLOBALS['config']['partner_database'][$environment]??[];
+  if(!is_array($main))$main=[];if(!is_array($source))$source=[];
+
+  $d=[
+   'host'=>$source['host']??($main['host']??'127.0.0.1'),
+   'port'=>(int)($source['port']??($main['port']??3306)),
+   'database'=>$source['database']??'u695906402_Tecno_Loja_BD',
+   'username'=>$source['username']??($main['username']??''),
+   'password'=>$source['password']??($main['password']??''),
+   'charset'=>$source['charset']??($main['charset']??'utf8mb4'),
+  ];
+
+  $envPrefix=$environment==='local'?'TDPARTNER_DB_LOCAL_':'TDPARTNER_DB_PROD_';
+  $envMap=['HOST'=>'host','PORT'=>'port','NAME'=>'database','USER'=>'username','PASS'=>'password'];
+  foreach($envMap as $envKey=>$configKey){
+   $value=getenv($envPrefix.$envKey);
+   if($value!==false&&$value!=='')$d[$configKey]=$configKey==='port'?(int)$value:$value;
+  }
+  if(trim((string)$d['database'])==='')throw new \RuntimeException('Banco de parceiros não configurado.');
+
+  try{
+   self::$pdo=new \PDO(
+    sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s',$d['host'],$d['port'],$d['database'],$d['charset']),
+    $d['username'],$d['password'],
+    [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_DEFAULT_FETCH_MODE=>\PDO::FETCH_ASSOC,\PDO::ATTR_EMULATE_PREPARES=>false]
+   );
+   return self::$pdo;
+  }catch(Throwable $e){
+   throw new \RuntimeException('Falha ao conectar ao banco de parceiros: '.$e->getMessage(),0,$e);
+  }
+ }
+
+ public static function all(string $sql,array $params=[]): array{
+  $stmt=self::conn()->prepare($sql);$stmt->execute($params);return $stmt->fetchAll();
+ }
+}
+
 final class SchemaGuard {
  private static ?array $status=null;
  public static function status(): array{
