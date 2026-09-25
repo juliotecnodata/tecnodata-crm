@@ -302,8 +302,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.alert').forEach(enhanceAlert);
   const showNotice=(type,title,message,duration)=>{
     const normalized=type==='error'?'danger':(noticeMeta[type]?type:'info');
-    let region=document.querySelector('[data-app-notices]');
-    if(!region){region=document.createElement('div');region.className='app-notices';region.dataset.appNotices='';region.setAttribute('aria-live','polite');document.body.appendChild(region);}
+    const openDialogs=[...document.querySelectorAll('dialog[open]')];
+    const noticeHost=openDialogs.length?openDialogs[openDialogs.length-1]:document.body;
+    let region=[...noticeHost.children].find(child=>child.matches?.('[data-app-notices]'))||null;
+    if(!region){region=document.createElement('div');region.className='app-notices';region.dataset.appNotices='';region.setAttribute('aria-live','polite');noticeHost.appendChild(region);}
     const notice=document.createElement('div');notice.className='alert alert-'+normalized+' app-toast';
     const safeTitle=String(title||noticeMeta[normalized].title);const safeMessage=String(message||'');
     notice.innerHTML='<strong></strong><span></span>';notice.querySelector('strong').textContent=safeTitle;notice.querySelector('span').textContent=safeMessage;
@@ -1872,10 +1874,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const ensureConfirmModal=()=>{
     let modal=document.getElementById('appConfirmModal');
     if(modal)return modal;
-    modal=document.createElement('div');
+    modal=document.createElement('dialog');
     modal.id='appConfirmModal';
     modal.className='app-confirm-backdrop';
-    modal.innerHTML='<div class="app-confirm-card" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle"><div class="app-confirm-icon" data-confirm-icon><i class="fa-solid fa-triangle-exclamation"></i></div><div class="app-confirm-copy"><strong id="appConfirmTitle" data-confirm-title>Confirmar operação</strong><span data-confirm-message></span></div><div class="app-confirm-actions"><button type="button" class="btn btn-outline-secondary" data-confirm-cancel>Cancelar</button><button type="button" class="btn btn-danger app-confirm-ok" data-confirm-ok>Confirmar</button></div></div>';
+    modal.setAttribute('aria-labelledby','appConfirmTitle');
+    modal.innerHTML='<div class="app-confirm-card"><div class="app-confirm-icon" data-confirm-icon><i class="fa-solid fa-triangle-exclamation"></i></div><div class="app-confirm-copy"><strong id="appConfirmTitle" data-confirm-title>Confirmar operação</strong><span data-confirm-message></span></div><div class="app-confirm-actions"><button type="button" class="btn btn-outline-secondary" data-confirm-cancel>Cancelar</button><button type="button" class="btn btn-danger app-confirm-ok" data-confirm-ok>Confirmar</button></div></div>';
     document.body.appendChild(modal);
     return modal;
   };
@@ -1893,23 +1896,33 @@ document.addEventListener('DOMContentLoaded',()=>{
     ok.textContent=options.label||'Confirmar';
     ok.className='btn app-confirm-ok '+(tone==='success'||tone==='phone'?'btn-success':tone==='danger'?'btn-danger':'btn-warning');
     icon.innerHTML=options.icon?'<i class="fa-solid '+String(options.icon).replace(/[^a-z0-9-]/gi,'')+'"></i>':tone==='success'?'<i class="fa-solid fa-check"></i>':tone==='danger'?'<i class="fa-regular fa-trash-can"></i>':'<i class="fa-solid fa-triangle-exclamation"></i>';
-    modal.classList.add('show');
+    let settled=false;
     const finish=value=>{
+      if(settled)return;
+      settled=true;
       modal.classList.remove('show');
+      if(typeof modal.close==='function'&&modal.open)modal.close();
       ok.removeEventListener('click',onOk);
       cancel.removeEventListener('click',onCancel);
       modal.removeEventListener('click',onBackdrop);
+      modal.removeEventListener('cancel',onNativeCancel);
       document.removeEventListener('keydown',onKey);
       resolve(value);
     };
     const onOk=()=>finish(true);
     const onCancel=()=>finish(false);
     const onBackdrop=e=>{if(e.target===modal)finish(false);};
-    const onKey=e=>{if(e.key==='Escape')finish(false);};
+    const onNativeCancel=e=>{e.preventDefault();finish(false);};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();finish(false);}};
     ok.addEventListener('click',onOk);
     cancel.addEventListener('click',onCancel);
     modal.addEventListener('click',onBackdrop);
+    modal.addEventListener('cancel',onNativeCancel);
     document.addEventListener('keydown',onKey);
+    modal.classList.add('show');
+    if(typeof modal.showModal==='function'){
+      if(!modal.open)modal.showModal();
+    }
     setTimeout(()=>ok.focus(),0);
   });
   window.askConfirm=askConfirm;
