@@ -1827,6 +1827,61 @@ final class CommercialSaleService {
  }
 }
 
+final class CommercialPartnerRegistryService {
+ public static function sync(int $actorUserId): array{
+  CommercialSchema::ensure();
+  $rows=PartnerDB::all("SELECT id,razao,cnpj,nomefantasia,ativo FROM cfcs WHERE cnpj IS NOT NULL AND TRIM(cnpj)<>'' ORDER BY id");
+  $sourceByDocument=[];$invalid=0;
+  foreach($rows as $row){
+   $document=crm_digits((string)($row['cnpj']??''));
+   if(strlen($document)!==14){$invalid++;continue;}
+   if(!isset($sourceByDocument[$document]))$sourceByDocument[$document]=[];
+   $sourceByDocument[$document][]=$row;
+  }
+
+  $crmByDocument=[];
+  foreach(DB::all("SELECT omie_code,document FROM crm_accounts WHERE active=1 AND document IS NOT NULL AND TRIM(document)<>''") as $account){
+   $document=crm_digits((string)($account['document']??''));
+   if($document==='')continue;
+   $crmByDocument[$document][]=(string)$account['omie_code'];
+  }
+
+  $stats=[
+   'source_rows'=>count($rows),
+   'source_documents'=>count($sourceByDocument),
+   'invalid_documents'=>$invalid,
+   'matched_documents'=>0,
+   'matched_accounts'=>0,
+   'updated_accounts'=>0,
+   'already_classified'=>0,
+   'not_found_documents'=>0,
+   'duplicate_crm_documents'=>0,
+  ];
+
+  foreach($sourceByDocument as $document=>$sourceRows){
+   $accountCodes=array_values(array_unique($crmByDocument[$document]??[]));
+   if(!$accountCodes){$stats['not_found_documents']++;continue;}
+   $stats['matched_documents']++;
+   if(count($accountCodes)>1)$stats['duplicate_crm_documents']++;
+   foreach($accountCodes as $accountCode){
+    $stats['matched_accounts']++;
+    $profile=CommercialAccountService::profile($accountCode);
+    $isAlready=!empty($profile['is_cfc'])&&!empty($profile['is_reseller']);
+    if($isAlready){$stats['already_classified']++;continue;}
+    CommercialAccountService::updateProfile(
+     $accountCode,
+     true,
+     true,
+     $actorUserId,
+     (string)($profile['strategic_notes']??'')
+    );
+    $stats['updated_accounts']++;
+   }
+  }
+  return $stats;
+ }
+}
+
 final class CommercialPartnerService {
  public static function catalog(): array{return [
   'access'=>['label'=>'Acesso','items'=>['access_guidance'=>'Orientação de acesso','has_access'=>'Possui acesso','knows_access'=>'Sabe acessar','access_recovery'=>'Recuperação de acesso','access_problem'=>'Problema de acesso']],
