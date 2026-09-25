@@ -1832,7 +1832,8 @@ final class CommercialPartnerRegistryService {
   return PartnerDB::all("SELECT id,razao,cnpj,nomefantasia,cidade,uf,ativo FROM cfcs WHERE cnpj IS NOT NULL AND TRIM(cnpj)<>'' ORDER BY razao,id");
  }
 
- private static function formatDocument(string $digits): string{
+ private static function formatDocument(string|int $digits): string{
+  $digits=(string)$digits;
   return strlen($digits)===14
    ?substr($digits,0,2).'.'.substr($digits,2,3).'.'.substr($digits,5,3).'/'.substr($digits,8,4).'-'.substr($digits,12,2)
    :$digits;
@@ -1858,7 +1859,7 @@ final class CommercialPartnerRegistryService {
     ];
     continue;
    }
-   $sourceByDocument[$document][]=$row;
+   $sourceByDocument['cnpj:'.$document][]=$row;
   }
 
   $crmByDocument=[];
@@ -1871,11 +1872,12 @@ final class CommercialPartnerRegistryService {
                     ORDER BY a.name,a.omie_code");
   foreach($crmRows as $account){
    $document=crm_digits((string)($account['document']??''));
-   if($document!=='')$crmByDocument[$document][]=$account;
+   if($document!=='')$crmByDocument['cnpj:'.$document][]=$account;
   }
 
   $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;
-  foreach($sourceByDocument as $document=>$sourceRows){
+  foreach($sourceByDocument as $documentKey=>$sourceRows){
+   $document=str_starts_with((string)$documentKey,'cnpj:')?substr((string)$documentKey,5):(string)$documentKey;
    $names=[];$ids=[];$places=[];$activeCount=0;
    foreach($sourceRows as $sourceRow){
     $name=trim((string)($sourceRow['nomefantasia']??''))?:trim((string)($sourceRow['razao']??''));
@@ -1886,7 +1888,7 @@ final class CommercialPartnerRegistryService {
     if((int)($sourceRow['ativo']??0)===1)$activeCount++;
    }
    $sourceName=implode(' · ',array_keys($names));$place=implode(' · ',array_keys($places));
-   $matches=$crmByDocument[$document]??[];
+   $matches=$crmByDocument[(string)$documentKey]??[];
    if(!$matches){
     $notFound++;
     $rows[]=[
