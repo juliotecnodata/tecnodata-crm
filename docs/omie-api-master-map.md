@@ -22,7 +22,7 @@ Atualizado em 24/09/2026 a partir da lista oficial de serviços da Omie.
 | Prioridade | APIs | Uso pretendido | Estado atual |
 |---|---|---|---|
 | P0 | Geral: Clientes | Cadastro fiscal comum, chave de vendas e cobrança | Integrado |
-| P0 | CRM: Contas, Contatos, Usuários | Carteira e relacionamento | Contas e usuários integrados; contatos em cache da Conta |
+| P0 | CRM: Contas, Contatos, Usuários | Carteira e relacionamento | Integrado; contatos sincronizados pela API própria e vinculados por `nCodConta` |
 | P0 | Vendas: Pedidos de Venda e Etapas | Resultado comercial de produtos | Integrado |
 | P0 | Serviços: Ordens de Serviço | Resultado comercial de serviços/EAD | Integrado |
 | P0 | Finanças: Movimentos Financeiros | Saldo, vencimento, baixa e carteira de cobrança | Integrado |

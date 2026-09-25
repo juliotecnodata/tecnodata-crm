@@ -77,6 +77,15 @@ try{
   }while(empty($result['done'])&&$page<=10000);
   $summary['crm_accounts']=$processed;
   $summary['account_stats']=$totals;
+
+  $page=1;$contactsProcessed=0;
+  do{
+   $contactResult=CommercialPortfolioService::syncContactsPage($page);
+   $contactsProcessed+=(int)($contactResult['count']??0);
+   echo "CRM Contatos: página {$page}/".(int)($contactResult['total_pages']??0)." — ".(int)($contactResult['count']??0)." registros\n";
+   $page++;
+  }while(empty($contactResult['done'])&&$page<=10000);
+  $summary['crm_contacts']=$contactsProcessed;
  }
 
  $identity=CommercialIdentityService::reconcileUsers();

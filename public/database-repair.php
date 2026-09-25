@@ -86,6 +86,11 @@ $t=$prefix.'users';
 addCol($pdo,$log,$t,'crm_user_omie_code','VARCHAR(80) NULL AFTER seller_omie_code');
 addIndex($pdo,$log,$t,'idx_users_crm_user','crm_user_omie_code,active');
 
+$t=$prefix.'crm_contacts';
+addCol($pdo,$log,$t,'active','TINYINT(1) NOT NULL DEFAULT 1 AFTER mobile');
+addCol($pdo,$log,$t,'last_seen_token','VARCHAR(64) NULL AFTER raw_json');
+addIndex($pdo,$log,$t,'idx_crm_contacts_active_account','active,crm_account_code');
+
 $t=$prefix.'clients';
 addCol($pdo,$log,$t,'seller_omie_code','VARCHAR(80) NULL AFTER uf');
 addCol($pdo,$log,$t,'crm_account_code','VARCHAR(80) NULL AFTER omie_seller_code');
