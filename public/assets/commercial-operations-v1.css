@@ -87,3 +87,11 @@
  .cix-partner-sync-toolbar .grow{grid-column:auto}
  .cix-partner-sync-footer>div:last-child{display:grid;grid-template-columns:1fr 1fr}
 }
+
+.cix-partner-sync-progress{padding:10px 12px;border:1px solid #c9dce7;border-radius:8px;background:#f3f8fb;color:#31566b;font-size:9px;font-weight:700}
+.cix-partner-sync-progress.success{border-color:#bde3cc;background:#edf8f1;color:#14784a}
+.cix-partner-sync-progress.warning{border-color:#ead79d;background:#fff8e5;color:#816300}
+.cix-partner-sync-error{min-height:0!important;align-items:flex-start!important;justify-content:flex-start!important;padding:12px 14px!important;white-space:pre-line;max-height:190px;overflow:auto;line-height:1.45}
+.cix-partner-sync-status.saved{border-color:#bde8d4;background:#e7f8f0;color:#087a54}
+.cix-partner-sync-status.failed{border-color:#efc5c0;background:#fff1ef;color:#b63b32}
+.cix-partner-sync-status.skipped{border-color:#d8e0e5;background:#f3f5f6;color:#687c89}
