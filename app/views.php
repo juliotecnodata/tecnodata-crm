@@ -3368,12 +3368,12 @@ function layout(string $body,?array $u,string $page=''): void{
       <span><strong>Identificação e contato</strong><small>Dados principais usados no CRM e na integração.</small></span>
      </legend>
      <div class="tdq-edit-grid tdq-edit-grid-identity">
-      <label class="col-3"><span>CPF / CNPJ</span><div class="tdq-edit-lookup"><input class="form-control" name="document" data-edit-document required><button type="button" data-client-edit-cnpj-lookup title="Buscar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="tdq-edit-hint" data-client-edit-cnpj-status>CNPJ completo pode preencher os dados automaticamente.</small></label>
-      <label class="col-5"><span>Razão social / Nome</span><input class="form-control" name="legal_name" required></label>
-      <label class="col-4"><span>Nome fantasia</span><input class="form-control" name="trade_name" required></label>
-      <label class="col-5"><span>E-mail</span><input class="form-control" type="text" inputmode="email" name="email" maxlength="1000" required><small class="tdq-edit-hint">Separe vários e-mails por vírgula.</small></label>
-      <label class="col-4"><span>Nome do contato</span><input class="form-control" name="contact_name" required></label>
-      <label class="col-3 phone"><span>Telefone</span><div><input class="form-control" name="phone_ddd" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" maxlength="9" placeholder="Número" required></div></label>
+      <label class="tdq-span-3"><span>CPF / CNPJ</span><div class="tdq-edit-lookup"><input class="form-control" name="document" data-edit-document required><button type="button" data-client-edit-cnpj-lookup title="Buscar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="tdq-edit-hint" data-client-edit-cnpj-status>CNPJ completo pode preencher os dados automaticamente.</small></label>
+      <label class="tdq-span-5"><span>Razão social / Nome</span><input class="form-control" name="legal_name" required></label>
+      <label class="tdq-span-4"><span>Nome fantasia</span><input class="form-control" name="trade_name" required></label>
+      <label class="tdq-span-5"><span>E-mail</span><input class="form-control" type="text" inputmode="email" name="email" maxlength="1000" required><small class="tdq-edit-hint">Separe vários e-mails por vírgula.</small></label>
+      <label class="tdq-span-4"><span>Nome do contato</span><input class="form-control" name="contact_name" required></label>
+      <label class="tdq-span-3 phone"><span>Telefone</span><div><input class="form-control" name="phone_ddd" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" maxlength="9" placeholder="Número" required></div></label>
      </div>
     </fieldset>
 
@@ -3383,13 +3383,13 @@ function layout(string $body,?array $u,string $page=''): void{
       <span><strong>Endereço</strong><small>Localização completa do cliente.</small></span>
      </legend>
      <div class="tdq-edit-grid tdq-edit-grid-address">
-      <label class="col-2"><span>CEP</span><div class="tdq-edit-lookup"><input class="form-control" name="zip_code" required><button type="button" data-client-edit-cep-lookup title="Buscar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="tdq-edit-hint" data-client-edit-cep-status>Busca automática ao completar.</small></label>
-      <label class="col-6"><span>Endereço</span><input class="form-control" name="address" required></label>
-      <label class="col-2"><span>Número</span><input class="form-control" name="address_number" required></label>
-      <label class="col-2"><span>UF</span><input class="form-control text-uppercase" name="uf" maxlength="2" required></label>
-      <label class="col-4"><span>Complemento</span><input class="form-control" name="complement"></label>
-      <label class="col-3"><span>Bairro</span><input class="form-control" name="neighborhood" required></label>
-      <label class="col-5"><span>Cidade</span><input class="form-control" name="city" required></label>
+      <label class="tdq-span-2"><span>CEP</span><div class="tdq-edit-lookup"><input class="form-control" name="zip_code" required><button type="button" data-client-edit-cep-lookup title="Buscar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="tdq-edit-hint" data-client-edit-cep-status>Busca automática ao completar.</small></label>
+      <label class="tdq-span-6"><span>Endereço</span><input class="form-control" name="address" required></label>
+      <label class="tdq-span-2"><span>Número</span><input class="form-control" name="address_number" required></label>
+      <label class="tdq-span-2"><span>UF</span><input class="form-control text-uppercase" name="uf" maxlength="2" required></label>
+      <label class="tdq-span-4"><span>Complemento</span><input class="form-control" name="complement"></label>
+      <label class="tdq-span-3"><span>Bairro</span><input class="form-control" name="neighborhood" required></label>
+      <label class="tdq-span-5"><span>Cidade</span><input class="form-control" name="city" required></label>
      </div>
     </fieldset>
 
@@ -3399,8 +3399,8 @@ function layout(string $body,?array $u,string $page=''): void{
       <span><strong>Organização comercial</strong><small>Vendedor, tags e observações do cadastro.</small></span>
      </legend>
      <div class="tdq-edit-grid tdq-edit-grid-commercial">
-      <label class="col-3"><span>Vendedor principal</span><select class="form-select" name="seller_omie_code" data-client-quick-edit-seller><option value="">Sem vendedor</option></select></label>
-      <label class="col-9"><span>Tags</span><input class="form-control" name="tags" required><small class="tdq-edit-hint">Separe várias tags por vírgula.</small></label>
+      <label class="tdq-span-3"><span>Vendedor principal</span><select class="form-select" name="seller_omie_code" data-client-quick-edit-seller><option value="">Sem vendedor</option></select></label>
+      <label class="tdq-span-9"><span>Tags</span><input class="form-control" name="tags" required><small class="tdq-edit-hint">Separe várias tags por vírgula.</small></label>
       <div class="col-12 tdq-edit-classification">
        <span>Classificação comercial</span>
        <div>
@@ -3408,8 +3408,8 @@ function layout(string $body,?array $u,string $page=''): void{
         <label><input type="checkbox" name="is_reseller" value="1"><span><i class="fa-solid fa-handshake"></i><b>Revendedor</b><small>Parceiro comercial / revenda</small></span></label>
        </div>
       </div>
-      <label class="col-12"><span>Observação estratégica</span><textarea class="form-control" name="strategic_notes" rows="3" maxlength="10000" placeholder="Preferências, contexto comercial, melhor canal ou horário..."></textarea></label>
-      <label class="col-12"><span>Observações gerais do cadastro</span><textarea class="form-control" name="notes" rows="5" maxlength="10000"></textarea></label>
+      <label class="tdq-span-12"><span>Observação estratégica</span><textarea class="form-control" name="strategic_notes" rows="3" maxlength="10000" placeholder="Preferências, contexto comercial, melhor canal ou horário..."></textarea></label>
+      <label class="tdq-span-12"><span>Observações gerais do cadastro</span><textarea class="form-control" name="notes" rows="5" maxlength="10000"></textarea></label>
      </div>
     </fieldset>
 
