@@ -651,11 +651,11 @@
 .tdq-edit-modal{border:0;padding:0;background:transparent;max-width:none;max-height:none}
 .tdq-edit-modal::backdrop{background:rgba(8,28,47,.58)}
 .tdq-edit-modal form{
- width:calc(100vw - 24px);
- max-width:1500px;
- height:calc(100vh - 24px);
+ width:calc(100vw - 16px);
+ max-width:1680px;
+ height:calc(100vh - 16px);
  max-height:calc(100vh - 24px);
- margin:12px auto;
+ margin:8px auto;
  overflow:hidden;
  border:1px solid #D7E2E9;
  border-radius:10px;
@@ -690,7 +690,7 @@
 .tdq-edit-fieldset{
  min-width:0;
  margin:0;
- padding:0 14px 14px;
+ padding:0 16px 16px;
  border:1px solid #DDE7EC;
  border-radius:10px;
  background:#fff
@@ -727,8 +727,8 @@
 .tdq-edit-grid .tdq-span-2{grid-column:span 2}.tdq-edit-grid .tdq-span-3{grid-column:span 3}.tdq-edit-grid .tdq-span-4{grid-column:span 4}.tdq-edit-grid .tdq-span-5{grid-column:span 5}.tdq-edit-grid .tdq-span-6{grid-column:span 6}.tdq-edit-grid .tdq-span-9{grid-column:span 9}.tdq-edit-grid .tdq-span-12{grid-column:1/-1}
 .tdq-edit-grid .phone>div{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;min-width:0}
 .tdq-edit-grid .form-control,.tdq-edit-grid .form-select{
- width:100%;max-width:100%;min-width:0;min-height:40px;box-sizing:border-box;
- border:1px solid #D8E3E9;border-radius:8px;background:#fff;font-size:11px
+ width:100%!important;max-width:100%!important;min-width:0!important;min-height:42px;box-sizing:border-box;
+ border:1px solid #D8E3E9;border-radius:8px;background:#fff;font-size:12px
 }
 .tdq-edit-grid textarea.form-control{min-height:108px;padding-top:9px;resize:vertical}
 .tdq-edit-lookup{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:7px;min-width:0}
