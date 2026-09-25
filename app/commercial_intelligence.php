@@ -1854,8 +1854,9 @@ final class CommercialPartnerRegistryService {
      'city'=>(string)($row['cidade']??''),
      'uf'=>(string)($row['uf']??''),
      'source_active'=>(int)($row['ativo']??0)===1,
+     'source_status'=>(int)($row['ativo']??0)===1?'active':'inactive',
      'account_code'=>null,'account_name'=>null,'owner_name'=>null,
-     'current_classification'=>'—','status'=>'invalid','selectable'=>false
+     'current_classification'=>'—','status'=>'invalid','selectable'=>false,'default_selected'=>false
     ];
     continue;
    }
@@ -1875,7 +1876,7 @@ final class CommercialPartnerRegistryService {
    if(in_array(strlen($document),[11,14],true))$crmByDocument['doc:'.$document][]=$account;
   }
 
-  $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;
+  $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;$inactiveDocuments=0;$mixedDocuments=0;
   foreach($sourceByDocument as $documentKey=>$sourceRows){
    $document=str_starts_with((string)$documentKey,'doc:')?substr((string)$documentKey,4):(string)$documentKey;
    $names=[];$ids=[];$places=[];$activeCount=0;
@@ -1888,14 +1889,18 @@ final class CommercialPartnerRegistryService {
     if((int)($sourceRow['ativo']??0)===1)$activeCount++;
    }
    $sourceName=implode(' · ',array_keys($names));$place=implode(' · ',array_keys($places));
+   $sourceCount=count($sourceRows);
+   $sourceStatus=$activeCount===0?'inactive':($activeCount===$sourceCount?'active':'mixed');
+   if($sourceStatus==='inactive')$inactiveDocuments++;
+   elseif($sourceStatus==='mixed')$mixedDocuments++;
    $matches=$crmByDocument[(string)$documentKey]??[];
    if(!$matches){
     $notFound++;
     $rows[]=[
      'source_ids'=>$ids,'source_name'=>$sourceName,'document'=>self::formatDocument($document),'document_digits'=>$document,
-     'city_uf'=>$place,'source_active'=>$activeCount>0,'source_count'=>count($sourceRows),
+     'city_uf'=>$place,'source_active'=>$activeCount>0,'source_status'=>$sourceStatus,'source_count'=>$sourceCount,
      'account_code'=>null,'account_name'=>null,'owner_name'=>null,'current_classification'=>'—',
-     'status'=>'not_found','selectable'=>false,'duplicate_crm'=>false
+     'status'=>'not_found','selectable'=>false,'default_selected'=>false,'duplicate_crm'=>false
     ];
     continue;
    }
@@ -1907,16 +1912,18 @@ final class CommercialPartnerRegistryService {
     $isCfc=(int)($account['is_cfc']??0)===1;$isReseller=(int)($account['is_reseller']??0)===1;
     $current=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':'Sem classificação'));
     $isAlready=$isCfc&&$isReseller;
-    if($isAlready)$already++;else $pending++;
+    if($isAlready){$already++;continue;}
+    $pending++;
     $rows[]=[
      'source_ids'=>$ids,'source_name'=>$sourceName,'document'=>self::formatDocument($document),'document_digits'=>$document,
-     'city_uf'=>$place,'source_active'=>$activeCount>0,'source_count'=>count($sourceRows),
+     'city_uf'=>$place,'source_active'=>$activeCount>0,'source_status'=>$sourceStatus,'source_count'=>$sourceCount,
      'account_code'=>(string)$account['omie_code'],
      'account_name'=>trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')),
      'owner_name'=>(string)($account['owner_name']??''),
      'current_classification'=>$current,
-     'status'=>$isAlready?'already':'pending',
-     'selectable'=>!$isAlready,
+     'status'=>'pending',
+     'selectable'=>true,
+     'default_selected'=>$sourceStatus==='active',
      'duplicate_crm'=>count($matches)>1
     ];
    }
@@ -1924,8 +1931,11 @@ final class CommercialPartnerRegistryService {
   foreach($invalidRows as $row)$rows[]=$row;
 
   usort($rows,static function(array $a,array $b): int{
-   $rank=['pending'=>0,'already'=>1,'not_found'=>2,'invalid'=>3];
+   $rank=['pending'=>0,'not_found'=>1,'invalid'=>2];
    $cmp=($rank[$a['status']]??9)<=>($rank[$b['status']]??9);
+   if($cmp!==0)return $cmp;
+   $originRank=['active'=>0,'mixed'=>1,'inactive'=>2];
+   $cmp=($originRank[$a['source_status']??'active']??9)<=>($originRank[$b['source_status']??'active']??9);
    if($cmp!==0)return $cmp;
    return strcasecmp((string)($a['source_name']??''),(string)($b['source_name']??''));
   });
@@ -1939,8 +1949,13 @@ final class CommercialPartnerRegistryService {
     'matched_accounts'=>$matchedAccounts,
     'pending_accounts'=>$pending,
     'already_classified'=>$already,
+    'omitted_already_classified'=>$already,
     'not_found_documents'=>$notFound,
     'invalid_documents'=>count($invalidRows),
+    'inactive_documents'=>$inactiveDocuments,
+    'mixed_documents'=>$mixedDocuments,
+    'inactive_source_rows'=>count(array_filter($source,static fn($row)=>(int)($row['ativo']??0)!==1)),
+    'displayed_rows'=>count($rows),
     'duplicate_crm_documents'=>$duplicateCrm,
    ]
   ];
