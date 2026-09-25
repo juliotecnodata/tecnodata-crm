@@ -827,7 +827,7 @@ $router->get('/clients',function()use($renderClients){
  $u=Auth::user();
  if((string)($u['role']??'')==='seller'){
   CommercialSchema::ensure();
-  $filters=$_GET;$filters['_seller_central']=1;
+  $filters=$_GET;$filters['_seller_central']=1;$filters['attention']='all';$filters['scope']='all';$filters['sort']='name';
   $flash=$_SESSION['commercial_flash']??($_SESSION['clients_flash']??null);
   unset($_SESSION['commercial_flash'],$_SESSION['clients_flash']);
   render('commercial_portfolio',[
