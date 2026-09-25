@@ -3211,6 +3211,83 @@ function layout(string $body,?array $u,string $page=''): void{
    <div class="product-detail-body" data-product-detail-body><div class="product-detail-loading"><i class="fa-solid fa-spinner fa-spin"></i><span>Carregando detalhes...</span></div></div>
   </div>
  </dialog>
+ <dialog class="tdq-client-modal" data-client-quick-modal aria-label="Ficha rápida do cliente">
+  <div class="tdq-client-shell">
+   <header class="tdq-client-head">
+    <span class="tdq-client-avatar"><i class="fa-regular fa-building"></i></span>
+    <div class="tdq-client-title"><div><h2 data-client-quick-name>Cliente</h2><span class="tdq-status neutral" data-client-quick-status>Carregando</span></div><p data-client-quick-meta>Consultando cadastro...</p></div>
+    <button class="tdq-close" type="button" data-client-quick-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+   </header>
+   <nav class="tdq-tabs" aria-label="Seções da ficha rápida">
+    <button class="active" type="button" data-client-quick-tab="overview"><i class="fa-regular fa-address-card"></i>Visão geral</button>
+    <button type="button" data-client-quick-tab="activities"><i class="fa-regular fa-calendar-check"></i>Atividades <b data-client-quick-activities-count>0</b></button>
+    <button type="button" data-client-quick-tab="contacts"><i class="fa-solid fa-user-group"></i>Contatos <b data-client-quick-contacts-count>0</b></button>
+    <button type="button" data-client-quick-tab="sales"><i class="fa-solid fa-chart-line"></i>Vendas <b data-client-quick-orders-count>0</b></button>
+   </nav>
+   <div class="tdq-client-body">
+    <section class="tdq-panel active" data-client-quick-panel="overview">
+     <div class="tdq-overview-grid">
+      <div class="tdq-overview-main">
+       <section class="tdq-card">
+        <header><div><i class="fa-regular fa-id-card"></i><strong>Informações principais</strong></div></header>
+        <div class="tdq-info-grid">
+         <div><small>Classificação</small><strong data-client-quick-classification>—</strong></div>
+         <div><small>Status</small><strong data-client-quick-status-detail>—</strong></div>
+         <div><small>Responsável</small><strong data-client-quick-owner>—</strong></div>
+         <div><small>Último contato</small><strong data-client-quick-last-contact>—</strong><span data-client-quick-last-contact-relative></span></div>
+         <div><small>Próximo retorno</small><strong data-client-quick-next-return>—</strong><span data-client-quick-next-return-title></span></div>
+         <div><small>Documento</small><strong data-client-quick-document>—</strong></div>
+        </div>
+       </section>
+       <section class="tdq-card">
+        <header><div><i class="fa-regular fa-user"></i><strong>Contato principal</strong></div></header>
+        <div class="tdq-contact-primary">
+         <div class="tdq-contact-person"><span><i class="fa-regular fa-user"></i></span><div><strong data-client-quick-contact-name>—</strong><small data-client-quick-contact-position>Contato do cliente</small></div></div>
+         <div class="tdq-contact-lines">
+          <a href="#" data-client-quick-phone><i class="fa-solid fa-phone"></i><span>Telefone não informado</span></a>
+          <a href="#" data-client-quick-mobile><i class="fa-brands fa-whatsapp"></i><span>WhatsApp não informado</span></a>
+          <a href="#" data-client-quick-email><i class="fa-regular fa-envelope"></i><span>E-mail não informado</span></a>
+         </div>
+        </div>
+       </section>
+       <section class="tdq-card tdq-notes">
+        <header><div><i class="fa-regular fa-note-sticky"></i><strong>Observações</strong></div></header>
+        <p data-client-quick-notes>Nenhuma observação estratégica registrada.</p>
+       </section>
+      </div>
+      <aside class="tdq-card tdq-timeline-card">
+       <header><div><i class="fa-solid fa-clock-rotate-left"></i><strong>Últimas interações</strong></div></header>
+       <div class="tdq-timeline" data-client-quick-timeline></div>
+      </aside>
+     </div>
+    </section>
+    <section class="tdq-panel" data-client-quick-panel="activities" hidden><div class="tdq-list-panel"><header><strong>Histórico de atividades</strong><small>Interações comerciais mais recentes.</small></header><div data-client-quick-activities></div></div></section>
+    <section class="tdq-panel" data-client-quick-panel="contacts" hidden><div class="tdq-list-panel"><header><strong>Contatos da Conta CRM</strong><small>Pessoas vinculadas ao cliente no CRM Omie.</small></header><div data-client-quick-contacts></div></div></section>
+    <section class="tdq-panel" data-client-quick-panel="sales" hidden><div class="tdq-sales-panel"><article><small>Receita 12 meses</small><strong data-client-quick-revenue>R$ 0,00</strong></article><article><small>Pedidos 12 meses</small><strong data-client-quick-orders>0</strong></article><article><small>Primeira compra</small><strong data-client-quick-first-purchase>—</strong></article><article><small>Última compra</small><strong data-client-quick-last-purchase>—</strong></article></div></section>
+   </div>
+   <footer class="tdq-client-actions">
+    <a class="tdq-action call" href="#" data-client-quick-call><i class="fa-solid fa-phone"></i>Ligar</a>
+    <a class="tdq-action whatsapp" href="#" target="_blank" rel="noopener" data-client-quick-whatsapp><i class="fa-brands fa-whatsapp"></i>WhatsApp</a>
+    <button class="tdq-action secondary" type="button" data-client-quick-activity><i class="fa-regular fa-clipboard"></i>Registrar atividade</button>
+    <button class="tdq-action secondary" type="button" data-client-quick-task><i class="fa-regular fa-calendar-plus"></i>Agendar retorno</button>
+    <a class="tdq-action secondary" href="#" data-client-quick-full data-no-client-modal><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir ficha completa</a>
+   </footer>
+  </div>
+ </dialog>
+ <dialog class="tdq-activity-modal" data-client-quick-activity-modal>
+  <form data-client-quick-activity-form>
+   <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+   <input type="hidden" name="crm_account_code" data-client-quick-activity-account>
+   <header><span><i class="fa-regular fa-clipboard"></i></span><div><small>CLIENTE / ATIVIDADE</small><strong>Registrar atividade</strong><p data-client-quick-activity-name>Cliente</p></div><button type="button" data-client-quick-activity-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+   <div class="tdq-activity-body">
+    <label><span>Tipo</span><select class="form-select" name="activity_type"><option value="contact_completed">Contato realizado</option><option value="contact_attempt">Tentativa de contato</option><option value="follow_up">Follow-up / atividade</option></select></label>
+    <label><span>Canal</span><select class="form-select" name="channel"><option value="phone">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="presential">Presencial</option><option value="other">Outro</option></select></label>
+    <label class="wide"><span>Registro</span><textarea class="form-control" name="notes" rows="5" maxlength="2000" placeholder="Registre o que aconteceu neste contato"></textarea></label>
+    <label class="wide"><span>Próximo retorno <small>opcional</small></span><input class="form-control" type="datetime-local" name="next_at" data-client-quick-activity-next></label>
+   </div>
+   <footer><button type="button" class="tdq-action secondary" data-client-quick-activity-close>Cancelar</button><button type="submit" class="tdq-action call"><i class="fa-solid fa-check"></i>Salvar atividade</button></footer>
+  </form>
+ </dialog>
   <dialog class="tdcrm-task-modal" data-global-task-modal>
    <form data-global-task-form>
     <input type="hidden" name="_token" value="<?=CSRF::token()?>">
