@@ -884,6 +884,114 @@ function render(string $name,array $vars=[]): void{
     ]);?>
    </section>
    <?php break; endif;?>
+   <?php if($centralMode):
+    $centralSummary=is_array($centralStats??null)?$centralStats:$stats;
+    $centralPending=(int)($centralPendingSync??0);
+    $perPage=(int)($portfolio['per_page']??10);
+    $centralClassification=(string)($filters['classification']??'all');
+    $centralLink=(string)($filters['link']??'all');
+    $centralOwner=(string)($filters['owner']??'');
+    $centralAttention=(string)($filters['attention']??'all');
+    $centralQ=(string)($filters['q']??'');
+    $classificationLabels=['cfc'=>'CFC','reseller'=>'Revendedor','both'=>'CFC + Revendedor','unclassified'=>'Sem classificação'];
+    $linkLabels=['linked'=>'CRM + Cliente Geral','prospect'=>'Somente CRM'];
+    $attentionLabels=['overdue'=>'Retorno atrasado','today'=>'Retorno hoje','never'=>'Nunca contatado','stale30'=>'Sem contato > 30 dias','upcoming'=>'Próximo retorno','unplanned'=>'Sem retorno agendado'];
+    $activeChips=[];
+    if($centralQ!=='')$activeChips[]=['Busca: '.$centralQ,['q'=>'','page'=>1]];
+    if($centralClassification!=='all')$activeChips[]=[($classificationLabels[$centralClassification]??$centralClassification),['classification'=>'all','page'=>1]];
+    if($centralLink!=='all')$activeChips[]=[($linkLabels[$centralLink]??$centralLink),['link'=>'all','page'=>1]];
+    if($centralOwner!==''){foreach($owners??[] as $owner)if((string)$owner['omie_code']===$centralOwner){$activeChips[]=['Responsável: '.(string)$owner['name'],['owner'=>'','page'=>1]];break;}}
+    if($centralAttention!=='all')$activeChips[]=[($attentionLabels[$centralAttention]??$centralAttention),['attention'=>'all','page'=>1]];
+   ?>
+   <section class="tdcentral-page">
+    <header class="tdcentral-head">
+     <div>
+      <span class="tdcentral-kicker">CRM OMIE / CLIENTES</span>
+      <h1>Central de Clientes</h1>
+      <p>Todas as contas CRM ativas da empresa, com dados sincronizados do Omie. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.</p>
+     </div>
+     <div class="tdcentral-head-actions">
+      <a class="tdcentral-btn primary" href="<?=$portfolioUrl(['page'=>1])?>"><i class="fa-solid fa-rotate"></i>Atualizar CRM</a>
+      <a class="tdcentral-btn success" href="<?=APP_URL?>/clients?link=prospect"><i class="fa-solid fa-plus"></i>Novo vínculo</a>
+      <a class="tdcentral-btn warning" href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-regular fa-clock"></i>Pendentes de sincronização<?php if($centralPending>0):?><b><?=number_format($centralPending,0,',','.')?></b><?php endif;?></a>
+     </div>
+    </header>
+
+    <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <nav class="tdcentral-kpis" aria-label="Resumo da Central de Clientes">
+     <a class="all" href="<?=$portfolioUrl(['q'=>'','classification'=>'all','link'=>'all','owner'=>'','attention'=>'all','page'=>1])?>"><span><i class="fa-solid fa-user-group"></i></span><div><small>Todas no CRM</small><strong><?=number_format((int)($centralSummary['total']??0),0,',','.')?></strong><em>Contas CRM ativas</em></div></a>
+     <a class="linked" href="<?=$portfolioUrl(['link'=>'linked','page'=>1])?>"><span><i class="fa-solid fa-link"></i></span><div><small>CRM + Cliente Geral</small><strong><?=number_format((int)($centralSummary['linked']??0),0,',','.')?></strong><em>Com vínculo ativo</em></div></a>
+     <a class="crm" href="<?=$portfolioUrl(['link'=>'prospect','page'=>1])?>"><span><i class="fa-regular fa-file-lines"></i></span><div><small>Somente CRM</small><strong><?=number_format((int)($centralSummary['prospects']??0),0,',','.')?></strong><em>Ainda sem Cliente Geral</em></div></a>
+     <a class="cfc" href="<?=$portfolioUrl(['classification'=>'cfc','page'=>1])?>"><span><i class="fa-solid fa-graduation-cap"></i></span><div><small>CFC</small><strong><?=number_format((int)($centralSummary['cfc']??0),0,',','.')?></strong><em>Centros de formação</em></div></a>
+     <a class="reseller" href="<?=$portfolioUrl(['classification'=>'reseller','page'=>1])?>"><span><i class="fa-solid fa-store"></i></span><div><small>Revendedores</small><strong><?=number_format((int)($centralSummary['resellers']??0),0,',','.')?></strong><em>Canais e parceiros</em></div></a>
+    </nav>
+
+    <section class="tdcentral-filter-card">
+     <form method="get" action="<?=APP_URL?>/clients" class="tdcentral-filters">
+      <input type="hidden" name="per_page" value="<?=$perPage?>">
+      <label class="search"><span>Buscar no CRM</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="<?=e($centralQ)?>" placeholder="Empresa, CNPJ/CPF, código ou responsável"></div></label>
+      <label><span>Classificação</span><select name="classification"><option value="all">Todas</option><option value="cfc" <?=$centralClassification==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=$centralClassification==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=$centralClassification==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=$centralClassification==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
+      <label><span>Vínculo</span><select name="link"><option value="all">Todos</option><option value="linked" <?=$centralLink==='linked'?'selected':''?>>CRM + Cliente Geral</option><option value="prospect" <?=$centralLink==='prospect'?'selected':''?>>Somente CRM</option></select></label>
+      <label><span>Responsável</span><select name="owner"><option value="">Todos os responsáveis</option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=$centralOwner===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?></option><?php endforeach;?></select></label>
+      <label><span>Status do relacionamento</span><select name="attention"><option value="all">Todos</option><option value="overdue" <?=$centralAttention==='overdue'?'selected':''?>>Retorno atrasado</option><option value="today" <?=$centralAttention==='today'?'selected':''?>>Retorno hoje</option><option value="never" <?=$centralAttention==='never'?'selected':''?>>Nunca contatado</option><option value="stale30" <?=$centralAttention==='stale30'?'selected':''?>>Sem contato &gt; 30 dias</option><option value="upcoming" <?=$centralAttention==='upcoming'?'selected':''?>>Próximos retornos</option><option value="unplanned" <?=$centralAttention==='unplanned'?'selected':''?>>Sem retorno agendado</option></select></label>
+      <div class="tdcentral-filter-actions"><button type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-rotate-left"></i>Limpar</a></div>
+     </form>
+     <div class="tdcentral-chips"><span>Filtros ativos:</span><?php if($activeChips):?><?php foreach($activeChips as $chip):?><a href="<?=e($portfolioUrl($chip[1]))?>"><?=e($chip[0])?><i class="fa-solid fa-xmark"></i></a><?php endforeach;?><?php else:?><em>Nenhum filtro adicional</em><?php endif;?></div>
+    </section>
+
+    <section class="tdcentral-list-card">
+     <header class="tdcentral-list-head">
+      <strong><?=number_format($total,0,',','.')?> conta<?=$total===1?'':'s'?> encontrada<?=$total===1?'':'s'?></strong>
+      <div>
+       <form method="get" action="<?=APP_URL?>/clients">
+        <?php foreach(['q'=>$centralQ,'classification'=>$centralClassification,'link'=>$centralLink,'owner'=>$centralOwner,'attention'=>$centralAttention] as $key=>$value):if($value!==''&&$value!=='all'):?><input type="hidden" name="<?=$key?>" value="<?=e($value)?>"><?php endif;endforeach;?>
+        <span>Exibir</span><select name="per_page" onchange="this.form.submit()"><option value="10" <?=$perPage===10?'selected':''?>>10 por página</option><option value="25" <?=$perPage===25?'selected':''?>>25 por página</option><option value="50" <?=$perPage===50?'selected':''?>>50 por página</option></select>
+       </form>
+       <nav><a class="<?=$pageNum<=1?'disabled':''?>" href="<?=$portfolioUrl(['page'=>max(1,$pageNum-1)])?>"><i class="fa-solid fa-chevron-left"></i></a><span><?=$pageNum?> de <?=$pages?></span><a class="<?=$pageNum>=$pages?'disabled':''?>" href="<?=$portfolioUrl(['page'=>min($pages,$pageNum+1)])?>"><i class="fa-solid fa-chevron-right"></i></a></nav>
+      </div>
+     </header>
+
+     <div class="tdcentral-list">
+      <?php foreach($rows as $row):
+       $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
+       $words=preg_split('/\s+/u',$display,-1,PREG_SPLIT_NO_EMPTY);$initials=mb_strtoupper(mb_substr((string)($words[0]??'?'),0,1).(count($words)>1?mb_substr((string)end($words),0,1):''));
+       $linked=!empty($row['client_id']);$canWork=!empty($row['can_work']);
+       $lastAt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):false;
+       $nextAt=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;
+       $lastPurchase=!empty($row['last_purchase_at'])?strtotime((string)$row['last_purchase_at']):false;
+       $isLate=$nextAt&&date('Y-m-d',$nextAt)<date('Y-m-d');
+       $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
+       $editHref=$linked?APP_URL.'/clients/'.(int)$row['client_id'].'/edit':'';
+       $classHref=$linked?$editHref:$accountHref.'?from=clients&classify=1';
+       $linkHref=$accountHref.'?from=clients&link=1';
+      ?>
+      <article class="tdcentral-row <?=$isLate?'priority':''?>">
+       <div class="identity">
+        <span class="avatar"><?=e($initials)?></span>
+        <div><div class="name-line"><a href="<?=$accountHref?>"><?=e($display)?></a><?php if($isLate):?><b><i class="fa-solid fa-star"></i>Prioridade</b><?php endif;?></div><p><?=e((string)($row['document']?:'Documento não informado'))?> <i>•</i> CRM <?=e((string)$row['omie_code'])?></p><div class="badges"><?php if(!empty($row['is_cfc'])):?><span class="cfc">CFC</span><?php endif;?><?php if(!empty($row['is_reseller'])):?><span class="reseller">Revendedor</span><?php endif;?><span class="<?=$linked?'linked':'crm-only'?>"><?=$linked?'CRM + Cliente Geral':'Somente CRM'?></span><?php if($linked):?><span class="bound"><i class="fa-solid fa-link"></i>Vinculado</span><?php endif;?></div></div>
+       </div>
+       <div class="metric owner"><i class="fa-regular fa-user"></i><span><small>Responsável</small><strong><?=e((string)($row['owner_name']?:'Sem responsável'))?></strong><em><?=e((string)($row['crm_user_code']??''))?></em></span></div>
+       <div class="metric"><i class="fa-regular fa-calendar"></i><span><small>Último contato</small><strong class="<?=$lastAt?'':'danger'?>"><?=$lastAt?date('d/m/Y',$lastAt):'Nunca'?></strong><em><?=$lastAt?((int)($row['days_without_contact']??0).' dia(s) atrás'):'Prioridade inicial'?></em></span></div>
+       <div class="metric"><i class="fa-regular fa-square-check"></i><span><small>Próxima ação</small><strong class="<?=$isLate?'danger':''?>"><?=$nextAt?($isLate?'Atrasado '.date('d/m',$nextAt):date('d/m/Y H:i',$nextAt)):'Sem retorno'?></strong><em><?=$nextAt?'Retorno comercial agendado':'Defina a próxima ação'?></em></span></div>
+       <div class="metric purchase"><i class="fa-solid fa-chart-simple"></i><span><small>Última compra</small><strong><?=$lastPurchase?date('d/m/Y',$lastPurchase):'—'?></strong><em><?=money((float)($row['revenue_12m']??0))?> em 12m</em></span></div>
+       <div class="tdcentral-actions">
+        <a href="<?=$accountHref?>" title="Ficha rápida"><i class="fa-regular fa-address-card"></i><span>Ficha rápida</span></a>
+        <?php if($linked):?><a href="<?=$editHref?>" title="Editar cadastro"><i class="fa-solid fa-pen"></i><span>Editar</span></a><?php else:?><span class="disabled" title="Vincule um Cliente Geral antes de editar"><i class="fa-solid fa-pen"></i><span>Editar</span></span><?php endif;?>
+        <?php if(!$linked&&$canWork):?><a href="<?=$linkHref?>" title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a><?php elseif($linked):?><span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span><?php else:?><span class="disabled" title="Vínculo restrito à carteira responsável"><i class="fa-solid fa-link"></i><span>Vincular</span></span><?php endif;?>
+        <?php if($linked):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$row['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form><?php else:?><span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span><?php endif;?>
+        <a href="<?=$classHref?>" title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a>
+        <a class="more" href="<?=$accountHref?>?from=clients" data-no-client-modal title="Abrir ficha completa"><i class="fa-solid fa-ellipsis"></i></a>
+       </div>
+      </article>
+      <?php endforeach;?>
+      <?php if(!$rows):?><div class="tdcentral-empty"><i class="fa-regular fa-folder-open"></i><strong>Nenhuma Conta CRM encontrada</strong><p>Revise os filtros aplicados à Central de Clientes.</p><a href="<?=APP_URL?>/clients">Limpar filtros</a></div><?php endif;?>
+     </div>
+
+     <?php if($pages>1):?><footer class="tdcentral-footer"><span>Página <?=$pageNum?> de <?=$pages?> · <?=number_format($total,0,',','.')?> registros</span><nav><a class="<?=$pageNum<=1?'disabled':''?>" href="<?=$portfolioUrl(['page'=>max(1,$pageNum-1)])?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><a class="<?=$pageNum>=$pages?'disabled':''?>" href="<?=$portfolioUrl(['page'=>min($pages,$pageNum+1)])?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav></footer><?php endif;?>
+    </section>
+   </section>
+   <?php break; endif;?>
    ?>
    <section class="tdw-page tdw-portfolio">
     <header class="tdw-page-head">
