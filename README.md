@@ -48,6 +48,29 @@ Quando PHP e MariaDB estiverem na mesma hospedagem, use banco com host `127.0.0.
 
 Nunca versione `config/config.php`: ele está no `.gitignore`.
 
+### Banco externo de parceiros
+
+A integração da tela **Parceiros EAD** usa uma conexão própria, separada do banco principal do CRM.
+
+O arquivo real é:
+
+```
+config/partner_database.php
+```
+
+Ele também está no `.gitignore`. Se ainda não existir, o bootstrap tenta criá-lo automaticamente copiando:
+
+```
+config/partner_database.example.php
+```
+
+Edite somente `config/partner_database.php` e informe host, porta, banco, usuário e senha nos blocos `local` e `production`. A interface do CRM não exibe nem altera essas credenciais.
+
+Também são aceitas as variáveis de ambiente:
+
+- `TDPARTNER_DB_LOCAL_HOST`, `PORT`, `NAME`, `USER`, `PASS`
+- `TDPARTNER_DB_PROD_HOST`, `PORT`, `NAME`, `USER`, `PASS`
+
 ## Banco e segurança
 
 - Todas as tabelas do CRM usam prefixo `tdcrm_`.
