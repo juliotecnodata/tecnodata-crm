@@ -85,8 +85,15 @@ final class PartnerDB {
 
   $d['port']=max(1,min(65535,(int)$d['port']));
   $d['charset']=preg_match('/^[A-Za-z0-9_]+$/',$d['charset'])?$d['charset']:'utf8mb4';
-  if(trim($d['database'])==='')throw new \RuntimeException('Nome do banco de parceiros não configurado.');
-  if(trim($d['username'])==='')throw new \RuntimeException('Usuário do banco de parceiros não configurado.');
+
+  $placeholderValues=['SEU_HOST_PARCEIROS','SEU_HOST_PARCEIROS_PRODUCAO','SEU_USUARIO_PARCEIROS','SEU_USUARIO_PARCEIROS_PRODUCAO','SUA_SENHA_PARCEIROS','SUA_SENHA_PARCEIROS_PRODUCAO'];
+  foreach(['host','username','password'] as $requiredKey){
+   $value=trim((string)($d[$requiredKey]??''));
+   if($value===''||in_array($value,$placeholderValues,true)){
+    throw new \RuntimeException('Preencha a conexão em config/partner_database.php antes de sincronizar parceiros.');
+   }
+  }
+  if(trim($d['database'])==='')throw new \RuntimeException('Nome do banco de parceiros não configurado em config/partner_database.php.');
   if(!$includePassword)unset($d['password']);
   return $d;
  }
