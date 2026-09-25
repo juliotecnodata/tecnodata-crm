@@ -887,9 +887,15 @@ function render(string $name,array $vars=[]): void{
    <?php if($centralMode):
     $centralSummary=is_array($centralStats??null)?$centralStats:$stats;
     $centralPending=(int)($centralPendingSync??0);
-    $centralIsAdmin=(string)($u['role']??'')==='admin';
-    $centralTitle=$centralIsAdmin?'Central de Clientes':'Clientes da equipe';
-    $centralDescription=$centralIsAdmin?'Todas as contas CRM ativas da empresa, com dados sincronizados do Omie. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.':'Base comercial das carteiras ativas da equipe. O supervisor enxerga o mesmo universo operacional dos vendedores para distribuir, acompanhar e corrigir as carteiras; a base geral permanece exclusiva do administrador.';
+    $centralRole=(string)($u['role']??'');
+    $centralIsAdmin=$centralRole==='admin';
+    $centralIsSeller=$centralRole==='seller';
+    $centralTitle=$centralIsAdmin?'Central de Clientes':($centralIsSeller?'Minha base de clientes':'Clientes da equipe');
+    $centralDescription=$centralIsAdmin
+     ?'Todas as contas CRM ativas da empresa, com dados sincronizados do Omie. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.'
+     :($centralIsSeller
+       ?'Clientes e Contas CRM atribuídos à sua carteira. Você pode consultar, editar, classificar, vincular e trabalhar a base; alterações que exigem sincronização ficam pendentes para supervisão ou administração.'
+       :'Base comercial das carteiras ativas da equipe. O supervisor enxerga o mesmo universo operacional dos vendedores para distribuir, acompanhar e corrigir as carteiras; a base geral permanece exclusiva do administrador.');
     $perPage=(int)($portfolio['per_page']??10);
     $centralClassification=(string)($filters['classification']??'all');
     $centralLink=(string)($filters['link']??'all');
@@ -914,16 +920,16 @@ function render(string $name,array $vars=[]): void{
       <p><?=e($centralDescription)?></p>
      </div>
      <div class="tdcentral-head-actions">
-      <a class="tdcentral-btn primary" href="<?=$portfolioUrl(['page'=>1])?>"><i class="fa-solid fa-rotate"></i>Atualizar CRM</a>
+      <a class="tdcentral-btn primary" href="<?=$portfolioUrl(['page'=>1])?>"><i class="fa-solid fa-rotate"></i><?=$centralIsSeller?'Atualizar lista':'Atualizar CRM'?></a>
       <a class="tdcentral-btn success" href="<?=APP_URL?>/clients?link=prospect"><i class="fa-solid fa-plus"></i>Novo vínculo</a>
-      <a class="tdcentral-btn warning" href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-regular fa-clock"></i>Pendentes de sincronização<?php if($centralPending>0):?><b><?=number_format($centralPending,0,',','.')?></b><?php endif;?></a>
+      <?php if(!$centralIsSeller):?><a class="tdcentral-btn warning" href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-regular fa-clock"></i>Pendentes de sincronização<?php if($centralPending>0):?><b><?=number_format($centralPending,0,',','.')?></b><?php endif;?></a><?php elseif($centralPending>0):?><span class="tdcentral-btn warning disabled" title="A sincronização é executada pela supervisão ou administração"><i class="fa-regular fa-clock"></i><?=$centralPending?> pendente<?=$centralPending===1?'':'s'?> para supervisão</span><?php endif;?>
      </div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <nav class="tdcentral-kpis" aria-label="Resumo da Central de Clientes">
-     <a class="all" href="<?=$portfolioUrl(['q'=>'','classification'=>'all','link'=>'all','owner'=>'','attention'=>'all','page'=>1])?>"><span><i class="fa-solid fa-user-group"></i></span><div><small><?=$centralIsAdmin?'Todas no CRM':'Base comercial da equipe'?></small><strong><?=number_format((int)($centralSummary['total']??0),0,',','.')?></strong><em><?=$centralIsAdmin?'Contas CRM ativas':'Carteiras comerciais ativas'?></em></div></a>
+     <a class="all" href="<?=$portfolioUrl(['q'=>'','classification'=>'all','link'=>'all','owner'=>'','attention'=>'all','page'=>1])?>"><span><i class="fa-solid fa-user-group"></i></span><div><small><?=$centralIsAdmin?'Todas no CRM':($centralIsSeller?'Minha base':'Base comercial da equipe')?></small><strong><?=number_format((int)($centralSummary['total']??0),0,',','.')?></strong><em><?=$centralIsAdmin?'Contas CRM ativas':'Carteiras comerciais ativas'?></em></div></a>
      <a class="linked" href="<?=$portfolioUrl(['link'=>'linked','page'=>1])?>"><span><i class="fa-solid fa-link"></i></span><div><small>CRM + Cliente Geral</small><strong><?=number_format((int)($centralSummary['linked']??0),0,',','.')?></strong><em>Com vínculo ativo</em></div></a>
      <a class="crm" href="<?=$portfolioUrl(['link'=>'prospect','page'=>1])?>"><span><i class="fa-regular fa-file-lines"></i></span><div><small>Somente CRM</small><strong><?=number_format((int)($centralSummary['prospects']??0),0,',','.')?></strong><em>Ainda sem Cliente Geral</em></div></a>
      <a class="cfc" href="<?=$portfolioUrl(['classification'=>'cfc','page'=>1])?>"><span><i class="fa-solid fa-graduation-cap"></i></span><div><small>CFC</small><strong><?=number_format((int)($centralSummary['cfc']??0),0,',','.')?></strong><em>Centros de formação</em></div></a>
@@ -936,7 +942,7 @@ function render(string $name,array $vars=[]): void{
       <label class="search"><span>Buscar no CRM</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="<?=e($centralQ)?>" placeholder="Empresa, CNPJ/CPF, código ou responsável"></div></label>
       <label><span>Classificação</span><select name="classification"><option value="all">Todas</option><option value="cfc" <?=$centralClassification==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=$centralClassification==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=$centralClassification==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=$centralClassification==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
       <label><span>Vínculo</span><select name="link"><option value="all">Todos</option><option value="linked" <?=$centralLink==='linked'?'selected':''?>>CRM + Cliente Geral</option><option value="prospect" <?=$centralLink==='prospect'?'selected':''?>>Somente CRM</option></select></label>
-      <label><span>Responsável</span><select name="owner"><option value="">Todos os responsáveis</option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=$centralOwner===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?></option><?php endforeach;?></select></label>
+      <?php if(!$centralIsSeller):?><label><span>Responsável</span><select name="owner"><option value="">Todos os responsáveis</option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=$centralOwner===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?></option><?php endforeach;?></select></label><?php endif;?>
       <label><span>Status do relacionamento</span><select name="attention"><option value="all">Todos</option><option value="overdue" <?=$centralAttention==='overdue'?'selected':''?>>Retorno atrasado</option><option value="today" <?=$centralAttention==='today'?'selected':''?>>Retorno hoje</option><option value="never" <?=$centralAttention==='never'?'selected':''?>>Nunca contatado</option><option value="stale30" <?=$centralAttention==='stale30'?'selected':''?>>Sem contato &gt; 30 dias</option><option value="upcoming" <?=$centralAttention==='upcoming'?'selected':''?>>Próximos retornos</option><option value="unplanned" <?=$centralAttention==='unplanned'?'selected':''?>>Sem retorno agendado</option></select></label>
       <div class="tdcentral-filter-actions"><button type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-rotate-left"></i>Limpar</a></div>
      </form>
@@ -3284,6 +3290,7 @@ function layout(string $body,?array $u,string $page=''): void{
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Minha Home</span></a>
      <a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a>
+     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-address-book"></i><span>Base de clientes</span></a>
      <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a>
      <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
      <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?>
