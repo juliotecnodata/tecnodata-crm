@@ -2971,7 +2971,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      <a class="active" href="#geral"><span class="blue"><i class="fa-solid fa-sliders"></i></span><strong>Geral</strong><small>Preferências operacionais</small></a>
      <a href="<?=APP_URL?>/sales-flow-settings"><span class="green"><i class="fa-solid fa-filter-circle-dollar"></i></span><strong>Fluxo comercial</strong><small>Funil e oportunidades</small></a>
      <a href="#contact-channels"><span class="red"><i class="fa-regular fa-calendar-check"></i></span><strong>Agenda e tarefas</strong><small>Canais, tipos e resultados</small></a>
-     <a href="<?=APP_URL?>/sync"><span class="blue"><i class="fa-solid fa-link"></i></span><strong>Integrações</strong><small>Omie e sincronização</small></a>
+     <a href="<?=$settingsAdmin?'#partner-database':APP_URL.'/sync'?>"><span class="blue"><i class="fa-solid fa-link"></i></span><strong>Integrações</strong><small><?=$settingsAdmin?'Omie e banco de parceiros':'Omie e sincronização'?></small></a>
      <a href="#acompanhamento"><span class="yellow"><i class="fa-solid fa-bell"></i></span><strong>Acompanhamento</strong><small>Usuários monitorados</small></a>
      <?php if($settingsAdmin):?><a href="<?=APP_URL?>/users"><span class="orange"><i class="fa-solid fa-shield-halved"></i></span><strong>Segurança</strong><small>Usuários e acessos</small></a><?php endif;?>
     </nav>
@@ -3021,6 +3021,33 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       </section>
 
       <?php if($settingsAdmin):?>
+      <?php $partnerDb=$partnerDbConfig??['host'=>'','port'=>3306,'database'=>'u695906402_Tecno_Loja_BD','username'=>'','password_saved'=>false];?>
+      <section class="tdcfg-card" id="partner-database">
+       <header>
+        <span class="green"><i class="fa-solid fa-database"></i></span>
+        <div><strong>Banco de parceiros</strong><small>Conexão usada para consultar a tabela cfcs e classificar automaticamente os parceiros encontrados no CRM.</small></div>
+        <b class="tdcfg-state <?=!empty($partnerDb['username'])&&!empty($partnerDb['password_saved'])?'ok':'neutral'?>"><?=!empty($partnerDb['username'])&&!empty($partnerDb['password_saved'])?'Configurado':'Pendente'?></b>
+       </header>
+       <form method="post" action="<?=APP_URL?>/settings/partner-database" class="tdcfg-partner-db">
+        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+        <div class="tdcfg-info"><i class="fa-solid fa-shield-halved"></i><span>Esta conexão é independente do banco principal do CRM. A senha salva nunca é exibida novamente nesta tela.</span></div>
+        <div class="tdcfg-fields tdcfg-partner-db-grid">
+         <label><span>Host</span><input class="form-control" name="host" value="<?=e((string)($partnerDb['host']??''))?>" placeholder="127.0.0.1" required></label>
+         <label><span>Porta</span><input class="form-control" type="number" min="1" max="65535" name="port" value="<?=(int)($partnerDb['port']??3306)?>" required></label>
+         <label><span>Banco de dados</span><input class="form-control" name="database" value="<?=e((string)($partnerDb['database']??'u695906402_Tecno_Loja_BD'))?>" required></label>
+         <label><span>Usuário</span><input class="form-control" name="username" value="<?=e((string)($partnerDb['username']??''))?>" autocomplete="off" required></label>
+         <label class="wide"><span>Senha</span><input class="form-control" type="password" name="password" value="" autocomplete="new-password" placeholder="<?=!empty($partnerDb['password_saved'])?'Senha já salva · deixe em branco para manter':'Informe a senha do banco de parceiros'?>"><small><?=!empty($partnerDb['password_saved'])?'Uma senha já está armazenada. Preencha somente para substituir.':'Nenhuma senha salva ainda.'?></small></label>
+        </div>
+        <div class="tdcfg-save">
+         <span><i class="fa-solid fa-circle-info"></i>O teste valida a conexão e confirma o acesso à tabela <strong>cfcs</strong>.</span>
+         <div class="tdcfg-partner-db-actions">
+          <button class="tdcfg-btn" type="submit" name="action" value="save"><i class="fa-solid fa-floppy-disk"></i>Salvar conexão</button>
+          <button class="tdcfg-btn primary" type="submit" name="action" value="save_test"><i class="fa-solid fa-plug-circle-check"></i>Salvar e testar</button>
+         </div>
+        </div>
+       </form>
+      </section>
+
       <form method="post" action="<?=APP_URL?>/settings" class="tdcfg-admin-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
        <section class="tdcfg-card" id="geral">
         <header><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><strong>Padrões operacionais do pedido</strong><small>Valores iniciais usados na criação de pedidos. O vendedor ainda pode ajustar durante o atendimento.</small></div></header>
@@ -3062,7 +3089,8 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <section class="tdcfg-side-card">
        <header><span class="blue"><i class="fa-solid fa-plug"></i></span><div><strong>Integrações</strong><small>Dados e sincronização</small></div></header>
        <div class="tdcfg-integration"><i class="fa-solid fa-arrows-rotate"></i><div><strong>Omie</strong><span>Clientes, pedidos, serviços e financeiro.</span></div><b>Integrado</b></div>
-       <a class="tdcfg-link" href="<?=APP_URL?>/sync">Gerenciar sincronização <i class="fa-solid fa-arrow-right"></i></a>
+       <?php if($settingsAdmin):?><div class="tdcfg-integration"><i class="fa-solid fa-database"></i><div><strong>Parceiros</strong><span>Consulta externa da tabela cfcs.</span></div><b><?=!empty($partnerDbConfig['username'])&&!empty($partnerDbConfig['password_saved'])?'Configurado':'Pendente'?></b></div><?php endif;?>
+       <a class="tdcfg-link" href="<?=$settingsAdmin?'#partner-database':APP_URL.'/sync'?>"><?=$settingsAdmin?'Configurar integrações':'Gerenciar sincronização'?> <i class="fa-solid fa-arrow-right"></i></a>
       </section>
 
       <?php if($settingsAdmin):?>
