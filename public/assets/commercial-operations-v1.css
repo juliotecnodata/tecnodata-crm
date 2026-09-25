@@ -95,3 +95,70 @@
 .cix-partner-sync-status.saved{border-color:#bde8d4;background:#e7f8f0;color:#087a54}
 .cix-partner-sync-status.failed{border-color:#efc5c0;background:#fff1ef;color:#b63b32}
 .cix-partner-sync-status.skipped{border-color:#d8e0e5;background:#f3f5f6;color:#687c89}
+
+/* Conciliação de parceiros — fila de tratamento */
+.cix-partner-sync-content{
+ display:flex!important;
+ flex-direction:column!important;
+ min-height:0!important;
+ overflow:hidden!important
+}
+.cix-partner-sync-summary article.attention{border-color:#ead79d;background:#fffdf6}
+.cix-partner-sync-summary article.attention strong{color:#8a6900}
+.cix-partner-sync-summary article.inactive{border-color:#efc9bd;background:#fff8f5}
+.cix-partner-sync-summary article.inactive strong{color:#b35334}
+.cix-partner-sync-omitted{
+ display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #cfe6d7;border-radius:8px;
+ background:#f1faf4;color:#2f6d48;font-size:9px;font-weight:700
+}
+.cix-partner-sync-omitted i{color:#009657}
+.cix-partner-sync-toolbar{
+ grid-template-columns:minmax(180px,220px) minmax(180px,220px) auto auto!important;
+ flex:0 0 auto
+}
+.cix-partner-sync-toolbar .form-select{min-height:36px;font-size:10px;border-color:#ccd9e1}
+.cix-partner-sync-table-wrap{
+ flex:1 1 auto!important;
+ min-height:240px!important;
+ overflow:auto!important
+}
+.cix-partner-sync-table-wrap .dt-container{min-width:1080px}
+.cix-partner-sync-table-wrap .dt-layout-row{
+ margin:0!important;padding:8px 10px!important;gap:10px!important;background:#fff
+}
+.cix-partner-sync-table-wrap .dt-layout-row:first-child{border-bottom:1px solid #e6edf1}
+.cix-partner-sync-table-wrap .dt-layout-row:last-child{border-top:1px solid #e6edf1}
+.cix-partner-sync-table-wrap .dt-search input,.cix-partner-sync-table-wrap .dt-length select{
+ min-height:34px!important;border:1px solid #ccd9e1!important;border-radius:7px!important;font-size:10px!important;background:#fff!important
+}
+.cix-partner-sync-table-wrap .dt-search input{min-width:280px;padding:6px 9px!important}
+.cix-partner-sync-table-wrap .dt-info,.cix-partner-sync-table-wrap .dt-length,.cix-partner-sync-table-wrap .dt-search{
+ font-size:9px!important;color:#607583!important
+}
+.cix-partner-sync-table-wrap .dt-paging-button{
+ min-width:30px!important;height:30px!important;border-radius:6px!important;font-size:9px!important
+}
+.cix-partner-sync-table tr.is-not-found td{background:#fffaf0}
+.cix-partner-sync-table tr.is-not-found td:first-child{box-shadow:inset 3px 0 #d7a000}
+.cix-partner-sync-table tr.is-inactive-source td{background:#fff8f5}
+.cix-partner-sync-table tr.is-inactive-source td:first-child{box-shadow:inset 3px 0 #e77750}
+.cix-partner-sync-table tr.is-mixed-source td:first-child{box-shadow:inset 3px 0 #7e65b6}
+.cix-partner-origin{
+ display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border:1px solid;border-radius:6px;font-size:9px;white-space:nowrap
+}
+.cix-partner-origin.active{border-color:#bde8d4;background:#e7f8f0;color:#087a54}
+.cix-partner-origin.inactive{border-color:#efc9bd;background:#fff1ec;color:#b35334}
+.cix-partner-origin.mixed{border-color:#d7ccef;background:#f4effc;color:#7355a7}
+.cix-partner-sync-status.not-found{font-weight:800}
+.cix-partner-sync-status.failed{font-weight:800}
+.cix-partners-datatable_wrapper,.cix-card .dt-container{padding:0 10px 10px}
+.cix-card .dt-layout-row{margin:0!important;padding:10px 0!important}
+.cix-card .dt-search input,.cix-card .dt-length select{min-height:34px;border:1px solid #ccd9e1;border-radius:7px;font-size:10px}
+@media(max-width:1100px){
+ .cix-partner-sync-toolbar{grid-template-columns:1fr 1fr!important}
+ .cix-partner-sync-toggle,.cix-partner-sync-selected{min-height:38px}
+}
+@media(max-width:640px){
+ .cix-partner-sync-toolbar{grid-template-columns:1fr!important}
+ .cix-partner-sync-table-wrap .dt-search input{min-width:180px}
+}
