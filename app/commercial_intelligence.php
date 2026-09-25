@@ -1418,7 +1418,7 @@ final class CommercialAccountService {
   $sellerCentral=$role==='seller'&&!empty($filters['_seller_central']);
   if($role==='seller'&&!$sellerCentral){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope','sort')];
+   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>$perPage,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope','sort','perPage')];
    $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
   }elseif($sellerCentral){
    if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
@@ -1516,11 +1516,13 @@ final class CommercialAccountService {
   foreach($rows as &$row)$row['can_work']=$role!=='seller'||($sellerOperational&&trim((string)($row['crm_user_code']??''))===$crmUserCode);
   unset($row);
 
-  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>compact('q','classification','link','attention','owner','scope','sort')];
+  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>[
+   'q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>$owner,'scope'=>$scope,'sort'=>$sort,'per_page'=>$perPage
+  ]];
  }
 
  private static function stats(array $where,array $params): array{
-  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
+  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'cfc'=>0,'resellers'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
   $sql=implode(' AND ',$where);
   $join=" FROM crm_accounts a
           LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
@@ -1542,6 +1544,8 @@ final class CommercialAccountService {
   return DB::one("SELECT COUNT(*) total,
                          SUM(CASE WHEN l.client_id IS NOT NULL THEN 1 ELSE 0 END) linked,
                          SUM(CASE WHEN l.client_id IS NULL THEN 1 ELSE 0 END) prospects,
+                         SUM(CASE WHEN COALESCE(ap.is_cfc,0)=1 THEN 1 ELSE 0 END) cfc,
+                         SUM(CASE WHEN COALESCE(ap.is_reseller,0)=1 THEN 1 ELSE 0 END) resellers,
                          SUM(CASE WHEN act.last_contact_at IS NULL THEN 1 ELSE 0 END) never_contacted,
                          SUM(CASE WHEN act.last_contact_at IS NULL OR DATEDIFF(CURDATE(),DATE(act.last_contact_at))>30 THEN 1 ELSE 0 END) over30,
                          SUM(CASE WHEN act.last_contact_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(act.last_contact_at))>60 THEN 1 ELSE 0 END) over60,
@@ -1549,7 +1553,12 @@ final class CommercialAccountService {
                          SUM(CASE WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) today_count,
                          SUM(CASE WHEN nt.next_due_at>=CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) upcoming_count,
                          SUM(CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END) unplanned_count
-                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
+                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'cfc'=>0,'resellers'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
+ }
+
+ public static function centralStats(): array{
+  CommercialSchema::ensure();
+  return self::stats(['a.active=1'],[]);
  }
 
  public static function owners(): array{
