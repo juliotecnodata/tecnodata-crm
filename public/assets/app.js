@@ -2337,6 +2337,11 @@ document.addEventListener('DOMContentLoaded',()=>{
  };
  document.addEventListener('click',event=>{
   if(event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+  const direct=event.target.closest?.('[data-client-quick-open]');
+  if(direct){
+   const accountCode=String(direct.dataset.clientQuickAccount||'').trim(),clientId=Number(direct.dataset.clientQuickId||0);
+   if(accountCode||clientId){event.preventDefault();load(accountCode?{account_code:accountCode}:{client_id:String(clientId)});return;}
+  }
   const anchor=event.target.closest?.('a[href]');const params=paramsFromAnchor(anchor);if(!params)return;
   event.preventDefault();load(params);
  });
