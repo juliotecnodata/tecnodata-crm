@@ -302,9 +302,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const saveButton=partnerSyncDialog.querySelector('[data-partner-sync-save]');
     const csrf=form?.querySelector('[name="_token"]')?.value||'';
     const batchSize=40;
-    let previewRows=[];
-    let hasSavedChanges=false;
     let partnerDt=null;
+    let hasSavedChanges=false;
 
     const setError=message=>{
       if(errorBox){errorBox.hidden=!message;errorBox.textContent=message||'';}
@@ -320,7 +319,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         try{partnerDt.destroy();}catch(error){}
         partnerDt=null;
       }
-      if(dataTableEl)dataTableEl.dataset.dtReady='';
     };
     const allRowNodes=()=>{
       if(partnerDt){
@@ -331,8 +329,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const checkboxes=()=>allRowNodes().flatMap(row=>[...row.querySelectorAll('input[name="account_codes[]"]')]);
     const activeCheckboxes=()=>checkboxes().filter(box=>!box.disabled);
     const checkedBoxes=()=>activeCheckboxes().filter(box=>box.checked);
+
     const refreshSelected=()=>{
-      const boxes=activeCheckboxes();const checked=boxes.filter(box=>box.checked).length;
+      const boxes=activeCheckboxes();
+      const checked=boxes.filter(box=>box.checked).length;
       if(selectedCount)selectedCount.textContent=String(checked);
       if(saveButton)saveButton.disabled=checked===0;
       if(selectAll){
@@ -341,6 +341,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         selectAll.disabled=boxes.length===0;
       }
     };
+
     const statusMeta=status=>{
       if(status==='pending')return ['Pronto para validar','pending','fa-circle-check'];
       if(status==='not_found')return ['Não localizado','not-found','fa-magnifying-glass'];
@@ -349,15 +350,30 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(status==='skipped')return ['Ignorado','skipped','fa-circle-minus'];
       return ['Documento inválido','invalid','fa-triangle-exclamation'];
     };
+
     const addText=(parent,tag,text,className='')=>{
-      const el=document.createElement(tag);if(className)el.className=className;el.textContent=String(text??'');parent.appendChild(el);return el;
+      const el=document.createElement(tag);
+      if(className)el.className=className;
+      el.textContent=String(text??'');
+      parent.appendChild(el);
+      return el;
     };
+
     const applyDataTableFilters=()=>{
       if(!partnerDt)return;
-      const statusLabels={pending:'Pronto para validar',not_found:'Não localizado',invalid:'Documento inválido',failed:'Erro ao salvar'};
+      const statusLabels={
+        pending:'Pronto para validar',
+        not_found:'Não localizado',
+        invalid:'Documento inválido',
+        failed:'Erro ao salvar'
+      };
       const statusValue=statusLabels[statusFilter?.value]||'';
       try{
-        partnerDt.column(6).search(statusValue?('^'+statusValue+'
+        partnerDt.column(6).search(statusValue?('^'+statusValue+'$'):'',true,false);
+        partnerDt.draw();
+      }catch(error){}
+    };
+
     const initPartnerDataTable=()=>{
       if(!window.DataTable||!dataTableEl)return;
       destroyPartnerDt();
@@ -387,6 +403,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       applyDataTableFilters();
       refreshSelected();
     };
+
     const updateRowStatus=(accountCode,statusKey,message='')=>{
       const row=allRowNodes().find(item=>String(item.dataset.accountCode||'')===String(accountCode||''));
       if(!row)return;
@@ -395,7 +412,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(status){
         status.className='cix-partner-sync-status '+statusClass;
         status.innerHTML='<i class="fa-solid '+icon+'"></i><b></b>';
-        const b=status.querySelector('b');if(b)b.textContent=label;
+        const b=status.querySelector('b');
+        if(b)b.textContent=label;
         status.title=message||'';
       }
       const box=row.querySelector('input[name="account_codes[]"]');
@@ -406,55 +424,84 @@ document.addEventListener('DOMContentLoaded',()=>{
       row.dataset.status=statusKey;
       try{partnerDt?.row(row)?.invalidate('dom');}catch(error){}
     };
+
     const renderRows=rows=>{
       if(!tbody)return;
       destroyPartnerDt();
       tbody.innerHTML='';
-      previewRows=Array.isArray(rows)?rows:[];
-      previewRows.forEach(item=>{
-        const tr=document.createElement('tr');tr.dataset.partnerSyncRow='1';
+      const items=Array.isArray(rows)?rows:[];
+      items.forEach(item=>{
+        const tr=document.createElement('tr');
+        tr.dataset.partnerSyncRow='1';
         tr.dataset.status=String(item.status||'');
         tr.dataset.accountCode=String(item.account_code||'');
         if(item.status==='not_found')tr.classList.add('is-not-found');
 
-        const tdSelect=document.createElement('td');tdSelect.className='select';
+        const tdSelect=document.createElement('td');
+        tdSelect.className='select';
         if(item.selectable&&item.account_code){
-          const label=document.createElement('label');label.className='cix-partner-sync-check';
-          const input=document.createElement('input');input.type='checkbox';input.name='account_codes[]';input.value=String(item.account_code);input.checked=item.default_selected!==false;
-          const mark=document.createElement('span');mark.innerHTML='<i class="fa-solid fa-check"></i>';
-          label.append(input,mark);tdSelect.appendChild(label);
+          const label=document.createElement('label');
+          label.className='cix-partner-sync-check';
+          const input=document.createElement('input');
+          input.type='checkbox';
+          input.name='account_codes[]';
+          input.value=String(item.account_code);
+          input.checked=item.default_selected!==false;
+          const mark=document.createElement('span');
+          mark.innerHTML='<i class="fa-solid fa-check"></i>';
+          label.append(input,mark);
+          tdSelect.appendChild(label);
           input.addEventListener('change',refreshSelected);
         }else{
-          const lock=document.createElement('span');lock.className='cix-partner-sync-lock';lock.innerHTML='<i class="fa-solid fa-minus"></i>';tdSelect.appendChild(lock);
+          const lock=document.createElement('span');
+          lock.className='cix-partner-sync-lock';
+          lock.innerHTML='<i class="fa-solid fa-minus"></i>';
+          tdSelect.appendChild(lock);
         }
         tr.appendChild(tdSelect);
 
-        const tdSource=document.createElement('td');addText(tdSource,'strong',item.source_name||'Sem nome');
+        const tdSource=document.createElement('td');
+        addText(tdSource,'strong',item.source_name||'Sem nome');
         const sourceDetails=[item.city_uf];
-        if(Number(item.source_count||0)>1)sourceDetails.push(String(item.source_count)+' registros na origem');
-        addText(tdSource,'small',sourceDetails.filter(Boolean).join(' · '));tr.appendChild(tdSource);
+        if(Number(item.source_count||0)>1)sourceDetails.push(String(item.source_count)+' registros ativos na origem');
+        addText(tdSource,'small',sourceDetails.filter(Boolean).join(' · '));
+        tr.appendChild(tdSource);
 
-        const tdDoc=document.createElement('td');addText(tdDoc,'strong',item.document||'—');tr.appendChild(tdDoc);
+        const tdDoc=document.createElement('td');
+        addText(tdDoc,'strong',item.document||'—');
+        tr.appendChild(tdDoc);
 
         const tdCrm=document.createElement('td');
         if(item.account_code){
           addText(tdCrm,'strong',item.account_name||item.account_code);
-          const crmDetails=['CRM '+item.account_code];if(item.duplicate_crm)crmDetails.push('Documento com mais de uma Conta CRM');
+          const crmDetails=['CRM '+item.account_code];
+          if(item.duplicate_crm)crmDetails.push('Documento com mais de uma Conta CRM');
           addText(tdCrm,'small',crmDetails.join(' · '));
-        }else{addText(tdCrm,'span','—','muted');}
+        }else addText(tdCrm,'span','—','muted');
         tr.appendChild(tdCrm);
 
-        const tdOwner=document.createElement('td');addText(tdOwner,'span',item.owner_name||'Sem responsável');tr.appendChild(tdOwner);
-        const tdClass=document.createElement('td');addText(tdClass,'span',item.current_classification||'—','cix-partner-sync-class');tr.appendChild(tdClass);
+        const tdOwner=document.createElement('td');
+        addText(tdOwner,'span',item.owner_name||'Sem responsável');
+        tr.appendChild(tdOwner);
 
-        const tdStatus=document.createElement('td');const [label,statusClass,icon]=statusMeta(item.status);
-        const status=document.createElement('span');status.className='cix-partner-sync-status '+statusClass;
-        status.innerHTML='<i class="fa-solid '+icon+'"></i>';addText(status,'b',label);tdStatus.appendChild(status);tr.appendChild(tdStatus);
+        const tdClass=document.createElement('td');
+        addText(tdClass,'span',item.current_classification||'—','cix-partner-sync-class');
+        tr.appendChild(tdClass);
+
+        const tdStatus=document.createElement('td');
+        const [label,statusClass,icon]=statusMeta(item.status);
+        const status=document.createElement('span');
+        status.className='cix-partner-sync-status '+statusClass;
+        status.innerHTML='<i class="fa-solid '+icon+'"></i>';
+        addText(status,'b',label);
+        tdStatus.appendChild(status);
+        tr.appendChild(tdStatus);
+
         tbody.appendChild(tr);
       });
-
       refreshSelected();
     };
+
     const renderSummary=data=>{
       if(summary){
         const values=[
@@ -464,7 +511,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           [data?.invalid_documents||0,'corrigir na base ativa']
         ];
         [...summary.querySelectorAll('article')].forEach((article,index)=>{
-          const strong=article.querySelector('strong');const span=article.querySelector('span');
+          const strong=article.querySelector('strong');
+          const span=article.querySelector('span');
           if(strong)strong.textContent=Number(values[index]?.[0]||0).toLocaleString('pt-BR');
           if(span)span.textContent=values[index]?.[1]||'';
         });
@@ -476,10 +524,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(span)span.textContent=omitted.toLocaleString('pt-BR')+' parceiro(s) já estavam como CFC + Revendedor e foram ocultados desta análise.';
       }
     };
+
     const responseErrorText=raw=>{
-      const holder=document.createElement('div');holder.innerHTML=String(raw||'');
+      const holder=document.createElement('div');
+      holder.innerHTML=String(raw||'');
       return String(holder.textContent||holder.innerText||raw||'').replace(/\s+/g,' ').trim().slice(0,1200);
     };
+
     const readJson=async response=>{
       const raw=await response.text();
       let body=null;
@@ -495,19 +546,35 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       return body;
     };
+
     const loadPreview=async()=>{
-      setError('');setProgress('');hasSavedChanges=false;destroyPartnerDt();
+      setError('');
+      setProgress('');
+      hasSavedChanges=false;
+      destroyPartnerDt();
       if(tbody)tbody.innerHTML='';
       if(statusFilter)statusFilter.value='';
       if(tableWrap)tableWrap.hidden=true;
       if(loading)loading.hidden=false;
-      if(saveButton){saveButton.disabled=true;saveButton.innerHTML='<i class="fa-solid fa-check"></i>Validar selecionados';}
+      if(saveButton){
+        saveButton.disabled=true;
+        saveButton.innerHTML='<i class="fa-solid fa-check"></i>Validar selecionados';
+      }
       if(selectedCount)selectedCount.textContent='0';
-      if(selectAll){selectAll.checked=false;selectAll.indeterminate=false;selectAll.disabled=false;}
+      if(selectAll){
+        selectAll.checked=false;
+        selectAll.indeterminate=false;
+        selectAll.disabled=false;
+      }
       renderSummary({});
       try{
-        const payload=new FormData();payload.append('_token',csrf);
-        const response=await fetch((window.APP_URL||'')+'/commercial-partners/sync-preview',{method:'POST',body:payload,headers:{Accept:'application/json'}});
+        const payload=new FormData();
+        payload.append('_token',csrf);
+        const response=await fetch((window.APP_URL||'')+'/commercial-partners/sync-preview',{
+          method:'POST',
+          body:payload,
+          headers:{Accept:'application/json'}
+        });
         const body=await readJson(response);
         renderSummary(body.data?.summary||{});
         renderRows(body.data?.rows||[]);
@@ -519,18 +586,23 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(loading)loading.hidden=true;
       }
     };
+
     const closePartnerSync=()=>{
       destroyPartnerDt();
       partnerSyncDialog.close();
       if(hasSavedChanges)window.location.reload();
     };
 
-    opener?.addEventListener('click',()=>{partnerSyncDialog.showModal();loadPreview();});
+    opener?.addEventListener('click',()=>{
+      partnerSyncDialog.showModal();
+      loadPreview();
+    });
     partnerSyncDialog.querySelectorAll('[data-partner-sync-close]').forEach(button=>button.addEventListener('click',closePartnerSync));
     partnerSyncDialog.addEventListener('click',event=>{if(event.target===partnerSyncDialog)closePartnerSync();});
     statusFilter?.addEventListener('change',applyDataTableFilters);
     selectAll?.addEventListener('change',()=>{
-      activeCheckboxes().forEach(box=>{box.checked=!!selectAll.checked;});refreshSelected();
+      activeCheckboxes().forEach(box=>{box.checked=!!selectAll.checked;});
+      refreshSelected();
     });
 
     form?.addEventListener('submit',async event=>{
@@ -552,7 +624,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(saveButton)saveButton.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Salvando '+Math.min(processed+batch.length,total)+' de '+total;
         setProgress('Processando lote '+batchNumber+' de '+batchTotal+' · '+processed+' de '+total+' concluídos.','info');
 
-        const payload=new FormData();payload.append('_token',csrf);
+        const payload=new FormData();
+        payload.append('_token',csrf);
         batch.forEach(box=>payload.append('account_codes[]',box.value));
 
         try{
@@ -560,8 +633,15 @@ document.addEventListener('DOMContentLoaded',()=>{
           const body=await readJson(response);
           const result=body.result||{};
 
-          (result.updated_codes||[]).forEach(code=>{updateRowStatus(code,'saved');updated++;hasSavedChanges=true;});
-          (result.skipped_codes||[]).forEach(item=>{updateRowStatus(item.account_code,'skipped',item.reason||'Registro ignorado.');skipped++;});
+          (result.updated_codes||[]).forEach(code=>{
+            updateRowStatus(code,'saved');
+            updated++;
+            hasSavedChanges=true;
+          });
+          (result.skipped_codes||[]).forEach(item=>{
+            updateRowStatus(item.account_code,'skipped',item.reason||'Registro ignorado.');
+            skipped++;
+          });
           (result.errors||[]).forEach(item=>{
             updateRowStatus(item.account_code,'failed',item.message||'Erro ao salvar.');
             errors.push('CRM '+item.account_code+(item.name?' · '+item.name:'')+': '+(item.message||'Erro desconhecido.'));
@@ -576,6 +656,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       applyDataTableFilters();
       refreshSelected();
+
       if(errors.length){
         const remaining=checkedBoxes().length;
         setError(
@@ -584,14 +665,20 @@ document.addEventListener('DOMContentLoaded',()=>{
           errors.slice(0,15).join('\n')+
           (errors.length>15?'\n... e mais '+(errors.length-15)+' erro(s).':'')
         );
-        setProgress('Foram processados '+processed+' de '+total+' registros. Os que já foram salvos ficaram desabilitados; você pode tentar novamente somente os que permanecem marcados.','warning');
-        if(saveButton){saveButton.innerHTML='<i class="fa-solid fa-rotate-right"></i> Tentar novamente ('+remaining+')';saveButton.disabled=remaining===0;}
+        setProgress('Foram processados '+processed+' de '+total+' registros. Os que já foram salvos ficaram desabilitados; tente novamente somente os que permanecem marcados.','warning');
+        if(saveButton){
+          saveButton.innerHTML='<i class="fa-solid fa-rotate-right"></i> Tentar novamente ('+remaining+')';
+          saveButton.disabled=remaining===0;
+        }
         return;
       }
 
       setError('');
-      setProgress('Concluído: '+updated+' parceiro(s) salvos como CFC + Revendedor'+(skipped?' · '+skipped+' ignorado(s) por já estarem tratados.':'.')+' Ao abrir a sincronização novamente, estes registros não aparecerão mais.','success');
-      if(saveButton){saveButton.innerHTML='<i class="fa-solid fa-circle-check"></i> Concluído';saveButton.disabled=true;}
+      setProgress('Concluído: '+updated+' parceiro(s) salvos como CFC + Revendedor'+(skipped?' · '+skipped+' ignorado(s).':'.')+' Ao abrir a sincronização novamente, estes registros não aparecerão mais.','success');
+      if(saveButton){
+        saveButton.innerHTML='<i class="fa-solid fa-circle-check"></i> Concluído';
+        saveButton.disabled=true;
+      }
       if(window.appNotify)window.appNotify('success','Parceiros atualizados',updated+' cadastro(s) foram classificados como CFC + Revendedor.');
       if(saveButton&&!hasSavedChanges&&original)saveButton.innerHTML=original;
     });
