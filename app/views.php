@@ -2213,6 +2213,121 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    $agendaQueryBase=[];if(!empty($teamAgenda)&&!empty($agendaFilterUser))$agendaQueryBase['user_id']=(int)$agendaFilterUser;if(($agendaType??'all')!=='all')$agendaQueryBase['type']=$agendaType;if(!empty($agendaCreatedDate))$agendaQueryBase['created_date']=$agendaCreatedDate;
    $agendaUrl=static function(array $changes=[])use($agendaQueryBase): string{$query=array_merge($agendaQueryBase,$changes);foreach($query as $k=>$v)if($v===''||$v==='all'||$v===0||$v===null)unset($query[$k]);return APP_URL.'/agenda'.($query?'?'.http_build_query($query):'');};
    $weekDays=['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
+   if(!empty($sellerAgenda)):
+    $agendaMonths=[1=>'Janeiro',2=>'Fevereiro',3=>'Março',4=>'Abril',5=>'Maio',6=>'Junho',7=>'Julho',8=>'Agosto',9=>'Setembro',10=>'Outubro',11=>'Novembro',12=>'Dezembro'];
+    $calendarMonthValue=$agendaCalendarMonth??date('Y-m');$calendarStartTs=strtotime($calendarMonthValue.'-01');
+    $calendarYear=(int)date('Y',$calendarStartTs);$calendarMonthNumber=(int)date('n',$calendarStartTs);
+    $calendarDaysInMonth=(int)date('t',$calendarStartTs);$calendarFirstWeekday=(int)date('w',$calendarStartTs);
+    $calendarPrevious=date('Y-m',strtotime('-1 month',$calendarStartTs));$calendarNext=date('Y-m',strtotime('+1 month',$calendarStartTs));
+    $calendarCellCount=$calendarFirstWeekday+$calendarDaysInMonth;$calendarTrailing=(7-($calendarCellCount%7))%7;
+    $sellerAgendaHref=static fn(string $month): string=>APP_URL.'/agenda?calendar_month='.rawurlencode($month);
+    $sellerAgendaHour=static function(int $timestamp): string{return date('i',$timestamp)==='00'?date('H',$timestamp).'h':date('H:i',$timestamp);};
+   ?>
+   <section class="tds-agenda" aria-label="Agenda comercial">
+    <header class="tds-agenda-head">
+     <div class="tds-agenda-title">
+      <span class="tds-agenda-icon"><i class="fa-solid fa-calendar-days"></i></span>
+      <div>
+       <h1>Agenda</h1>
+       <p>Retornos de hoje, atrasados e próximos compromissos</p>
+       <strong><i class="fa-regular fa-calendar"></i><?=e($weekDays[date('l')]??'Hoje')?>, <?=date('d/m/Y')?></strong>
+       <small>Retornos aparecem aqui automaticamente quando uma atividade é registrada com agendamento.</small>
+      </div>
+     </div>
+    </header>
+
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <div class="tds-agenda-layout">
+     <main class="tds-agenda-main">
+      <section class="tds-return-group late">
+       <header><div><span><i class="fa-solid fa-circle-exclamation"></i></span><strong>Retornos atrasados</strong><b><?=count($groups['late'])?></b></div></header>
+       <div class="tds-return-list">
+        <?php foreach($groups['late'] as $r):
+         $due=strtotime((string)$r['due_at']);$lateDays=max(1,(int)((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',$due)))/86400));$taskAccountCode=trim((string)($r['crm_account_code']??''));
+        ?>
+         <article class="tds-return-row late">
+          <span class="tds-company-icon"><i class="fa-regular fa-building"></i></span>
+          <div class="tds-return-client"><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($taskAccountCode)?>"><?=e((string)$r['name'])?></a><small>Agendado para <?=date('d/m',$due)?> às <?=e($sellerAgendaHour($due))?></small></div>
+          <span class="tds-delay-badge">atrasado há <?=$lateDays?> dia<?=$lateDays===1?'':'s'?></span>
+          <p><?=e((string)$r['title'])?></p>
+          <div class="tds-return-actions">
+           <button class="tds-return-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
+           <button class="tds-return-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-file-lines"></i>Registrar atividade</button>
+          </div>
+         </article>
+        <?php endforeach;?>
+        <?php if(empty($groups['late'])):?><div class="tds-agenda-empty"><i class="fa-solid fa-circle-check"></i><span>Nenhum retorno atrasado.</span></div><?php endif;?>
+       </div>
+      </section>
+
+      <section class="tds-return-group today">
+       <header><div><span><i class="fa-solid fa-clock"></i></span><strong>Retornos de hoje</strong><b><?=count($groups['today'])?></b></div></header>
+       <div class="tds-return-list">
+        <?php foreach($groups['today'] as $r):
+         $due=strtotime((string)$r['due_at']);$taskAccountCode=trim((string)($r['crm_account_code']??''));
+        ?>
+         <article class="tds-return-row today">
+          <time class="tds-time-pill"><?=date('H:i',$due)?></time>
+          <div class="tds-return-client"><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($taskAccountCode)?>"><?=e((string)$r['name'])?></a></div>
+          <p><?=e((string)$r['title'])?></p>
+          <div class="tds-return-actions">
+           <button class="tds-return-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
+           <button class="tds-return-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-file-lines"></i>Registrar atividade</button>
+          </div>
+         </article>
+        <?php endforeach;?>
+        <?php if(empty($groups['today'])):?><div class="tds-agenda-empty"><i class="fa-regular fa-clock"></i><span>Nenhum retorno para hoje.</span></div><?php endif;?>
+       </div>
+      </section>
+
+      <section class="tds-return-group upcoming">
+       <header><div><span><i class="fa-regular fa-calendar-days"></i></span><strong>Próximos retornos</strong><b><?=count($groups['upcoming'])?></b></div></header>
+       <div class="tds-return-list">
+        <?php foreach($groups['upcoming'] as $r):
+         $due=strtotime((string)$r['due_at']);$taskAccountCode=trim((string)($r['crm_account_code']??''));
+        ?>
+         <article class="tds-return-row upcoming">
+          <div class="tds-upcoming-time"><time><?=date('d/m',$due)?></time><span><?=e($sellerAgendaHour($due))?></span></div>
+          <div class="tds-return-client"><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($taskAccountCode)?>"><?=e((string)$r['name'])?></a></div>
+          <p><?=e((string)$r['title'])?></p>
+          <div class="tds-return-actions">
+           <button class="tds-return-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
+           <button class="tds-return-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-file-lines"></i>Registrar atividade</button>
+          </div>
+         </article>
+        <?php endforeach;?>
+        <?php if(empty($groups['upcoming'])):?><div class="tds-agenda-empty"><i class="fa-regular fa-calendar-check"></i><span>Nenhum próximo retorno agendado.</span></div><?php endif;?>
+       </div>
+      </section>
+
+      <footer class="tds-agenda-note"><i class="fa-solid fa-circle-info"></i><span>Concluir um retorno registra a atividade e o remove da agenda automaticamente. Histórico completo disponível na ficha do cliente.</span></footer>
+     </main>
+
+     <aside class="tds-calendar-card" aria-label="Calendário de retornos">
+      <header>
+       <a href="<?=e($sellerAgendaHref($calendarPrevious))?>" aria-label="Mês anterior"><i class="fa-solid fa-chevron-left"></i></a>
+       <strong><?=e($agendaMonths[$calendarMonthNumber]??'')?> <?=$calendarYear?></strong>
+       <a href="<?=e($sellerAgendaHref($calendarNext))?>" aria-label="Próximo mês"><i class="fa-solid fa-chevron-right"></i></a>
+      </header>
+      <div class="tds-calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+      <div class="tds-calendar-days">
+       <?php for($blank=0;$blank<$calendarFirstWeekday;$blank++):?><span class="blank"></span><?php endfor;?>
+       <?php for($day=1;$day<=$calendarDaysInMonth;$day++):
+        $dateKey=sprintf('%04d-%02d-%02d',$calendarYear,$calendarMonthNumber,$day);$hasReturn=!empty($agendaCalendarDays[$dateKey]);$isToday=$dateKey===date('Y-m-d');
+       ?>
+        <span class="day <?=$isToday?'today':''?> <?=$hasReturn?'has-return':''?>" title="<?=$hasReturn?(int)$agendaCalendarDays[$dateKey].' retorno(s) agendado(s)':''?>"><b><?=$day?></b><?php if($hasReturn):?><i></i><?php endif;?></span>
+       <?php endfor;?>
+       <?php for($blank=0;$blank<$calendarTrailing;$blank++):?><span class="blank"></span><?php endfor;?>
+      </div>
+      <div class="tds-calendar-legend"><span><i></i>Dia com retorno agendado</span></div>
+      <div class="tds-calendar-total"><i class="fa-regular fa-calendar"></i><strong><?=number_format((int)($agendaCalendarTotal??0),0,',','.')?> retorno<?=((int)($agendaCalendarTotal??0))===1?'':'s'?> este mês</strong></div>
+     </aside>
+    </div>
+
+    <?php render_commercial_activity_dialog(['user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],'return_to'=>'agenda','return_query'=>'']);?>
+   </section>
+   <?php break; endif;?>
    ?>
    <section class="tdw-page tdw-agenda">
     <header class="tdw-page-head tdw-agenda-head">
