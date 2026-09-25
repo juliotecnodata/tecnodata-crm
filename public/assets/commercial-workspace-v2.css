@@ -645,3 +645,100 @@
 .tdp-pagination{min-height:54px;padding:9px 13px;border-top:1px solid #E6EDF1;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#6E828E;font-size:9px}.tdp-pagination>div{display:flex;gap:5px}.tdp-pagination a{width:31px;height:31px;border:1px solid #D9E3E8;border-radius:8px;background:#fff;color:#536B79;text-decoration:none;display:grid;place-items:center;font-weight:800}.tdp-pagination a.active{border-color:#007FC7;background:#007FC7;color:#fff}.tdp-pagination a.disabled{pointer-events:none;opacity:.35}
 @media(max-width:1050px){.tdp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tdp-filters{grid-template-columns:1fr 1fr}.tdp-search{grid-column:1/-1}.tdp-filters>button{min-width:120px}.tdp-filters>a{justify-self:end}}
 @media(max-width:640px){.tdp-head{display:grid}.tdp-head h1{font-size:23px}.tdp-refresh{justify-self:start}.tdp-kpis{grid-template-columns:1fr 1fr}.tdp-kpis article,.tdp-kpis a{min-height:88px;padding:12px}.tdp-kpis span{width:38px;height:38px}.tdp-kpis strong{font-size:20px}.tdp-filters{grid-template-columns:1fr}.tdp-search{grid-column:auto}.tdp-filters>a{justify-self:stretch;width:auto}.tdp-pagination{align-items:flex-start;flex-direction:column}}
+
+
+/* CLIENT EDIT MODAL + EDITOR PAGE */
+.tdq-edit-modal{border:0;padding:0;background:transparent;max-width:none;max-height:none}
+.tdq-edit-modal::backdrop{background:rgba(8,28,47,.58)}
+.tdq-edit-modal form{
+ width:min(980px,calc(100vw - 36px));max-height:calc(100vh - 36px);overflow:hidden;
+ border:1px solid #D7E2E9;border-radius:10px;background:#fff;color:#142A3B;display:flex;flex-direction:column
+}
+.tdq-edit-modal,.tdq-edit-modal *{box-shadow:none!important;letter-spacing:0!important}
+.tdq-edit-modal>form>header{
+ display:grid;grid-template-columns:42px minmax(0,1fr) 34px;gap:11px;align-items:center;
+ padding:15px 17px;border-bottom:1px solid #E3EBEF;background:#fff
+}
+.tdq-edit-modal>form>header>span{width:40px;height:40px;border-radius:10px;background:#EAF5FB;color:#007FC7;display:grid;place-items:center}
+.tdq-edit-modal header small{display:block;color:#7E909B;font-size:8px;font-weight:800}
+.tdq-edit-modal header strong{display:block;margin-top:2px;font-size:16px}
+.tdq-edit-modal header p{margin:2px 0 0;color:#657A87;font-size:9px}
+.tdq-edit-modal header>button{width:32px;height:32px;border:1px solid #DCE5EA;border-radius:8px;background:#fff;color:#607684}
+.tdq-edit-body{overflow:auto;min-height:0;padding:14px 17px 16px;background:#F8FAFB;display:grid;gap:12px}
+.tdq-edit-body>section{border:1px solid #DDE7EC;border-radius:10px;background:#fff;overflow:hidden}
+.tdq-edit-section-head{min-height:48px;padding:10px 13px;border-bottom:1px solid #E8EEF2;display:flex;align-items:center;gap:9px}
+.tdq-edit-section-head>span{width:30px;height:30px;border-radius:8px;background:#EEF7FD;color:#007FC7;display:grid;place-items:center;font-size:11px}
+.tdq-edit-section-head strong{display:block;font-size:11px}.tdq-edit-section-head small{display:block;margin-top:2px;color:#7C8E98;font-size:8px}
+.tdq-edit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;padding:13px}
+.tdq-edit-grid label{display:grid;gap:5px}.tdq-edit-grid label>span{font-size:8px;font-weight:800;color:#49606F}
+.tdq-edit-grid .wide2{grid-column:span 2}.tdq-edit-grid .wide3{grid-column:1/-1}
+.tdq-edit-grid .phone>div{display:grid;grid-template-columns:78px minmax(0,1fr);gap:7px}
+.tdq-edit-grid .form-control,.tdq-edit-grid .form-select{min-height:38px;border:1px solid #D8E3E9;border-radius:8px;background:#fff;font-size:10px}
+.tdq-edit-grid textarea.form-control{min-height:92px;padding-top:9px}
+.tdq-edit-note{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:1px solid #D9E8F1;border-radius:9px;background:#F2F8FC;color:#557080;font-size:9px;line-height:1.45}
+.tdq-edit-note i{margin-top:1px;color:#007FC7}
+.tdq-edit-modal>form>footer{display:flex;justify-content:flex-end;gap:8px;padding:11px 17px;border-top:1px solid #E2EAEE;background:#fff}
+
+/* Tela completa de cadastro/edição alinhada ao novo CRM */
+.tdc-client-editor-page{max-width:1480px;margin:0 auto}
+.tdc-client-editor-page,.tdc-client-editor-page *{box-shadow:none!important;letter-spacing:0!important}
+.tdc-client-editor-page>.tdc-head{
+ margin-bottom:14px;padding:0;border:0;background:transparent;display:flex;align-items:flex-start;justify-content:space-between;gap:16px
+}
+.tdc-client-editor-page .tdc-head-main{display:flex;align-items:flex-start;gap:12px}
+.tdc-client-editor-page .tdc-head-icon{
+ width:44px;height:44px;border-radius:10px;background:#EAF5FB;color:#007FC7;display:grid;place-items:center;flex:0 0 44px
+}
+.tdc-client-editor-page .tdc-kicker{display:block;margin-bottom:3px;color:#007FC7;font-size:8px;font-weight:800}
+.tdc-client-editor-page .tdc-head h1{margin:0;color:#10273A;font-size:27px;line-height:1.05;font-weight:800}
+.tdc-client-editor-page .tdc-head p{margin:6px 0 0;color:#657A87;font-size:10px}
+.tdc-client-editor-page .tdc-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.tdc-client-editor-page .tdc-btn{min-height:38px;border-radius:9px;font-size:9px;font-weight:800}
+.tdc-client-editor-page .tdc-form-layout{
+ display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start
+}
+.tdc-client-editor-page .tdc-steps{
+ position:sticky;top:12px;border:1px solid #DDE7EC;border-radius:10px;background:#fff;overflow:hidden
+}
+.tdc-client-editor-page .tdc-steps-head{padding:15px;border-bottom:1px solid #E8EEF2;background:#F8FAFB}
+.tdc-client-editor-page .tdc-steps-head>span{display:block;color:#007FC7;font-size:8px;font-weight:800}
+.tdc-client-editor-page .tdc-steps-head>strong{display:block;margin-top:3px;color:#173246;font-size:13px}
+.tdc-client-editor-page .tdc-steps-head>small{display:block;margin-top:6px;color:#71838E;font-size:8px;line-height:1.45}
+.tdc-client-editor-page .tdc-step-list{display:grid;padding:7px}
+.tdc-client-editor-page .tdc-step-list a{
+ min-height:54px;padding:7px 9px;border-radius:8px;color:#587080;text-decoration:none;display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center
+}
+.tdc-client-editor-page .tdc-step-list a:hover,.tdc-client-editor-page .tdc-step-list a.active{background:#EEF7FD;color:#007FC7}
+.tdc-client-editor-page .tdc-step-list a>b{width:26px;height:26px;border-radius:50%;background:#F0F4F6;color:#607684;display:grid;place-items:center;font-size:9px}
+.tdc-client-editor-page .tdc-step-list a.active>b{background:#007FC7;color:#fff}
+.tdc-client-editor-page .tdc-step-list strong{display:block;font-size:9px}.tdc-client-editor-page .tdc-step-list small{display:block;margin-top:2px;color:#81919A;font-size:7px}
+.tdc-client-editor-page .tdc-form{display:grid;gap:12px}
+.tdc-client-editor-page .tdc-section{overflow:hidden;border:1px solid #DDE7EC;border-radius:10px;background:#fff}
+.tdc-client-editor-page .tdc-section-head{min-height:54px;padding:10px 13px;border-bottom:1px solid #E8EEF2;background:#fff;display:flex;align-items:center;gap:10px}
+.tdc-client-editor-page .tdc-section-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:11px}
+.tdc-client-editor-page .tdc-section-icon.blue{background:#EAF5FB;color:#007FC7}.tdc-client-editor-page .tdc-section-icon.green{background:#EAF8F1;color:#009657}.tdc-client-editor-page .tdc-section-icon.orange{background:#FFF1EC;color:#EA5127}.tdc-client-editor-page .tdc-section-icon.yellow{background:#FFF8DD;color:#9B7600}
+.tdc-client-editor-page .tdc-section-head strong{display:block;color:#173246;font-size:11px}.tdc-client-editor-page .tdc-section-head small{display:block;margin-top:2px;color:#7C8E98;font-size:8px}
+.tdc-client-editor-page .tdc-badge{margin-left:auto;min-height:24px;padding:0 8px;border-radius:999px;background:#EEF3F6;color:#617681;display:inline-flex;align-items:center;font-size:8px;font-weight:800}
+.tdc-client-editor-page .tdc-fields{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:11px;padding:13px}
+.tdc-client-editor-page .field{display:grid;gap:5px}.tdc-client-editor-page .field label{font-size:8px;font-weight:800;color:#49606F}
+.tdc-client-editor-page .field .form-control,.tdc-client-editor-page .field .form-select{min-height:38px;border:1px solid #D8E3E9;border-radius:8px;background:#fff;font-size:10px}
+.tdc-client-editor-page .field textarea.form-control{min-height:96px;padding-top:9px}
+.tdc-client-editor-page .tdc-lookup{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:6px}
+.tdc-client-editor-page .tdc-lookup button{border:1px solid #BDD3DF;border-radius:8px;background:#F5FAFC;color:#007FC7}
+.tdc-client-editor-page .tdc-hint{color:#84949D;font-size:7px;line-height:1.35}
+.tdc-client-editor-page .tdc-fixed{min-height:38px;padding:0 10px;border:1px solid #E0E8EC;border-radius:8px;background:#F7F9FA;display:flex;align-items:center;color:#536A79;font-size:9px}
+.tdc-client-editor-page .tdc-phone{display:grid;grid-template-columns:70px minmax(0,1fr);gap:7px}
+.tdc-client-editor-page .tdc-form-actions{
+ padding:12px 13px;border:1px solid #DDE7EC;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:14px
+}
+.tdc-client-editor-page .tdc-form-actions>div:first-child{display:flex;align-items:flex-start;gap:7px;color:#6F838F;font-size:8px;line-height:1.4}
+.tdc-client-editor-page .tdc-form-actions>div:first-child i{color:#007FC7;margin-top:1px}
+.tdc-client-editor-page .tdc-form-actions .actions{display:flex;gap:7px;flex-wrap:wrap}
+@media(max-width:980px){
+ .tdq-edit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tdq-edit-grid .wide3{grid-column:1/-1}
+ .tdc-client-editor-page .tdc-form-layout{grid-template-columns:1fr}.tdc-client-editor-page .tdc-steps{position:static}.tdc-client-editor-page .tdc-step-list{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:640px){
+ .tdq-edit-modal form{width:calc(100vw - 18px);max-height:calc(100vh - 18px)}.tdq-edit-grid{grid-template-columns:1fr}.tdq-edit-grid .wide2,.tdq-edit-grid .wide3{grid-column:auto}.tdq-edit-grid .phone>div{grid-template-columns:68px 1fr}
+ .tdc-client-editor-page>.tdc-head{display:grid}.tdc-client-editor-page .tdc-head h1{font-size:23px}.tdc-client-editor-page .tdc-step-list{grid-template-columns:1fr 1fr}.tdc-client-editor-page .tdc-fields{grid-template-columns:1fr}.tdc-client-editor-page .tdc-fields .field{grid-column:1!important}.tdc-client-editor-page .tdc-form-actions{align-items:stretch;flex-direction:column}.tdc-client-editor-page .tdc-form-actions .actions{display:grid}.tdc-client-editor-page .tdc-form-actions .tdc-btn{width:100%}
+}
