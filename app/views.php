@@ -3297,6 +3297,52 @@ function layout(string $body,?array $u,string $page=''): void{
     <?php elseif($u['role']==='collector'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
      <div class="tdcrm-nav-group" data-nav-group="collector-collection" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Carteira de cobrança</span></a><a href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-column"></i><span>Relatório de cobranças</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a></div></div>
+    <?php elseif($u['role']==='supervisor'):?>
+     <div class="tdcrm-nav-context tdcrm-supervisor-context">
+      <span>SUPERVISÃO</span>
+      <small>Gestão da operação comercial</small>
+     </div>
+
+     <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
+
+     <div class="tdcrm-supervisor-quick" aria-label="Atalhos da supervisão">
+      <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span><b>Carteira</b><small>Equipe comercial</small></span></a>
+      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-database"></i><span><b>Base CRM</b><small>Todos os clientes</small></span></a>
+      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span><b>Agenda</b><small>Equipe e retornos</small></span></a>
+     </div>
+
+     <div class="tdcrm-nav-section-label">OPERAÇÃO COMERCIAL</div>
+     <div class="tdcrm-supervisor-list">
+      <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
+      <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a>
+      <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
+      <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?>
+      <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
+      <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
+      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
+     </div>
+
+     <div class="tdcrm-nav-section-label">MANUTENÇÃO</div>
+     <div class="tdcrm-supervisor-list tdcrm-supervisor-maintenance">
+      <a href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-solid fa-arrows-rotate"></i><span>Pendentes de sincronização</span></a>
+      <a href="<?=APP_URL?>/clients-duplicates"><i class="fa-solid fa-clone"></i><span>Duplicados</span></a>
+      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-shield-halved"></i><span>Auditoria de clientes</span></a>
+     </div>
+
+     <div class="tdcrm-nav-section-label">COBRANÇA</div>
+     <div class="tdcrm-supervisor-list">
+      <a href="<?=APP_URL?>/collection"><i class="fa-solid fa-hand-holding-dollar"></i><span>Carteira de cobrança</span></a>
+      <a href="<?=APP_URL?>/agenda?type=collection"><i class="fa-regular fa-calendar-days"></i><span>Agenda de cobrança</span></a>
+      <a href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-simple"></i><span>Relatório de cobranças</span></a>
+     </div>
+
+     <div class="tdcrm-nav-section-label">GESTÃO</div>
+     <div class="tdcrm-supervisor-list tdcrm-supervisor-management">
+      <a href="<?=APP_URL?>/commercial-management"><i class="fa-solid fa-chart-pie"></i><span>Gestão comercial</span></a>
+      <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas da equipe</span></a>
+      <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Funil de vendas</span></a>
+      <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i><span>Configurações da operação</span></a>
+     </div>
     <?php else:?>
      <div class="tdcrm-nav-context">
       <span><?=e($u['role']==='admin'?'ADMINISTRAÇÃO':'SUPERVISÃO')?></span>
