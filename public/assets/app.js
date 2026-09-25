@@ -2319,8 +2319,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   const status=q('[data-client-quick-status]');status.textContent='Carregando';status.className='tdq-status neutral';
   q('[data-client-quick-timeline]').innerHTML='<div class="tdq-timeline-empty"><i class="fa-solid fa-spinner fa-spin"></i><br>Carregando informações...</div>';
  };
- const load=async params=>{
-  currentRequest=params;loading();if(!modal.open)modal.showModal();
+ const load=async (params,mode='view')=>{
+  currentRequest=params;
+  if(mode==='view'){loading();if(!modal.open)modal.showModal();}
   const query=new URLSearchParams(params);
   try{
    const response=await fetch(base+'/api/client-quick-view?'+query.toString(),{credentials:'same-origin',headers:{Accept:'application/json'}});
@@ -2331,14 +2332,29 @@ document.addEventListener('DOMContentLoaded',()=>{
     throw new Error(data.error||clean||'Não foi possível abrir a ficha do cliente.');
    }
    render(data);
-  }catch(error){modal.close();notify('danger','Cliente',error.message||'Não foi possível carregar o cadastro.');}
+   if(mode==='edit'){
+    if(modal.open)modal.close();
+    populateEdit();
+   }
+  }catch(error){if(modal.open)modal.close();notify('danger','Cliente',error.message||'Não foi possível carregar o cadastro.');}
+ };
+ const normalizedLocalPath=href=>{
+  let url;try{url=new URL(href,location.origin);}catch(e){return null;}
+  if(url.origin!==location.origin)return null;
+  let path=url.pathname;if(basePath&&path.startsWith(basePath))path=path.slice(basePath.length)||'/';
+  return {url,path};
+ };
+ const editParamsFromAnchor=anchor=>{
+  if(!anchor||anchor.dataset.noClientModal!==undefined||anchor.target==='_blank'||anchor.hasAttribute('download'))return null;
+  const parsed=normalizedLocalPath(anchor.href);if(!parsed)return null;
+  const match=parsed.path.match(/^\/clients\/(\d+)\/edit\/?$/);
+  return match?{client_id:match[1]}:null;
  };
  const paramsFromAnchor=anchor=>{
   if(!anchor||anchor.dataset.noClientModal!==undefined||anchor.target==='_blank'||anchor.hasAttribute('download'))return null;
-  let url;try{url=new URL(anchor.href,location.origin);}catch(e){return null;}if(url.origin!==location.origin)return null;
-  let path=url.pathname;if(basePath&&path.startsWith(basePath))path=path.slice(basePath.length)||'/';
-  let match=path.match(/^\/clients\/(\d+)\/?$/);if(match)return {client_id:match[1]};
-  match=path.match(/^\/commercial\/accounts\/([^/]+)\/?$/);if(match)return {account_code:decodeURIComponent(match[1])};
+  const parsed=normalizedLocalPath(anchor.href);if(!parsed)return null;
+  let match=parsed.path.match(/^\/clients\/(\d+)\/?$/);if(match)return {client_id:match[1]};
+  match=parsed.path.match(/^\/commercial\/accounts\/([^/]+)\/?$/);if(match)return {account_code:decodeURIComponent(match[1])};
   return null;
  };
  document.addEventListener('click',event=>{
@@ -2348,8 +2364,11 @@ document.addEventListener('DOMContentLoaded',()=>{
    const accountCode=String(direct.dataset.clientQuickAccount||'').trim(),clientId=Number(direct.dataset.clientQuickId||0);
    if(accountCode||clientId){event.preventDefault();load(accountCode?{account_code:accountCode}:{client_id:String(clientId)});return;}
   }
-  const anchor=event.target.closest?.('a[href]');const params=paramsFromAnchor(anchor);if(!params)return;
-  event.preventDefault();load(params);
+  const anchor=event.target.closest?.('a[href]');
+  const editParams=editParamsFromAnchor(anchor);
+  if(editParams){event.preventDefault();load(editParams,'edit');return;}
+  const params=paramsFromAnchor(anchor);if(!params)return;
+  event.preventDefault();load(params,'view');
  });
  qa('[data-client-quick-close]').forEach(button=>button.addEventListener('click',()=>modal.close()));
  modal.addEventListener('click',event=>{if(event.target===modal)modal.close();});
@@ -2368,18 +2387,85 @@ document.addEventListener('DOMContentLoaded',()=>{
  const editModal=document.querySelector('[data-client-quick-edit-modal]');
  const editForm=editModal?.querySelector('[data-client-quick-edit-form]');
  const editClose=()=>editModal?.close();
+ const editDigits=value=>String(value||'').replace(/\D+/g,'');
+ const editFormatDoc=value=>{
+  const n=editDigits(value).slice(0,14);
+  if(n.length<=11)return n.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+  return n.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
+ };
+ const editFormatPhone=value=>{const n=editDigits(value).slice(0,9);return n.length>8?n.replace(/(\d{5})(\d{1,4})$/,'$1-$2'):n.replace(/(\d{4})(\d{1,4})$/,'$1-$2');};
+ const editFormatCep=value=>editDigits(value).slice(0,8).replace(/(\d{5})(\d)/,'$1-$2');
+ const editField=name=>editForm?.elements?.namedItem(name);
+ const editSetStatus=(selector,message,tone='')=>{
+  const el=editForm?.querySelector(selector);if(!el)return;el.textContent=message;el.classList.remove('ok','error','loading');if(tone)el.classList.add(tone);
+ };
+ const editFill=(name,value,overwrite=true)=>{
+  const el=editField(name);if(!el||value===undefined||value===null||String(value).trim()==='')return;
+  if(!overwrite&&String(el.value||'').trim()!=='')return;
+  el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));
+ };
+ const editLookupJson=async path=>{
+  const response=await fetch(base+path,{credentials:'same-origin',headers:{Accept:'application/json'}});
+  const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Falha na consulta.');
+  return data.data||{};
+ };
+ const lookupEditCnpj=async(auto=false)=>{
+  const doc=editField('document'),digitsValue=editDigits(doc?.value);
+  if(digitsValue.length!==14){if(!auto)editSetStatus('[data-client-edit-cnpj-status]','Informe um CNPJ com 14 dígitos.','error');return;}
+  const button=editForm?.querySelector('[data-client-edit-cnpj-lookup]');
+  try{
+   if(button)button.disabled=true;editSetStatus('[data-client-edit-cnpj-status]','Consultando CNPJ...','loading');
+   const data=await editLookupJson('/api/public/cnpj?value='+encodeURIComponent(digitsValue));
+   editFill('legal_name',data.legal_name);editFill('trade_name',data.trade_name);editFill('email',data.email,false);
+   editFill('phone_ddd',data.phone_ddd,false);editFill('phone_number',data.phone_number,false);editFill('zip_code',data.zip_code,false);
+   editFill('address',data.address,false);editFill('address_number',data.address_number,false);editFill('complement',data.complement,false);
+   editFill('neighborhood',data.neighborhood,false);editFill('city',data.city,false);editFill('uf',data.uf,false);
+   formatCanonicalEditorValues();editSetStatus('[data-client-edit-cnpj-status]','CNPJ localizado. Revise os dados antes de salvar.','ok');
+  }catch(error){editSetStatus('[data-client-edit-cnpj-status]',error.message||'Falha na consulta.','error');}
+  finally{if(button)button.disabled=false;}
+ };
+ const lookupEditCep=async(auto=false)=>{
+  const cep=editField('zip_code'),digitsValue=editDigits(cep?.value);
+  if(digitsValue.length!==8){if(!auto)editSetStatus('[data-client-edit-cep-status]','Informe um CEP com 8 dígitos.','error');return;}
+  const button=editForm?.querySelector('[data-client-edit-cep-lookup]');
+  try{
+   if(button)button.disabled=true;editSetStatus('[data-client-edit-cep-status]','Consultando CEP...','loading');
+   const data=await editLookupJson('/api/public/cep?value='+encodeURIComponent(digitsValue));
+   editFill('address',data.address,false);editFill('neighborhood',data.neighborhood,false);editFill('city',data.city,false);editFill('uf',data.uf,false);
+   editSetStatus('[data-client-edit-cep-status]','Endereço localizado.','ok');
+  }catch(error){editSetStatus('[data-client-edit-cep-status]',error.message||'Falha na consulta.','error');}
+  finally{if(button)button.disabled=false;}
+ };
+ const formatCanonicalEditorValues=()=>{
+  const doc=editField('document'),ddd=editField('phone_ddd'),number=editField('phone_number'),cep=editField('zip_code'),uf=editField('uf');
+  if(doc)doc.value=editFormatDoc(doc.value);if(ddd)ddd.value=editDigits(ddd.value).slice(0,2);if(number)number.value=editFormatPhone(number.value);if(cep)cep.value=editFormatCep(cep.value);if(uf)uf.value=String(uf.value||'').toUpperCase().slice(0,2);
+ };
+ if(editForm){
+  editForm.querySelector('[data-client-edit-cnpj-lookup]')?.addEventListener('click',()=>lookupEditCnpj(false));
+  editForm.querySelector('[data-client-edit-cep-lookup]')?.addEventListener('click',()=>lookupEditCep(false));
+  editField('document')?.addEventListener('input',event=>{event.currentTarget.value=editFormatDoc(event.currentTarget.value);});
+  editField('phone_ddd')?.addEventListener('input',event=>{event.currentTarget.value=editDigits(event.currentTarget.value).slice(0,2);});
+  editField('phone_number')?.addEventListener('input',event=>{event.currentTarget.value=editFormatPhone(event.currentTarget.value);});
+  editField('zip_code')?.addEventListener('input',event=>{event.currentTarget.value=editFormatCep(event.currentTarget.value);if(editDigits(event.currentTarget.value).length===8)lookupEditCep(true);});
+  editField('uf')?.addEventListener('input',event=>{event.currentTarget.value=String(event.currentTarget.value||'').toUpperCase().slice(0,2);});
+ }
+
  const populateEdit=()=>{
   const client=currentPayload?.client||{},formData=currentPayload?.edit_form||{},sellerOptions=currentPayload?.seller_options||[];
   if(!editModal||!editForm||!client.can_edit||!client.id||!formData)return;
   editForm.reset();editForm.action=base+'/api/client-quick-view/'+encodeURIComponent(String(client.id))+'/update';
   editModal.querySelector('[data-client-quick-edit-name]').textContent=client.name||'Cliente';
-  const fields=['document','legal_name','trade_name','email','contact_name','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','notes'];
+  const fields=['document','legal_name','trade_name','email','contact_name','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','strategic_notes','notes'];
   fields.forEach(name=>{const input=editForm.elements.namedItem(name);if(input)input.value=String(formData[name]??'');});
+  const cfc=editForm.elements.namedItem('is_cfc'),reseller=editForm.elements.namedItem('is_reseller');
+  if(cfc)cfc.checked=!!Number(formData.is_cfc||0);
+  if(reseller)reseller.checked=!!Number(formData.is_reseller||0);
   const seller=editForm.querySelector('[data-client-quick-edit-seller]');
   if(seller){
    seller.innerHTML='<option value="">Sem vendedor</option>'+sellerOptions.map(item=>'<option value="'+esc(item.omie_code)+'">'+esc(item.name)+'</option>').join('');
    seller.value=String(formData.seller_omie_code??'');
   }
+  formatCanonicalEditorValues();
   editModal.showModal();
  };
  editButton?.addEventListener('click',populateEdit);
@@ -2420,4 +2506,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   }catch(error){notify('danger','Atividade',error.message||'Não foi possível registrar a atividade.');}
   finally{if(submit){submit.disabled=false;submit.innerHTML=original;}}
  });
+
+ const autoEdit=new URLSearchParams(location.search).get('edit')==='1';
+ if(autoEdit){
+  let path=location.pathname;if(basePath&&path.startsWith(basePath))path=path.slice(basePath.length)||'/';
+  const match=path.match(/^\/clients\/(\d+)\/?$/);
+  if(match)load({client_id:match[1]},'edit');
+ }
 })();
