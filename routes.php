@@ -872,7 +872,7 @@ $router->get('/api/client-quick-view',function(){
  $contactRole=trim((string)($primaryContact['position_name']??''));
  $phone=trim((string)($primaryContact['phone']??''));$mobile=trim((string)($primaryContact['mobile']??''));$email=trim((string)($primaryContact['email']??''));
  if($client){
-  if($phone==='')$phone=trim((string)($client['phone_ddd']??'').' '.(string)($client['phone_number']??''));
+  if($phone==='')$phone=trim((string)($client['phone']??''));
   if($mobile==='')$mobile=$phone;
   if($email===''){ $emails=ClientService::emailList($client['email']??'');$email=(string)($emails[0]??''); }
  }
