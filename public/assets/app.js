@@ -2309,6 +2309,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const whatsapp=q('[data-client-quick-whatsapp]');whatsapp.href=contact.mobile&&canWork?waUrl(contact.mobile):'#';whatsapp.classList.toggle('disabled',!contact.mobile||!canWork);
   const activity=q('[data-client-quick-activity]');activity.disabled=!canWork||!client.crm_account_code;activity.classList.toggle('disabled',activity.disabled);
   const task=q('[data-client-quick-task]');task.disabled=!canWork;task.classList.toggle('disabled',task.disabled);
+  const edit=q('[data-client-quick-edit]');edit.disabled=!client.can_edit;edit.classList.toggle('disabled',edit.disabled);edit.title=client.can_edit?'Editar cadastro sem sair da tela':(client.linked_client?'Sem permissão para editar':'Esta Conta CRM ainda não possui Cliente Geral vinculado');
   const full=q('[data-client-quick-full]');full.href=client.full_url||'#';
   renderTimeline(data.interactions||[]);renderActivities(data.interactions||[]);renderContacts(data.contacts||[]);
   setTab('overview');
@@ -2356,6 +2357,40 @@ document.addEventListener('DOMContentLoaded',()=>{
   trigger.dataset.taskClientName=client.name||'Cliente';
   if(client.crm_account_code){trigger.dataset.taskAccountCode=client.crm_account_code;trigger.dataset.taskAccountName=client.name||'Conta CRM';}
   trigger.dataset.taskContext='sales';document.body.appendChild(trigger);trigger.click();setTimeout(()=>trigger.remove(),0);
+ });
+
+ const editButton=q('[data-client-quick-edit]');
+ const editModal=document.querySelector('[data-client-quick-edit-modal]');
+ const editForm=editModal?.querySelector('[data-client-quick-edit-form]');
+ const editClose=()=>editModal?.close();
+ const populateEdit=()=>{
+  const client=currentPayload?.client||{},formData=currentPayload?.edit_form||{},sellerOptions=currentPayload?.seller_options||[];
+  if(!editModal||!editForm||!client.can_edit||!client.id||!formData)return;
+  editForm.reset();editForm.action=base+'/api/client-quick-view/'+encodeURIComponent(String(client.id))+'/update';
+  editModal.querySelector('[data-client-quick-edit-name]').textContent=client.name||'Cliente';
+  const fields=['document','legal_name','trade_name','email','contact_name','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','notes'];
+  fields.forEach(name=>{const input=editForm.elements.namedItem(name);if(input)input.value=String(formData[name]??'');});
+  const seller=editForm.querySelector('[data-client-quick-edit-seller]');
+  if(seller){
+   seller.innerHTML='<option value="">Sem vendedor</option>'+sellerOptions.map(item=>'<option value="'+esc(item.omie_code)+'">'+esc(item.name)+'</option>').join('');
+   seller.value=String(formData.seller_omie_code??'');
+  }
+  editModal.showModal();
+ };
+ editButton?.addEventListener('click',populateEdit);
+ editModal?.querySelectorAll('[data-client-quick-edit-close]').forEach(button=>button.addEventListener('click',editClose));
+ editModal?.addEventListener('click',event=>{if(event.target===editModal)editClose();});
+ editForm?.addEventListener('submit',async event=>{
+  event.preventDefault();if(!currentPayload?.client?.can_edit||!currentPayload?.client?.id)return;
+  const submit=editForm.querySelector('[type="submit"]');const original=submit?.innerHTML;
+  if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Salvando...';}
+  try{
+   const response=await fetch(editForm.action,{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},body:new FormData(editForm)});
+   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível salvar o cadastro.');
+   editClose();notify('success','Cadastro atualizado',data.message||'As alterações foram salvas no CRM.');
+   if(currentRequest)await load(currentRequest);
+  }catch(error){notify('danger','Editar cadastro',error.message||'Revise os campos e tente novamente.');}
+  finally{if(submit){submit.disabled=false;submit.innerHTML=original;}}
  });
 
  const activityButton=q('[data-client-quick-activity]');
