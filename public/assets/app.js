@@ -1746,6 +1746,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.addEventListener('keydown',onKey);
     setTimeout(()=>ok.focus(),0);
   });
+  window.askConfirm=askConfirm;
   document.addEventListener('click',async e=>{
     const el=e.target.closest?.('[data-confirm]');
     if(!el)return;
