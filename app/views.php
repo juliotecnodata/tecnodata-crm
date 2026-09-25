@@ -1413,7 +1413,7 @@ function render(string $name,array $vars=[]): void{
    <section class="cix-page">
     <header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-people-group"></i></span><div><small>COMERCIAL / DESENVOLVIMENTO</small><h1>Parceiros EAD</h1><p>Acompanhamento do desenvolvimento dos parceiros revendedores.</p></div></div><?php if(Auth::can('admin','supervisor')):?><button class="cix-btn primary" type="button" data-partner-sync-open><i class="fa-solid fa-arrows-rotate"></i>Sincronizar parceiros</button><?php endif;?></header>
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. A sincronização cruza o CNPJ da base de parceiros com a Conta CRM; você revisa os resultados antes de salvar qualquer classificação.</span></div>
+    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. A sincronização cruza CPF ou CNPJ da base de parceiros com a Conta CRM; você revisa os resultados antes de salvar qualquer classificação.</span></div>
     <?php if(Auth::can('admin','supervisor')):?>
     <dialog class="cix-dialog cix-partner-sync-dialog" data-partner-sync-dialog>
      <form method="post" action="<?=APP_URL?>/commercial-partners/sync-apply" data-partner-sync-form>
@@ -1430,14 +1430,14 @@ function render(string $name,array $vars=[]): void{
         <article><small>Não localizados</small><strong>—</strong><span>revisar cadastro</span></article>
        </section>
        <div class="cix-partner-sync-toolbar">
-        <label class="grow"><span>Filtrar resultados</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="form-control" placeholder="Parceiro, CNPJ, Conta CRM ou responsável" data-partner-sync-search></div></label>
+        <label class="grow"><span>Filtrar resultados</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="form-control" placeholder="Parceiro, CPF/CNPJ, Conta CRM ou responsável" data-partner-sync-search></div></label>
         <label class="cix-partner-sync-toggle"><input type="checkbox" data-partner-sync-select-all checked><span>Selecionar todos os elegíveis</span></label>
         <div class="cix-partner-sync-selected"><small>Selecionados</small><strong data-partner-sync-selected>0</strong></div>
        </div>
        <div class="cix-partner-sync-loading" data-partner-sync-loading><i class="fa-solid fa-spinner fa-spin"></i><strong>Consultando base de parceiros...</strong><span>Nenhuma classificação será alterada nesta etapa.</span></div>
        <div class="cix-partner-sync-table-wrap" data-partner-sync-table hidden>
         <table class="cix-partner-sync-table">
-         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
+         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>CPF/CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
          <tbody data-partner-sync-body></tbody>
         </table>
        </div>
