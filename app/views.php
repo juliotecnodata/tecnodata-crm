@@ -843,7 +843,7 @@ function render(string $name,array $vars=[]): void{
       <?php if(!$centralMode&&$attention!=='all'):?><input type="hidden" name="attention" value="<?=e($attention)?>"><?php endif;?>
       <label class="tdw-search"><span><?=$centralMode?'Buscar no CRM':'Buscar na carteira'?></span><div><i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="q" value="<?=e((string)($filters['q']??''))?>" placeholder="Empresa, CNPJ/CPF, código ou responsável"></div></label>
       <label><span>Classificação</span><select class="form-select" name="classification"><option value="all">Todas</option><option value="cfc" <?=($filters['classification']??'')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($filters['classification']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($filters['classification']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=($filters['classification']??'')==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
-      <label><span>Vínculo</span><select class="form-select" name="link"><option value="all">Todos</option><option value="linked" <?=($filters['link']??'')==='linked'?'selected':''?>>Cliente vinculado</option><option value="prospect" <?=($filters['link']??'')==='prospect'?'selected':''?>>Prospect / Conta CRM</option></select></label>
+      <label><span>Vínculo</span><select class="form-select" name="link"><option value="all">Todos</option><option value="linked" <?=($filters['link']??'')==='linked'?'selected':''?>>CRM + Cliente Geral</option><option value="prospect" <?=($filters['link']??'')==='prospect'?'selected':''?>>Somente CRM</option></select></label>
       <?php if($centralMode||in_array((string)$u['role'],['admin','supervisor'],true)):?>
        <label><span>Responsável</span><select class="form-select" name="owner"><option value=""><?=$centralMode?'Todos os responsáveis':'Equipe ativa'?></option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=($filters['owner']??'')===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?> · <?=number_format((int)$owner['account_count'],0,',','.')?></option><?php endforeach;?></select></label>
        <?php if(!$centralMode):?><label><span>Escopo</span><select class="form-select" name="scope"><option value="active" <?=($filters['scope']??'active')==='active'?'selected':''?>>Equipe ativa</option><option value="legacy" <?=($filters['scope']??'')==='legacy'?'selected':''?>>Responsáveis antigos</option><option value="all" <?=($filters['scope']??'')==='all'?'selected':''?>>Todos</option></select></label><?php endif;?>
@@ -868,6 +868,7 @@ function render(string $name,array $vars=[]): void{
        elseif(empty($row['last_contact_at'])){$priority='new';$priorityLabel='Primeiro contato';}
        elseif($nextAt){$priority='scheduled';$priorityLabel='Agendado';}
        elseif($days>60){$priority='attention';$priorityLabel='Reativar';}
+       if($centralMode){$priority='normal';$priorityLabel=$linked?'Vinculado':'CRM';}
       ?>
        <article class="tdw-account-row <?=$priority?>">
         <div class="tdw-priority-marker"><span></span><small><?=e($priorityLabel)?></small></div>
@@ -897,7 +898,7 @@ function render(string $name,array $vars=[]): void{
 
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$hasClientLink=!empty($account['client_id']);$linked=$hasClientLink&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']);$profile=$profile??[];
-   $canMaintain=!empty($canMaintain);$backUrl=$backUrl??APP_URL.'/my-portfolio';$backLabel=$backLabel??'Voltar para a carteira';
+   $canMaintain=!empty($canMaintain);$backUrl=$backUrl??APP_URL.'/my-portfolio';$backLabel=$backLabel??'Voltar para a carteira';$accountFromClients=str_contains((string)$backUrl,'/clients');
    $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=$canAdminLink||$canSellerLink;
    $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
    $contacts=array_values($contacts??[]);
@@ -1183,7 +1184,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($canMaintain):?>
     <dialog class="tdf-classification-dialog" data-tdf-classification-dialog>
      <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/profile">
-      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="strategic_notes" value="<?=e((string)($profile['strategic_notes']??''))?>">
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="<?=$accountFromClients?'clients':'portfolio'?>"><input type="hidden" name="strategic_notes" value="<?=e((string)($profile['strategic_notes']??''))?>">
       <header><div><strong>Classificação do cliente</strong><small>A alteração fica registrada na trilha de auditoria.</small></div><button type="button" data-tdf-classification-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
       <div class="tdf-classification-body">
        <div class="tdf-class-options">
