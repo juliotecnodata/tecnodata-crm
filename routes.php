@@ -1040,7 +1040,8 @@ $router->post('/commercial/accounts/{code}/profile',function($p){
  if(!CommercialAccountService::canView($u,$code)){http_response_code(403);exit('Sem permissão para alterar esta Conta CRM.');}
  CommercialAccountService::updateProfile($code,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Perfil comercial atualizado. A alteração foi auditada e entrou na fila de sincronização do Omie.'];
- redirect('/commercial/accounts/'.rawurlencode($code));
+ $suffix=(string)($_POST['return_to']??'')==='clients'?'?from=clients':'';
+ redirect('/commercial/accounts/'.rawurlencode($code).$suffix);
 });
 
 $router->get('/commercial-partners',function(){
