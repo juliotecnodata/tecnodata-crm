@@ -1552,7 +1552,7 @@ final class CommercialAccountService {
   CommercialSchema::ensure();
   return DB::all("SELECT cu.omie_code,cu.name,cu.email,
                          COUNT(a.omie_code) account_count,
-                         CASE WHEN cu.omie_code IN (".implode(',',array_fill(0,max(1,count(CommercialPortfolioService::activeCrmSellerCodes()))),'?').") THEN 1 ELSE 0 END operational
+                         CASE WHEN cu.omie_code IN (".implode(',',array_fill(0,max(1,count(CommercialPortfolioService::activeCrmSellerCodes())),'?')).") THEN 1 ELSE 0 END operational
                   FROM crm_users cu
                   LEFT JOIN crm_accounts a ON a.crm_user_code=cu.omie_code AND a.active=1
                   GROUP BY cu.omie_code,cu.name,cu.email
