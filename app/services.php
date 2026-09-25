@@ -1290,6 +1290,20 @@ final class ClientService {
 }
 
 final class OrderService {
+ private static function sellerOwnsCommercialClient(int $clientId,array $user): bool{
+  if((string)($user['role']??'')!=='seller')return true;
+  if($clientId<=0)return false;
+  $crmCode=trim((string)($user['crm_user_omie_code']??''));if($crmCode==='')return false;
+  return (int)(DB::scalar("SELECT COUNT(*)
+                           FROM crm_account_links l
+                           JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+                           WHERE l.client_id=? AND a.crm_user_code=?",[$clientId,$crmCode])??0)>0;
+ }
+ private static function assertSellerCommercialClient(int $clientId,array $user): void{
+  if((string)($user['role']??'')==='seller'&&!self::sellerOwnsCommercialClient($clientId,$user))
+   throw new RuntimeException('Este cliente não pertence à sua carteira atual no CRM Omie.');
+ }
+
  private static function normalizeFreightMode(mixed $value,string $fallback='9'): string{
   $allowed=['0','1','2','3','4','9'];
   $mode=trim((string)$value);
@@ -1349,6 +1363,7 @@ final class OrderService {
   $total+=max(0,self::normalizeMoneyValue($i['freight_value']??0));
 
   $clientId=(int)($i['client_id']??0);
+  if($clientId>0)self::assertSellerCommercialClient($clientId,$u);
   if($clientId<=0)$clientId=null;
   $seller=($u['role']??'')==='seller'
    ? trim((string)($u['seller_omie_code']??''))
@@ -1429,7 +1444,7 @@ final class OrderService {
     WHERE o.id=?",[$id]
   );
   if(!$order)throw new RuntimeException('Pedido não encontrado.');
-  if(($u['role']??'')==='seller'&&(string)$order['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Sem permissão para acessar este pedido.');
+  self::assertSellerCommercialClient((int)($order['client_id']??0),$u);
   $raw=json_decode((string)($order['raw_json']??''),true);
   if(!is_array($raw))$raw=[];
   $items=[];
@@ -1838,15 +1853,9 @@ final class OrderService {
  }
  public static function build(array $i,array $u): array{
   $r=self::ready();if(!$r['ok'])throw new RuntimeException('Configuração incompleta: '.implode(', ',$r['missing']).'.');$defaults=$r['defaults'];
-  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[(int)($i['client_id']??0)]);if(!$client)throw new RuntimeException('Cliente inválido.');
+  $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[(int)($i['client_id']??0)]);if(!$client)throw new RuntimeException('Cliente inválido ou inativo.');
   if(($u['role']??'')==='seller'&&ClientSegmentPolicy::isVirtualSeller(ClientSegmentPolicy::segmentSeller($client)))throw new RuntimeException('Este cliente pertence a uma operação virtual e não pode entrar no fluxo dos vendedores reais.');
-  $effectiveSeller=ClientPortfolioService::effectiveSellerCode((int)$client['id']);
-  $clientUnassigned=$effectiveSeller==='';
-  if($u['role']==='seller'&&!$clientUnassigned&&$effectiveSeller!==(string)$u['seller_omie_code']){
-   $editableOriginal=null;$editingId=(int)($i['edit_order_id']??0);
-   if($editingId>0)$editableOriginal=DB::one("SELECT client_omie_code FROM orders WHERE id=? AND seller_omie_code=?",[$editingId,(string)$u['seller_omie_code']]);
-   if(!$editableOriginal||(string)$editableOriginal['client_omie_code']!==(string)$client['omie_code'])throw new RuntimeException('Cliente fora da sua carteira.');
-  }
+  self::assertSellerCommercialClient((int)$client['id'],$u);
   $seller=$u['role']==='seller'?(string)$u['seller_omie_code']:(string)($i['seller_omie_code']??'');if($seller===''||!DB::one("SELECT 1 FROM sellers WHERE omie_code=? AND active=1",[$seller]))throw new RuntimeException('Vendedor obrigatório ou inválido.');
 
   // O vendedor pode setar os campos operacionais do pedido; os padrões apenas agilizam a digitação.

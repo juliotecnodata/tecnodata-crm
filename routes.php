@@ -1609,8 +1609,14 @@ $router->get('/orders',function(){
   $params[]=$period['from'];$params[]=$period['next'];
  }
  if(($u['role']??'')==='seller'){
-  $where[]='o.seller_omie_code=?';
-  $params[]=(string)($u['seller_omie_code']??'');
+  $crmCode=trim((string)($u['crm_user_omie_code']??''));
+  $where[]=$crmCode!==''?"EXISTS (
+    SELECT 1 FROM clients commercial_client
+    JOIN crm_account_links commercial_link ON commercial_link.client_id=commercial_client.id
+    JOIN crm_accounts commercial_account ON commercial_account.omie_code=commercial_link.crm_account_code AND commercial_account.active=1
+    WHERE commercial_client.omie_code=o.client_omie_code AND commercial_account.crm_user_code=?
+   )":'1=0';
+  if($crmCode!=='')$params[]=$crmCode;
  }
  $baseWhere=$where;
  $baseParams=$params;
@@ -3045,7 +3051,7 @@ $router->get('/api/orders/datatable',function(){
  $budgetCodes=OrderPolicy::budgetStageCodes();$stageFilter=trim((string)($_GET['stage']??''));if(mb_strlen($stageFilter)>20)$stageFilter='';
  $where=[];$params=[];
  if(!$period['all']){$where[]='o.order_date>=?';$where[]='o.order_date<?';array_push($params,$period['from'],$period['next']);}
- if(($u['role']??'')==='seller'){$where[]='o.seller_omie_code=?';$params[]=(string)($u['seller_omie_code']??'');}
+ if(($u['role']??'')==='seller'){$crmCode=trim((string)($u['crm_user_omie_code']??''));$where[]=$crmCode!==''?"EXISTS (SELECT 1 FROM clients commercial_client JOIN crm_account_links commercial_link ON commercial_link.client_id=commercial_client.id JOIN crm_accounts commercial_account ON commercial_account.omie_code=commercial_link.crm_account_code AND commercial_account.active=1 WHERE commercial_client.omie_code=o.client_omie_code AND commercial_account.crm_user_code=?)":'1=0';if($crmCode!=='')$params[]=$crmCode;}
  $budgetPlaceholders=implode(',',array_fill(0,count($budgetCodes),'?'));
  if($view==='budget'){$where[]='o.stage_code IN ('.$budgetPlaceholders.')';array_push($params,...$budgetCodes);}
  else{$where[]='(o.stage_code IS NULL OR o.stage_code NOT IN ('.$budgetPlaceholders.'))';array_push($params,...$budgetCodes);}
