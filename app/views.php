@@ -1413,7 +1413,7 @@ function render(string $name,array $vars=[]): void{
    <section class="cix-page">
     <header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-people-group"></i></span><div><small>COMERCIAL / DESENVOLVIMENTO</small><h1>Parceiros EAD</h1><p>Acompanhamento do desenvolvimento dos parceiros revendedores.</p></div></div><?php if(Auth::can('admin','supervisor')):?><button class="cix-btn primary" type="button" data-partner-sync-open><i class="fa-solid fa-arrows-rotate"></i>Sincronizar parceiros</button><?php endif;?></header>
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. A sincronização cruza CPF ou CNPJ da base de parceiros com a Conta CRM; você revisa os resultados antes de salvar qualquer classificação.</span></div>
+    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. A sincronização consulta somente parceiros ativos e cruza CPF ou CNPJ com a Conta CRM; você revisa os resultados antes de salvar qualquer classificação.</span></div>
     <?php if(Auth::can('admin','supervisor')):?>
     <dialog class="cix-dialog cix-partner-sync-dialog" data-partner-sync-dialog>
      <form method="post" action="<?=APP_URL?>/commercial-partners/sync-apply" data-partner-sync-form>
@@ -1427,19 +1427,18 @@ function render(string $name,array $vars=[]): void{
         <article><small>Base consultada</small><strong>—</strong><span>registros em cfcs</span></article>
         <article><small>Para validar</small><strong>—</strong><span>pendentes no CRM</span></article>
         <article class="attention"><small>Não localizados</small><strong>—</strong><span>revisar cadastro</span></article>
-        <article class="inactive"><small>Inativos nos parceiros</small><strong>—</strong><span>revisão do supervisor</span></article>
+        <article class="inactive"><small>Documento inválido</small><strong>—</strong><span>corrigir na base ativa</span></article>
        </section>
        <div class="cix-partner-sync-omitted" data-partner-sync-omitted hidden><i class="fa-solid fa-circle-check"></i><span></span></div>
        <div class="cix-partner-sync-toolbar">
         <label><span>Situação</span><select class="form-select" data-partner-sync-status-filter><option value="">Todas as pendências</option><option value="pending">Prontos para validar</option><option value="not_found">Não localizados</option><option value="invalid">Documento inválido</option><option value="failed">Erro ao salvar</option></select></label>
-        <label><span>Origem parceiros</span><select class="form-select" data-partner-sync-origin-filter><option value="">Ativos e inativos</option><option value="active">Ativos</option><option value="inactive">Inativos</option><option value="mixed">Cadastro duplicado/misto</option></select></label>
         <label class="cix-partner-sync-toggle"><input type="checkbox" data-partner-sync-select-all><span>Selecionar todos os elegíveis</span></label>
         <div class="cix-partner-sync-selected"><small>Selecionados</small><strong data-partner-sync-selected>0</strong></div>
        </div>
        <div class="cix-partner-sync-loading" data-partner-sync-loading><i class="fa-solid fa-spinner fa-spin"></i><strong>Consultando base de parceiros...</strong><span>Nenhuma classificação será alterada nesta etapa.</span></div>
        <div class="cix-partner-sync-table-wrap" data-partner-sync-table hidden>
         <table class="cix-partner-sync-table" data-partner-sync-datatable>
-         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>Origem</th><th>CPF/CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
+         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>CPF/CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
          <tbody data-partner-sync-body></tbody>
         </table>
        </div>
@@ -1447,14 +1446,14 @@ function render(string $name,array $vars=[]): void{
        <div class="cix-partner-sync-error" data-partner-sync-error hidden></div>
       </div>
       <footer class="cix-partner-sync-footer">
-       <div><i class="fa-solid fa-shield-halved"></i><span>Já validados ficam ocultos. Inativos vêm desmarcados para revisão. Somente os itens marcados serão salvos.</span></div>
+       <div><i class="fa-solid fa-shield-halved"></i><span>Somente parceiros ativos entram nesta conciliação. Já validados ficam ocultos e apenas os itens marcados serão salvos.</span></div>
        <div><button class="cix-btn" type="button" data-partner-sync-close>Cancelar</button><button class="cix-btn primary" type="submit" data-partner-sync-save disabled><i class="fa-solid fa-check"></i>Validar selecionados</button></div>
       </footer>
      </form>
     </dialog>
     <?php endif;?>
     <form class="cix-filters" method="get"><label class="grow"><span>Buscar parceiro</span><input class="form-control" type="search" name="q" value="<?=e($partnerFilters['q']??'')?>" placeholder="Nome, CNPJ ou CPF"></label><label><span>Situação</span><select class="form-select" name="status"><option value="all">Todos</option><option value="active" <?=($partnerFilters['status']??'')==='active'?'selected':''?>>Ativos</option><option value="activation" <?=($partnerFilters['status']??'')==='activation'?'selected':''?>>Em ativação</option><option value="reactivation" <?=($partnerFilters['status']??'')==='reactivation'?'selected':''?>>Precisam de reativação</option></select></label><button class="cix-btn primary"><i class="fa-solid fa-filter"></i>Aplicar</button><a class="cix-btn" href="<?=APP_URL?>/commercial-partners">Limpar</a></form>
-    <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table cix-partners-datatable" data-page-length="25" data-order-column="0" data-order-direction="asc"><thead><tr><th>Parceiro</th><th>Tipo</th><th>Último trabalho</th><th>Dias sem trabalho</th><th>Desenvolvimento</th><th>Próximo passo</th><th>Ações</th></tr></thead><tbody>
+    <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table cix-partners-datatable" data-page-length="10" data-order-column="0" data-order-direction="asc"><thead><tr><th>Parceiro</th><th>Tipo</th><th>Último trabalho</th><th>Dias sem trabalho</th><th>Desenvolvimento</th><th>Próximo passo</th><th>Ações</th></tr></thead><tbody>
      <?php foreach($partnerRows as $row):$days=$row['last_work_at']===null?9999:(int)$row['days_without_work'];$stage=$days>30?['Precisa reativação','danger']:($days>14?['Em ativação','blue']:['Ativado e acompanhado','green']);$name=trim((string)($row['trade_name']??''))?:$row['name'];$type=!empty($row['is_cfc'])?'CFC + Revendedor':'Revendedor';?>
       <tr><td><a class="cix-account" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($name)?></strong><small><?=e($row['document']?:'Documento não informado')?></small></a></td><td><span class="cix-badge <?=!empty($row['is_cfc'])?'both':'reseller'?>"><?=e($type)?></span></td><td><?=!empty($row['last_work_at'])?'<strong>'.date('d/m/Y',strtotime($row['last_work_at'])).'</strong><small>'.e(mb_strimwidth((string)$row['last_work_description'],0,52,'…')).'</small>':'<strong>—</strong><small>Nunca trabalhado</small>'?></td><td><span class="cix-days <?=$days>30?'danger':($days>14?'warning':'green')?>"><?=$days===9999?'Nunca':$days.' dias'?></span></td><td><span class="cix-stage <?=$stage[1]?>"><?=$stage[0]?></span></td><td><?=e($row['next_step']?:'Definir próximo passo')?></td><td><button class="cix-btn primary" type="button" data-partner-work-open data-account-code="<?=e($row['omie_code'])?>" data-account-name="<?=e($name)?>"><i class="fa-solid fa-plus"></i>Registrar trabalho</button></td></tr>
      <?php endforeach;?><?php if(!$partnerRows):?><tr><td colspan="7" class="cix-empty">Nenhum parceiro encontrado para os filtros atuais.</td></tr><?php endif;?>
@@ -1635,7 +1634,7 @@ function render(string $name,array $vars=[]): void{
      <?php endif;?>
      <div class="table-card tdc-table-wrap">
       <?php $clientDataParams=['ufs'=>$clientUfs,'segment'=>$clientSegment,'month'=>$portfolioMonth,'crm_status'=>$crmStatus,'classification'=>$classificationFilter,'identity'=>$identityFilter??'linked'];if($ddds)$clientDataParams['ddds']=$ddds;if($clientTagsSelected)$clientDataParams['tags']=$clientTagsSelected;if($sellerFilter!=='')$clientDataParams['seller_filter']=$sellerFilter;if($portfolioMode)$clientDataParams['portfolio']='mine';elseif(Auth::can('seller')&&($clientScope??'all')==='unassigned')$clientDataParams['scope']='unassigned';?>
-      <table class="table tdc-table clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="5" data-length-change="1" data-order-column="<?=$portfolioMode?5:(Auth::can('admin','supervisor')&&$crmStatus==='active'?1:0)?>" data-order-direction="asc">
+      <table class="table tdc-table clients-datatable" data-server-url="<?=APP_URL?>/api/clients/datatable?<?=e(http_build_query($clientDataParams))?>" data-search="<?=e($q)?>" data-page-length="10" data-length-change="1" data-order-column="<?=$portfolioMode?5:(Auth::can('admin','supervisor')&&$crmStatus==='active'?1:0)?>" data-order-direction="asc">
        <thead><tr><?php if(Auth::can('admin','supervisor')&&$crmStatus==='active'):?><th class="tdc-select-column" data-dt-order="disable"><label class="tdc-row-check" title="Selecionar página"><input type="checkbox" data-client-select-page><span></span></label></th><?php endif;?><th>Cliente</th><th data-dt-order="disable">Integração</th><th>Localização</th><th>Responsabilidade</th><th data-dt-order="disable">Classificação</th><th>Ciclo</th><th>Dias sem contato</th><th>Última compra</th><th class="text-end">Receita 12m</th><th class="text-end" data-dt-order="disable">Ações</th></tr></thead>
        <tbody><?php foreach($rows as $r):?><tr>
         <?php if(Auth::can('admin','supervisor')&&$crmStatus==='active'):?><td><label class="tdc-row-check"><input type="checkbox" data-client-select value="<?=(int)$r['id']?>"><span></span></label></td><?php endif;?><td><?php $loggedSellerCode=trim((string)(Auth::user()['seller_omie_code']??''));$rowEffectiveCode=trim((string)($r['effective_seller_code']??$r['seller_omie_code']??''));$rowSellerOwned=Auth::can('admin','supervisor','seller');$rowSellerUnassigned=$rowEffectiveCode==='';?><div class="tdc-client-cell"><span class="tdc-avatar"><?=e(mb_strtoupper(mb_substr((string)$r['name'],0,1)))?></span><div><a href="<?=APP_URL?>/clients/<?=$r['id']?>"><strong><?=e($r['name'])?></strong></a><small><?=e($r['document']?:'Documento não informado')?></small></div></div></td>
@@ -1899,7 +1898,7 @@ function render(string $name,array $vars=[]): void{
       <?php if(($productStatus??'active')!=='active'||!empty($productUnit)):?><a href="<?=APP_URL?>/products"><i class="fa-solid fa-rotate-left"></i>Limpar filtros</a><?php endif;?>
      </form>
      <div class="table-card tdp-table-wrap">
-      <table class="table tdp-table" data-server-url="<?=e(APP_URL.'/api/products/datatable?'.http_build_query($productDataParams))?>" data-page-length="5" data-length-change="1" data-order-column="0" data-order-direction="asc">
+      <table class="table tdp-table" data-server-url="<?=e(APP_URL.'/api/products/datatable?'.http_build_query($productDataParams))?>" data-page-length="10" data-length-change="1" data-order-column="0" data-order-direction="asc">
        <thead><tr><th>Produto</th><th>SKU</th><th>Unidade</th><th class="text-end">Preço</th><th class="text-end">Estoque</th><th data-dt-order="disable">Pesos</th><th>NCM</th><th>Situação</th><th>Atualizado em</th><th data-dt-order="disable">Ações</th></tr></thead><tbody></tbody>
       </table>
      </div>
@@ -1931,7 +1930,7 @@ function render(string $name,array $vars=[]): void{
      <article><span class="red"><i class="fa-solid fa-bullseye"></i></span><div><small>Taxa de contato</small><strong><?=number_format((float)$contactRate,1,',','.')?>%</strong><em>Clientes já trabalhados</em></div></article>
     </div>
 
-    <section class="tdcontact4-panel"><header><div><span><i class="fa-solid fa-chart-simple"></i></span><div><strong>Acompanhamento da equipe</strong><small>Contato, próxima ação e status por cliente.</small></div></div><b><?=number_format((int)$monitorStats['total'],0,',','.')?> clientes</b></header><div class="table-card tdcontact4-table-wrap"><table class="table tdcontact4-table" data-page-length="5" data-length-change="1" data-order-column="3" data-order-direction="desc" data-server-url="<?=e(APP_URL.'/api/contact-monitoring/datatable?'.http_build_query(['seller_id'=>(int)$monitorSellerId,'status'=>(string)$monitorStatus]))?>"><thead><tr><th>Cliente</th><th>Responsável</th><th>Último contato</th><th>Dias sem contato</th><th>Próxima ação</th><th>Resultado</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead><tbody></tbody></table></div></section>
+    <section class="tdcontact4-panel"><header><div><span><i class="fa-solid fa-chart-simple"></i></span><div><strong>Acompanhamento da equipe</strong><small>Contato, próxima ação e status por cliente.</small></div></div><b><?=number_format((int)$monitorStats['total'],0,',','.')?> clientes</b></header><div class="table-card tdcontact4-table-wrap"><table class="table tdcontact4-table" data-page-length="10" data-length-change="1" data-order-column="3" data-order-direction="desc" data-server-url="<?=e(APP_URL.'/api/contact-monitoring/datatable?'.http_build_query(['seller_id'=>(int)$monitorSellerId,'status'=>(string)$monitorStatus]))?>"><thead><tr><th>Cliente</th><th>Responsável</th><th>Último contato</th><th>Dias sem contato</th><th>Próxima ação</th><th>Resultado</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead><tbody></tbody></table></div></section>
 
     <div class="tdcontact4-bottom">
      <section class="tdcontact4-panel compact"><header><div><span class="attention"><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong>Pontos de atenção</strong><small>Clientes que exigem acompanhamento.</small></div></div><a href="<?=APP_URL?>/contact-monitoring?status=overdue">Ver atrasados</a></header><div class="tdcontact4-list"><?php foreach(array_slice($attentionRows,0,5) as $row):$lt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):null;$d=$lt?(int)floor((time()-$lt)/86400):null;?><a href="<?=APP_URL?>/clients/<?=(int)$row['id']?>"><strong><?=e($row['name'])?></strong><span><?=e($row['next_user_name']??$row['portfolio_user_name']??$row['collection_user_name']??'Sem responsável')?></span><b><?=$d===null?'Nunca':$d.' dias'?></b></a><?php endforeach;?><?php if(!$attentionRows):?><div class="tdcontact4-empty">Nenhum ponto crítico nos filtros atuais.</div><?php endif;?></div></section>
@@ -2318,7 +2317,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     </div>
     <section class="tdcob4-panel tdcob4-report-panel">
      <header><div><span><i class="fa-solid fa-table-list"></i></span><div><strong>Detalhamento da carteira</strong><small>Data do pagamento é quando o valor foi recebido; lançamento no CRM é quando o registro foi criado.</small></div></div></header>
-     <div class="table-card tdcob4-table-wrap"><table class="table tdcob4-table" data-page-length="5" data-length-change="1" data-order-column="2" data-order-direction="desc">
+     <div class="table-card tdcob4-table-wrap"><table class="table tdcob4-table" data-page-length="10" data-length-change="1" data-order-column="2" data-order-direction="desc">
       <thead><tr><th>Cliente</th><th>Responsável</th><th>Última ação registrada</th><th>Pagamento no mês</th><th class="text-end">Saldo disponível</th><th>Situação</th><th data-dt-order="disable">Abrir</th></tr></thead>
       <tbody><?php foreach($collectionReportRows??[] as $row):$paid=(float)$row['recovered']>0;$contacted=(int)$row['action_count']>0;$hasRecord=!empty($row['last_action_at']);?>
        <tr>
