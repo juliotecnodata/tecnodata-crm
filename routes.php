@@ -1911,7 +1911,7 @@ $router->get('/collection',function(){
  $collectionTagsSelected=client_filter_tags($_GET['tags']??[]);
  if(!in_array($delay,['all','current','1_30','31_60','60_plus'],true))$delay='all';
  if($u['role']==='collector')$assigned=0;
- $where=['cc.status=?'];$params=[$view];
+ $where=['cc.status=?','c.active=1','c.crm_inactive=0',commercial_active_crm_link_sql('c')];$params=[$view];
  if($assigned>0){$where[]='cc.assigned_user_id=?';$params[]=$assigned;}
  if($uf!==''){$where[]='c.uf=?';$params[]=$uf;}
  if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$where[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($params,...$tagKeys);}
@@ -1947,22 +1947,25 @@ $router->get('/collection',function(){
   $params
  );
  $collectors=DB::all("SELECT id,name FROM users WHERE role='collector' AND active=1 ORDER BY name");
- $ufs=DB::all("SELECT DISTINCT c.uf FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY c.uf");
- $actionWhere=["ca.result='payment'","ca.local_status<>'cancelled'","ca.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01')"];$actionParams=[];
+ $ufs=DB::all("SELECT DISTINCT c.uf FROM collection_cases cc JOIN clients c ON c.id=cc.client_id WHERE cc.status='open' AND c.active=1 AND c.crm_inactive=0 AND ".commercial_active_crm_link_sql('c')." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY c.uf");
+ $actionWhere=["ca.result='payment'","ca.local_status<>'cancelled'","ca.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01')","c.active=1","c.crm_inactive=0",commercial_active_crm_link_sql('c')];$actionParams=[];
  if($assigned>0){$actionWhere[]='ca.assigned_user_id=?';$actionParams[]=$assigned;}
  if($uf!==''){$actionWhere[]='c.uf=?';$actionParams[]=$uf;}
  if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$actionWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($actionParams,...$tagKeys);}
  $recovered=(float)(DB::scalar("SELECT COALESCE(SUM(ca.amount),0) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$actionWhere),$actionParams)??0);
- $promiseWhere=["ca.result='promise'","ca.promise_date>=CURDATE()"];$promiseParams=[];
+ $promiseWhere=["ca.result='promise'","ca.promise_date>=CURDATE()","c.active=1","c.crm_inactive=0",commercial_active_crm_link_sql('c')];$promiseParams=[];
  if($assigned>0){$promiseWhere[]='ca.assigned_user_id=?';$promiseParams[]=$assigned;}
  if($uf!==''){$promiseWhere[]='c.uf=?';$promiseParams[]=$uf;}
  if($collectionTagsSelected){$tagKeys=array_map(static fn($v)=>mb_strtolower((string)$v,'UTF-8'),$collectionTagsSelected);$promiseWhere[]=client_tags_any_filter_sql('c',count($tagKeys));array_push($promiseParams,...$tagKeys);}
  $promises=(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions ca JOIN clients c ON c.id=ca.client_id WHERE ".implode(' AND ',$promiseWhere),$promiseParams)??0);
+ $collectionIdentityPending=in_array((string)($u['role']??''),['admin','supervisor'],true)
+  ?(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases cc JOIN clients c ON c.id=cc.client_id
+                     WHERE cc.status='open' AND c.active=1 AND c.crm_inactive=0 AND NOT (".commercial_active_crm_link_sql('c').")")??0):0;
  $flash=$_SESSION['collection_flash']??null;unset($_SESSION['collection_flash']);
  render('collection',[
   'rows'=>[],'view'=>$view,'flash'=>$flash,'collectionCollectors'=>$collectors,'collectionUfs'=>$ufs,
   'collectionAssigned'=>$assigned,'collectionUf'=>$uf,'collectionDelay'=>$delay,'collectionTags'=>client_tag_catalog(),'collectionTagsSelected'=>$collectionTagsSelected,'collectionRecovered'=>$recovered,'collectionPromises'=>$promises,
-  'collectionStats'=>$stats,'collectionTopAttention'=>$topAttention
+  'collectionStats'=>$stats,'collectionTopAttention'=>$topAttention,'collectionIdentityPending'=>$collectionIdentityPending
  ]);
 });
 $router->get('/collection/report',function(){
@@ -2057,12 +2060,12 @@ $router->get('/collection/{id}',function($p){
  Auth::requireRole('admin','supervisor','collector');ClientSegmentPolicy::ensureSchema();
  $id=(int)$p['id'];
  $c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,c.omie_code client_omie_code,c.crm_inactive,u.name assigned_name,
-                    (SELECT l.crm_account_code FROM crm_account_links l WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_code,
-                    (SELECT a.name FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_name,
-                    (SELECT COUNT(*) FROM crm_account_links l WHERE l.client_id=c.id) crm_account_count
+                    (SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_code,
+                    (SELECT COALESCE(NULLIF(a.trade_name,''),a.name) FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_name,
+                    (SELECT COUNT(*) FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=c.id) crm_account_count
              FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}
- if(($u=Auth::user())&&($u['role']??'')==='collector'&&!empty($c['crm_inactive'])){http_response_code(404);exit('Cobrança não encontrada.');}
+ if(($u=Auth::user())&&($u['role']??'')==='collector'&&(!empty($c['crm_inactive'])||(int)($c['crm_account_count']??0)<=0)){http_response_code(404);exit('Cobrança não encontrada na carteira comercial ativa.');}
  $a=DB::all("SELECT ca.*,ua.name author_name,ur.name assigned_name FROM collection_actions ca JOIN users ua ON ua.id=ca.author_user_id JOIN users ur ON ur.id=ca.assigned_user_id WHERE ca.client_id=? ORDER BY ca.created_at DESC",[$id]);
  $c['pending_local']=0.0;$c['available_amount']=(float)$c['open_amount'];$c['agreement_amount']=0.0;$c['agreement_date']=null;
  foreach($a as $action){
@@ -3101,6 +3104,8 @@ $router->get('/api/clients',function(){
                  JOIN crm_accounts seller_account ON seller_account.omie_code=seller_link.crm_account_code AND seller_account.active=1
                  WHERE seller_link.client_id=clients.id AND seller_account.crm_user_code=?)";
   $p[]=$crmCode;
+ }elseif((string)($u['role']??'')==='collector'){
+  $w[]=commercial_active_crm_link_sql('clients');
  }
  if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,array_merge(client_search_fields('clients'),['CAST(clients.id AS CHAR)']));if($searchSql!==''){$w[]=$searchSql;array_push($p,...$searchParams);}}
  $items=DB::all(
@@ -3241,7 +3246,7 @@ $router->get('/api/collection/datatable',function(){
    &&db_column_exists('tasks','due_at')
    &&db_column_exists('tasks','status');
 
-  $baseWhere=['cc.status=?','c.crm_inactive=0'];$baseParams=[$view];
+  $baseWhere=['cc.status=?','c.active=1','c.crm_inactive=0',commercial_active_crm_link_sql('c')];$baseParams=[$view];
   if($assigned>0){
    if(!$caseHasAssigned)throw new RuntimeException('Estrutura de cobrança desatualizada: responsável da carteira ainda não existe no banco.');
    $baseWhere[]='cc.assigned_user_id=?';$baseParams[]=$assigned;
@@ -3304,6 +3309,8 @@ $router->get('/api/collection/datatable',function(){
   $rows=DB::all(
    "SELECT cc.client_id,cc.open_amount,cc.max_overdue_days,cc.status,
            c.name,c.document,c.uf,c.city,c.seller_omie_code,s.name seller_name,".$assignedSelect.",
+           (SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_code,
+           (SELECT COALESCE(NULLIF(a.trade_name,''),a.name) FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_name,
            ".$lastResultSelect.",
            ".$pendingLocalSelect.",
            ".$nextTaskSelect."
@@ -3323,7 +3330,7 @@ $router->get('/api/collection/datatable',function(){
    $hasAgreement=($row['last_result']??'')==='agreement'&&(float)($row['last_amount']??0)>0;
    $statusClass=$pendingLocal>0?'local-paid':($hasAgreement?'agreement':($days>60?'danger':($days>30?'warning':($days>0?'today':'ok'))));
    $statusText=$pendingLocal>0?'Baixa local pendente':($hasAgreement?'Acordo '.money($row['last_amount']):($days>60?'Crítico':($days>30?'Atenção':($days>0?'Em atraso':'Em dia'))));
-   $client='<div class="tdcob4-client"><span>'.e(mb_strtoupper(mb_substr((string)$row['name'],0,1))).'</span><div><strong>'.e($row['name']).'</strong><small>'.e(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:'')).'</small></div></div>';
+   $client='<div class="tdcob4-client"><span>'.e(mb_strtoupper(mb_substr((string)$row['name'],0,1))).'</span><div><strong>'.e($row['name']).'</strong><small>'.e('CRM '.($row['crm_account_code']??'—').' · '.(($row['city']??'').(!empty($row['uf'])?' / '.$row['uf']:''))).'</small></div></div>';
    $daysCell='<strong class="'.($days>30?'danger':'').'">'.($days>0?$days.' dias':'Em dia').'</strong>';
    $amount='<strong>'.money($available).'</strong><small>Omie '.money($row['open_amount']).($pendingLocal>0?' · baixa '.money($pendingLocal):'').'</small>';
    $last=!empty($row['last_contact_at'])?'<strong>'.date('d/m/Y',strtotime((string)$row['last_contact_at'])).'</strong><small>'.e($row['last_channel']??'contato').'</small>':'—';

@@ -111,3 +111,8 @@
  .tdcob4-tag-panel{position:static;width:100%;max-width:none;margin-top:6px}
  .tdcob4-tag-panel>div{grid-template-columns:1fr}
 }
+
+/* Cobrança opera somente sobre a identidade CRM + Cliente Geral já reconciliada. */
+.tdcob4-identity-note{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:11px 13px;border:1px solid #CFE2EC;border-radius:10px;background:#F6FBFD;color:#365766}
+.tdcob4-identity-note>i{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;border-radius:8px;background:#E7F5FC;color:#007FC7}
+.tdcob4-identity-note>div{min-width:0}.tdcob4-identity-note strong,.tdcob4-identity-note span,.tdcob4-identity-note a{display:block}.tdcob4-identity-note strong{font-size:10px;color:#244553}.tdcob4-identity-note span{margin-top:2px;font-size:8px;line-height:1.45;color:#71858F}.tdcob4-identity-note a{margin-top:6px;color:#9A611D;font-size:8px;font-weight:700;text-decoration:none}.tdcob4-identity-note a b{margin-right:3px}
