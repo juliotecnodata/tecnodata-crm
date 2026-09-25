@@ -3401,7 +3401,7 @@ function layout(string $body,?array $u,string $page=''): void{
      <div class="tdq-edit-grid tdq-edit-grid-commercial">
       <label class="tdq-span-3"><span>Vendedor principal</span><select class="form-select" name="seller_omie_code" data-client-quick-edit-seller><option value="">Sem vendedor</option></select></label>
       <label class="tdq-span-9"><span>Tags</span><input class="form-control" name="tags" required><small class="tdq-edit-hint">Separe várias tags por vírgula.</small></label>
-      <div class="col-12 tdq-edit-classification">
+      <div class="tdq-span-12 tdq-edit-classification">
        <span>Classificação comercial</span>
        <div>
         <label><input type="checkbox" name="is_cfc" value="1"><span><i class="fa-solid fa-building-columns"></i><b>CFC</b><small>Centro de Formação de Condutores</small></span></label>
