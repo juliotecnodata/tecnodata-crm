@@ -456,13 +456,18 @@ final class CommercialPortfolioService {
   CommercialSchema::ensure();
   $codes=self::activeCrmSellerCodes();
   DB::exec("UPDATE clients SET crm_owner_user_id=NULL WHERE crm_account_code IS NOT NULL");
-  if(!$codes)return ['active_sellers'=>0,'mapped_clients'=>0,'stale_owner_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0)];
+  if(!$codes)return [
+   'active_sellers'=>0,'mapped_clients'=>0,
+   'stale_owner_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0),
+   'reassigned_pending_tasks'=>0
+  ];
 
   $ph=implode(',',array_fill(0,count($codes),'?'));
   DB::exec("UPDATE clients c
             JOIN (
              SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
              FROM crm_account_links l
+             JOIN crm_accounts active_account ON active_account.omie_code=l.crm_account_code AND active_account.active=1
              GROUP BY l.client_id
              HAVING COUNT(*)=1
             ) x ON x.client_id=c.id
@@ -471,10 +476,26 @@ final class CommercialPortfolioService {
             SET c.crm_owner_user_id=u.id,c.crm_owner_omie_code=a.crm_user_code,c.crm_account_code=a.omie_code
             WHERE a.crm_user_code IN (".$ph.")", $codes);
 
+  // A carteira é definida pelo CRM Omie. Quando uma Conta CRM muda de responsável,
+  // move apenas retornos/tarefas comerciais PENDENTES que ainda estão atribuídos
+  // a outro vendedor. Tarefas de supervisor/admin e tarefas já concluídas/canceladas
+  // são preservadas exatamente como foram registradas.
+  $reassignedPendingTasks=DB::exec("UPDATE tasks t
+                                    JOIN crm_accounts a ON a.omie_code=t.crm_account_code AND a.active=1
+                                    JOIN users new_owner ON new_owner.crm_user_omie_code=a.crm_user_code
+                                                        AND new_owner.active=1 AND new_owner.role='seller'
+                                    JOIN users previous_owner ON previous_owner.id=t.assigned_user_id
+                                                             AND previous_owner.role='seller'
+                                    SET t.assigned_user_id=new_owner.id,t.updated_at=NOW()
+                                    WHERE t.type='sales' AND t.status='pending'
+                                      AND t.assigned_user_id<>new_owner.id
+                                      AND a.crm_user_code IN (".$ph.")",$codes);
+
   return [
    'active_sellers'=>count($codes),
    'mapped_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NOT NULL")??0),
    'stale_owner_clients'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0),
+   'reassigned_pending_tasks'=>(int)$reassignedPendingTasks,
   ];
  }
 
