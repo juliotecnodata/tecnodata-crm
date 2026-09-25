@@ -1410,7 +1410,7 @@ final class CommercialAccountService {
 
  public static function portfolio(array $user,array $filters=[]): array{
   CommercialSchema::ensure();
-  $page=max(1,(int)($filters['page']??1));$perPage=max(10,min(100,(int)($filters['per_page']??10)));
+  $page=max(1,(int)($filters['page']??1));$perPage=max(5,min(100,(int)($filters['per_page']??10)));
   $q=trim((string)($filters['q']??''));$classification=(string)($filters['classification']??'all');
   if(!in_array($classification,['all','cfc','reseller','both','unclassified'],true))$classification='all';
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
