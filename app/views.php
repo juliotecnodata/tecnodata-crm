@@ -978,9 +978,9 @@ function render(string $name,array $vars=[]): void{
        <div class="tdcentral-actions">
         <a href="<?=$accountHref?>" title="Ficha rápida"><i class="fa-regular fa-address-card"></i><span>Ficha rápida</span></a>
         <?php if($linked):?><a href="<?=$editHref?>" title="Editar cadastro"><i class="fa-solid fa-pen"></i><span>Editar</span></a><?php else:?><span class="disabled" title="Vincule um Cliente Geral antes de editar"><i class="fa-solid fa-pen"></i><span>Editar</span></span><?php endif;?>
-        <?php if(!$linked&&$canWork):?><a href="<?=$linkHref?>" title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a><?php elseif($linked):?><span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span><?php else:?><span class="disabled" title="Vínculo restrito à carteira responsável"><i class="fa-solid fa-link"></i><span>Vincular</span></span><?php endif;?>
+        <?php if(!$linked&&$canWork):?><a href="<?=$linkHref?>" data-no-client-modal title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a><?php elseif($linked):?><span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span><?php else:?><span class="disabled" title="Vínculo restrito à carteira responsável"><i class="fa-solid fa-link"></i><span>Vincular</span></span><?php endif;?>
         <?php if($linked):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$row['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form><?php else:?><span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span><?php endif;?>
-        <a href="<?=$classHref?>" title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a>
+        <a href="<?=$classHref?>" <?=$linked?'':'data-no-client-modal'?> title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a>
         <a class="more" href="<?=$accountHref?>?from=clients" data-no-client-modal title="Abrir ficha completa"><i class="fa-solid fa-ellipsis"></i></a>
        </div>
       </article>
