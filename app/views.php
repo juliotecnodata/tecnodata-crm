@@ -947,55 +947,31 @@ function render(string $name,array $vars=[]): void{
      <div class="tdcentral-chips"><span>Filtros ativos:</span><?php if($activeChips):?><?php foreach($activeChips as $chip):?><a href="<?=e($portfolioUrl($chip[1]))?>"><?=e($chip[0])?><i class="fa-solid fa-xmark"></i></a><?php endforeach;?><?php else:?><em>Nenhum filtro adicional</em><?php endif;?></div>
     </section>
 
-    <section class="tdcentral-list-card">
-     <header class="tdcentral-list-head">
-      <strong><?=number_format($total,0,',','.')?> conta<?=$total===1?'':'s'?> encontrada<?=$total===1?'':'s'?></strong>
-      <div>
-       <form method="get" action="<?=APP_URL?>/clients">
-        <?php foreach(['q'=>$centralQ,'classification'=>$centralClassification,'link'=>$centralLink,'owner'=>$centralOwner,'attention'=>$centralAttention] as $key=>$value):if($value!==''&&$value!=='all'):?><input type="hidden" name="<?=$key?>" value="<?=e($value)?>"><?php endif;endforeach;?>
-        <span>Exibir</span><select name="per_page" onchange="this.form.submit()"><option value="10" <?=$perPage===10?'selected':''?>>10 por página</option><option value="25" <?=$perPage===25?'selected':''?>>25 por página</option><option value="50" <?=$perPage===50?'selected':''?>>50 por página</option></select>
-       </form>
-       <nav><a class="<?=$pageNum<=1?'disabled':''?>" href="<?=$portfolioUrl(['page'=>max(1,$pageNum-1)])?>"><i class="fa-solid fa-chevron-left"></i></a><span><?=$pageNum?> de <?=$pages?></span><a class="<?=$pageNum>=$pages?'disabled':''?>" href="<?=$portfolioUrl(['page'=>min($pages,$pageNum+1)])?>"><i class="fa-solid fa-chevron-right"></i></a></nav>
-      </div>
-     </header>
-
-     <div class="tdcentral-list">
-      <?php foreach($rows as $row):
-       $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
-       $words=preg_split('/\s+/u',$display,-1,PREG_SPLIT_NO_EMPTY);$initials=mb_strtoupper(mb_substr((string)($words[0]??'?'),0,1).(count($words)>1?mb_substr((string)end($words),0,1):''));
-       $linked=!empty($row['client_id']);$canWork=!empty($row['can_work']);$canMaintain=!empty($row['can_maintain']);
-       $lastAt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):false;
-       $nextAt=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;
-       $lastPurchase=!empty($row['last_purchase_at'])?strtotime((string)$row['last_purchase_at']):false;
-       $isLate=$nextAt&&date('Y-m-d',$nextAt)<date('Y-m-d');
-       $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
-       $editHref=$linked?APP_URL.'/clients/'.(int)$row['client_id'].'/edit':'';
-       $classHref=$linked?$editHref:$accountHref.'?from=clients&classify=1';
-       $linkHref=$accountHref.'?from=clients&link=1';
-      ?>
-      <article class="tdcentral-row <?=$isLate?'priority':''?>">
-       <div class="identity">
-        <span class="avatar"><?=e($initials)?></span>
-        <div><div class="name-line"><a href="<?=$accountHref?>"><?=e($display)?></a><?php if($isLate):?><b><i class="fa-solid fa-star"></i>Prioridade</b><?php endif;?></div><p><?=e((string)($row['document']?:'Documento não informado'))?> <i>•</i> CRM <?=e((string)$row['omie_code'])?></p><div class="badges"><?php if(!empty($row['is_cfc'])):?><span class="cfc">CFC</span><?php endif;?><?php if(!empty($row['is_reseller'])):?><span class="reseller">Revendedor</span><?php endif;?><span class="<?=$linked?'linked':'crm-only'?>"><?=$linked?'CRM + Cliente Geral':'Somente CRM'?></span><?php if($linked):?><span class="bound"><i class="fa-solid fa-link"></i>Vinculado</span><?php endif;?></div></div>
-       </div>
-       <div class="metric owner"><i class="fa-regular fa-user"></i><span><small>Responsável</small><strong><?=e((string)($row['owner_name']?:'Sem responsável'))?></strong><em><?=e((string)($row['crm_user_code']??''))?></em></span></div>
-       <div class="metric"><i class="fa-regular fa-calendar"></i><span><small>Último contato</small><strong class="<?=$lastAt?'':'danger'?>"><?=$lastAt?date('d/m/Y',$lastAt):'Nunca'?></strong><em><?=$lastAt?((int)($row['days_without_contact']??0).' dia(s) atrás'):'Prioridade inicial'?></em></span></div>
-       <div class="metric"><i class="fa-regular fa-square-check"></i><span><small>Próxima ação</small><strong class="<?=$isLate?'danger':''?>"><?=$nextAt?($isLate?'Atrasado '.date('d/m',$nextAt):date('d/m/Y H:i',$nextAt)):'Sem retorno'?></strong><em><?=$nextAt?'Retorno comercial agendado':'Defina a próxima ação'?></em></span></div>
-       <div class="metric purchase"><i class="fa-solid fa-chart-simple"></i><span><small>Última compra</small><strong><?=$lastPurchase?date('d/m/Y',$lastPurchase):'—'?></strong><em><?=money((float)($row['revenue_12m']??0))?> em 12m</em></span></div>
-       <div class="tdcentral-actions">
-        <a href="<?=$accountHref?>" title="Ficha rápida"><i class="fa-regular fa-address-card"></i><span>Ficha rápida</span></a>
-        <?php if($linked):?><a href="<?=$editHref?>" title="Editar cadastro"><i class="fa-solid fa-pen"></i><span>Editar</span></a><?php else:?><span class="disabled" title="Vincule um Cliente Geral antes de editar"><i class="fa-solid fa-pen"></i><span>Editar</span></span><?php endif;?>
-        <?php if(!$linked&&$canMaintain):?><a href="<?=$linkHref?>" data-no-client-modal title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a><?php elseif($linked):?><span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span><?php else:?><span class="disabled" title="Vínculo indisponível para este perfil"><i class="fa-solid fa-link"></i><span>Vincular</span></span><?php endif;?>
-        <?php if($linked&&Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$row['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form><?php elseif($linked):?><span class="disabled" title="A sincronização é executada por supervisor ou administrador"><i class="fa-regular fa-clock"></i><span>Pendente</span></span><?php else:?><span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span><?php endif;?>
-        <a href="<?=$classHref?>" <?=$linked?'':'data-no-client-modal'?> title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a>
-        <a class="more" href="<?=$accountHref?>?from=clients" data-no-client-modal title="Abrir ficha completa"><i class="fa-solid fa-ellipsis"></i></a>
-       </div>
-      </article>
-      <?php endforeach;?>
-      <?php if(!$rows):?><div class="tdcentral-empty"><i class="fa-regular fa-folder-open"></i><strong>Nenhuma Conta CRM encontrada</strong><p>Revise os filtros aplicados à Central de Clientes.</p><a href="<?=APP_URL?>/clients">Limpar filtros</a></div><?php endif;?>
+    <section class="tdcentral-list-card tdcentral-datatable-card">
+     <?php
+      $centralDataParams=[
+       'classification'=>$centralClassification,
+       'link'=>$centralLink,
+       'owner'=>$centralOwner,
+       'attention'=>$centralAttention
+      ];
+      if($centralQ!=='')$centralDataParams['q']=$centralQ;
+     ?>
+     <div class="tdcentral-table-wrap">
+      <table class="table tdcentral-datatable" data-datatable data-server-url="<?=APP_URL?>/api/commercial/accounts/datatable?<?=e(http_build_query($centralDataParams))?>" data-page-length="10" data-length-change="1" data-searching="0" data-order-column="0" data-order-direction="asc">
+       <thead>
+        <tr>
+         <th>Cliente</th>
+         <th>Responsável</th>
+         <th>Último contato</th>
+         <th>Próxima ação</th>
+         <th>Última compra</th>
+         <th data-dt-order="disable">Ações</th>
+        </tr>
+       </thead>
+       <tbody></tbody>
+      </table>
      </div>
-
-     <?php if($pages>1):?><footer class="tdcentral-footer"><span>Página <?=$pageNum?> de <?=$pages?> · <?=number_format($total,0,',','.')?> registros</span><nav><a class="<?=$pageNum<=1?'disabled':''?>" href="<?=$portfolioUrl(['page'=>max(1,$pageNum-1)])?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><a class="<?=$pageNum>=$pages?'disabled':''?>" href="<?=$portfolioUrl(['page'=>min($pages,$pageNum+1)])?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></nav></footer><?php endif;?>
     </section>
    </section>
    <?php break; endif;?>
