@@ -2827,10 +2827,28 @@ $router->get('/settings',function(){
  ];
  if($isAdmin)$data=array_merge($data,[
   'defaults'=>OrderService::defaults(),'stages'=>DB::all("SELECT * FROM order_stages WHERE active=1 ORDER BY code"),'categories'=>DB::all("SELECT * FROM categories WHERE active=1 ORDER BY description"),
-  'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),'carriers'=>OrderService::carrierCandidates(),'profiles'=>OrderService::profiles()
+  'accounts'=>DB::all("SELECT * FROM financial_accounts WHERE active=1 ORDER BY name"),'terms'=>DB::all("SELECT * FROM payment_terms WHERE active=1 AND code<>'999' ORDER BY description"),'methods'=>DB::all("SELECT * FROM payment_methods ORDER BY description"),'documents'=>DB::all("SELECT * FROM document_types ORDER BY description"),'taxes'=>DB::all("SELECT * FROM tax_scenarios WHERE active=1 ORDER BY is_default DESC,name"),'stocks'=>DB::all("SELECT * FROM stock_locations WHERE active=1 ORDER BY is_default DESC,name"),'carriers'=>OrderService::carrierCandidates(),'profiles'=>OrderService::profiles(),
+  'partnerDbConfig'=>PartnerDB::editableConfig()
  ]);
  render('settings',$data);
 });
+$router->post('/settings/partner-database',function(){
+ Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ try{
+  PartnerDB::saveConfig($_POST);
+  $action=(string)($_POST['action']??'save');
+  if($action==='save_test'){
+   $test=PartnerDB::test();
+   $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva e testada com sucesso. '.number_format((int)($test['cfcs']??0),0,','.').' registro(s) encontrados na tabela cfcs.'];
+  }else{
+   $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva.'];
+  }
+ }catch(Throwable $e){
+  $_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível configurar o banco de parceiros: '.$e->getMessage()];
+ }
+ redirect('/settings#partner-database');
+});
+
 $router->post('/settings/contact-monitoring',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
