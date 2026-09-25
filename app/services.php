@@ -1240,6 +1240,8 @@ final class ClientService {
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(!str_starts_with((string)$client['omie_code'],'LOCAL-'))throw new RuntimeException('Este cliente já está vinculado à Omie. A remoção somente local foi bloqueada para preservar vínculos e histórico.');
+  $crmLinks=0;try{$crmLinks=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE client_id=?",[$id])??0);}catch(Throwable $e){}
+  if($crmLinks>0)throw new RuntimeException('Este cliente está ligado a uma Conta CRM Omie. Desvincule ou reconcilie a identidade comercial antes de remover o cadastro local.');
   $history=(int)(DB::scalar("SELECT (SELECT COUNT(*) FROM activities WHERE client_id=?)+(SELECT COUNT(*) FROM tasks WHERE client_id=?)+(SELECT COUNT(*) FROM collection_actions WHERE client_id=?)",[$id,$id,$id])??0);
   if($history>0)throw new RuntimeException('Este cliente possui agenda, tarefas ou atendimentos. A exclusão local foi bloqueada para preservar o histórico.');
   DB::exec("DELETE FROM clients WHERE id=?",[$id]);
@@ -1250,11 +1252,12 @@ final class ClientService {
   $client=DB::one("SELECT * FROM clients WHERE id=? AND active=1",[$id]);
   if(!$client)throw new RuntimeException('Cliente não encontrado.');
   if(($u['role']??'')==='seller'&&(string)$client['seller_omie_code']!==(string)($u['seller_omie_code']??''))throw new RuntimeException('Cliente fora da sua carteira.');
+  $crmLinks=0;try{$crmLinks=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE client_id=?",[$id])??0);}catch(Throwable $e){}
 
   $localOmieCode=(string)($client['omie_code']??'');
   if(str_starts_with($localOmieCode,'LOCAL-')){
    $history=(int)(DB::scalar("SELECT (SELECT COUNT(*) FROM activities WHERE client_id=?)+(SELECT COUNT(*) FROM tasks WHERE client_id=?)+(SELECT COUNT(*) FROM collection_actions WHERE client_id=?)+(SELECT COUNT(*) FROM collection_cases WHERE client_id=?)",[$id,$id,$id,$id])??0);
-   if($history>0){DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);return ['status'=>'local_archived','client'=>$client,'response'=>null];}
+   if($history>0||$crmLinks>0){DB::exec("UPDATE clients SET active=0,updated_at=NOW() WHERE id=?",[$id]);return ['status'=>'local_archived','client'=>$client,'response'=>null,'crm_links'=>$crmLinks];}
    DB::exec("DELETE FROM clients WHERE id=?",[$id]);
    return ['status'=>'local_deleted','client'=>$client,'response'=>null];
   }
@@ -1269,16 +1272,18 @@ final class ClientService {
   }
   $response=$omie->call('clients','ExcluirCliente',['codigo_cliente_omie'=>(int)$localOmieCode]);
   $history=(int)(DB::scalar("SELECT (SELECT COUNT(*) FROM activities WHERE client_id=?)+(SELECT COUNT(*) FROM tasks WHERE client_id=?)+(SELECT COUNT(*) FROM collection_actions WHERE client_id=?)+(SELECT COUNT(*) FROM collection_cases WHERE client_id=?)",[$id,$id,$id,$id])??0);
-  if($history>0){
-   $raw=json_decode((string)($client['raw_json']??''),true);if(!is_array($raw))$raw=[];$raw['omie_status']='deleted_remote';$raw['omie_delete_response']=$response;
+  $mustArchive=$history>0||$crmLinks>0;
+  if($mustArchive){
+   $raw=json_decode((string)($client['raw_json']??''),true);if(!is_array($raw))$raw=[];$raw['omie_status']='deleted_remote';$raw['omie_delete_response']=$response;$raw['commercial_identity_preserved']=$crmLinks>0;
    DB::exec("UPDATE clients SET active=0,raw_json=?,updated_at=NOW() WHERE id=?",[json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$id]);
   }else DB::exec("DELETE FROM clients WHERE id=?",[$id]);
   return [
-   'status'=>$history>0?'synced_archived':'synced_deleted',
+   'status'=>$mustArchive?'synced_archived':'synced_deleted',
    'client'=>$client,
    'response'=>$response,
    'remote_code'=>$remoteCode,
    'corrected_code'=>false,
+   'crm_links'=>$crmLinks,
   ];
  }
 
