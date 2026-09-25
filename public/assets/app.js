@@ -1361,11 +1361,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       const lengthChange=table.dataset.lengthChange!=='0';
       const serverUrl=table.dataset.serverUrl||'';
       const serverPaged=table.dataset.serverPaged==='1';
+      const searching=table.dataset.searching!=='0';
       const options={
         pageLength:Number.parseInt(table.dataset.pageLength??'10',10)||10,
         lengthChange:serverPaged?false:lengthChange,
         lengthMenu:[[10,25,50,100],[10,25,50,100]],
-        searching:serverPaged?false:true,
+        searching:serverPaged?false:searching,
         ordering:true,
         paging:serverPaged?false:true,
         info:serverPaged?false:true,
