@@ -209,6 +209,15 @@ function client_central_seller_accessible(int $clientId): bool{
                 JOIN crm_accounts seller_account ON seller_account.omie_code=seller_link.crm_account_code AND seller_account.active=1
                 WHERE seller_link.client_id=c.id AND seller_account.crm_user_code=?)",[$clientId,$crmCode])??0);
 }
+function commercial_seller_client_scope(array $user,string $clientAlias='c'): array{
+ if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$clientAlias))throw new InvalidArgumentException('Alias de cliente inválido.');
+ $crmCode=trim((string)($user['crm_user_omie_code']??''));
+ if((string)($user['role']??'')!=='seller'||$crmCode===''||!in_array($crmCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['1=0',[]];
+ return ["EXISTS (SELECT 1 FROM crm_account_links seller_scope_link
+                  JOIN crm_accounts seller_scope_account ON seller_scope_account.omie_code=seller_scope_link.crm_account_code AND seller_scope_account.active=1
+                  WHERE seller_scope_link.client_id=".$clientAlias.".id
+                    AND seller_scope_account.crm_user_code=?)",[$crmCode]];
+}
 function commercial_team_client_scope(string $clientAlias='c'): array{
  if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$clientAlias))throw new InvalidArgumentException('Alias de cliente inválido.');
  $codes=CommercialPortfolioService::activeCrmSellerCodes();if(!$codes)return ['1=0',[]];
@@ -1030,21 +1039,21 @@ $router->post('/api/client-quick-view/activity',function(){
 
 $router->get('/clients',function()use($renderClients){
  Auth::requireRole('admin','supervisor','seller');$u=Auth::user();$role=(string)($u['role']??'');
- if($role==='seller'){redirect('/my-portfolio');}
- if(in_array($role,['admin','supervisor'],true)){
+ if(in_array($role,['admin','supervisor','seller'],true)){
   CommercialSchema::ensure();$filters=$_GET;$filters['scope']=$role==='admin'?'all':'active';$filters['sort']='name';
   $filters['per_page']=max(10,min(50,(int)($_GET['per_page']??10)));
   $flash=$_SESSION['commercial_flash']??($_SESSION['clients_flash']??null);
   unset($_SESSION['commercial_flash'],$_SESSION['clients_flash']);
   $pendingWhere=["c.active=1","c.crm_inactive=0","COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update')"];$pendingParams=[];
   if($role==='supervisor'){[$teamSql,$teamParams]=commercial_team_client_scope('c');$pendingWhere[]=$teamSql;array_push($pendingParams,...$teamParams);}
+  elseif($role==='seller'){[$sellerSql,$sellerParams]=commercial_seller_client_scope($u,'c');$pendingWhere[]=$sellerSql;array_push($pendingParams,...$sellerParams);}
   $pendingSync=0;
   try{$pendingSync=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$pendingWhere),$pendingParams)??0);}catch(Throwable $ignored){}
   render('commercial_portfolio',[
    'portfolio'=>CommercialAccountService::portfolio($u,$filters),
    'centralStats'=>CommercialAccountService::centralStats($u),
    'centralPendingSync'=>$pendingSync,
-   'owners'=>CommercialAccountService::owners($role==='supervisor'),
+   'owners'=>in_array($role,['admin','supervisor'],true)?CommercialAccountService::owners($role==='supervisor'):[],
    'flash'=>$flash,'centralMode'=>true,
    'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
    'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
