@@ -10,6 +10,19 @@ if(!is_file($configFile)){
 }
 
 $GLOBALS['config']=require $configFile;
+
+// A conexão com a base externa de parceiros fica em arquivo separado para não
+// misturar nem versionar credenciais junto com o config principal do CRM.
+$partnerConfigFile=APP_ROOT.'/config/partner_database.php';
+$partnerExampleFile=APP_ROOT.'/config/partner_database.example.php';
+if(!is_file($partnerConfigFile)&&is_file($partnerExampleFile)){
+ @copy($partnerExampleFile,$partnerConfigFile);
+}
+if(is_file($partnerConfigFile)){
+ $partnerConfig=require $partnerConfigFile;
+ if(is_array($partnerConfig))$GLOBALS['config']['partner_database']=$partnerConfig;
+}
+
 $cfg=$GLOBALS['config']['app']??[];
 
 $host=strtolower((string)($_SERVER['HTTP_HOST']??'localhost'));
