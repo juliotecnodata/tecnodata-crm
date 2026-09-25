@@ -284,6 +284,157 @@ document.addEventListener('DOMContentLoaded',()=>{
     commercialActivityDialog.addEventListener('cancel',()=>commercialActivityDialog.close());
   }
 
+  const partnerSyncDialog=document.querySelector('[data-partner-sync-dialog]');
+  if(partnerSyncDialog){
+    const opener=document.querySelector('[data-partner-sync-open]');
+    const form=partnerSyncDialog.querySelector('[data-partner-sync-form]');
+    const loading=partnerSyncDialog.querySelector('[data-partner-sync-loading]');
+    const table=partnerSyncDialog.querySelector('[data-partner-sync-table]');
+    const tbody=partnerSyncDialog.querySelector('[data-partner-sync-body]');
+    const errorBox=partnerSyncDialog.querySelector('[data-partner-sync-error]');
+    const summary=partnerSyncDialog.querySelector('[data-partner-sync-summary]');
+    const search=partnerSyncDialog.querySelector('[data-partner-sync-search]');
+    const selectAll=partnerSyncDialog.querySelector('[data-partner-sync-select-all]');
+    const selectedCount=partnerSyncDialog.querySelector('[data-partner-sync-selected]');
+    const saveButton=partnerSyncDialog.querySelector('[data-partner-sync-save]');
+    const csrf=form?.querySelector('[name="_token"]')?.value||'';
+    let previewRows=[];
+
+    const setError=message=>{
+      if(errorBox){errorBox.hidden=!message;errorBox.textContent=message||'';}
+    };
+    const checkboxes=()=>[...partnerSyncDialog.querySelectorAll('input[name="account_codes[]"]')];
+    const refreshSelected=()=>{
+      const boxes=checkboxes();const checked=boxes.filter(box=>box.checked).length;
+      if(selectedCount)selectedCount.textContent=String(checked);
+      if(saveButton)saveButton.disabled=checked===0;
+      if(selectAll){
+        selectAll.checked=boxes.length>0&&checked===boxes.length;
+        selectAll.indeterminate=checked>0&&checked<boxes.length;
+      }
+    };
+    const applySearch=()=>{
+      const q=(search?.value||'').trim().toLocaleLowerCase('pt-BR');
+      partnerSyncDialog.querySelectorAll('[data-partner-sync-row]').forEach(row=>{
+        row.hidden=q!==''&&!String(row.dataset.search||'').includes(q);
+      });
+    };
+    const statusMeta=status=>{
+      if(status==='pending')return ['Pronto para validar','pending','fa-circle-check'];
+      if(status==='already')return ['Já classificado','already','fa-circle-check'];
+      if(status==='not_found')return ['Não localizado','not-found','fa-magnifying-glass'];
+      return ['CNPJ inválido','invalid','fa-triangle-exclamation'];
+    };
+    const addText=(parent,tag,text,className='')=>{
+      const el=document.createElement(tag);if(className)el.className=className;el.textContent=String(text??'');parent.appendChild(el);return el;
+    };
+    const renderRows=rows=>{
+      if(!tbody)return;tbody.innerHTML='';previewRows=Array.isArray(rows)?rows:[];
+      previewRows.forEach(item=>{
+        const tr=document.createElement('tr');tr.dataset.partnerSyncRow='1';
+        tr.dataset.status=String(item.status||'');
+        tr.dataset.search=[item.source_name,item.document,item.account_name,item.account_code,item.owner_name,item.city_uf,item.current_classification].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR');
+
+        const tdSelect=document.createElement('td');tdSelect.className='select';
+        if(item.selectable&&item.account_code){
+          const label=document.createElement('label');label.className='cix-partner-sync-check';
+          const input=document.createElement('input');input.type='checkbox';input.name='account_codes[]';input.value=String(item.account_code);input.checked=true;
+          const mark=document.createElement('span');mark.innerHTML='<i class="fa-solid fa-check"></i>';
+          label.append(input,mark);tdSelect.appendChild(label);
+          input.addEventListener('change',refreshSelected);
+        }else{
+          const lock=document.createElement('span');lock.className='cix-partner-sync-lock';lock.innerHTML='<i class="fa-solid fa-minus"></i>';tdSelect.appendChild(lock);
+        }
+        tr.appendChild(tdSelect);
+
+        const tdSource=document.createElement('td');addText(tdSource,'strong',item.source_name||'Sem nome');
+        const sourceDetails=[item.city_uf,item.source_active?'Ativo na origem':'Inativo na origem'];
+        if(Number(item.source_count||0)>1)sourceDetails.push(String(item.source_count)+' registros na origem');
+        addText(tdSource,'small',sourceDetails.filter(Boolean).join(' · '));tr.appendChild(tdSource);
+
+        const tdDoc=document.createElement('td');addText(tdDoc,'strong',item.document||'—');tr.appendChild(tdDoc);
+
+        const tdCrm=document.createElement('td');
+        if(item.account_code){
+          addText(tdCrm,'strong',item.account_name||item.account_code);
+          const crmDetails=['CRM '+item.account_code];if(item.duplicate_crm)crmDetails.push('CNPJ com mais de uma Conta CRM');
+          addText(tdCrm,'small',crmDetails.join(' · '));
+        }else{addText(tdCrm,'span','—','muted');}
+        tr.appendChild(tdCrm);
+
+        const tdOwner=document.createElement('td');addText(tdOwner,'span',item.owner_name||'Sem responsável');tr.appendChild(tdOwner);
+        const tdClass=document.createElement('td');addText(tdClass,'span',item.current_classification||'—','cix-partner-sync-class');tr.appendChild(tdClass);
+
+        const tdStatus=document.createElement('td');const [label,statusClass,icon]=statusMeta(item.status);
+        const status=document.createElement('span');status.className='cix-partner-sync-status '+statusClass;
+        status.innerHTML='<i class="fa-solid '+icon+'"></i>';addText(status,'b',label);tdStatus.appendChild(status);tr.appendChild(tdStatus);
+        tbody.appendChild(tr);
+      });
+      if(!previewRows.length){
+        const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=7;td.className='cix-empty';td.textContent='Nenhum cadastro retornado pela base de parceiros.';tr.appendChild(td);tbody.appendChild(tr);
+      }
+      applySearch();refreshSelected();
+    };
+    const renderSummary=data=>{
+      if(!summary)return;
+      const values=[
+        [data?.source_rows||0,'registros em cfcs'],
+        [data?.matched_accounts||0,'contas correspondentes'],
+        [data?.pending_accounts||0,'selecionáveis'],
+        [data?.not_found_documents||0,'revisar cadastro']
+      ];
+      [...summary.querySelectorAll('article')].forEach((article,index)=>{
+        const strong=article.querySelector('strong');const span=article.querySelector('span');
+        if(strong)strong.textContent=Number(values[index]?.[0]||0).toLocaleString('pt-BR');
+        if(span)span.textContent=values[index]?.[1]||'';
+      });
+    };
+    const loadPreview=async()=>{
+      setError('');if(tbody)tbody.innerHTML='';if(search)search.value='';if(table)table.hidden=true;if(loading)loading.hidden=false;
+      if(saveButton)saveButton.disabled=true;if(selectedCount)selectedCount.textContent='0';if(selectAll){selectAll.checked=true;selectAll.indeterminate=false;}
+      renderSummary({});
+      try{
+        const payload=new FormData();payload.append('_token',csrf);
+        const response=await fetch((window.APP_URL||'')+'/commercial-partners/sync-preview',{method:'POST',body:payload,headers:{Accept:'application/json'}});
+        const body=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
+        if(!response.ok||!body.ok)throw new Error(body.error||'Não foi possível consultar a base de parceiros.');
+        renderSummary(body.data?.summary||{});renderRows(body.data?.rows||[]);
+        if(table)table.hidden=false;
+      }catch(error){
+        setError(error?.message||'Não foi possível consultar a base de parceiros.');
+      }finally{
+        if(loading)loading.hidden=true;
+      }
+    };
+
+    opener?.addEventListener('click',()=>{
+      partnerSyncDialog.showModal();loadPreview();
+    });
+    partnerSyncDialog.querySelectorAll('[data-partner-sync-close]').forEach(button=>button.addEventListener('click',()=>partnerSyncDialog.close()));
+    partnerSyncDialog.addEventListener('click',event=>{if(event.target===partnerSyncDialog)partnerSyncDialog.close();});
+    search?.addEventListener('input',applySearch);
+    selectAll?.addEventListener('change',()=>{
+      checkboxes().forEach(box=>{box.checked=!!selectAll.checked;});refreshSelected();
+    });
+    form?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const selected=checkboxes().filter(box=>box.checked);
+      if(!selected.length){refreshSelected();return;}
+      const original=saveButton?.innerHTML||'';
+      if(saveButton){saveButton.disabled=true;saveButton.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';}
+      setError('');
+      try{
+        const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{Accept:'application/json'}});
+        const body=await response.json().catch(()=>({ok:false,error:'Resposta inválida do servidor.'}));
+        if(!response.ok||!body.ok)throw new Error(body.error||'Não foi possível salvar os parceiros selecionados.');
+        window.location.reload();
+      }catch(error){
+        setError(error?.message||'Não foi possível salvar os parceiros selecionados.');
+        if(saveButton){saveButton.innerHTML=original;saveButton.disabled=false;}
+      }
+    });
+  }
+
   const partnerDialog=document.querySelector('[data-partner-work-dialog]');
   if(partnerDialog){
     const form=partnerDialog.querySelector('[data-partner-work-form]');
