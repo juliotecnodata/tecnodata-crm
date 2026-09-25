@@ -3348,9 +3348,58 @@ function layout(string $body,?array $u,string $page=''): void{
     <a class="tdq-action whatsapp" href="#" target="_blank" rel="noopener" data-client-quick-whatsapp><i class="fa-brands fa-whatsapp"></i>WhatsApp</a>
     <button class="tdq-action secondary" type="button" data-client-quick-activity><i class="fa-regular fa-clipboard"></i>Registrar atividade</button>
     <button class="tdq-action secondary" type="button" data-client-quick-task><i class="fa-regular fa-calendar-plus"></i>Agendar retorno</button>
+    <button class="tdq-action secondary edit" type="button" data-client-quick-edit><i class="fa-regular fa-pen-to-square"></i>Editar cadastro</button>
     <a class="tdq-action secondary" href="#" data-client-quick-full data-no-client-modal><i class="fa-solid fa-arrow-up-right-from-square"></i>Abrir ficha completa</a>
    </footer>
   </div>
+ </dialog>
+ <dialog class="tdq-edit-modal" data-client-quick-edit-modal>
+  <form data-client-quick-edit-form>
+   <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+   <header>
+    <span><i class="fa-regular fa-pen-to-square"></i></span>
+    <div><small>CLIENTES / EDIÇÃO</small><strong>Editar cadastro</strong><p data-client-quick-edit-name>Cliente</p></div>
+    <button type="button" data-client-quick-edit-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+   </header>
+   <div class="tdq-edit-body">
+    <section>
+     <div class="tdq-edit-section-head"><span><i class="fa-regular fa-id-card"></i></span><div><strong>Identificação e contato</strong><small>Dados principais usados no CRM e na integração.</small></div></div>
+     <div class="tdq-edit-grid">
+      <label><span>CPF / CNPJ</span><input class="form-control" name="document" data-edit-document required></label>
+      <label><span>Razão social / Nome</span><input class="form-control" name="legal_name" required></label>
+      <label><span>Nome fantasia</span><input class="form-control" name="trade_name" required></label>
+      <label><span>E-mail</span><input class="form-control" name="email" required></label>
+      <label><span>Nome do contato</span><input class="form-control" name="contact_name" required></label>
+      <label class="phone"><span>Telefone</span><div><input class="form-control" name="phone_ddd" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" maxlength="9" placeholder="Número" required></div></label>
+     </div>
+    </section>
+    <section>
+     <div class="tdq-edit-section-head"><span><i class="fa-solid fa-location-dot"></i></span><div><strong>Endereço</strong><small>Localização completa do cliente.</small></div></div>
+     <div class="tdq-edit-grid address">
+      <label><span>CEP</span><input class="form-control" name="zip_code" required></label>
+      <label class="wide2"><span>Endereço</span><input class="form-control" name="address" required></label>
+      <label><span>Número</span><input class="form-control" name="address_number" required></label>
+      <label><span>Complemento</span><input class="form-control" name="complement"></label>
+      <label><span>Bairro</span><input class="form-control" name="neighborhood" required></label>
+      <label class="wide2"><span>Cidade</span><input class="form-control" name="city" required></label>
+      <label><span>UF</span><input class="form-control text-uppercase" name="uf" maxlength="2" required></label>
+     </div>
+    </section>
+    <section>
+     <div class="tdq-edit-section-head"><span><i class="fa-solid fa-briefcase"></i></span><div><strong>Organização comercial</strong><small>Vendedor, tags e observações do cadastro.</small></div></div>
+     <div class="tdq-edit-grid">
+      <label><span>Vendedor principal</span><select class="form-select" name="seller_omie_code" data-client-quick-edit-seller><option value="">Sem vendedor</option></select></label>
+      <label class="wide2"><span>Tags</span><input class="form-control" name="tags" required></label>
+      <label class="wide3"><span>Observações</span><textarea class="form-control" name="notes" rows="4" maxlength="10000"></textarea></label>
+     </div>
+    </section>
+    <div class="tdq-edit-note"><i class="fa-solid fa-circle-info"></i><span>O vendedor pode corrigir o cadastro de qualquer cliente do universo CRM. Isso não transfere automaticamente a carteira comercial nem altera atividades de outro vendedor.</span></div>
+   </div>
+   <footer>
+    <button type="button" class="tdq-action secondary" data-client-quick-edit-close>Cancelar</button>
+    <button type="submit" class="tdq-action call"><i class="fa-solid fa-check"></i>Salvar alterações</button>
+   </footer>
+  </form>
  </dialog>
  <dialog class="tdq-activity-modal" data-client-quick-activity-modal>
   <form data-client-quick-activity-form>
