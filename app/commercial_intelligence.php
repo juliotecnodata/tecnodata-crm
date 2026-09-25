@@ -1416,7 +1416,8 @@ final class CommercialAccountService {
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
   $attention=(string)($filters['attention']??'all');if(!in_array($attention,['all','overdue','today','never','stale30','upcoming','unplanned'],true))$attention='all';
   $owner=trim((string)($filters['owner']??''));
-  $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next','name'],true))$sort='urgent';
+  $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next','name','owner','purchase'],true))$sort='urgent';
+  $sortDir=strtolower((string)($filters['sort_dir']??'asc'))==='desc'?'desc':'asc';
   $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
   $globalCrm=!empty($filters['_global_crm']);
 
@@ -1495,12 +1496,17 @@ final class CommercialAccountService {
 
   $total=(int)(DB::scalar("SELECT COUNT(*)".$join." WHERE ".$whereSql,$params)??0);
   $pages=max(1,(int)ceil($total/$perPage));$page=min($page,$pages);$offset=($page-1)*$perPage;
+  $direction=$sortDir==='desc'?'DESC':'ASC';
   if($sort==='name'){
-   $orderBy="COALESCE(NULLIF(a.trade_name,''),a.name) ASC,a.name ASC";
+   $orderBy="COALESCE(NULLIF(a.trade_name,''),a.name) ".$direction.",a.name ".$direction;
+  }elseif($sort==='owner'){
+   $orderBy="COALESCE(cu.name,'') ".$direction.",COALESCE(NULLIF(a.trade_name,''),a.name) ASC";
+  }elseif($sort==='purchase'){
+   $orderBy="CASE WHEN m.last_purchase_at IS NULL THEN 1 ELSE 0 END,m.last_purchase_at ".$direction.",COALESCE(NULLIF(a.trade_name,''),a.name) ASC";
   }elseif($sort==='stale'){
-   $orderBy="CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC,a.trade_name ASC,a.name ASC";
+   $orderBy="CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ".$direction.",nt.next_due_at ASC,a.trade_name ASC,a.name ASC";
   }elseif($sort==='next'){
-   $orderBy="CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC,a.trade_name ASC,a.name ASC";
+   $orderBy="CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ".$direction.",act.last_contact_at ASC,a.trade_name ASC,a.name ASC";
   }else{
    $orderBy="CASE
                WHEN nt.next_due_at<CURDATE() THEN 0
@@ -1537,7 +1543,7 @@ final class CommercialAccountService {
   unset($row);
 
   return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>[
-   'q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>$owner,'scope'=>$scope,'sort'=>$sort,'per_page'=>$perPage
+   'q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>$owner,'scope'=>$scope,'sort'=>$sort,'sort_dir'=>$sortDir,'per_page'=>$perPage
   ]];
  }
 
