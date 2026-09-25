@@ -844,7 +844,7 @@ function render(string $name,array $vars=[]): void{
         elseif($nextAt&&date('Y-m-d',$nextAt)===$today){$statusLabel='Hoje';$statusTone='today';}
         elseif(!$lastAt){$statusLabel='Sem contato';$statusTone='neutral';}
         elseif($nextAt){$statusLabel='Pendente';$statusTone='pending';}
-        $phone=trim((string)($row['contact_phone']??''));if($phone===''&&!empty($row['client_phone_number']))$phone=trim((string)($row['client_phone_ddd']??'').' '.(string)$row['client_phone_number']);
+        $phone=trim((string)($row['contact_phone']??''));if($phone==='')$phone=trim((string)($row['contact_mobile']??''));if($phone===''&&!empty($row['client_phone_number']))$phone=trim((string)($row['client_phone_ddd']??'').' '.(string)$row['client_phone_number']);
         $mobile=trim((string)($row['contact_mobile']??''));if($mobile==='')$mobile=$phone;
         $phoneDigits=preg_replace('/\D+/','',$phone);$mobileDigits=preg_replace('/\D+/','',$mobile);if(in_array(strlen($mobileDigits),[10,11],true))$mobileDigits='55'.$mobileDigits;
         $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
