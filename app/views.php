@@ -1427,7 +1427,7 @@ function render(string $name,array $vars=[]): void{
         <article><small>Base consultada</small><strong>—</strong><span>registros em cfcs</span></article>
         <article><small>Para validar</small><strong>—</strong><span>pendentes no CRM</span></article>
         <article class="attention"><small>Não localizados</small><strong>—</strong><span>revisar cadastro</span></article>
-        <article class="inactive"><small>Documento inválido</small><strong>—</strong><span>corrigir na base ativa</span></article>
+        <article class="invalid"><small>Documento inválido</small><strong>—</strong><span>corrigir na base ativa</span></article>
        </section>
        <div class="cix-partner-sync-omitted" data-partner-sync-omitted hidden><i class="fa-solid fa-circle-check"></i><span></span></div>
        <div class="cix-partner-sync-toolbar">
