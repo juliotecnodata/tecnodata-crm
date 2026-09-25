@@ -138,11 +138,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       const detail={
         accountCode:String(baldussiCallDock.dataset.accountCode||''),
         accountName:String(baldussiCallDock.dataset.accountName||'Cliente'),
+        accountOwner:String(baldussiCallDock.dataset.accountOwner||'Sem responsável'),
+        accountType:String(baldussiCallDock.dataset.accountType||'Cliente'),
+        clientId:Number(baldussiCallDock.dataset.clientId||0),
+        activityType:'contact_attempt',
+        activityChannel:'phone',
+        categoryCode:'commercial',
         notes:String(baldussiCallDock.dataset.activityNotes||'Ligação realizada pelo CRM via telefonia Baldussi.')
       };
-      document.dispatchEvent(new CustomEvent('baldussi:register-activity',{detail}));
       if(!(await finishTracking()))return;
       channel?.postMessage({type:'finished'});hideDock();
+      document.dispatchEvent(new CustomEvent('baldussi:register-activity',{detail}));
     });
     channel?.addEventListener('message',event=>{if(event.data?.type==='finished')hideDock();});
   }
@@ -429,6 +435,36 @@ document.addEventListener('DOMContentLoaded',()=>{
       const requestedChannel=String(button.dataset.activityChannel||'').trim();if(requestedChannel){const channelInput=form.querySelector('[name="channel"][value="'+CSS.escape(requestedChannel)+'"]');if(channelInput)channelInput.checked=true;}
       const requestedNotes=String(button.dataset.activityNotes||'').trim();const notes=form.querySelector('[data-commercial-notes]');if(notes&&requestedNotes){notes.value=requestedNotes;notes.dispatchEvent(new Event('input',{bubbles:true}));}
       commercialActivityDialog.showModal();
+    });
+    document.addEventListener('baldussi:register-activity',event=>{
+      if(!form)return;
+      const detail=event.detail||{};
+      const code=String(detail.accountCode||'').trim();
+      if(!code)return;
+      document.querySelectorAll('dialog[open]').forEach(dialog=>{
+        if(dialog!==commercialActivityDialog&&dialog.id!=='appConfirmModal'){
+          try{dialog.close();}catch(error){}
+        }
+      });
+      const trigger=document.createElement('button');
+      trigger.type='button';
+      trigger.hidden=true;
+      trigger.dataset.commercialActivityOpen='';
+      trigger.dataset.accountCode=code;
+      trigger.dataset.accountName=String(detail.accountName||'Cliente');
+      trigger.dataset.accountOwner=String(detail.accountOwner||'Sem responsável');
+      trigger.dataset.accountType=String(detail.accountType||'Cliente');
+      trigger.dataset.clientId=String(Number(detail.clientId||0));
+      trigger.dataset.activityType=String(detail.activityType||'contact_attempt');
+      trigger.dataset.activityChannel=String(detail.activityChannel||'phone');
+      trigger.dataset.activityNotes=String(detail.notes||'');
+      trigger.dataset.scheduleReturn='1';
+      document.body.appendChild(trigger);
+      trigger.click();
+      setTimeout(()=>trigger.remove(),0);
+      const category=String(detail.categoryCode||'commercial');
+      const categoryInput=form.querySelector('[name="category_code"][value="'+CSS.escape(category)+'"]');
+      if(categoryInput)categoryInput.checked=true;
     });
     commercialActivityDialog.querySelectorAll('[data-commercial-activity-close]').forEach(button=>button.addEventListener('click',()=>commercialActivityDialog.close()));
     commercialActivityDialog.addEventListener('click',event=>{if(event.target===commercialActivityDialog)commercialActivityDialog.close();});
@@ -3158,6 +3194,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   openActivityModal(client);
  });
  document.addEventListener('baldussi:register-activity',event=>{
+  if(document.querySelector('[data-commercial-activity-dialog]'))return;
   const detail=event.detail||{};openActivityModal({crm_account_code:String(detail.accountCode||''),name:String(detail.accountName||'Cliente')},String(detail.notes||''));
  });
  activityModal?.querySelectorAll('[data-client-quick-activity-close]').forEach(button=>button.addEventListener('click',()=>activityModal.close()));
