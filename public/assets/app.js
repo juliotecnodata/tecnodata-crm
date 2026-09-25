@@ -472,9 +472,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         tbody.appendChild(tr);
       });
 
-      if(!previewRows.length){
-        const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.className='cix-empty';td.textContent='Nenhuma pendência encontrada. Os parceiros já validados não são mais exibidos.';tr.appendChild(td);tbody.appendChild(tr);
-      }
       refreshSelected();
     };
     const renderSummary=data=>{
