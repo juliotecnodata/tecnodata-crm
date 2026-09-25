@@ -1143,20 +1143,23 @@ final class CommercialAccountService {
  public static function canView(array $user,string $accountCode): bool{
   CommercialSchema::ensure();
   $role=(string)($user['role']??'');
-  if($role==='admin')return true;
+  if(!in_array($role,['admin','supervisor','seller'],true))return false;
+  return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1",[$accountCode])??0)>0;
+ }
+
+ public static function canWork(array $user,string $accountCode): bool{
+  CommercialSchema::ensure();
+  $role=(string)($user['role']??'');
+  if($role==='admin')return self::canView($user,$accountCode);
+  $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
+  if(!$activeCodes)return false;
   if($role==='supervisor'){
-   $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
-   if(!$activeCodes)return false;
    return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1 AND crm_user_code IN (".implode(',',array_fill(0,count($activeCodes),'?')).")",array_merge([$accountCode],$activeCodes))??0)>0;
   }
   if($role!=='seller')return false;
   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-  if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return false;
+  if($crmUserCode===''||!in_array($crmUserCode,$activeCodes,true))return false;
   return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1 AND crm_user_code=?",[$accountCode,$crmUserCode])??0)>0;
- }
-
- public static function canWork(array $user,string $accountCode): bool{
-  return self::canView($user,$accountCode);
  }
 
  public static function get(string $accountCode): ?array{
@@ -1415,11 +1418,15 @@ final class CommercialAccountService {
   $owner=trim((string)($filters['owner']??''));
   $sort=(string)($filters['sort']??'urgent');if(!in_array($sort,['urgent','stale','next','name'],true))$sort='urgent';
   $scope=(string)($filters['scope']??'active');if(!in_array($scope,['active','legacy','all'],true))$scope='active';
+  $globalCrm=!empty($filters['_global_crm']);
 
   $where=['a.active=1'];$params=[];
   $role=(string)($user['role']??'');
   $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
-  if($role==='seller'){
+  if($globalCrm){
+   $scope='all';
+   if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
+  }elseif($role==='seller'){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
    if($crmUserCode===''||!in_array($crmUserCode,$activeCodes,true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>$perPage,'stats'=>self::stats([],[]),'filters'=>['q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>'','scope'=>'active','sort'=>$sort,'per_page'=>$perPage]];
    $where[]='a.crm_user_code=?';$params[]=$crmUserCode;$owner='';$scope='active';
@@ -1521,8 +1528,12 @@ final class CommercialAccountService {
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-  $sellerOperational=$role!=='seller'||($crmUserCode!==''&&in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true));
-  foreach($rows as &$row)$row['can_work']=$role!=='seller'||($sellerOperational&&trim((string)($row['crm_user_code']??''))===$crmUserCode);
+  $sellerOperational=$crmUserCode!==''&&in_array($crmUserCode,$activeCodes,true);
+  foreach($rows as &$row){
+   $rowOwner=trim((string)($row['crm_user_code']??''));
+   $row['can_work']=$role==='admin'||($role==='supervisor'&&in_array($rowOwner,$activeCodes,true))||($role==='seller'&&$sellerOperational&&$rowOwner===$crmUserCode);
+   $row['can_maintain']=in_array($role,['admin','supervisor','seller'],true);
+  }
   unset($row);
 
   return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>[
@@ -1567,16 +1578,7 @@ final class CommercialAccountService {
 
  public static function centralStats(array $user=[]): array{
   CommercialSchema::ensure();
-  $where=['a.active=1'];$params=[];$role=(string)($user['role']??'admin');$activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
-  if($role==='seller'){
-   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-   if($crmUserCode===''||!in_array($crmUserCode,$activeCodes,true))return self::stats([],[]);
-   $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
-  }elseif($role==='supervisor'){
-   if(!$activeCodes)return self::stats([],[]);
-   $where[]='a.crm_user_code IN ('.implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);
-  }
-  return self::stats($where,$params);
+  return self::stats(['a.active=1'],[]);
  }
 
  public static function owners(bool $operationalOnly=false): array{
