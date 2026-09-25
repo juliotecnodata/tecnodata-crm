@@ -1367,7 +1367,7 @@ $router->get('/clients-sync',function(){
   SUM(CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'')='error' THEN 1 ELSE 0 END) errors
   FROM clients c WHERE ".implode(' AND ',$summaryWhere),$summaryParams)?:[];
  $total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c LEFT JOIN sellers ps ON ps.omie_code=c.seller_omie_code LEFT JOIN sellers os ON os.omie_code=c.omie_seller_code WHERE ".implode(' AND ',$where),$params)??0);
- $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=max(1,min($pages,(int)($_GET['page']??1)));$offset=($page-1)*$perPage;
+ $perPage=10;$pages=max(1,(int)ceil($total/$perPage));$page=max(1,min($pages,(int)($_GET['page']??1)));$offset=($page-1)*$perPage;
  $rows=DB::all("SELECT c.*,ps.name principal_seller_name,os.name omie_seller_name,
   COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') sync_status,
   JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.sync_error')) sync_error,
@@ -1522,7 +1522,7 @@ $router->get('/clients-audit',function(){
    foreach(crm_search_terms($q) as $term)if(!str_contains($haystack,mb_strtolower($term,'UTF-8')))return false;
    return true;
   }));
-  $perPage=15;$total=count($filteredGroups);$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
+  $perPage=10;$total=count($filteredGroups);$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
   $visibleGroups=array_slice($filteredGroups,$offset,$perPage);$visibleDocuments=array_column($visibleGroups,'document_digits');
   $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
   if($visibleDocuments){
@@ -1540,7 +1540,7 @@ $router->get('/clients-audit',function(){
   $inactiveWhere=['c.active=0'];$inactiveParams=[];
   if($q!==''){[$searchSql,$searchParams]=crm_search_filter($q,client_search_fields('c'));if($searchSql!==''){$inactiveWhere[]=$searchSql;array_push($inactiveParams,...$searchParams);}}
   $inactiveSql=implode(' AND ',$inactiveWhere);$total=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".$inactiveSql,$inactiveParams)??0);
-  $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
+  $perPage=10;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
   $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
   $inactiveRows=DB::all(
    "SELECT c.*,s.name seller_name,{$docSql} document_digits
@@ -1560,7 +1560,7 @@ $router->get('/clients-audit',function(){
     LEFT JOIN sellers es ON es.omie_code=(CASE WHEN pa_row.id IS NOT NULL THEN pa_row.seller_omie_code ELSE c.seller_omie_code END)";
   $responsibilitySql=implode(' AND ',$responsibilityWhere);
   $total=(int)(DB::scalar("SELECT COUNT(*)".$responsibilityFrom." WHERE ".$responsibilitySql,$responsibilityParams)??0);
-  $perPage=50;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
+  $perPage=10;$pages=max(1,(int)ceil($total/$perPage));$page=min($requestedPage,$pages);$offset=($page-1)*$perPage;
   $pagination=['page'=>$page,'pages'=>$pages,'total'=>$total,'from'=>$total?$offset+1:0,'to'=>min($offset+$perPage,$total)];
   $responsibilityRows=DB::all(
    "SELECT c.*,ps.name principal_seller_name,os.name omie_seller_name,
