@@ -1140,6 +1140,13 @@ final class CommercialHomeService {
 }
 
 final class CommercialAccountService {
+ public static function canView(array $user,string $accountCode): bool{
+  CommercialSchema::ensure();
+  if(in_array((string)($user['role']??''),['admin','supervisor'],true))return true;
+  if((string)($user['role']??'')!=='seller')return false;
+  return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=? AND active=1",[$accountCode])??0)>0;
+ }
+
  public static function canWork(array $user,string $accountCode): bool{
   CommercialSchema::ensure();
   if(in_array((string)($user['role']??''),['admin','supervisor'],true))return true;
@@ -1408,10 +1415,13 @@ final class CommercialAccountService {
 
   $where=['a.active=1'];$params=[];
   $role=(string)($user['role']??'');
-  if($role==='seller'){
+  $sellerCentral=$role==='seller'&&!empty($filters['_seller_central']);
+  if($role==='seller'&&!$sellerCentral){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
    if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope','sort')];
    $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
+  }elseif($sellerCentral){
+   if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
   }else{
    $activeCodes=CommercialPortfolioService::activeCrmSellerCodes();
    if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
@@ -1493,6 +1503,11 @@ final class CommercialAccountService {
                        nt.next_due_at ASC"))
                   .",a.trade_name ASC,a.name ASC
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
+
+  $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
+  $sellerOperational=$role!=='seller'||($crmUserCode!==''&&in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true));
+  foreach($rows as &$row)$row['can_work']=$role!=='seller'||($sellerOperational&&trim((string)($row['crm_user_code']??''))===$crmUserCode);
+  unset($row);
 
   return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>compact('q','classification','link','attention','owner','scope','sort')];
  }
