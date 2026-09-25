@@ -795,56 +795,66 @@ function render(string $name,array $vars=[]): void{
   <?php break;
   case 'commercial_portfolio':
    $portfolio=is_array($portfolio??null)?$portfolio:[];$rows=$portfolio['rows']??[];$stats=$portfolio['stats']??[];$filters=$portfolio['filters']??[];
-   $pageNum=(int)($portfolio['page']??1);$pages=(int)($portfolio['pages']??1);$total=(int)($portfolio['total']??0);
-   $portfolioUrl=static function(array $changes=[])use($filters): string{$query=array_merge($filters,$changes);foreach($query as $key=>$value)if($value===''||$value==='all'||$value===null)unset($query[$key]);return APP_URL.'/my-portfolio'.($query?'?'.http_build_query($query):'');};
+   $pageNum=(int)($portfolio['page']??1);$pages=(int)($portfolio['pages']??1);$total=(int)($portfolio['total']??0);$centralMode=!empty($centralMode);
+   $portfolioBasePath=$centralMode?'/clients':'/my-portfolio';
+   $portfolioUrl=static function(array $changes=[])use($filters,$portfolioBasePath): string{$query=array_merge($filters,$changes);foreach($query as $key=>$value)if($value===''||$value==='all'||$value===null)unset($query[$key]);return APP_URL.$portfolioBasePath.($query?'?'.http_build_query($query):'');};
    $attention=(string)($filters['attention']??'all');
    ?>
    <section class="tdw-page tdw-portfolio">
     <header class="tdw-page-head">
      <div class="tdw-page-title">
-      <span class="tdw-eyebrow">COMERCIAL / CARTEIRA</span>
-      <div><h1><?=$u['role']==='seller'?'Minha Carteira':'Carteira comercial'?></h1><span class="tdw-live"><i></i> Contas CRM Omie sincronizadas</span></div>
-      <p><?=$u['role']==='seller'?'Todas as Contas CRM atribuídas a você, com filtros, histórico e próxima ação.':'Visão das Contas CRM distribuídas à equipe comercial.'?></p>
+      <span class="tdw-eyebrow"><?=$centralMode?'CRM OMIE / CLIENTES':'COMERCIAL / CARTEIRA'?></span>
+      <div><h1><?=$centralMode?'Central de Clientes':($u['role']==='seller'?'Minha Carteira':'Carteira comercial')?></h1><span class="tdw-live"><i></i> Contas CRM Omie sincronizadas</span></div>
+      <p><?=$centralMode?'Todas as Contas CRM ativas da empresa. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.':($u['role']==='seller'?'Todas as Contas CRM atribuídas a você, com filtros, histórico e próxima ação.':'Visão das Contas CRM distribuídas à equipe comercial.')?></p>
      </div>
      <div class="tdw-head-actions">
-      <button class="tdw-btn secondary" type="button" data-global-task-open data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Nova tarefa</button>
-      <a class="tdw-btn primary" href="<?=$portfolioUrl()?>"><i class="fa-solid fa-rotate-right"></i>Atualizar fila</a>
+      <?php if(!$centralMode):?><button class="tdw-btn secondary" type="button" data-global-task-open data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Nova tarefa</button><?php endif;?>
+      <a class="tdw-btn primary" href="<?=$portfolioUrl()?>"><i class="fa-solid fa-rotate-right"></i><?=$centralMode?'Atualizar CRM':'Atualizar fila'?></a>
      </div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <nav class="tdw-priority-strip" aria-label="Prioridades da carteira">
-     <?php foreach([
-      'all'=>['Fila completa',(int)($stats['total']??0),'fa-layer-group','neutral'],
-      'overdue'=>['Atrasados',(int)($stats['overdue_count']??0),'fa-triangle-exclamation','danger'],
-      'today'=>['Hoje',(int)($stats['today_count']??0),'fa-clock','warning'],
-      'never'=>['Nunca trabalhados',(int)($stats['never_contacted']??0),'fa-sparkles','blue'],
-      'upcoming'=>['Próximos',(int)($stats['upcoming_count']??0),'fa-calendar-check','green']
-     ] as $key=>$item):?>
-      <a class="tdw-priority <?=$item[3]?> <?=$attention===$key?'active':''?>" href="<?=$portfolioUrl(['attention'=>$key,'page'=>1])?>">
+    <nav class="tdw-priority-strip" aria-label="<?=$centralMode?'Resumo da Central de Clientes':'Prioridades da carteira'?>">
+     <?php
+      $portfolioCards=$centralMode?[
+       'all'=>['Todas no CRM',(int)($stats['total']??0),'fa-address-book','neutral'],
+       'linked'=>['CRM + Cliente Geral',(int)($stats['linked']??0),'fa-link','green'],
+       'prospect'=>['Somente CRM',(int)($stats['prospects']??0),'fa-building','blue']
+      ]:[
+       'all'=>['Fila completa',(int)($stats['total']??0),'fa-layer-group','neutral'],
+       'overdue'=>['Atrasados',(int)($stats['overdue_count']??0),'fa-triangle-exclamation','danger'],
+       'today'=>['Hoje',(int)($stats['today_count']??0),'fa-clock','warning'],
+       'never'=>['Nunca trabalhados',(int)($stats['never_contacted']??0),'fa-sparkles','blue'],
+       'upcoming'=>['Próximos',(int)($stats['upcoming_count']??0),'fa-calendar-check','green']
+      ];
+      foreach($portfolioCards as $key=>$item):
+       $cardChanges=$centralMode?['link'=>$key==='all'?'all':$key,'attention'=>'all','page'=>1]:['attention'=>$key,'page'=>1];
+       $cardActive=$centralMode?(($filters['link']??'all')===$key):$attention===$key;
+     ?>
+      <a class="tdw-priority <?=$item[3]?> <?=$cardActive?'active':''?>" href="<?=$portfolioUrl($cardChanges)?>">
        <span><i class="fa-solid <?=$item[2]?>"></i></span><div><small><?=$item[0]?></small><strong><?=number_format($item[1],0,',','.')?></strong></div>
       </a>
      <?php endforeach;?>
     </nav>
 
     <section class="tdw-filter-shell">
-     <form method="get" action="<?=APP_URL?>/my-portfolio" class="tdw-filter-form">
-      <?php if($attention!=='all'):?><input type="hidden" name="attention" value="<?=e($attention)?>"><?php endif;?>
-      <label class="tdw-search"><span>Buscar na carteira</span><div><i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="q" value="<?=e((string)($filters['q']??''))?>" placeholder="Empresa, CNPJ/CPF, código ou responsável"></div></label>
+     <form method="get" action="<?=APP_URL?><?=$portfolioBasePath?>" class="tdw-filter-form">
+      <?php if(!$centralMode&&$attention!=='all'):?><input type="hidden" name="attention" value="<?=e($attention)?>"><?php endif;?>
+      <label class="tdw-search"><span><?=$centralMode?'Buscar no CRM':'Buscar na carteira'?></span><div><i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="q" value="<?=e((string)($filters['q']??''))?>" placeholder="Empresa, CNPJ/CPF, código ou responsável"></div></label>
       <label><span>Classificação</span><select class="form-select" name="classification"><option value="all">Todas</option><option value="cfc" <?=($filters['classification']??'')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($filters['classification']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($filters['classification']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=($filters['classification']??'')==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
       <label><span>Vínculo</span><select class="form-select" name="link"><option value="all">Todos</option><option value="linked" <?=($filters['link']??'')==='linked'?'selected':''?>>Cliente vinculado</option><option value="prospect" <?=($filters['link']??'')==='prospect'?'selected':''?>>Prospect / Conta CRM</option></select></label>
-      <?php if(in_array((string)$u['role'],['admin','supervisor'],true)):?>
-       <label><span>Responsável</span><select class="form-select" name="owner"><option value="">Equipe ativa</option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=($filters['owner']??'')===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?> · <?=number_format((int)$owner['account_count'],0,',','.')?></option><?php endforeach;?></select></label>
-       <label><span>Escopo</span><select class="form-select" name="scope"><option value="active" <?=($filters['scope']??'active')==='active'?'selected':''?>>Equipe ativa</option><option value="legacy" <?=($filters['scope']??'')==='legacy'?'selected':''?>>Responsáveis antigos</option><option value="all" <?=($filters['scope']??'')==='all'?'selected':''?>>Todos</option></select></label>
+      <?php if($centralMode||in_array((string)$u['role'],['admin','supervisor'],true)):?>
+       <label><span>Responsável</span><select class="form-select" name="owner"><option value=""><?=$centralMode?'Todos os responsáveis':'Equipe ativa'?></option><?php foreach($owners??[] as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=($filters['owner']??'')===(string)$owner['omie_code']?'selected':''?>><?=e((string)$owner['name'])?> · <?=number_format((int)$owner['account_count'],0,',','.')?></option><?php endforeach;?></select></label>
+       <?php if(!$centralMode):?><label><span>Escopo</span><select class="form-select" name="scope"><option value="active" <?=($filters['scope']??'active')==='active'?'selected':''?>>Equipe ativa</option><option value="legacy" <?=($filters['scope']??'')==='legacy'?'selected':''?>>Responsáveis antigos</option><option value="all" <?=($filters['scope']??'')==='all'?'selected':''?>>Todos</option></select></label><?php endif;?>
       <?php endif;?>
-      <div class="tdw-filter-actions"><button class="tdw-btn primary" type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button><a class="tdw-icon-btn" href="<?=APP_URL?>/my-portfolio" title="Limpar filtros"><i class="fa-solid fa-rotate-left"></i></a></div>
+      <div class="tdw-filter-actions"><button class="tdw-btn primary" type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button><a class="tdw-icon-btn" href="<?=APP_URL?><?=$portfolioBasePath?>" title="Limpar filtros"><i class="fa-solid fa-rotate-left"></i></a></div>
      </form>
     </section>
 
     <section class="tdw-workqueue">
      <header class="tdw-section-head">
-      <div><span class="tdw-section-icon"><i class="fa-solid fa-bolt"></i></span><div><strong>Fila de trabalho</strong><small>Ordenada por atraso, compromissos de hoje e tempo sem contato.</small></div></div>
+      <div><span class="tdw-section-icon"><i class="fa-solid <?=$centralMode?'fa-address-book':'fa-bolt'?>"></i></span><div><strong><?=$centralMode?'Base CRM':'Fila de trabalho'?></strong><small><?=$centralMode?'Contas CRM ativas; o vínculo com Cliente Geral aparece sem misturar cadastros exclusivos de vendas.':'Ordenada por atraso, compromissos de hoje e tempo sem contato.'?></small></div></div>
       <span class="tdw-count"><?=number_format($total,0,',','.')?> conta<?=$total===1?'':'s'?></span>
      </header>
 
@@ -863,22 +873,22 @@ function render(string $name,array $vars=[]): void{
         <div class="tdw-priority-marker"><span></span><small><?=e($priorityLabel)?></small></div>
         <div class="tdw-account-identity">
          <span class="tdw-avatar"><?=e(mb_strtoupper(mb_substr($display!==''?$display:'?',0,1)))?></span>
-         <div><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong></a><p><?=e((string)($row['document']?:'Documento não informado'))?> <span>•</span> CRM <?=e((string)$row['omie_code'])?></p><div class="tdw-inline-tags"><?php if(!empty($row['is_cfc'])):?><span class="cfc">CFC</span><?php endif;?><?php if(!empty($row['is_reseller'])):?><span class="reseller">Revendedor</span><?php endif;?><span class="<?=$linked?'linked':'prospect'?>"><?=$linked?'Cliente vinculado':'Prospect'?></span></div></div>
+         <div><a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?><?=$centralMode?'?from=clients':''?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong></a><p><?=e((string)($row['document']?:'Documento não informado'))?> <span>•</span> CRM <?=e((string)$row['omie_code'])?></p><div class="tdw-inline-tags"><?php if(!empty($row['is_cfc'])):?><span class="cfc">CFC</span><?php endif;?><?php if(!empty($row['is_reseller'])):?><span class="reseller">Revendedor</span><?php endif;?><span class="<?=$linked?'linked':'prospect'?>"><?=$linked?'CRM + Cliente Geral':'Somente CRM'?></span></div></div>
         </div>
         <div class="tdw-account-owner"><small>Responsável</small><strong><?=e((string)($row['owner_name']?:'Sem responsável'))?></strong><span><?=e((string)($row['crm_user_code']?:'sem código CRM'))?></span></div>
         <div class="tdw-account-contact"><small>Último contato</small><?php if(empty($row['last_contact_at'])):?><strong class="never">Nunca</strong><span>prioridade inicial</span><?php else:?><strong><?=$days===0?'Hoje':$days.' dia'.($days===1?'':'s')?></strong><span><?=date('d/m/Y',strtotime((string)$row['last_contact_at']))?></span><?php endif;?></div>
         <div class="tdw-account-next"><small>Próxima ação</small><?php if($nextAt):?><strong><?=date(date('Y-m-d',$nextAt)===$today?'H:i':'d/m · H:i',$nextAt)?></strong><span><?=$priority==='danger'?'retorno vencido':($priority==='today'?'programado para hoje':'retorno agendado')?></span><?php else:?><strong>Sem retorno</strong><span>defina a próxima ação</span><?php endif;?></div>
         <div class="tdw-account-value"><small>Última compra</small><strong><?=!empty($row['last_purchase_at'])?brdate((string)$row['last_purchase_at']):'—'?></strong><span><?=money($row['revenue_12m']??0)?> em 12m</span></div>
-        <div class="tdw-row-actions"><button class="tdw-icon-btn action" type="button" data-commercial-activity-open data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display!==''?$display:'Conta sem nome')?>" data-account-owner="<?=e((string)($row['owner_name']?:'Sem responsável'))?>" data-account-type="<?=e($rowTypeLabel)?>" data-client-id="<?=!empty($row['client_id'])?(int)$row['client_id']:''?>" title="Registrar atividade"><i class="fa-solid fa-plus"></i></button><a class="tdw-icon-btn" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>" title="Abrir conta"><i class="fa-solid fa-arrow-right"></i></a></div>
+        <div class="tdw-row-actions"><?php if(!$centralMode):?><button class="tdw-icon-btn action" type="button" data-commercial-activity-open data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display!==''?$display:'Conta sem nome')?>" data-account-owner="<?=e((string)($row['owner_name']?:'Sem responsável'))?>" data-account-type="<?=e($rowTypeLabel)?>" data-client-id="<?=!empty($row['client_id'])?(int)$row['client_id']:''?>" title="Registrar atividade"><i class="fa-solid fa-plus"></i></button><?php endif;?><a class="tdw-icon-btn" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?><?=$centralMode?'?from=clients':''?>" title="<?=$centralMode?'Consultar Conta CRM':'Abrir conta'?>"><i class="fa-solid fa-arrow-right"></i></a></div>
        </article>
       <?php endforeach;?>
-      <?php if(!$rows):?><div class="tdw-empty"><span><i class="fa-solid fa-circle-check"></i></span><strong>Nenhuma conta nesta fila</strong><p>Não há registros para os filtros selecionados.</p><a class="tdw-btn secondary" href="<?=APP_URL?>/my-portfolio">Voltar para a fila completa</a></div><?php endif;?>
+      <?php if(!$rows):?><div class="tdw-empty"><span><i class="fa-solid fa-circle-check"></i></span><strong><?=$centralMode?'Nenhuma Conta CRM encontrada':'Nenhuma conta nesta fila'?></strong><p>Não há registros para os filtros selecionados.</p><a class="tdw-btn secondary" href="<?=APP_URL?><?=$portfolioBasePath?>"><?=$centralMode?'Limpar filtros':'Voltar para a fila completa'?></a></div><?php endif;?>
      </div>
 
      <?php if($pages>1):?><footer class="tdw-pagination"><?php $baseQuery=$filters;unset($baseQuery['page']);?><span>Mostrando página <strong><?=$pageNum?></strong> de <strong><?=$pages?></strong></span><div><a class="tdw-btn secondary <?=$pageNum<=1?'disabled':''?>" href="<?=$portfolioUrl(['page'=>max(1,$pageNum-1)])?>"><i class="fa-solid fa-chevron-left"></i>Anterior</a><a class="tdw-btn secondary <?=$pageNum>=$pages?'disabled':''?>" href="<?=$portfolioUrl(['page'=>min($pages,$pageNum+1)])?>">Próxima<i class="fa-solid fa-chevron-right"></i></a></div></footer><?php endif;?>
     </section>
 
-    <?php render_commercial_activity_dialog([
+    <?php if(!$centralMode)render_commercial_activity_dialog([
      'user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],
      'return_to'=>'portfolio','return_query'=>http_build_query(array_merge($filters,['page'=>$pageNum]))
     ]);?>
@@ -887,6 +897,7 @@ function render(string $name,array $vars=[]): void{
 
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$hasClientLink=!empty($account['client_id']);$linked=$hasClientLink&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']);$profile=$profile??[];
+   $canMaintain=!empty($canMaintain);$backUrl=$backUrl??APP_URL.'/my-portfolio';$backLabel=$backLabel??'Voltar para a carteira';
    $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=$canAdminLink||$canSellerLink;
    $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
    $contacts=array_values($contacts??[]);
@@ -966,7 +977,7 @@ function render(string $name,array $vars=[]): void{
    };
    ?>
    <section class="tdf-page">
-    <a class="tdf-back" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-arrow-left"></i>Voltar para a carteira</a>
+    <a class="tdf-back" href="<?=e($backUrl)?>"><i class="fa-solid fa-arrow-left"></i><?=e($backLabel)?></a>
 
     <header class="tdf-header">
      <div class="tdf-customer">
@@ -977,7 +988,7 @@ function render(string $name,array $vars=[]): void{
         <?php if($isCfc):?><span class="tdf-badge cfc">CFC</span><?php endif;?>
         <?php if($isReseller):?><span class="tdf-badge reseller">Revendedor</span><?php endif;?>
         <?php if(!$isCfc&&!$isReseller):?><span class="tdf-badge neutral">Sem classificação</span><?php endif;?>
-        <?php if($canWork):?><button class="tdf-edit" type="button" data-tdf-classification-open><i class="fa-solid fa-pen"></i>Editar</button><?php endif;?>
+        <?php if($canMaintain):?><button class="tdf-edit" type="button" data-tdf-classification-open><i class="fa-solid fa-pen"></i>Editar</button><?php endif;?>
        </div>
        <div class="tdf-document"><?=e((string)($account['document']?:'Documento não informado'))?></div>
        <div class="tdf-customer-meta">
@@ -1169,7 +1180,7 @@ function render(string $name,array $vars=[]): void{
      </section>
     </div>
 
-    <?php if($canWork):?>
+    <?php if($canMaintain):?>
     <dialog class="tdf-classification-dialog" data-tdf-classification-dialog>
      <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/profile">
       <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="strategic_notes" value="<?=e((string)($profile['strategic_notes']??''))?>">
@@ -2964,7 +2975,7 @@ function layout(string $body,?array $u,string $page=''): void{
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Minha Home</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Base de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
+     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-address-book"></i><span>Central de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
      <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a><a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
