@@ -1279,16 +1279,42 @@ $router->get('/commercial-partners',function(){
 });
 $router->post('/commercial-partners/sync-preview',function(){
  Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
- try{json_response(['ok'=>true,'data'=>CommercialPartnerRegistryService::preview()]);}
- catch(Throwable $e){json_response(['ok'=>false,'error'=>'Não foi possível consultar a base de parceiros: '.$e->getMessage()],422);}
+ try{
+  $data=CommercialPartnerRegistryService::preview();
+  $eligible=[];
+  foreach((array)($data['rows']??[]) as $row){
+   $code=trim((string)($row['account_code']??''));
+   if($code!==''&&!empty($row['selectable']))$eligible[$code]=[
+    'document'=>(string)($row['document']??''),
+    'name'=>(string)($row['account_name']??'')
+   ];
+  }
+  $_SESSION['partner_sync_preview']=['created_at'=>time(),'eligible'=>$eligible];
+  json_response(['ok'=>true,'data'=>$data]);
+ }catch(Throwable $e){
+  $payload=['ok'=>false,'error'=>'Não foi possível consultar a base de parceiros: '.$e->getMessage()];
+  if(defined('APP_IS_LOCAL')&&APP_IS_LOCAL)$payload['debug']=['type'=>get_class($e),'file'=>basename($e->getFile()),'line'=>$e->getLine()];
+  json_response($payload,422);
+ }
 });
 $router->post('/commercial-partners/sync-apply',function(){
  Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  try{
-  $result=CommercialPartnerRegistryService::apply((array)($_POST['account_codes']??[]),Auth::id());
-  $_SESSION['commercial_flash']=['type'=>'success','message'=>number_format((int)$result['updated_accounts'],0,',','.').' parceiro(s) classificado(s) como CFC + Revendedor. '.number_format((int)$result['skipped_accounts'],0,',','.').' seleção(ões) foram ignoradas por não estarem mais elegíveis.'];
+  $preview=$_SESSION['partner_sync_preview']??null;
+  if(!is_array($preview)||empty($preview['created_at'])||time()-(int)$preview['created_at']>1800){
+   throw new RuntimeException('A prévia da conciliação expirou. Feche a janela e execute Sincronizar parceiros novamente.');
+  }
+  $eligible=array_keys((array)($preview['eligible']??[]));
+  if(!$eligible)throw new RuntimeException('Não há parceiros elegíveis na prévia atual.');
+  if(session_status()===PHP_SESSION_ACTIVE)session_write_close();
+
+  $result=CommercialPartnerRegistryService::apply((array)($_POST['account_codes']??[]),Auth::id(),$eligible);
   json_response(['ok'=>true,'result'=>$result]);
- }catch(Throwable $e){json_response(['ok'=>false,'error'=>'Não foi possível salvar a classificação dos parceiros: '.$e->getMessage()],422);}
+ }catch(Throwable $e){
+  $payload=['ok'=>false,'error'=>'Não foi possível salvar este lote de parceiros: '.$e->getMessage()];
+  if(defined('APP_IS_LOCAL')&&APP_IS_LOCAL)$payload['debug']=['type'=>get_class($e),'file'=>basename($e->getFile()),'line'=>$e->getLine()];
+  json_response($payload,422);
+ }
 });
 
 $router->post('/commercial-partners/{code}/work',function($p){
