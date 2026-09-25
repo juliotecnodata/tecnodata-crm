@@ -3369,37 +3369,49 @@ function layout(string $body,?array $u,string $page=''): void{
     <button type="button" data-client-quick-edit-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
    </header>
    <div class="tdq-edit-body">
-    <section>
-     <div class="tdq-edit-section-head"><span><i class="fa-regular fa-id-card"></i></span><div><strong>Identificação e contato</strong><small>Dados principais usados no CRM e na integração.</small></div></div>
-     <div class="tdq-edit-grid">
-      <label><span>CPF / CNPJ</span><input class="form-control" name="document" data-edit-document required></label>
-      <label><span>Razão social / Nome</span><input class="form-control" name="legal_name" required></label>
-      <label><span>Nome fantasia</span><input class="form-control" name="trade_name" required></label>
-      <label><span>E-mail</span><input class="form-control" name="email" required></label>
-      <label><span>Nome do contato</span><input class="form-control" name="contact_name" required></label>
-      <label class="phone"><span>Telefone</span><div><input class="form-control" name="phone_ddd" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" maxlength="9" placeholder="Número" required></div></label>
+    <fieldset class="tdq-edit-fieldset">
+     <legend>
+      <span class="tdq-edit-legend-icon"><i class="fa-regular fa-id-card"></i></span>
+      <span><strong>Identificação e contato</strong><small>Dados principais usados no CRM e na integração.</small></span>
+     </legend>
+     <div class="tdq-edit-grid tdq-edit-grid-identity">
+      <label class="col-3"><span>CPF / CNPJ</span><input class="form-control" name="document" data-edit-document required></label>
+      <label class="col-5"><span>Razão social / Nome</span><input class="form-control" name="legal_name" required></label>
+      <label class="col-4"><span>Nome fantasia</span><input class="form-control" name="trade_name" required></label>
+      <label class="col-5"><span>E-mail</span><input class="form-control" name="email" required></label>
+      <label class="col-4"><span>Nome do contato</span><input class="form-control" name="contact_name" required></label>
+      <label class="col-3 phone"><span>Telefone</span><div><input class="form-control" name="phone_ddd" maxlength="2" placeholder="DDD" required><input class="form-control" name="phone_number" maxlength="9" placeholder="Número" required></div></label>
      </div>
-    </section>
-    <section>
-     <div class="tdq-edit-section-head"><span><i class="fa-solid fa-location-dot"></i></span><div><strong>Endereço</strong><small>Localização completa do cliente.</small></div></div>
-     <div class="tdq-edit-grid address">
-      <label><span>CEP</span><input class="form-control" name="zip_code" required></label>
-      <label class="wide2"><span>Endereço</span><input class="form-control" name="address" required></label>
-      <label><span>Número</span><input class="form-control" name="address_number" required></label>
-      <label><span>Complemento</span><input class="form-control" name="complement"></label>
-      <label><span>Bairro</span><input class="form-control" name="neighborhood" required></label>
-      <label class="wide2"><span>Cidade</span><input class="form-control" name="city" required></label>
-      <label><span>UF</span><input class="form-control text-uppercase" name="uf" maxlength="2" required></label>
+    </fieldset>
+
+    <fieldset class="tdq-edit-fieldset">
+     <legend>
+      <span class="tdq-edit-legend-icon"><i class="fa-solid fa-location-dot"></i></span>
+      <span><strong>Endereço</strong><small>Localização completa do cliente.</small></span>
+     </legend>
+     <div class="tdq-edit-grid tdq-edit-grid-address">
+      <label class="col-2"><span>CEP</span><input class="form-control" name="zip_code" required></label>
+      <label class="col-6"><span>Endereço</span><input class="form-control" name="address" required></label>
+      <label class="col-2"><span>Número</span><input class="form-control" name="address_number" required></label>
+      <label class="col-2"><span>UF</span><input class="form-control text-uppercase" name="uf" maxlength="2" required></label>
+      <label class="col-4"><span>Complemento</span><input class="form-control" name="complement"></label>
+      <label class="col-3"><span>Bairro</span><input class="form-control" name="neighborhood" required></label>
+      <label class="col-5"><span>Cidade</span><input class="form-control" name="city" required></label>
      </div>
-    </section>
-    <section>
-     <div class="tdq-edit-section-head"><span><i class="fa-solid fa-briefcase"></i></span><div><strong>Organização comercial</strong><small>Vendedor, tags e observações do cadastro.</small></div></div>
-     <div class="tdq-edit-grid">
-      <label><span>Vendedor principal</span><select class="form-select" name="seller_omie_code" data-client-quick-edit-seller><option value="">Sem vendedor</option></select></label>
-      <label class="wide2"><span>Tags</span><input class="form-control" name="tags" required></label>
-      <label class="wide3"><span>Observações</span><textarea class="form-control" name="notes" rows="4" maxlength="10000"></textarea></label>
+    </fieldset>
+
+    <fieldset class="tdq-edit-fieldset">
+     <legend>
+      <span class="tdq-edit-legend-icon"><i class="fa-solid fa-briefcase"></i></span>
+      <span><strong>Organização comercial</strong><small>Vendedor, tags e observações do cadastro.</small></span>
+     </legend>
+     <div class="tdq-edit-grid tdq-edit-grid-commercial">
+      <label class="col-3"><span>Vendedor principal</span><select class="form-select" name="seller_omie_code" data-client-quick-edit-seller><option value="">Sem vendedor</option></select></label>
+      <label class="col-9"><span>Tags</span><input class="form-control" name="tags" required></label>
+      <label class="col-12"><span>Observações</span><textarea class="form-control" name="notes" rows="5" maxlength="10000"></textarea></label>
      </div>
-    </section>
+    </fieldset>
+
     <div class="tdq-edit-note"><i class="fa-solid fa-circle-info"></i><span>O vendedor pode corrigir o cadastro de qualquer cliente do universo CRM. Isso não transfere automaticamente a carteira comercial nem altera atividades de outro vendedor.</span></div>
    </div>
    <footer>
