@@ -1950,3 +1950,44 @@ body{background:var(--bg);color:var(--text)}
 .app-confirm-actions .btn-success:hover{background:#007F49;border-color:#007F49}
 .app-confirm-actions .btn-warning{background:#F2B705;border-color:#E0A900;color:#2F2600}
 .app-confirm-actions .btn-warning:hover{background:#DDA700;border-color:#C79500;color:#211A00}
+
+
+/* DataTable global — padrão Tecnodata para listas grandes */
+.dt-container{width:100%}
+.dt-container>.dt-layout-row{margin:0!important;padding:10px 12px;gap:10px}
+.dt-container>.dt-layout-row:first-child{background:#fff;border-bottom:1px solid var(--line)}
+.dt-container>.dt-layout-row:last-child{background:#fff;border-top:1px solid var(--line)}
+.dt-container .dt-search{display:flex;align-items:center;gap:8px;margin:0}
+.dt-container .dt-search label{display:none}
+.dt-container .dt-search input{
+ min-width:240px;height:36px;margin:0!important;padding:7px 10px!important;
+ border:1px solid var(--line-strong)!important;border-radius:9px!important;
+ background:#fff;font-size:11px
+}
+.dt-container .dt-search input:focus{outline:0;border-color:var(--green)!important;box-shadow:none!important}
+.dt-container .dt-length{display:flex;align-items:center;gap:7px;color:#667579;font-size:9px;font-weight:750}
+.dt-container .dt-length label{margin:0}
+.dt-container .dt-length select{
+ min-width:68px;border:1px solid var(--line-strong);border-radius:8px;
+ background:#fff;color:var(--navy);font-size:10px;font-weight:750
+}
+.dt-container .dt-info{font-size:10px;color:var(--muted);padding:0!important}
+.dt-container .dt-paging{display:flex;justify-content:flex-end}
+.dt-container .pagination{gap:5px;margin:0}
+.dt-container .page-link{
+ min-width:32px;height:32px;padding:0;display:grid;place-items:center;
+ border:1px solid var(--line-strong);border-radius:8px!important;
+ background:#fff;color:#3E4B53;font-size:10px;font-weight:750
+}
+.dt-container .page-link:hover{border-color:var(--green);color:var(--green);background:#F5FBF7}
+.dt-container .active>.page-link,.dt-container .page-link.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.dt-container .disabled>.page-link{opacity:.4}
+table.dataTable{width:100%!important}
+@media(max-width:760px){
+ .dt-container>.dt-layout-row{padding:9px 8px;gap:8px}
+ .dt-container .dt-layout-cell{width:100%!important}
+ .dt-container .dt-search{width:100%}
+ .dt-container .dt-search input{min-width:0;width:100%}
+ .dt-container .dt-paging{justify-content:flex-start;overflow:auto}
+ .dt-container .pagination{flex-wrap:nowrap}
+}
