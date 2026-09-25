@@ -1357,14 +1357,15 @@ document.addEventListener('DOMContentLoaded',()=>{
       const orderDirection=table.dataset.orderDirection==='asc'?'asc':'desc';
       const lengthChange=table.dataset.lengthChange!=='0';
       const serverUrl=table.dataset.serverUrl||'';
+      const serverPaged=table.dataset.serverPaged==='1';
       const options={
         pageLength:Number.parseInt(table.dataset.pageLength??'10',10)||10,
-        lengthChange,
+        lengthChange:serverPaged?false:lengthChange,
         lengthMenu:[[10,25,50,100],[10,25,50,100]],
-        searching:true,
+        searching:serverPaged?false:true,
         ordering:true,
-        paging:true,
-        info:true,
+        paging:serverPaged?false:true,
+        info:serverPaged?false:true,
         autoWidth:false,
         order:Number.isInteger(orderColumn)?[[orderColumn,orderDirection]]:[],
         language:{
@@ -1385,10 +1386,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       return table._dataTable;
   };
   document.querySelectorAll('.table-card table, .cix-partners-datatable, [data-datatable]').forEach(initDataTable);
-  document.querySelectorAll('table').forEach(table=>{
-    if(table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable')||table.dataset.serverUrl)return;
-    const rowCount=table.tBodies?.[0]?.rows?.length||0;
-    if(rowCount>10)initDataTable(table);
+  document.querySelectorAll('.tdcrm-content table').forEach(table=>{
+    if(table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable'))return;
+    initDataTable(table);
   });
   document.querySelectorAll('.cix-partners-datatable').forEach(initDataTable);
 
