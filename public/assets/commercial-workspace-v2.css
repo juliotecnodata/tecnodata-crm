@@ -410,9 +410,9 @@
 .tds-return-group.today{border-left-color:var(--tds-blue)}
 .tds-return-group.upcoming{border-left-color:var(--tds-green)}
 .tds-return-group>header{min-height:40px;padding:8px 11px;border-bottom:1px solid var(--tds-line-soft)}
-.tds-return-group.late>header{background:linear-gradient(90deg,#FFF4F4 0,#FFF9F9 100%)}
-.tds-return-group.today>header{background:linear-gradient(90deg,#F0F8FE 0,#F9FCFF 100%)}
-.tds-return-group.upcoming>header{background:linear-gradient(90deg,#F0FAF5 0,#FAFDFC 100%)}
+.tds-return-group.late>header{background:#FFF7F7}
+.tds-return-group.today>header{background:#F3F9FD}
+.tds-return-group.upcoming>header{background:#F3FBF7}
 .tds-return-group>header>div{display:flex;align-items:center;gap:7px}
 .tds-return-group>header span{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;font-size:10px}
 .tds-return-group.late>header span{background:#E75252;color:#fff}
