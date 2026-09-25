@@ -34,6 +34,7 @@ try{
   foreach($final['health']??[] as $k=>$v)rrow($k,$v);
   rrow('linked_accounts_confirmed',$final['linked_accounts']??0);
   rrow('remaining_unlinked_confirmed',$final['remaining_unlinked']??0);
+  foreach((array)($final['history']??[]) as $k=>$v)rrow('history_'.$k,$v);
 
   rsection('CARTEIRA POR VENDEDOR ATIVO');
   foreach(CommercialPortfolioService::activeCrmSellerCodes() as $code){
@@ -66,9 +67,13 @@ try{
  rsection('EQUIPE OPERACIONAL');
  foreach($owners as $k=>$v)rrow($k,$v);
 
+ $history=CommercialAccountService::reconcileLinkedHistory();
  $health=CommercialPortfolioService::health();
  rsection('SAÚDE FINAL');
  foreach($health as $k=>$v)rrow($k,$v);
+ rrow('Atividades ligadas à Conta CRM',$history['activities_account_backfilled']??0);
+ rrow('Tarefas ligadas à Conta CRM',$history['tasks_account_backfilled']??0);
+ rrow('Clientes ambíguos preservados',$history['ambiguous_clients_preserved']??0);
 
  rsection('CARTEIRA POR VENDEDOR ATIVO');
  foreach(CommercialPortfolioService::activeCrmSellerCodes() as $code){

@@ -68,6 +68,8 @@ try{
 
  $identity=CommercialIdentityService::reconcileUsers();
  $summary['identity']=$identity;
+ $history=CommercialAccountService::reconcileLinkedHistory();
+ $summary['history_identity']=$history;
 
  if($push){
   cliSection('SAÍDA TECNODATA -> OMIE');
@@ -78,6 +80,10 @@ try{
 
  cliSection('RESULTADO');
  foreach(CommercialPortfolioService::health() as $key=>$value)cliRow($key,$value);
+ cliRow('Atividades ligadas à Conta CRM',$history['activities_account_backfilled']??0);
+ cliRow('Tarefas ligadas à Conta CRM',$history['tasks_account_backfilled']??0);
+ cliRow('Referências Cliente Geral completadas',(int)($history['activities_client_backfilled']??0)+(int)($history['tasks_client_backfilled']??0));
+ cliRow('Clientes ambíguos preservados',$history['ambiguous_clients_preserved']??0);
 
  cliSection('IDENTIDADE DE USUÁRIOS');
  cliRow('Usuários locais analisados',$identity['local_users']??0);
