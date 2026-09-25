@@ -64,7 +64,7 @@ function addIndex(PDO $pdo,array &$log,string $table,string $index,string $colum
 
 $log=[];
 $logicalTables=[
- 'users','sellers','crm_users','crm_accounts','clients','crm_account_links','crm_account_commercial_profiles','crm_account_commercial_audit','crm_account_notes','crm_contacts','user_omie_identity','client_commercial_profiles','client_commercial_audit','sync_outbox','client_metrics','products','categories','financial_accounts','order_stages',
+ 'users','sellers','crm_users','crm_accounts','clients','crm_account_links','crm_account_link_audit','crm_account_commercial_profiles','crm_account_commercial_audit','crm_account_notes','crm_contacts','user_omie_identity','client_commercial_profiles','client_commercial_audit','sync_outbox','client_metrics','products','categories','financial_accounts','order_stages',
  'payment_terms','tax_scenarios','stock_locations','payment_methods','document_types','orders','service_orders',
  'financial_movements','activities','tasks','collection_cases','collection_actions','settings','sync_state',
  'omie_order_logs','goals','virtual_seller_goals','collection_assignment_log','order_profiles'
@@ -445,6 +445,7 @@ $expected=[
  'crm_accounts'=>['omie_code','name','document','crm_user_code','active','last_seen_token'],
  'clients'=>['id','omie_code','name','seller_omie_code','crm_account_code','crm_owner_omie_code','crm_owner_user_id','active'],
  'crm_account_links'=>['crm_account_code','client_id','link_method'],
+ 'crm_account_link_audit'=>['id','crm_account_code','client_id','action','link_method','created_at'],
   'crm_account_commercial_profiles'=>['crm_account_code','is_cfc','is_reseller','classification_source'],
   'crm_account_commercial_audit'=>['id','crm_account_code','field_name','sync_status'],
   'crm_account_notes'=>['id','crm_account_code','client_id','user_id','note'],

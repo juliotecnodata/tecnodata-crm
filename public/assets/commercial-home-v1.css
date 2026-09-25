@@ -259,3 +259,63 @@
  .tdh-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
  .tdh-actions button,.tdh-actions a,.tdh-actions span.sale{width:100%;min-width:0;min-height:34px}
 }
+
+/* Home como agenda comercial: resumo acionável antes da carteira. */
+.tdh-now{display:grid;gap:9px}
+.tdh-now-head{display:flex;align-items:end;justify-content:space-between;gap:16px;padding:0 2px}
+.tdh-now-head span{display:block;color:var(--tdh-green);font-size:9px;font-weight:800}
+.tdh-now-head h2{margin:1px 0 0;color:var(--tdh-navy);font-size:17px;font-weight:800}
+.tdh-now-head>small{color:#7B8992;font-size:9px;text-align:right}
+.tdh-kpi{min-height:218px;padding:13px 13px 12px 16px;display:flex;flex-direction:column;gap:10px}
+.tdh-kpi-top{display:flex;align-items:flex-start;gap:10px;width:100%}
+.tdh-kpi-top>div{min-width:0;flex:1}
+.tdh-kpi-top small{font-size:10px}
+.tdh-kpi-top strong{font-size:23px}
+.tdh-kpi-list{display:grid;align-content:start;gap:5px;width:100%;padding-top:8px;border-top:1px solid var(--tdh-border-soft)}
+.tdh-kpi-item{display:grid;gap:2px;padding:6px 7px;border-radius:7px;background:#F7F9FA;min-width:0}
+.tdh-kpi-item>span{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.tdh-kpi-item b{overflow:hidden;color:#304754;font-size:9px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.tdh-kpi-item em{flex:0 0 auto;color:#697C87;font-size:8px;font-style:normal;font-weight:750;white-space:nowrap}
+.tdh-kpi-item>small{overflow:hidden;color:#7E8D95;font-size:8px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
+.tdh-kpi-empty{display:grid;place-items:center;min-height:62px;color:#84929A;font-size:9px;text-align:center}
+.tdh-kpi.amber:before{background:var(--tdh-yellow)}
+.tdh-kpi.amber .tdh-kpi-icon{border-color:#EED99B;background:var(--tdh-soft-yellow);color:#886800}
+.tdh-kpi.danger .tdh-kpi-item em{color:var(--tdh-red)}
+.tdh-kpi.blue .tdh-kpi-item em{color:var(--tdh-blue)}
+.tdh-kpi.orange .tdh-kpi-item em{color:var(--tdh-orange)}
+
+/* A abertura mostra somente os campos necessários para agir. */
+.tdh-table{min-width:820px}
+.tdh-table .tdh-col-client{width:28%}
+.tdh-table .tdh-col-type{width:12%}
+.tdh-table .tdh-col-days{width:12%}
+.tdh-table .tdh-col-next{width:14%}
+.tdh-table .tdh-col-status{width:14%}
+.tdh-table .tdh-col-actions{width:20%}
+
+@media (max-width:1100px){
+ .tdh-table{min-width:760px}
+ .tdh-table .tdh-col-client{width:28%}
+ .tdh-table .tdh-col-type{width:12%}
+ .tdh-table .tdh-col-days{width:12%}
+ .tdh-table .tdh-col-next{width:15%}
+ .tdh-table .tdh-col-status{width:15%}
+ .tdh-table .tdh-col-actions{width:18%}
+}
+@media (max-width:720px){
+ .tdh-now-head{align-items:flex-start;flex-direction:column;gap:3px}
+ .tdh-now-head>small{text-align:left}
+ .tdh-kpi{min-height:auto}
+}
+@container tdh-portfolio (max-width:1500px){
+ .tdh-table{min-width:760px}
+ .tdh-table .tdh-col-client{width:28%}
+ .tdh-table .tdh-col-type{width:12%}
+ .tdh-table .tdh-col-days{width:12%}
+ .tdh-table .tdh-col-next{width:15%}
+ .tdh-table .tdh-col-status{width:15%}
+ .tdh-table .tdh-col-actions{width:18%}
+}
+@container tdh-portfolio (max-width:760px){
+ .tdh-table{min-width:0}
+}

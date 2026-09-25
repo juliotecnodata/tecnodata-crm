@@ -14,12 +14,31 @@ declare(strict_types=1);
 final class CommercialSchema {
  private static bool $ready=false;
 
+ private static function ensureLinkAuditTable(): void{
+  DB::exec("CREATE TABLE IF NOT EXISTS crm_account_link_audit(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   crm_account_code VARCHAR(80) NOT NULL,
+   previous_client_id BIGINT UNSIGNED NULL,
+   client_id BIGINT UNSIGNED NULL,
+   action VARCHAR(30) NOT NULL,
+   link_method VARCHAR(30) NOT NULL,
+   actor_user_id INT UNSIGNED NULL,
+   notes VARCHAR(500) NULL,
+   created_at DATETIME NOT NULL,
+   FOREIGN KEY(previous_client_id) REFERENCES clients(id) ON DELETE SET NULL,
+   FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE SET NULL,
+   FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+   INDEX idx_crm_link_audit_account(crm_account_code,created_at),
+   INDEX idx_crm_link_audit_client(client_id,created_at)
+  )");
+ }
+
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=8;$stateRaw=null;
+  $schemaVersion=10;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
-  if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::$ready=true;return;}
+  if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::ensureLinkAuditTable();self::$ready=true;return;}
 
   $clientColumns=[];foreach(DB::all("SHOW COLUMNS FROM clients") as $row)$clientColumns[(string)$row['Field']]=true;
   if(!isset($clientColumns['crm_account_code']))DB::exec("ALTER TABLE clients ADD COLUMN crm_account_code VARCHAR(80) NULL AFTER omie_seller_code");
@@ -98,6 +117,8 @@ final class CommercialSchema {
    FOREIGN KEY(verified_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
    INDEX idx_crm_links_client(client_id,is_primary)
   )");
+
+  self::ensureLinkAuditTable();
 
   DB::exec("CREATE TABLE IF NOT EXISTS crm_account_commercial_profiles(
    crm_account_code VARCHAR(80) PRIMARY KEY,
@@ -256,6 +277,55 @@ final class CommercialSchema {
    FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE SET NULL,
    FOREIGN KEY(user_id) REFERENCES users(id),
    INDEX idx_account_notes_account_date(crm_account_code,created_at,id)
+  )");
+
+  DB::exec("CREATE TABLE IF NOT EXISTS commercial_sales(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   activity_id BIGINT UNSIGNED NOT NULL,
+   client_id BIGINT UNSIGNED NULL,
+   crm_account_code VARCHAR(80) NOT NULL,
+   user_id INT UNSIGNED NOT NULL,
+   sold_at DATETIME NOT NULL,
+   sale_type VARCHAR(30) NOT NULL,
+   amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+   discount DECIMAL(15,2) NOT NULL DEFAULT 0,
+   commercial_condition VARCHAR(40) NOT NULL,
+   negotiation_details TEXT NULL,
+   future_promise TINYINT(1) NOT NULL DEFAULT 0,
+   created_at DATETIME NOT NULL,
+   UNIQUE KEY uq_commercial_sales_activity(activity_id),
+   INDEX idx_commercial_sales_date_user(sold_at,user_id),
+   INDEX idx_commercial_sales_account(crm_account_code,sold_at),
+   FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+   FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE SET NULL,
+   FOREIGN KEY(user_id) REFERENCES users(id)
+  )");
+
+  DB::exec("CREATE TABLE IF NOT EXISTS commercial_partner_work(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   activity_id BIGINT UNSIGNED NOT NULL,
+   client_id BIGINT UNSIGNED NULL,
+   crm_account_code VARCHAR(80) NOT NULL,
+   user_id INT UNSIGNED NOT NULL,
+   description TEXT NOT NULL,
+   next_step VARCHAR(500) NULL,
+   created_at DATETIME NOT NULL,
+   UNIQUE KEY uq_partner_work_activity(activity_id),
+   INDEX idx_partner_work_account_date(crm_account_code,created_at),
+   INDEX idx_partner_work_user_date(user_id,created_at),
+   FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+   FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE SET NULL,
+   FOREIGN KEY(user_id) REFERENCES users(id)
+  )");
+
+  DB::exec("CREATE TABLE IF NOT EXISTS commercial_partner_work_items(
+   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+   work_id BIGINT UNSIGNED NOT NULL,
+   category_code VARCHAR(40) NOT NULL,
+   subtype_code VARCHAR(80) NOT NULL,
+   INDEX idx_partner_work_items_work(work_id),
+   INDEX idx_partner_work_items_category(category_code,subtype_code),
+   FOREIGN KEY(work_id) REFERENCES commercial_partner_work(id) ON DELETE CASCADE
   )");
 
   // Migra histórico legado somente quando o cliente possui uma única Conta CRM.
@@ -819,7 +889,7 @@ final class CommercialHomeService {
  public static function build(array $user,array $filters=[]): array{
   CommercialSchema::ensure();
   $userId=(int)($user['id']??0);$crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-  $empty=['today'=>['count'=>0,'items'=>[]],'overdue'=>['count'=>0,'items'=>[]],'stale'=>['count'=>0,'items'=>[]],'sales'=>['amount'=>0.0,'count'=>0],'portfolio'=>['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>5,'filters'=>[]]];
+  $empty=['today'=>['count'=>0,'items'=>[]],'overdue'=>['count'=>0,'items'=>[]],'stale'=>['count'=>0,'items'=>[]],'attention'=>['count'=>0,'items'=>[]],'portfolio'=>['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>5,'filters'=>[]]];
   if(($user['role']??'')!=='seller'||$userId<=0||$crmUserCode==='')return $empty;
 
   $taskJoin=" FROM tasks t
@@ -830,78 +900,55 @@ final class CommercialHomeService {
 
   $todayCount=(int)(DB::scalar("SELECT COUNT(*)".$taskJoin." AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY",[$userId])??0);
   $overdueCount=(int)(DB::scalar("SELECT COUNT(*)".$taskJoin." AND t.due_at<CURDATE()",[$userId])??0);
+  $taskSelect="SELECT t.id,t.due_at,t.title,t.crm_account_code,COALESCE(t.client_id,l.client_id) client_id,
+                      COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),c.name,'Conta sem nome') account_name".$taskJoin;
+  $todayItems=DB::all($taskSelect." AND t.due_at>=CURDATE() AND t.due_at<CURDATE()+INTERVAL 1 DAY ORDER BY t.due_at,t.id LIMIT 3",[$userId]);
+  $overdueItems=DB::all($taskSelect." AND t.due_at<CURDATE() ORDER BY t.due_at,t.id LIMIT 3",[$userId]);
   $activityJoin=" FROM crm_accounts a
                   LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
                   LEFT JOIN clients c ON c.id=l.client_id
                   LEFT JOIN (
                    SELECT crm_account_code,MAX(created_at) last_contact_at
                    FROM activities
-                   WHERE crm_account_code IS NOT NULL
+                   WHERE crm_account_code IS NOT NULL AND activity_type IN('contact_completed','follow_up')
                    GROUP BY crm_account_code
                   ) act ON act.crm_account_code=a.omie_code
                   WHERE a.active=1 AND a.crm_user_code=?";
   $staleCondition=" AND (act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY)";
   $staleCount=(int)(DB::scalar("SELECT COUNT(*)".$activityJoin.$staleCondition,[$crmUserCode])??0);
-  $salesAmount=0.0;$salesCount=0;
-  try{
-   $monthResult=GoalService::userMonth($userId,date('Y-m'));$salesAmount=(float)($monthResult['sales']??0);
-   $sellerCode=trim((string)($user['seller_omie_code']??''));
-   if($sellerCode!==''){
-    $start=date('Y-m-01');$next=date('Y-m-d',strtotime($start.' +1 month'));
-    [$validOrders,$validParams]=OrderPolicy::validReportSql('stage_code','status','raw_json');
-    $salesCount+=(int)(DB::scalar("SELECT COUNT(*) FROM orders WHERE seller_omie_code=? AND order_date>=? AND order_date<? AND ".$validOrders,array_merge([$sellerCode,$start,$next],$validParams))??0);
-    $salesCount+=(int)(DB::scalar("SELECT COUNT(*) FROM service_orders WHERE seller_omie_code=? AND service_date>=? AND service_date<? AND UPPER(COALESCE(status,'')) NOT LIKE '%CANCEL%'",[$sellerCode,$start,$next])??0);
-   }
-  }catch(Throwable){$salesAmount=0.0;$salesCount=0;}
+  $staleItems=DB::all("SELECT a.omie_code crm_account_code,l.client_id,
+                             COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),'Conta sem nome') account_name,
+                             act.last_contact_at,
+                             CASE WHEN act.last_contact_at IS NULL THEN NULL ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
+                      ".$activityJoin.$staleCondition."
+                      ORDER BY act.last_contact_at IS NOT NULL,act.last_contact_at ASC,a.trade_name,a.name LIMIT 3",[$crmUserCode]);
 
-  $q=trim((string)($filters['home_q']??''));
-  $type=(string)($filters['home_type']??'all');
-  if(!in_array($type,['all','cfc','reseller','both','prospect'],true))$type='all';
-  $order=(string)($filters['home_order']??'stale');
-  if(!in_array($order,['stale','urgent','next'],true))$order='stale';
-  $perPage=(int)($filters['home_per_page']??5);if(!in_array($perPage,[5,10,25],true))$perPage=5;
-  $page=max(1,(int)($filters['home_page']??1));
-  $portfolioFilters=['page'=>$page,'per_page'=>$perPage,'scope'=>'active','q'=>$q,'sort'=>$order];
-  if($type==='prospect')$portfolioFilters['link']='prospect';
-  elseif($type!=='all')$portfolioFilters['classification']=$type;
+  $attentionFrom=" FROM tasks t
+                   LEFT JOIN activities source_activity ON source_activity.id=t.source_activity_id
+                   LEFT JOIN commercial_sales sale ON sale.activity_id=source_activity.id AND sale.future_promise=1
+                   LEFT JOIN crm_accounts a ON a.omie_code=t.crm_account_code
+                   LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
+                   LEFT JOIN clients c ON c.id=COALESCE(t.client_id,l.client_id)
+                   WHERE t.status='pending' AND t.type='sales' AND t.assigned_user_id=?
+                     AND (t.due_at<NOW() OR sale.id IS NOT NULL)";
+  $attentionCount=(int)(DB::scalar("SELECT COUNT(DISTINCT t.id)".$attentionFrom,[$userId])??0);
+  $attentionItems=DB::all("SELECT DISTINCT t.id,t.due_at,t.title,t.crm_account_code,COALESCE(t.client_id,l.client_id) client_id,
+                                  COALESCE(NULLIF(a.trade_name,''),NULLIF(a.name,''),c.name,'Conta sem nome') account_name,
+                                  CASE WHEN sale.id IS NOT NULL THEN 'Promessa de venda' ELSE 'Retorno atrasado' END attention_reason
+                           ".$attentionFrom."
+                           ORDER BY sale.id IS NULL,t.due_at,t.id LIMIT 3",[$userId]);
+
+  // A Home é uma agenda de decisão, não uma segunda carteira pesquisável.
+  // Mostra apenas o recorte mais urgente; busca, filtros e paginação vivem em Minha Carteira.
+  $portfolioFilters=['page'=>1,'per_page'=>5,'scope'=>'active','q'=>'','sort'=>'urgent'];
   $portfolio=CommercialAccountService::portfolio($user,$portfolioFilters);
-
-  $codes=array_values(array_filter(array_map(static fn($row)=>(string)($row['omie_code']??''),(array)($portfolio['rows']??[]))));
-  $latest=[];
-  if($codes){
-   $ph=implode(',',array_fill(0,count($codes),'?'));
-   foreach(DB::all("SELECT ac.*
-                    FROM activities ac
-                    JOIN (
-                     SELECT crm_account_code,MAX(id) max_id
-                     FROM activities
-                     WHERE crm_account_code IN (".$ph.")
-                     GROUP BY crm_account_code
-                    ) x ON x.max_id=ac.id",$codes) as $activity)$latest[(string)$activity['crm_account_code']]=$activity;
-  }
-  foreach($portfolio['rows'] as &$row){
-   $activity=$latest[(string)$row['omie_code']]??null;
-   $row['last_activity_type']=$activity['activity_type']??null;
-   $row['last_activity_category']=$activity['category_code']??null;
-   $row['last_activity_channel']=$activity['channel']??null;
-   $row['last_activity_at']=$activity['created_at']??null;
-   $avg=(float)($row['avg_interval_days']??0);
-   if(empty($row['last_purchase_at']))$row['purchase_cycle']='Sem histórico';
-   elseif($avg<=0)$row['purchase_cycle']='Esporádico';
-   elseif($avg<=45)$row['purchase_cycle']='Mensal';
-   elseif($avg<=120)$row['purchase_cycle']='Trimestral';
-   elseif($avg<=220)$row['purchase_cycle']='Semestral';
-   elseif($avg<=400)$row['purchase_cycle']='Anual';
-   else $row['purchase_cycle']='Esporádico';
-  }
-  unset($row);
-  $portfolio['filters']=['home_q'=>$q,'home_type'=>$type,'home_order'=>$order,'home_per_page'=>$perPage];
+  $portfolio['filters']=['home_q'=>'','home_type'=>'all','home_order'=>'urgent','home_per_page'=>5];
 
   return [
-   'today'=>['count'=>$todayCount],
-   'overdue'=>['count'=>$overdueCount],
-   'stale'=>['count'=>$staleCount],
-   'sales'=>['amount'=>$salesAmount,'count'=>$salesCount],
+   'today'=>['count'=>$todayCount,'items'=>$todayItems],
+   'overdue'=>['count'=>$overdueCount,'items'=>$overdueItems],
+   'stale'=>['count'=>$staleCount,'items'=>$staleItems],
+   'attention'=>['count'=>$attentionCount,'items'=>$attentionItems],
    'portfolio'=>$portfolio,
   ];
  }
@@ -919,9 +966,10 @@ final class CommercialAccountService {
 
  public static function get(string $accountCode): ?array{
   CommercialSchema::ensure();
-  return DB::one("SELECT a.*,l.client_id,
+  return DB::one("SELECT a.*,l.client_id,l.link_method,l.confidence link_confidence,l.is_primary link_is_primary,l.verified_at link_verified_at,
                          c.name client_name,c.legal_name client_legal_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
                          m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
+                         cc.open_amount collection_open_amount,cc.max_overdue_days collection_overdue_days,cc.status collection_status,
                          cu.name owner_name,cu.email owner_email,
                          COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,
                          ap.strategic_notes,ap.classification_source,ap.updated_at profile_updated_at
@@ -929,9 +977,82 @@ final class CommercialAccountService {
                   LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
                   LEFT JOIN clients c ON c.id=l.client_id
                   LEFT JOIN client_metrics m ON m.client_id=c.id
+                  LEFT JOIN collection_cases cc ON cc.client_id=c.id
                   LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
                   LEFT JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=a.omie_code
                   WHERE a.omie_code=? LIMIT 1",[$accountCode]);
+ }
+
+ public static function linkAudit(string $accountCode,int $limit=20): array{
+  CommercialSchema::ensure();$limit=max(1,min(100,$limit));
+  return DB::all("SELECT la.*,u.name actor_name,pc.name previous_client_name,c.name client_name,
+                         pc.omie_code previous_client_omie_code,c.omie_code client_omie_code
+                  FROM crm_account_link_audit la
+                  LEFT JOIN users u ON u.id=la.actor_user_id
+                  LEFT JOIN clients pc ON pc.id=la.previous_client_id
+                  LEFT JOIN clients c ON c.id=la.client_id
+                  WHERE la.crm_account_code=?
+                  ORDER BY la.created_at DESC,la.id DESC LIMIT ".$limit,[$accountCode]);
+ }
+
+ public static function linkClient(string $accountCode,int $clientId,int $actorUserId,bool $confirmDocumentMismatch=false,string $notes=''): array{
+  CommercialSchema::ensure();$accountCode=trim($accountCode);$notes=trim($notes);
+  $account=DB::one("SELECT omie_code,name,trade_name,document FROM crm_accounts WHERE omie_code=? AND active=1 LIMIT 1",[$accountCode]);
+  if(!$account)throw new RuntimeException('Conta CRM não encontrada ou inativa.');
+  $client=DB::one("SELECT id,omie_code,name,document,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$clientId]);
+  if(!$client||empty($client['active']))throw new RuntimeException('Selecione um Cliente Geral ativo da Omie.');
+  if(!empty($client['crm_inactive']))throw new RuntimeException('O Cliente Geral está inativo no CRM. Reative-o antes de criar o vínculo.');
+
+  $accountDocument=crm_digits((string)($account['document']??''));$clientDocument=crm_digits((string)($client['document']??''));
+  $documentMismatch=$accountDocument===''||$clientDocument===''||$accountDocument!==$clientDocument;
+  if($documentMismatch&&!$confirmDocumentMismatch)throw new RuntimeException('Os documentos não coincidem ou estão ausentes. Confirme a divergência para realizar um vínculo manual auditado.');
+
+  $existing=DB::one("SELECT client_id FROM crm_account_links WHERE crm_account_code=? LIMIT 1",[$accountCode]);
+  $previousClientId=(int)($existing['client_id']??0);$action=$previousClientId>0?($previousClientId===$clientId?'verified':'relinked'):'linked';
+  $primary=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE client_id=? AND is_primary=1 AND crm_account_code<>?",[$clientId,$accountCode])??0)===0?1:0;
+  $method=$documentMismatch?'manual_review':'document_manual';
+
+  $ownsTransaction=!DB::conn()->inTransaction();if($ownsTransaction)DB::conn()->beginTransaction();
+  try{
+   DB::exec("INSERT INTO crm_account_links(crm_account_code,client_id,link_method,confidence,is_primary,verified_by_user_id,verified_at,updated_at)
+             VALUES(?,?,?,?,?,?,NOW(),NOW())
+             ON DUPLICATE KEY UPDATE client_id=VALUES(client_id),link_method=VALUES(link_method),confidence=VALUES(confidence),is_primary=VALUES(is_primary),verified_by_user_id=VALUES(verified_by_user_id),verified_at=NOW(),updated_at=NOW()",
+    [$accountCode,$clientId,$method,$documentMismatch?80:100,$primary,$actorUserId?:null]);
+   DB::exec("INSERT INTO crm_account_link_audit(crm_account_code,previous_client_id,client_id,action,link_method,actor_user_id,notes,created_at)
+             VALUES(?,?,?,?,?,?,?,NOW())",
+    [$accountCode,$previousClientId?:null,$clientId,$action,$method,$actorUserId?:null,$notes!==''?$notes:null]);
+   self::refreshClientProjection($clientId);
+   if($previousClientId>0&&$previousClientId!==$clientId)self::refreshClientProjection($previousClientId);
+   if($ownsTransaction)DB::conn()->commit();
+  }catch(Throwable $e){if($ownsTransaction&&DB::conn()->inTransaction())DB::conn()->rollBack();throw $e;}
+  return self::get($accountCode)??[];
+ }
+
+ public static function unlinkClient(string $accountCode,int $actorUserId,string $notes=''): void{
+  CommercialSchema::ensure();$existing=DB::one("SELECT client_id,link_method FROM crm_account_links WHERE crm_account_code=? LIMIT 1",[$accountCode]);
+  if(!$existing)throw new RuntimeException('Esta Conta CRM já está sem vínculo com Cliente Geral.');
+  $clientId=(int)$existing['client_id'];$notes=trim($notes);
+  $ownsTransaction=!DB::conn()->inTransaction();if($ownsTransaction)DB::conn()->beginTransaction();
+  try{
+   DB::exec("DELETE FROM crm_account_links WHERE crm_account_code=?",[$accountCode]);
+   DB::exec("INSERT INTO crm_account_link_audit(crm_account_code,previous_client_id,client_id,action,link_method,actor_user_id,notes,created_at)
+             VALUES(?,?,NULL,'unlinked',?,?,?,NOW())",
+    [$accountCode,$clientId,(string)$existing['link_method'],$actorUserId?:null,$notes!==''?$notes:null]);
+   self::refreshClientProjection($clientId);if($ownsTransaction)DB::conn()->commit();
+  }catch(Throwable $e){if($ownsTransaction&&DB::conn()->inTransaction())DB::conn()->rollBack();throw $e;}
+ }
+
+ private static function refreshClientProjection(int $clientId): void{
+  if($clientId<=0)return;
+  $accounts=DB::all("SELECT a.omie_code,a.crm_user_code,u.id owner_user_id
+                     FROM crm_account_links l
+                     JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+                     LEFT JOIN users u ON u.crm_user_omie_code=a.crm_user_code AND u.active=1 AND u.role='seller'
+                     WHERE l.client_id=? ORDER BY l.is_primary DESC,a.omie_code",[$clientId]);
+  if(count($accounts)!==1){DB::exec("UPDATE clients SET crm_account_code=NULL,crm_owner_omie_code=NULL,crm_owner_user_id=NULL WHERE id=?",[$clientId]);return;}
+  $account=$accounts[0];DB::exec("UPDATE clients SET crm_account_code=?,crm_owner_omie_code=?,crm_owner_user_id=? WHERE id=?",[
+   $account['omie_code'],$account['crm_user_code']?:null,(int)($account['owner_user_id']??0)?:null,$clientId
+  ]);
  }
 
  public static function contacts(string $accountCode): array{
@@ -1058,7 +1179,7 @@ final class CommercialAccountService {
           LEFT JOIN (
            SELECT crm_account_code,MAX(created_at) last_contact_at
            FROM activities
-           WHERE crm_account_code IS NOT NULL
+           WHERE crm_account_code IS NOT NULL AND activity_type IN('contact_completed','follow_up')
            GROUP BY crm_account_code
           ) act ON act.crm_account_code=a.omie_code
           LEFT JOIN (
@@ -1083,8 +1204,16 @@ final class CommercialAccountService {
                   ($sort==='stale'
                    ?"CASE WHEN act.last_contact_at IS NULL THEN 0 ELSE 1 END,act.last_contact_at ASC,nt.next_due_at ASC"
                    :($sort==='next'
-                    ?"CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC"
-                    :"CASE WHEN nt.next_due_at<CURDATE() THEN 0 WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1 WHEN act.last_contact_at IS NULL THEN 2 ELSE 3 END,CASE WHEN nt.next_due_at IS NOT NULL THEN nt.next_due_at END ASC,act.last_contact_at ASC"))
+                   ?"CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END,nt.next_due_at ASC,act.last_contact_at ASC"
+                    :"CASE
+                        WHEN nt.next_due_at<CURDATE() THEN 0
+                        WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN 1
+                        WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 2
+                        ELSE 3
+                       END,
+                       CASE WHEN nt.next_due_at<CURDATE() THEN nt.next_due_at END ASC,
+                       CASE WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN act.last_contact_at END ASC,
+                       nt.next_due_at ASC"))
                   .",a.trade_name ASC,a.name ASC
                  LIMIT ".$perPage." OFFSET ".$offset,$params);
 
@@ -1102,7 +1231,7 @@ final class CommercialAccountService {
           LEFT JOIN (
            SELECT crm_account_code,MAX(created_at) last_contact_at
            FROM activities
-           WHERE crm_account_code IS NOT NULL
+           WHERE crm_account_code IS NOT NULL AND activity_type IN('contact_completed','follow_up')
            GROUP BY crm_account_code
           ) act ON act.crm_account_code=a.omie_code
           LEFT JOIN (
@@ -1196,6 +1325,8 @@ final class CommercialActivityService {
  }
 
  public static function activityTypeLabel(string $code): string{
+  $extended=['orientation'=>'Orientação','activation'=>'Ativação','campaign'=>'Campanha','material'=>'Material','access'=>'Acesso','other'=>'Outros'];
+  if(isset($extended[$code]))return $extended[$code];
   foreach(self::types() as $item)if($item['code']===$code)return $item['label'];
   return $code;
  }
@@ -1247,10 +1378,16 @@ final class CommercialActivityService {
    $nextDate=DateTime::createFromFormat('Y-m-d\TH:i',$nextAt);
    if(!$nextDate||$nextDate->format('Y-m-d\TH:i')!==$nextAt||$nextDate->getTimestamp()<time()-60)throw new RuntimeException('Informe uma data e hora futura válida para o retorno.');
   }
+  $saleData=$type==='sale'?CommercialSaleService::normalize($data,$nextDate!==null):null;
+  $completedTaskId=(int)($data['complete_task_id']??0);
+  if($completedTaskId>0&&!DB::one("SELECT id FROM tasks WHERE id=? AND type='sales' AND status='pending' AND crm_account_code=?",[$completedTaskId,$accountCode]))throw new RuntimeException('O retorno informado já foi concluído ou não pertence a esta conta.');
+  $pdo=DB::conn();$ownsTransaction=!$pdo->inTransaction();if($ownsTransaction)$pdo->beginTransaction();
+  try{
   DB::exec("INSERT INTO activities(client_id,crm_account_code,user_id,activity_type,category_code,channel,result,outcome_code,notes,next_at,created_at)
             VALUES(?,?,?,?,?,?,?,?,?,?,NOW())",
    [$clientId?:null,$accountCode,(int)$user['id'],$type,$category!==''?$category:null,$channel,$outcome,$outcome,$notes!==''?$notes:null,$nextDate?$nextDate->format('Y-m-d H:i:00'):null]);
   $activityId=(int)DB::conn()->lastInsertId();
+  if($saleData!==null)CommercialSaleService::attach($activityId,$accountCode,$clientId,(int)$user['id'],$saleData);
 
   $taskId=0;
   if($nextDate){
@@ -1271,7 +1408,15 @@ final class CommercialActivityService {
    $taskId=(int)DB::conn()->lastInsertId();
   }
 
-  return ['activity_id'=>$activityId,'task_id'=>$taskId,'account_code'=>$accountCode,'client_id'=>$clientId?:null,'activity_type'=>$type];
+  if($completedTaskId>0){
+   $changed=DB::exec("UPDATE tasks SET status='done',completion_result_code='contact_completed',completion_notes=?,completed_by_user_id=?,completed_at=NOW(),updated_at=NOW() WHERE id=? AND type='sales' AND status='pending' AND crm_account_code=?",
+    [$notes!==''?$notes:'Retorno concluído com registro de atividade',(int)$user['id'],$completedTaskId,$accountCode]);
+   if(!$changed)throw new RuntimeException('O retorno informado já foi concluído ou não pertence a esta conta.');
+  }
+  if($ownsTransaction)$pdo->commit();
+  }catch(Throwable $e){if($ownsTransaction&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+
+  return ['activity_id'=>$activityId,'task_id'=>$taskId,'completed_task_id'=>$completedTaskId,'account_code'=>$accountCode,'client_id'=>$clientId?:null,'activity_type'=>$type];
  }
 
  public static function addNote(string $accountCode,array $user,string $note): int{
@@ -1309,6 +1454,113 @@ final class CommercialActivityService {
  public static function notes(string $accountCode,int $limit=100): array{
   CommercialSchema::ensure();$limit=max(1,min(300,$limit));
   return DB::all("SELECT n.*,u.name user_name FROM crm_account_notes n JOIN users u ON u.id=n.user_id WHERE n.crm_account_code=? ORDER BY n.created_at DESC,n.id DESC LIMIT ".$limit,[$accountCode]);
+ }
+}
+
+final class CommercialSaleService {
+ public static function types(): array{return ['material'=>'Material','ead'=>'EAD','material_ead'=>'Material + EAD'];}
+ public static function conditions(): array{return ['cash'=>'À vista','invoice_30'=>'Boleto 30 dias','special'=>'Condição especial'];}
+ private static function decimal(mixed $value): float{
+  $value=trim((string)$value);if($value==='')return 0.0;
+  $value=str_replace(['R$',' '],'',$value);if(str_contains($value,',')&&str_contains($value,'.'))$value=str_replace('.','',$value);
+  return round((float)str_replace(',','.',$value),2);
+ }
+ public static function normalize(array $data,bool $hasReturn=false): array{
+  $type=(string)($data['sale_type']??'');if(!isset(self::types()[$type]))throw new RuntimeException('Selecione o tipo da venda.');
+  $amount=self::decimal($data['sale_amount']??$data['amount']??0);if($amount<=0)throw new RuntimeException('Informe um valor de venda maior que zero.');
+  $discount=self::decimal($data['sale_discount']??$data['discount']??0);if($discount<0||$discount>$amount)throw new RuntimeException('O desconto da venda é inválido.');
+  $condition=(string)($data['commercial_condition']??'');if(!isset(self::conditions()[$condition]))throw new RuntimeException('Selecione a condição comercial.');
+  $details=trim((string)($data['negotiation_details']??$data['notes']??''));if(mb_strlen($details)>5000)throw new RuntimeException('Os detalhes da negociação devem ter até 5.000 caracteres.');
+  $future=!empty($data['future_promise']);if($future&&!$hasReturn)throw new RuntimeException('Uma promessa de venda futura precisa de acompanhamento agendado.');
+  $soldAt=trim((string)($data['sold_at']??''));
+  if($soldAt==='')$soldAt=date('Y-m-d H:i:s');else{$date=DateTime::createFromFormat('Y-m-d\TH:i',$soldAt);if(!$date)throw new RuntimeException('Informe data e hora válidas para a venda.');$soldAt=$date->format('Y-m-d H:i:00');}
+  return compact('type','amount','discount','condition','details','future','soldAt');
+ }
+ public static function attach(int $activityId,string $accountCode,int $clientId,int $userId,array $sale): int{
+  DB::exec("INSERT INTO commercial_sales(activity_id,client_id,crm_account_code,user_id,sold_at,sale_type,amount,discount,commercial_condition,negotiation_details,future_promise,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())",[$activityId,$clientId?:null,$accountCode,$userId,$sale['soldAt'],$sale['type'],$sale['amount'],$sale['discount'],$sale['condition'],$sale['details']!==''?$sale['details']:null,$sale['future']?1:0]);
+  return (int)DB::conn()->lastInsertId();
+ }
+ public static function listing(array $user,array $filters=[]): array{
+  CommercialSchema::ensure();$where=['1=1'];$params=[];$role=(string)($user['role']??'');
+  if($role==='seller'){$where[]='s.user_id=?';$params[]=(int)$user['id'];}
+  $period=(string)($filters['period']??date('Y-m'));if(!preg_match('/^\d{4}-\d{2}$/',$period))$period=date('Y-m');
+  $start=$period.'-01';$end=date('Y-m-d',strtotime($start.' +1 month'));$where[]='s.sold_at>=? AND s.sold_at<?';array_push($params,$start,$end);
+  $seller=(int)($filters['seller_id']??0);if($seller>0&&$role!=='seller'){$where[]='s.user_id=?';$params[]=$seller;}
+  $type=(string)($filters['sale_type']??'all');if(isset(self::types()[$type])){$where[]='s.sale_type=?';$params[]=$type;}else $type='all';
+  $q=trim((string)($filters['q']??''));if($q!==''){$where[]='(a.name LIKE ? OR a.document LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like);}
+  $sql=implode(' AND ',$where);
+  $rows=DB::all("SELECT s.*,a.name account_name,a.trade_name,a.document,u.name user_name FROM commercial_sales s JOIN crm_accounts a ON a.omie_code=s.crm_account_code JOIN users u ON u.id=s.user_id WHERE ".$sql." ORDER BY s.sold_at DESC,s.id DESC LIMIT 500",$params);
+  $summary=DB::one("SELECT COUNT(*) sale_count,COALESCE(SUM(s.amount),0) total_amount,COALESCE(SUM(CASE WHEN s.sale_type IN('material','material_ead') THEN s.amount ELSE 0 END),0) material_amount,COALESCE(SUM(CASE WHEN s.sale_type IN('ead','material_ead') THEN s.amount ELSE 0 END),0) ead_amount FROM commercial_sales s JOIN crm_accounts a ON a.omie_code=s.crm_account_code WHERE ".$sql,$params)??[];
+  return ['rows'=>$rows,'summary'=>$summary,'filters'=>['period'=>$period,'seller_id'=>$seller,'sale_type'=>$type,'q'=>$q]];
+ }
+}
+
+final class CommercialPartnerService {
+ public static function catalog(): array{return [
+  'access'=>['label'=>'Acesso','items'=>['access_guidance'=>'Orientação de acesso','has_access'=>'Possui acesso','knows_access'=>'Sabe acessar','access_recovery'=>'Recuperação de acesso','access_problem'=>'Problema de acesso']],
+  'products'=>['label'=>'Produtos','items'=>['knows_products'=>'Conhece os produtos','product_difference'=>'Diferença entre produtos','which_product'=>'Qual produto oferecer','product_update'=>'Atualização de produto','commercial_guidance'=>'Orientação comercial']],
+  'sales'=>['label'=>'Vendas','items'=>['knows_selling'=>'Sabe como vender','approach_guidance'=>'Orientação de abordagem','sales_questions'=>'Dúvidas sobre venda']],
+  'campaigns'=>['label'=>'Campanhas','items'=>['campaign_presentation'=>'Apresentação de campanha','campaign_update'=>'Atualização de campanha','condition_explanation'=>'Explicação de condições','promotion'=>'Divulgação de promoção']],
+  'materials'=>['label'=>'Materiais','items'=>['art_delivery'=>'Envio de artes','art_update'=>'Atualização de artes','commercial_material'=>'Envio de material comercial','material_guidance'=>'Orientação de uso dos materiais']],
+  'activation'=>['label'=>'Ativação','items'=>['partner_activation'=>'Ativação de parceiro','partner_recovery'=>'Recuperação de parceiro','difficulty'=>'Identificação de dificuldade','partner_followup'=>'Acompanhamento de parceiro']],
+ ];}
+ public static function listing(array $user,array $filters=[]): array{
+  CommercialSchema::ensure();$where=['a.active=1','p.is_reseller=1'];$params=[];
+  if(($user['role']??'')==='seller'){$where[]='a.crm_user_code=?';$params[]=(string)($user['crm_user_omie_code']??'__NONE__');}
+  $q=trim((string)($filters['q']??''));if($q!==''){$where[]='(a.name LIKE ? OR a.trade_name LIKE ? OR a.document LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like);}
+  $status=(string)($filters['status']??'all');$having='';if($status==='active')$having='HAVING days_without_work<=14';elseif($status==='activation')$having='HAVING days_without_work BETWEEN 15 AND 30';elseif($status==='reactivation')$having='HAVING days_without_work>30 OR last_work_at IS NULL';else $status='all';
+  $rows=DB::all("SELECT a.omie_code,a.name,a.trade_name,a.document,l.client_id,p.is_cfc,p.is_reseller,cu.name owner_name,w.created_at last_work_at,w.description last_work_description,w.next_step,DATEDIFF(CURDATE(),DATE(w.created_at)) days_without_work FROM crm_accounts a JOIN crm_account_commercial_profiles p ON p.crm_account_code=a.omie_code LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code LEFT JOIN commercial_partner_work w ON w.id=(SELECT MAX(w2.id) FROM commercial_partner_work w2 WHERE w2.crm_account_code=a.omie_code) WHERE ".implode(' AND ',$where)." ".$having." ORDER BY CASE WHEN w.created_at IS NULL THEN 0 ELSE 1 END,DATEDIFF(CURDATE(),DATE(w.created_at)) DESC,a.name LIMIT 500",$params);
+  return ['rows'=>$rows,'filters'=>['q'=>$q,'status'=>$status]];
+ }
+ public static function record(string $accountCode,array $user,array $data): array{
+  if(!CommercialAccountService::canWork($user,$accountCode))throw new RuntimeException('Este parceiro não pertence à carteira autorizada.');
+  $account=CommercialAccountService::get($accountCode);if(!$account||empty($account['is_reseller']))throw new RuntimeException('A conta selecionada não está classificada como Revendedor.');
+  $catalog=self::catalog();$items=$data['work_items']??[];if(!is_array($items))$items=[];$selected=[];
+  foreach($items as $raw){[$category,$subtype]=array_pad(explode(':',(string)$raw,2),2,'');if(isset($catalog[$category]['items'][$subtype]))$selected[$category.':'.$subtype]=[$category,$subtype];}
+  if(!$selected)throw new RuntimeException('Selecione ao menos um trabalho realizado.');
+  $description=trim((string)($data['description']??''));if($description===''||mb_strlen($description)>5000)throw new RuntimeException('Descreva o trabalho realizado em até 5.000 caracteres.');
+  $nextStep=trim((string)($data['next_step']??''));if(mb_strlen($nextStep)>500)throw new RuntimeException('O próximo passo deve ter até 500 caracteres.');
+  $clientId=(int)($account['client_id']??0);$primary=array_values($selected)[0][0];$activityType=['activation'=>'activation','campaigns'=>'campaign','materials'=>'material','access'=>'access','products'=>'orientation','sales'=>'orientation'][$primary]??'follow_up';
+  $due=null;if(!empty($data['schedule_return'])){$date=trim((string)($data['next_date']??''));$time=trim((string)($data['next_time']??''));$due=DateTime::createFromFormat('Y-m-d\TH:i',$date.'T'.$time);if(!$due||$due->getTimestamp()<time()-60)throw new RuntimeException('Informe data e hora futuras para o retorno.');}
+  $pdo=DB::conn();$ownsTransaction=!$pdo->inTransaction();if($ownsTransaction)$pdo->beginTransaction();
+  try{
+  DB::exec("INSERT INTO activities(client_id,crm_account_code,user_id,activity_type,category_code,channel,result,outcome_code,notes,next_at,created_at) VALUES(?,?,?,?,?,'other','progress','progress',?,?,NOW())",[$clientId?:null,$accountCode,(int)$user['id'],$activityType,$primary,$description,$due?$due->format('Y-m-d H:i:00'):null]);
+  $activityId=(int)DB::conn()->lastInsertId();DB::exec("INSERT INTO commercial_partner_work(activity_id,client_id,crm_account_code,user_id,description,next_step,created_at) VALUES(?,?,?,?,?,?,NOW())",[$activityId,$clientId?:null,$accountCode,(int)$user['id'],$description,$nextStep!==''?$nextStep:null]);$workId=(int)DB::conn()->lastInsertId();
+  foreach($selected as [$category,$subtype])DB::exec("INSERT INTO commercial_partner_work_items(work_id,category_code,subtype_code) VALUES(?,?,?)",[$workId,$category,$subtype]);
+  $taskId=0;if($due){$title=$nextStep!==''?$nextStep:'Acompanhar desenvolvimento do parceiro';DB::exec("INSERT INTO tasks(client_id,crm_account_code,assigned_user_id,created_by_user_id,type,task_type_code,source_activity_id,title,due_at,status,created_at,updated_at) VALUES(?,?,?,?,'sales','return',?,?,?,'pending',NOW(),NOW())",[$clientId?:null,$accountCode,(int)$user['id'],(int)$user['id'],$activityId,$title,$due->format('Y-m-d H:i:00')]);$taskId=(int)DB::conn()->lastInsertId();}
+  if($ownsTransaction)$pdo->commit();
+  }catch(Throwable $e){if($ownsTransaction&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+  return compact('workId','activityId','taskId');
+ }
+}
+
+final class CommercialManagementService {
+ public static function build(array $filters=[]): array{
+  CommercialSchema::ensure();$period=(string)($filters['period']??'month');$today=date('Y-m-d');
+  if($period==='today'){$start=$today;$end=date('Y-m-d',strtotime($today.' +1 day'));}
+  elseif($period==='yesterday'){$start=date('Y-m-d',strtotime($today.' -1 day'));$end=$today;}
+  elseif($period==='week'){$start=date('Y-m-d',strtotime('monday this week'));$end=date('Y-m-d',strtotime($start.' +7 days'));}
+  elseif($period==='custom'){$start=(string)($filters['start']??$today);$end=date('Y-m-d',strtotime((string)($filters['end']??$today).' +1 day'));}
+  else{$period='month';$start=date('Y-m-01');$end=date('Y-m-d',strtotime($start.' +1 month'));}
+  $seller=(int)($filters['seller_id']??0);$activity=(string)($filters['activity_type']??'all');$channel=(string)($filters['channel']??'all');$saleType=(string)($filters['sale_type']??'all');$classification=(string)($filters['classification']??'all');
+  $aw=['a.created_at>=?','a.created_at<?'];$ap=[$start,$end];if($seller>0){$aw[]='a.user_id=?';$ap[]=$seller;}if($activity!=='all'){$aw[]='a.activity_type=?';$ap[]=$activity;}if($channel!=='all'){$aw[]='a.channel=?';$ap[]=$channel;}
+  if($classification==='cfc')$aw[]='p.is_cfc=1';elseif($classification==='reseller')$aw[]='p.is_reseller=1';elseif($classification==='both')$aw[]='p.is_cfc=1 AND p.is_reseller=1';
+  $activityJoin=" FROM activities a JOIN users u ON u.id=a.user_id LEFT JOIN crm_account_commercial_profiles p ON p.crm_account_code=a.crm_account_code WHERE ".implode(' AND ',$aw);
+  $metrics=DB::one("SELECT COUNT(*) activities,COALESCE(SUM(a.activity_type='contact_attempt'),0) attempts,COALESCE(SUM(a.activity_type='contact_completed'),0) contacts,COALESCE(SUM(a.activity_type='follow_up'),0) followups,COALESCE(SUM(a.activity_type='orientation'),0) orientations,COALESCE(SUM(a.activity_type='activation'),0) activations".$activityJoin,$ap)??[];
+  $sw=['s.sold_at>=?','s.sold_at<?'];$sp=[$start,$end];if($seller>0){$sw[]='s.user_id=?';$sp[]=$seller;}if(isset(CommercialSaleService::types()[$saleType])){$sw[]='s.sale_type=?';$sp[]=$saleType;}
+  if($classification==='cfc')$sw[]='sp.is_cfc=1';elseif($classification==='reseller')$sw[]='sp.is_reseller=1';elseif($classification==='both')$sw[]='sp.is_cfc=1 AND sp.is_reseller=1';
+  if($activity!=='all'&&$activity!=='sale')$sw[]='1=0';if($channel!=='all'){$sw[]='sa.channel=?';$sp[]=$channel;}
+  $saleFrom=" FROM commercial_sales s JOIN activities sa ON sa.id=s.activity_id LEFT JOIN crm_account_commercial_profiles sp ON sp.crm_account_code=s.crm_account_code WHERE ".implode(' AND ',$sw);
+  $sales=DB::one("SELECT COUNT(*) sales,COALESCE(SUM(s.amount),0) sales_amount,COALESCE(SUM(CASE WHEN s.sale_type IN('ead','material_ead') THEN s.amount ELSE 0 END),0) ead_amount".$saleFrom,$sp)??[];
+  $taskSql=$seller>0?' AND assigned_user_id=?':'';$taskParams=[$start,$end];if($seller>0)$taskParams[]=$seller;
+  $tasks=DB::one("SELECT COALESCE(SUM(status='pending' AND due_at<CURDATE()),0) overdue,COALESCE(SUM(status='pending'),0) pending,COALESCE(SUM(status='done' AND completed_at>=? AND completed_at<?),0) completed FROM tasks WHERE type='sales'".$taskSql,$taskParams)??[];
+  $partnerSql=$seller>0?' AND user_id=?':'';$partnerParams=[$start,$end];if($seller>0)$partnerParams[]=$seller;
+  $partnersWorked=(int)(DB::scalar("SELECT COUNT(DISTINCT crm_account_code) FROM commercial_partner_work WHERE created_at>=? AND created_at<?".$partnerSql,$partnerParams)??0);
+  $partnersStale=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles p JOIN crm_accounts ca ON ca.omie_code=p.crm_account_code LEFT JOIN (SELECT crm_account_code,MAX(created_at) last_at FROM commercial_partner_work GROUP BY crm_account_code) w ON w.crm_account_code=ca.omie_code WHERE p.is_reseller=1 AND ca.active=1 AND (w.last_at IS NULL OR w.last_at<CURDATE()-INTERVAL 30 DAY)")??0);
+  $rows=DB::all("SELECT u.id,u.name,COALESCE(SUM(a.activity_type='contact_completed'),0) contacts,COALESCE(SUM(a.activity_type='contact_attempt'),0) attempts,COALESCE(SUM(a.activity_type='follow_up'),0) followups,COALESCE(SUM(a.activity_type='orientation'),0) orientations,COALESCE(SUM(a.activity_type='activation'),0) activations,(SELECT COUNT(*) FROM commercial_sales s WHERE s.user_id=u.id AND s.sold_at>=? AND s.sold_at<?) sales,(SELECT COALESCE(SUM(s.amount),0) FROM commercial_sales s WHERE s.user_id=u.id AND s.sold_at>=? AND s.sold_at<?) sales_amount FROM users u LEFT JOIN activities a ON a.user_id=u.id AND a.created_at>=? AND a.created_at<? WHERE u.active=1 AND u.role='seller' ".($seller>0?'AND u.id='.(int)$seller:'')." GROUP BY u.id,u.name ORDER BY u.name",[$start,$end,$start,$end,$start,$end]);
+  $day=(string)($filters['day']??$today);if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$day))$day=$today;$daySeller=(int)($filters['day_seller_id']??$seller);$dw=['a.created_at>=?','a.created_at<?'];$dp=[$day,date('Y-m-d',strtotime($day.' +1 day'))];if($daySeller>0){$dw[]='a.user_id=?';$dp[]=$daySeller;}
+  $daily=DB::all("SELECT a.*,u.name user_name,COALESCE(ca.trade_name,ca.name,'Conta') account_name FROM activities a JOIN users u ON u.id=a.user_id LEFT JOIN crm_accounts ca ON ca.omie_code=a.crm_account_code WHERE ".implode(' AND ',$dw)." ORDER BY a.created_at",$dp);
+  return ['filters'=>compact('period','start','end','seller','activity','channel','saleType','classification','day','daySeller'),'metrics'=>array_merge($metrics,$sales,['overdue'=>(int)($tasks['overdue']??0),'pending'=>(int)($tasks['pending']??0),'completed'=>(int)($tasks['completed']??0),'partners_worked'=>$partnersWorked,'partners_stale'=>$partnersStale]),'rows'=>$rows,'daily'=>$daily];
  }
 }
 

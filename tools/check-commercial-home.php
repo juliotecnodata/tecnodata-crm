@@ -36,8 +36,8 @@ try{
   hrow('Sem contato 30+ dias',(int)($home['stale']['count']??0));
   hrow('Retornos atrasados',(int)($home['overdue']['count']??0));
   hrow('Retornos hoje',(int)($home['today']['count']??0));
-  hrow('Vendas no mês',money($home['sales']['amount']??0));
-  hrow('Quantidade vendas',(int)($home['sales']['count']??0));
+  hrow('Precisam de atenção',(int)($home['attention']['count']??0));
+  hrow('Casos exibidos nos cards',count($home['overdue']['items']??[])+count($home['stale']['items']??[])+count($home['today']['items']??[])+count($home['attention']['items']??[]));
   hrow('Registros carteira',(int)($home['portfolio']['total']??0));
   hrow('Linhas na abertura',count($home['portfolio']['rows']??[]));
   $first=$home['portfolio']['rows'][0]??null;

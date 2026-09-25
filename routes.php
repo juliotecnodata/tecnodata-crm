@@ -767,7 +767,10 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  'crmPortfolioReady'=>$crmPortfolioReady,'commercialHealth'=>$crmPortfolioReady?CommercialPortfolioService::health():[]
  ]);
 };
-$router->get('/clients',function()use($renderClients){$renderClients(false);});
+$router->get('/clients',function()use($renderClients){
+ if((string)(Auth::user()['role']??'')==='seller')redirect('/my-portfolio');
+ $renderClients(false);
+});
 
 $renderCommercialPortfolio=function(){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();
@@ -784,6 +787,45 @@ $renderCommercialPortfolio=function(){
 $router->get('/my-portfolio',$renderCommercialPortfolio);
 $router->get('/commercial-portfolio',$renderCommercialPortfolio);
 
+// Prova de conceito isolada: Home e carteira no mesmo espaço de trabalho.
+// Não substitui a Home atual nem participa do menu principal.
+$router->get('/commercial-home-concept',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();
+ $u=Auth::user();$viewUser=$u;$sellerUsers=[];
+ if(in_array((string)($u['role']??''),['admin','supervisor'],true)){
+  $sellerUsers=DB::all("SELECT id,name,crm_user_omie_code FROM users WHERE active=1 AND role='seller' AND crm_user_omie_code IS NOT NULL AND TRIM(crm_user_omie_code)<>'' ORDER BY name");
+  $requestedSeller=(int)($_GET['seller_user_id']??0);
+  foreach($sellerUsers as $candidate)if((int)$candidate['id']===$requestedSeller){$viewUser=DB::one("SELECT * FROM users WHERE id=?",[$requestedSeller])??$u;break;}
+  if(($viewUser['role']??'')!=='seller'&&!empty($sellerUsers))$viewUser=DB::one("SELECT * FROM users WHERE id=?",[(int)$sellerUsers[0]['id']])??$u;
+ }
+ $filters=$_GET;$filters['per_page']=max(10,min(25,(int)($filters['per_page']??12)));$filters['scope']='active';
+ $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
+ render('commercial_home_concept',[
+  'conceptHome'=>CommercialHomeService::build($viewUser),'conceptPortfolio'=>CommercialAccountService::portfolio($viewUser,$filters),
+  'conceptSeller'=>$viewUser,'conceptSellerUsers'=>$sellerUsers,'flash'=>$flash,
+  'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
+  'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
+  'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
+ ]);
+});
+
+$router->get('/commercial-home-concept/account/{code}',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$code=trim((string)($p['code']??''));
+ $account=CommercialAccountService::get($code);
+ if(!$account)json_response(['ok'=>false,'error'=>'Conta CRM não encontrada.'],404);
+ if(($u['role']??'')==='seller'&&!CommercialAccountService::canWork($u,$code))json_response(['ok'=>false,'error'=>'Esta conta não pertence à sua carteira.'],403);
+ $activities=CommercialActivityService::history($code,12);$typeLabels=[];
+ foreach(CommercialActivityService::types() as $type)$typeLabels[(string)($type['code']??'')]=(string)($type['label']??'Atividade');
+ foreach($activities as &$activity){
+  $activity['type_label']=$typeLabels[(string)($activity['activity_type']??'')]??'Atividade';
+  $activity['channel_label']=CommercialActivityService::channelLabel((string)($activity['channel']??''));
+  $activity['category_label']=CommercialActivityService::categoryLabel((string)($activity['category_code']??''));
+ }
+ unset($activity);
+ $next=DB::one("SELECT id,title,due_at FROM tasks WHERE crm_account_code=? AND type='sales' AND status='pending' ORDER BY due_at,id LIMIT 1",[$code]);
+ json_response(['ok'=>true,'account'=>$account,'profile'=>CommercialAccountService::profile($code),'activities'=>$activities,'next_return'=>$next]);
+});
+
 $router->get('/commercial/accounts/{code}',function($p){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$code=trim((string)$p['code']);
  $account=CommercialAccountService::get($code);if(!$account){http_response_code(404);exit('Conta CRM não encontrada.');}
@@ -791,12 +833,43 @@ $router->get('/commercial/accounts/{code}',function($p){
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_account',[
   'account'=>$account,'contacts'=>CommercialAccountService::contacts($code),'profile'=>CommercialAccountService::profile($code),
-  'audit'=>CommercialAccountService::audit($code),'canWork'=>CommercialAccountService::canWork($u,$code),'flash'=>$flash,
+  'audit'=>CommercialAccountService::audit($code),'linkAudit'=>CommercialAccountService::linkAudit($code),'canWork'=>CommercialAccountService::canWork($u,$code),'flash'=>$flash,
   'activities'=>CommercialActivityService::history($code),'commercialNotes'=>CommercialActivityService::notes($code),
   'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
   'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
   'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
  ]);
+});
+
+$router->post('/commercial/accounts/{code}/client-link',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $code=trim((string)$p['code']);$u=Auth::user();$isSeller=(string)($u['role']??'')==='seller';
+ try{
+  if($isSeller&&!CommercialAccountService::canWork($u,$code))throw new RuntimeException('Esta Conta CRM não pertence à sua carteira operacional.');
+  if($isSeller&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE crm_account_code=?",[$code])??0)>0)throw new RuntimeException('A troca de um vínculo existente deve ser validada pelo supervisor.');
+  $clientId=(int)($_POST['client_id']??0);
+  if($isSeller){
+   $accountDocument=crm_digits((string)(DB::scalar("SELECT document FROM crm_accounts WHERE omie_code=? AND active=1",[$code])??''));
+   $clientDocument=crm_digits((string)(DB::scalar("SELECT document FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$clientId])??''));
+   if($accountDocument===''||$accountDocument!==$clientDocument)throw new RuntimeException('O vendedor só pode vincular cadastros com CPF/CNPJ idêntico. Solicite ao supervisor quando houver divergência.');
+   $sameDocument=0;foreach(DB::all("SELECT document FROM clients WHERE active=1 AND crm_inactive=0 AND document IS NOT NULL") as $candidate)if(crm_digits((string)$candidate['document'])===$accountDocument)$sameDocument++;
+   if($sameDocument!==1)throw new RuntimeException('Existe mais de um Cliente Geral ativo com este CPF/CNPJ. O supervisor deve revisar a duplicidade antes do vínculo.');
+  }
+  $allowMismatch=!$isSeller&&!empty($_POST['confirm_document_mismatch']);
+  CommercialAccountService::linkClient($code,$clientId,Auth::id(),$allowMismatch,trim((string)($_POST['notes']??'')));
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Conta CRM vinculada ao Cliente Geral. Vendas e cobrança agora compartilham a mesma identidade Omie.'];
+ }catch(Throwable $e){$_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ redirect('/commercial/accounts/'.rawurlencode($code));
+});
+
+$router->post('/commercial/accounts/{code}/client-unlink',function($p){
+ Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $code=trim((string)$p['code']);
+ try{
+  CommercialAccountService::unlinkClient($code,Auth::id(),trim((string)($_POST['notes']??'')));
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Vínculo removido com auditoria. Os dois históricos foram preservados.'];
+ }catch(Throwable $e){$_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
 $router->post('/commercial/accounts/{code}/activity',function($p){
@@ -805,7 +878,7 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
  try{
   $result=CommercialActivityService::record($code,$u,$_POST);
   $_SESSION['commercial_flash']=['type'=>'success','message'=>!empty($result['task_id'])?'Atividade registrada e próximo retorno agendado.':'Atividade registrada no histórico comercial.'];
-  if(($result['activity_type']??'')==='sale'&&!empty($result['client_id']))redirect('/orders/new?client_id='.(int)$result['client_id']);
+  if(($result['activity_type']??'')==='sale')$_SESSION['commercial_flash']=['type'=>'success','message'=>'Venda registrada no histórico e nos indicadores comerciais.'];
  }catch(Throwable $e){
   $_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];
  }
@@ -820,6 +893,8 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
   if($queryRaw!==''){parse_str($queryRaw,$parsed);foreach(['q','classification','link','owner','scope','page'] as $key)if(isset($parsed[$key])&&!is_array($parsed[$key]))$safe[$key]=(string)$parsed[$key];}
   redirect('/my-portfolio'.($safe?'?'.http_build_query($safe):''));
  }
+ if($returnTo==='home_concept')redirect('/commercial-home-concept');
+ if($returnTo==='agenda')redirect('/agenda?type=sales');
  redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
@@ -865,6 +940,44 @@ $router->post('/commercial/accounts/{code}/profile',function($p){
  CommercialAccountService::updateProfile($code,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Perfil comercial atualizado. A alteração foi auditada e entrou na fila de sincronização do Omie.'];
  redirect('/commercial/accounts/'.rawurlencode($code));
+});
+
+$router->get('/commercial-partners',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
+ render('commercial_partners',['partners'=>CommercialPartnerService::listing($u,$_GET),'partnerCatalog'=>CommercialPartnerService::catalog(),'flash'=>$flash]);
+});
+$router->post('/commercial-partners/{code}/work',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
+ try{CommercialPartnerService::record($code,Auth::user(),$_POST);$_SESSION['commercial_flash']=['type'=>'success','message'=>'Trabalho com o parceiro registrado e indicadores atualizados.'];}
+ catch(Throwable $e){$_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ redirect('/commercial-partners');
+});
+
+$router->get('/commercial-sales',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
+ render('commercial_sales',['salesData'=>CommercialSaleService::listing($u,$_GET),'saleTypes'=>CommercialSaleService::types(),'saleConditions'=>CommercialSaleService::conditions(),'commercialSellers'=>DB::all("SELECT id,name FROM users WHERE active=1 AND role='seller' ORDER BY name"),'flash'=>$flash]);
+});
+$router->post('/commercial-sales/{code}',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
+ try{
+  $payload=$_POST;$payload['activity_type']='sale';$payload['channel']='other';$payload['category_code']='commercial';$payload['notes']=trim((string)($_POST['negotiation_details']??''));$payload['future_promise']=!empty($_POST['future_promise'])?1:0;
+  if(!empty($payload['future_promise']))$payload['schedule_return']=1;
+  CommercialActivityService::record($code,Auth::user(),$payload);$_SESSION['commercial_flash']=['type'=>'success','message'=>'Venda registrada no histórico, nos indicadores e no acompanhamento comercial.'];
+ }catch(Throwable $e){$_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ redirect('/commercial-sales');
+});
+
+$router->get('/commercial-management',function(){
+ Auth::requireRole('admin','supervisor');CommercialSchema::ensure();
+ $managementData=CommercialManagementService::build($_GET);
+ if(($_GET['export']??'')==='csv'){
+  header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="painel-gestao-'.date('Y-m-d').'.csv"');
+  $out=fopen('php://output','wb');fwrite($out,"\xEF\xBB\xBF");fputcsv($out,['Consultora','Contatos','Tentativas','Follow-ups','Orientações','Ativações','Vendas','Valor vendido'],';');
+  foreach($managementData['rows'] as $row)fputcsv($out,[$row['name'],$row['contacts'],$row['attempts'],$row['followups'],$row['orientations'],$row['activations'],$row['sales'],number_format((float)$row['sales_amount'],2,',','.')],';');fclose($out);exit;
+ }
+ render('commercial_management',['managementData'=>$managementData,'commercialSellers'=>DB::all("SELECT id,name FROM users WHERE active=1 AND role='seller' ORDER BY name"),'activityChannels'=>CommercialActivityService::channels(),'saleTypes'=>CommercialSaleService::types()]);
 });
 $router->get('/clients-ead-reciclagem',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='ead_reciclagem';redirect('/clients?'.http_build_query($query));});
 $router->get('/clients-suporte-pet',function(){Auth::requireRole('admin','supervisor');$query=$_GET;$query['segment']='suporte_pet';redirect('/clients?'.http_build_query($query));});
@@ -1838,7 +1951,11 @@ $router->post('/collection/recoveries',function(){
 $router->get('/collection/{id}',function($p){
  Auth::requireRole('admin','supervisor','collector');ClientSegmentPolicy::ensureSchema();
  $id=(int)$p['id'];
- $c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,c.crm_inactive,u.name assigned_name FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);
+ $c=DB::one("SELECT cc.*,c.name,c.document,c.uf,c.phone,c.omie_code client_omie_code,c.crm_inactive,u.name assigned_name,
+                    (SELECT l.crm_account_code FROM crm_account_links l WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_code,
+                    (SELECT a.name FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1) crm_account_name,
+                    (SELECT COUNT(*) FROM crm_account_links l WHERE l.client_id=c.id) crm_account_count
+             FROM collection_cases cc JOIN clients c ON c.id=cc.client_id LEFT JOIN users u ON u.id=cc.assigned_user_id WHERE cc.client_id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cobrança não encontrada.');}
  if(($u=Auth::user())&&($u['role']??'')==='collector'&&!empty($c['crm_inactive'])){http_response_code(404);exit('Cobrança não encontrada.');}
  $a=DB::all("SELECT ca.*,ua.name author_name,ur.name assigned_name FROM collection_actions ca JOIN users ua ON ua.id=ca.author_user_id JOIN users ur ON ur.id=ca.assigned_user_id WHERE ca.client_id=? ORDER BY ca.created_at DESC",[$id]);
@@ -2031,7 +2148,8 @@ $router->get('/agenda',function(){
  render('agenda',[
   'rows'=>$rows,'agendaUsers'=>$users,'agendaFilterUser'=>$filterUser,'teamAgenda'=>$teamAgenda,
   'agendaType'=>$agendaType,'agendaPeriod'=>$agendaPeriod,'agendaStats'=>$stats,'agendaWorkload'=>$workload,'agendaVision'=>$vision,
-  'agendaCreatedDate'=>$createdDate,'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash
+  'agendaCreatedDate'=>$createdDate,'taskTypeLabels'=>array_column(task_type_catalog(),'label','code'),'flash'=>$flash,
+  'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),'activityCategories'=>CommercialActivityService::categories(),'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)
  ]);
 });
 $router->get('/api/commercial/accounts/search',function(){

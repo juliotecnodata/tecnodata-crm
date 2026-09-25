@@ -9,6 +9,7 @@ function render_commercial_activity_dialog(array $vars): void{
    <input type="hidden" name="return_to" value="<?=e($returnTo)?>">
    <input type="hidden" name="return_query" value="<?=e($returnQuery)?>">
    <input type="hidden" name="outcome_code" value="attempt" data-commercial-outcome-hidden>
+   <input type="hidden" name="complete_task_id" value="" data-commercial-complete-task>
    <header class="tda-head">
     <h2 id="tda-dialog-title">Registro de atividade</h2>
     <button type="button" data-commercial-activity-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
@@ -45,6 +46,17 @@ function render_commercial_activity_dialog(array $vars): void{
      <textarea id="tda-notes" name="notes" rows="5" maxlength="2000" data-commercial-notes placeholder="Descreva com detalhes o que foi conversado, dúvidas do cliente, pedidos, próximos passos..."></textarea>
      <div class="tda-notes-foot"><small>Descreva com detalhes o que foi conversado, dúvidas do cliente, pedidos, próximos passos...</small><span><b data-commercial-notes-count>0</b>/2000 caracteres</span></div>
     </div>
+
+    <section class="tda-sale-fields" data-commercial-sale-fields hidden>
+     <h3>Dados da venda</h3>
+     <div class="tda-sale-type-grid">
+      <?php foreach(CommercialSaleService::types() as $saleCode=>$saleLabel):?><label><input type="radio" name="sale_type" value="<?=e($saleCode)?>"><span><i class="fa-solid <?=$saleCode==='material'?'fa-cart-shopping':($saleCode==='ead'?'fa-graduation-cap':'fa-layer-group')?>"></i><?=e($saleLabel)?></span></label><?php endforeach;?>
+     </div>
+     <div class="tda-sale-grid"><label><span>Valor (R$)</span><input type="text" name="sale_amount" inputmode="decimal" placeholder="0,00"></label><label><span>Desconto (R$)</span><input type="text" name="sale_discount" inputmode="decimal" placeholder="0,00"></label></div>
+     <fieldset><legend>Condição comercial</legend><div class="tda-chip-row"><?php foreach(CommercialSaleService::conditions() as $conditionCode=>$conditionLabel):?><label class="tda-chip"><input type="radio" name="commercial_condition" value="<?=e($conditionCode)?>"><span><?=e($conditionLabel)?><b><i class="fa-solid fa-circle-check"></i></b></span></label><?php endforeach;?></div></fieldset>
+     <label class="tda-sale-details"><span>Detalhes importantes da negociação</span><textarea name="negotiation_details" rows="3" maxlength="5000" placeholder="Condição combinada, produtos, contexto e próximos passos..."></textarea></label>
+     <label class="tda-promise"><input type="checkbox" name="future_promise" value="1" data-commercial-future-promise><span><i class="fa-solid fa-check"></i></span><b>Promessa ou expectativa de venda futura</b></label>
+    </section>
 
     <section class="tda-return">
      <h3>Agendar retorno</h3>
@@ -113,21 +125,114 @@ function render(string $name,array $vars=[]): void{
     </section>
    </main>
   <?php break;
+  case 'commercial_home_concept':
+   $conceptHome=is_array($conceptHome??null)?$conceptHome:[];$conceptPortfolio=is_array($conceptPortfolio??null)?$conceptPortfolio:[];
+   $conceptRows=(array)($conceptPortfolio['rows']??[]);$conceptFilters=(array)($conceptPortfolio['filters']??[]);
+   $conceptPage=(int)($conceptPortfolio['page']??1);$conceptPages=(int)($conceptPortfolio['pages']??1);$conceptTotal=(int)($conceptPortfolio['total']??0);
+   $conceptSellerId=(int)($conceptSeller['id']??0);
+   $conceptUrl=static function(array $changes=[])use($conceptFilters,$conceptSellerId): string{$query=array_merge($conceptFilters,['seller_user_id'=>$conceptSellerId],$changes);foreach($query as $key=>$value)if($value===''||$value==='all'||$value===null)unset($query[$key]);return APP_URL.'/commercial-home-concept'.($query?'?'.http_build_query($query):'');};
+   $conceptDayNames=['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
+   $conceptDate=($conceptDayNames[date('l')]??'Hoje').', '.date('d/m/Y');
+   ?>
+   <link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-home-concept-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-home-concept-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-home-concept-v1.css'):time()?>">
+   <section class="tdx-page" data-concept-workspace>
+    <header class="tdx-head">
+     <div class="tdx-head-copy"><span class="tdx-icon"><i class="fa-solid fa-house-laptop"></i></span><div><span class="tdx-kicker">PROVA DE CONCEITO · NÃO SUBSTITUI A TELA ATUAL</span><h1>Minha Home</h1><p>Agenda de decisão e carteira em um único espaço de trabalho.</p></div></div>
+     <div class="tdx-head-side"><span><i class="fa-regular fa-calendar"></i><?=e($conceptDate)?></span><a href="<?=APP_URL?>/"><i class="fa-solid fa-arrow-left"></i>Voltar para a Home atual</a></div>
+    </header>
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <section class="tdx-now">
+     <header><div><span>AGORA</span><h2>O que preciso fazer agora?</h2></div><small>Gerado automaticamente pelas atividades e retornos registrados.</small></header>
+     <div class="tdx-priority-grid">
+      <?php
+       $conceptCards=[
+        ['key'=>'overdue','class'=>'red','icon'=>'fa-calendar-xmark','label'=>'Retornos atrasados','note'=>'Compromissos vencidos','filter'=>'overdue'],
+        ['key'=>'stale','class'=>'amber','icon'=>'fa-clock','label'=>'Sem contato há 30+ dias','note'=>'Clientes mais críticos','filter'=>'stale30'],
+        ['key'=>'today','class'=>'blue','icon'=>'fa-calendar-check','label'=>'Retornos de hoje','note'=>'Compromissos do dia','filter'=>'today'],
+        ['key'=>'attention','class'=>'orange','icon'=>'fa-triangle-exclamation','label'=>'Precisam de atenção','note'=>'Decisões comerciais','filter'=>'all']
+       ];
+       foreach($conceptCards as $card):$cardData=(array)($conceptHome[$card['key']]??[]);$cardItems=(array)($cardData['items']??[]);
+      ?>
+       <a class="tdx-priority <?=$card['class']?>" href="<?=e($conceptUrl(['attention'=>$card['filter'],'page'=>1]))?>#minha-carteira">
+        <div class="tdx-priority-title"><span><i class="fa-regular <?=$card['icon']?>"></i></span><div><small><?=e($card['label'])?></small><strong><?=number_format((int)($cardData['count']??0),0,',','.')?></strong><p><?=e($card['note'])?></p></div></div>
+        <?php if($cardItems):$first=$cardItems[0];?><div class="tdx-priority-preview"><strong><?=e((string)($first['account_name']??'Conta sem nome'))?></strong><span><?=e((string)($first['title']??($first['attention_reason']??(!empty($first['days_without_contact'])?$first['days_without_contact'].' dias sem contato':'Ver prioridade'))))?></span></div><?php else:?><div class="tdx-priority-preview empty"><i class="fa-regular fa-circle-check"></i>Nenhuma pendência nesta fila</div><?php endif;?>
+        <span class="tdx-priority-link">Ver na carteira <i class="fa-solid fa-arrow-down"></i></span>
+       </a>
+      <?php endforeach;?>
+     </div>
+    </section>
+
+    <section class="tdx-portfolio" id="minha-carteira">
+     <header class="tdx-portfolio-head"><div><span>MINHA CARTEIRA</span><h2>Trabalhe sem sair desta tela</h2><p>Filtre, abra a ficha lateral e registre atividades mantendo o contexto da sua lista.</p></div><strong><?=number_format($conceptTotal,0,',','.')?> contas</strong></header>
+     <form class="tdx-filters" method="get" action="<?=APP_URL?>/commercial-home-concept#minha-carteira">
+      <?php if(!empty($conceptSellerUsers)):?><label class="tdx-seller"><span>Consultora visualizada</span><select name="seller_user_id" onchange="this.form.submit()"><?php foreach($conceptSellerUsers as $seller):?><option value="<?=(int)$seller['id']?>" <?=(int)$seller['id']===$conceptSellerId?'selected':''?>><?=e((string)$seller['name'])?></option><?php endforeach;?></select></label><?php endif;?>
+      <label class="tdx-search"><span>Buscar cliente ou CNPJ</span><div><i class="fa-solid fa-magnifying-glass"></i><input name="q" value="<?=e((string)($conceptFilters['q']??''))?>" placeholder="Digite nome, documento ou responsável"></div></label>
+      <label><span>Prioridade</span><select name="attention"><option value="all">Todas</option><option value="overdue" <?=($conceptFilters['attention']??'')==='overdue'?'selected':''?>>Retornos atrasados</option><option value="today" <?=($conceptFilters['attention']??'')==='today'?'selected':''?>>Retornos de hoje</option><option value="stale30" <?=($conceptFilters['attention']??'')==='stale30'?'selected':''?>>30+ dias sem contato</option><option value="upcoming" <?=($conceptFilters['attention']??'')==='upcoming'?'selected':''?>>Próximos retornos</option><option value="unplanned" <?=($conceptFilters['attention']??'')==='unplanned'?'selected':''?>>Sem retorno</option></select></label>
+      <label><span>Tipo de cliente</span><select name="classification"><option value="all">Todos</option><option value="cfc" <?=($conceptFilters['classification']??'')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($conceptFilters['classification']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($conceptFilters['classification']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="unclassified" <?=($conceptFilters['classification']??'')==='unclassified'?'selected':''?>>Sem classificação</option></select></label>
+      <label><span>Ordenar por</span><select name="sort"><option value="urgent" <?=($conceptFilters['sort']??'urgent')==='urgent'?'selected':''?>>Prioridade operacional</option><option value="stale" <?=($conceptFilters['sort']??'')==='stale'?'selected':''?>>Mais tempo sem contato</option><option value="next" <?=($conceptFilters['sort']??'')==='next'?'selected':''?>>Próximo retorno</option></select></label>
+      <div class="tdx-filter-actions"><button type="submit"><i class="fa-solid fa-sliders"></i>Aplicar</button><a href="<?=APP_URL?>/commercial-home-concept<?=!empty($conceptSellerUsers)?'?seller_user_id='.$conceptSellerId:''?>#minha-carteira" title="Limpar filtros"><i class="fa-solid fa-rotate-left"></i></a></div>
+     </form>
+
+     <div class="tdx-list-head"><span>Cliente</span><span>Tipo</span><span>Sem contato</span><span>Próximo retorno</span><span>Status</span><span>Ações</span></div>
+     <div class="tdx-list">
+      <?php foreach($conceptRows as $row):
+       $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''));$days=(int)($row['days_without_contact']??999999);$nextTs=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;$today=date('Y-m-d');
+       $linked=!empty($row['client_id']);$isCfc=!empty($row['is_cfc']);$isReseller=!empty($row['is_reseller']);$typeLabel=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':($linked?'Cliente vinculado':'Prospect')));
+       if($nextTs&&date('Y-m-d',$nextTs)<$today){$status='late';$statusLabel='Retorno atrasado';}elseif($nextTs&&date('Y-m-d',$nextTs)===$today){$status='today';$statusLabel='Retorno hoje';}elseif(empty($row['last_contact_at'])||$days>=30){$status='attention';$statusLabel='Precisa contato';}elseif($nextTs){$status='scheduled';$statusLabel='Agendado';}else{$status='ok';$statusLabel='Em dia';}
+      ?>
+       <article class="tdx-row <?=$status?>">
+        <button class="tdx-identity" type="button" data-concept-open="<?=e((string)$row['omie_code'])?>"><span><?=e(mb_strtoupper(mb_substr($display!==''?$display:'?',0,1)))?></span><div><strong><?=e($display!==''?$display:'Conta sem nome')?></strong><small><?=e((string)($row['document']?:'Documento não informado'))?></small></div></button>
+        <div class="tdx-cell" data-label="Tipo"><span class="tdx-type <?=$isCfc&&$isReseller?'both':($isReseller?'reseller':($isCfc?'cfc':'neutral'))?>"><?=e($typeLabel)?></span></div>
+        <div class="tdx-cell" data-label="Sem contato"><?php if(empty($row['last_contact_at'])):?><strong class="tdx-days danger">Nunca</strong><?php else:?><strong class="tdx-days <?=$days>=30?'danger':($days>=15?'warning':'ok')?>"><?=$days?> dia<?=$days===1?'':'s'?></strong><?php endif;?><small><?=!empty($row['last_contact_at'])?date('d/m/Y',strtotime((string)$row['last_contact_at'])):'sem registro'?></small></div>
+        <div class="tdx-cell" data-label="Próximo retorno"><?php if($nextTs):?><strong><?=date(date('Y-m-d',$nextTs)===$today?'H:i':'d/m · H:i',$nextTs)?></strong><small><?=date('Y-m-d',$nextTs)===$today?'hoje':'agendado'?></small><?php else:?><strong>—</strong><small>não definido</small><?php endif;?></div>
+        <div class="tdx-cell" data-label="Status"><span class="tdx-status <?=$status?>"><i></i><?=e($statusLabel)?></span></div>
+        <div class="tdx-row-actions"><button type="button" class="primary" data-commercial-activity-open data-account-code="<?=e((string)$row['omie_code'])?>" data-account-name="<?=e($display)?>" data-account-owner="<?=e((string)($row['owner_name']?:$conceptSeller['name']))?>" data-account-type="<?=e($typeLabel)?>" data-client-id="<?=!empty($row['client_id'])?(int)$row['client_id']:''?>"><i class="fa-solid fa-plus"></i><span>Atividade</span></button><button type="button" data-concept-open="<?=e((string)$row['omie_code'])?>"><i class="fa-regular fa-folder-open"></i><span>Ficha</span></button></div>
+       </article>
+      <?php endforeach;?>
+      <?php if(!$conceptRows):?><div class="tdx-empty"><i class="fa-regular fa-circle-check"></i><strong>Nenhuma conta nesta fila</strong><span>Altere os filtros para consultar outro recorte da carteira.</span></div><?php endif;?>
+     </div>
+     <?php if($conceptPages>1):?><footer class="tdx-pagination"><span>Página <strong><?=$conceptPage?></strong> de <strong><?=$conceptPages?></strong></span><div><a class="<?=$conceptPage<=1?'disabled':''?>" href="<?=e($conceptUrl(['page'=>max(1,$conceptPage-1)]))?>#minha-carteira"><i class="fa-solid fa-chevron-left"></i>Anterior</a><a class="<?=$conceptPage>=$conceptPages?'disabled':''?>" href="<?=e($conceptUrl(['page'=>min($conceptPages,$conceptPage+1)]))?>#minha-carteira">Próxima<i class="fa-solid fa-chevron-right"></i></a></div></footer><?php endif;?>
+    </section>
+
+    <div class="tdx-drawer-backdrop" data-concept-close hidden></div>
+    <aside class="tdx-drawer" data-concept-drawer aria-hidden="true" aria-label="Ficha do cliente">
+     <header><div><span class="tdx-drawer-avatar" data-concept-avatar>?</span><div><small>FICHA DO CLIENTE</small><h2 data-concept-name>Carregando...</h2><p data-concept-document></p></div></div><button type="button" data-concept-close aria-label="Fechar ficha"><i class="fa-solid fa-xmark"></i></button></header>
+     <div class="tdx-drawer-body" data-concept-body><div class="tdx-loading"><i class="fa-solid fa-spinner fa-spin"></i>Carregando histórico...</div></div>
+     <footer><button type="button" class="tdx-drawer-activity" data-commercial-activity-open><i class="fa-solid fa-plus"></i>Registrar atividade</button><button type="button" data-concept-close>Fechar</button></footer>
+    </aside>
+
+    <?php render_commercial_activity_dialog(['user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],'return_to'=>'home_concept','return_query'=>'']);?>
+   </section>
+   <script>
+   document.addEventListener('DOMContentLoaded',()=>{
+    const root=document.querySelector('[data-concept-workspace]');if(!root)return;
+    const drawer=root.querySelector('[data-concept-drawer]'),backdrop=root.querySelector('.tdx-drawer-backdrop'),body=root.querySelector('[data-concept-body]'),activityButton=drawer.querySelector('.tdx-drawer-activity');
+    const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+    const formatDate=value=>{if(!value)return '—';const date=new Date(String(value).replace(' ','T'));return Number.isNaN(date.getTime())?String(value):date.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});};
+    const close=()=>{drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;document.body.classList.remove('tdx-drawer-open');};
+    const open=async code=>{
+     drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;document.body.classList.add('tdx-drawer-open');body.innerHTML='<div class="tdx-loading"><i class="fa-solid fa-spinner fa-spin"></i>Carregando histórico...</div>';
+     try{const response=await fetch((window.APP_URL||'')+'/commercial-home-concept/account/'+encodeURIComponent(code),{credentials:'same-origin',headers:{Accept:'application/json'}});const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível abrir a ficha.');
+      const a=data.account||{},p=data.profile||{},name=a.trade_name||a.name||'Conta sem nome',types=[p.is_cfc?'CFC':'',p.is_reseller?'Revendedor':''].filter(Boolean);drawer.querySelector('[data-concept-name]').textContent=name;drawer.querySelector('[data-concept-document]').textContent=[a.document,a.owner_name?'Responsável: '+a.owner_name:''].filter(Boolean).join(' · ');drawer.querySelector('[data-concept-avatar]').textContent=name.slice(0,1).toUpperCase();
+      activityButton.dataset.accountCode=String(a.omie_code||code);activityButton.dataset.accountName=name;activityButton.dataset.accountOwner=String(a.owner_name||'');activityButton.dataset.accountType=types.join(' + ')||'Cliente';activityButton.dataset.clientId=String(a.client_id||'');
+      const timeline=(data.activities||[]).map(item=>'<article><span><i class="fa-solid '+(item.channel==='whatsapp'?'fa-comment-dots':item.channel==='phone'?'fa-phone':'fa-clipboard-check')+'"></i></span><div><small>'+esc(formatDate(item.created_at))+' · '+esc(item.channel_label||'Canal não informado')+'</small><strong>'+esc(item.category_label||item.type_label||'Atividade')+'</strong><p>'+esc(item.notes||'Atividade registrada sem descrição.')+'</p></div></article>').join('');
+      const next=data.next_return?'<section class="tdx-next"><small>PRÓXIMA AÇÃO</small><strong>'+esc(formatDate(data.next_return.due_at))+'</strong><p>'+esc(data.next_return.title||'Retorno comercial')+'</p></section>':'<section class="tdx-next empty"><small>PRÓXIMA AÇÃO</small><strong>Nenhum retorno agendado</strong><p>Registre uma atividade e defina o próximo passo.</p></section>';
+      body.innerHTML='<div class="tdx-drawer-badges">'+(types.length?types.map(type=>'<span>'+esc(type)+'</span>').join(''):'<span>Sem classificação</span>')+(a.client_id?'<span class="linked">Cliente Omie vinculado</span>':'<span class="prospect">Prospect</span>')+'</div>'+next+'<section class="tdx-history"><header><small>HISTÓRICO</small><strong>Atividades recentes</strong></header>'+(timeline||'<div class="tdx-history-empty">Nenhuma atividade registrada.</div>')+'</section>';
+     }catch(error){body.innerHTML='<div class="tdx-error"><i class="fa-solid fa-triangle-exclamation"></i><strong>Não foi possível abrir a ficha</strong><span>'+esc(error.message)+'</span></div>';}
+    };
+    root.addEventListener('click',event=>{const trigger=event.target.closest('[data-concept-open]');if(trigger){event.preventDefault();open(trigger.dataset.conceptOpen);}if(event.target.closest('[data-concept-close]'))close();});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drawer.classList.contains('open'))close();});
+   });
+   </script>
+  <?php break;
+
   case 'commercial_home':
    $home=is_array($home??null)?$home:[];$portfolio=is_array($home['portfolio']??null)?$home['portfolio']:[];
-   $rows=$portfolio['rows']??[];$homeFilters=$portfolio['filters']??[];$homePage=(int)($portfolio['page']??1);$homePages=(int)($portfolio['pages']??1);$homeTotal=(int)($portfolio['total']??0);$homePerPage=(int)($portfolio['per_page']??5);
-   $homeUrl=static function(array $changes=[])use($homeFilters): string{$query=array_merge($homeFilters,$changes);foreach($query as $k=>$v)if($v===''||$v==='all'||$v===null)unset($query[$k]);return APP_URL.'/'.($query?'?'.http_build_query($query):'');};
+   $rows=$portfolio['rows']??[];$homeFilters=$portfolio['filters']??[];$homePage=(int)($portfolio['page']??1);
    $dayNames=['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
    $monthNames=[1=>'janeiro',2=>'fevereiro',3=>'março',4=>'abril',5=>'maio',6=>'junho',7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro'];
    $todayLabel=($dayNames[date('l')]??'Hoje').', '.date('d').' de '.$monthNames[(int)date('n')].' de '.date('Y');
-   $activityLabel=static function(array $row): string{
-    $type=(string)($row['last_activity_type']??'');$category=(string)($row['last_activity_category']??'');
-    if($type==='contact_attempt')return 'Tentativa';
-    if($type==='follow_up'&&$category!=='')return CommercialActivityService::categoryLabel($category);
-    if($type==='follow_up')return 'Follow-up';
-    if($type==='contact_completed')return 'Contato';
-    return '—';
-   };
    ?>
    <section class="tdh-home">
     <header class="tdh-head">
@@ -142,60 +247,43 @@ function render(string $name,array $vars=[]): void{
      </div>
      <div class="tdh-head-actions">
       <a class="tdh-btn secondary" href="<?=APP_URL?>/"><i class="fa-solid fa-rotate-right"></i>Atualizar</a>
-      <a class="tdh-btn primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a>
+      <a class="tdh-btn primary" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i>Minha Carteira</a>
      </div>
     </header>
 
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <div class="tdh-kpis">
-     <a class="tdh-kpi orange" href="<?=APP_URL?>/my-portfolio?attention=stale30">
-      <span class="tdh-kpi-icon"><i class="fa-regular fa-clock"></i></span>
-      <div><small>Clientes sem contato há 30+ dias</small><strong><?=number_format((int)($home['stale']['count']??0),0,',','.')?></strong><p>Necessitam de atenção</p></div>
-     </a>
-     <a class="tdh-kpi danger" href="<?=APP_URL?>/agenda?period=late&type=sales">
-      <span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-xmark"></i></span>
-      <div><small>Retornos atrasados</small><strong><?=number_format((int)($home['overdue']['count']??0),0,',','.')?></strong><p>Pendentes de contato</p></div>
-     </a>
-     <a class="tdh-kpi blue" href="<?=APP_URL?>/agenda?period=today&type=sales">
-      <span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-check"></i></span>
-      <div><small>Retornos agendados hoje</small><strong><?=number_format((int)($home['today']['count']??0),0,',','.')?></strong><p>Compromissos do dia</p></div>
-     </a>
-     <a class="tdh-kpi green" href="<?=APP_URL?>/orders">
-      <span class="tdh-kpi-icon"><i class="fa-solid fa-chart-column"></i></span>
-      <div><small>Vendas no mês</small><strong><?=money($home['sales']['amount']??0)?></strong><p><?=number_format((int)($home['sales']['count']??0),0,',','.')?> venda<?=((int)($home['sales']['count']??0))===1?'':'s'?> realizada<?=((int)($home['sales']['count']??0))===1?'':'s'?></p></div>
-     </a>
-    </div>
+    <section class="tdh-now" aria-labelledby="tdh-now-title">
+     <header class="tdh-now-head"><div><span>AGORA</span><h2 id="tdh-now-title">O que exige sua ação</h2></div><small>Prioridades geradas pelos registros da operação.</small></header>
+     <div class="tdh-kpis">
+      <a class="tdh-kpi danger" href="<?=APP_URL?>/agenda?period=late&type=sales">
+       <div class="tdh-kpi-top"><span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-xmark"></i></span><div><small>Retornos atrasados</small><strong><?=number_format((int)($home['overdue']['count']??0),0,',','.')?></strong><p>Compromissos vencidos</p></div></div>
+       <div class="tdh-kpi-list"><?php foreach((array)($home['overdue']['items']??[]) as $item):$dueTs=strtotime((string)($item['due_at']??''));$lateDays=$dueTs?max(1,(int)floor((strtotime(date('Y-m-d'))-strtotime(date('Y-m-d',$dueTs)))/86400)):1;?><span class="tdh-kpi-item"><span><b><?=e((string)($item['account_name']??'Conta sem nome'))?></b><em>atrasado há <?=$lateDays?> dia<?=$lateDays===1?'':'s'?></em></span><small><?=e((string)($item['title']??'Retorno comercial'))?></small></span><?php endforeach;?><?php if(empty($home['overdue']['items'])):?><span class="tdh-kpi-empty">Nenhum retorno atrasado.</span><?php endif;?></div>
+      </a>
+      <a class="tdh-kpi amber" href="<?=APP_URL?>/my-portfolio?attention=stale30">
+       <div class="tdh-kpi-top"><span class="tdh-kpi-icon"><i class="fa-regular fa-clock"></i></span><div><small>Sem contato há 30+ dias</small><strong><?=number_format((int)($home['stale']['count']??0),0,',','.')?></strong><p>Clientes mais críticos</p></div></div>
+       <div class="tdh-kpi-list"><?php foreach((array)($home['stale']['items']??[]) as $item):$staleDays=$item['days_without_contact']??null;?><span class="tdh-kpi-item"><span><b><?=e((string)($item['account_name']??'Conta sem nome'))?></b><em><?=$staleDays===null?'Nunca contatado':number_format((int)$staleDays,0,',','.').' dias'?></em></span><small><?=$staleDays===null?'Sem atividade registrada':'Sem contato registrado'?></small></span><?php endforeach;?><?php if(empty($home['stale']['items'])):?><span class="tdh-kpi-empty">Carteira acompanhada em dia.</span><?php endif;?></div>
+      </a>
+      <a class="tdh-kpi blue" href="<?=APP_URL?>/agenda?period=today&type=sales">
+       <div class="tdh-kpi-top"><span class="tdh-kpi-icon"><i class="fa-regular fa-calendar-check"></i></span><div><small>Retornos de hoje</small><strong><?=number_format((int)($home['today']['count']??0),0,',','.')?></strong><p>Em ordem de horário</p></div></div>
+       <div class="tdh-kpi-list"><?php foreach((array)($home['today']['items']??[]) as $item):$dueTs=strtotime((string)($item['due_at']??''));?><span class="tdh-kpi-item"><span><b><?=e((string)($item['account_name']??'Conta sem nome'))?></b><em><?=$dueTs?date('H:i',$dueTs):'Hoje'?></em></span><small><?=e((string)($item['title']??'Retorno comercial'))?></small></span><?php endforeach;?><?php if(empty($home['today']['items'])):?><span class="tdh-kpi-empty">Nenhum retorno para hoje.</span><?php endif;?></div>
+      </a>
+      <a class="tdh-kpi orange" href="<?=APP_URL?>/agenda?type=sales">
+       <div class="tdh-kpi-top"><span class="tdh-kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span><div><small>Precisam de atenção</small><strong><?=number_format((int)($home['attention']['count']??0),0,',','.')?></strong><p>Casos que exigem decisão</p></div></div>
+       <div class="tdh-kpi-list"><?php foreach((array)($home['attention']['items']??[]) as $item):?><span class="tdh-kpi-item"><span><b><?=e((string)($item['account_name']??'Conta sem nome'))?></b><em><?=e((string)($item['attention_reason']??'Acompanhar'))?></em></span><small><?=e((string)($item['title']??'Acompanhamento comercial'))?></small></span><?php endforeach;?><?php if(empty($home['attention']['items'])):?><span class="tdh-kpi-empty">Nenhum caso adicional.</span><?php endif;?></div>
+      </a>
+     </div>
+    </section>
 
     <section class="tdh-portfolio">
      <header class="tdh-portfolio-head">
-      <div><span>ATENDIMENTO PRIORITÁRIO</span><h2>Clientes da minha carteira</h2><p>Busque somente entre as Contas CRM vinculadas ao seu usuário comercial.</p></div>
-      <div class="tdh-portfolio-head-actions"><a href="<?=APP_URL?>/my-portfolio"><i class="fa-regular fa-eye"></i>Visualizar carteira completa</a></div>
+      <div><span>PRÓXIMAS AÇÕES</span><h2>Contas que pedem atenção agora</h2><p>Recorte operacional da sua carteira para agir hoje. A lista completa fica em Minha Carteira.</p></div>
+      <div class="tdh-portfolio-head-actions"><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i>Ir para Minha Carteira</a></div>
      </header>
-
-     <form class="tdh-filter-bar" method="get">
-      <div class="tdh-filter-intro"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine os filtros para encontrar exatamente as contas que deseja acompanhar.</small></div></div>
-      <label><span>Tipo de cliente</span><select class="form-select" name="home_type" onchange="this.form.submit()"><option value="all">Todos</option><option value="cfc" <?=($homeFilters['home_type']??'all')==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=($homeFilters['home_type']??'')==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=($homeFilters['home_type']??'')==='both'?'selected':''?>>CFC + Revendedor</option><option value="prospect" <?=($homeFilters['home_type']??'')==='prospect'?'selected':''?>>Prospect</option></select></label>
-      <label><span>Ordenar por</span><select class="form-select" name="home_order" onchange="this.form.submit()"><option value="stale" <?=($homeFilters['home_order']??'stale')==='stale'?'selected':''?>>Mais tempo sem contato primeiro</option><option value="urgent" <?=($homeFilters['home_order']??'')==='urgent'?'selected':''?>>Mais urgente primeiro</option><option value="next" <?=($homeFilters['home_order']??'')==='next'?'selected':''?>>Próximo retorno primeiro</option></select></label>
-      <div class="tdh-filter-note"><i class="fa-solid fa-circle"></i><span>A carteira permanece limitada aos seus clientes; filtros e ordenação afetam apenas a visualização.</span></div>
-      <?php if(!empty($homeFilters['home_q'])):?><input type="hidden" name="home_q" value="<?=e((string)$homeFilters['home_q'])?>"><?php endif;?>
-      <input type="hidden" name="home_per_page" value="<?=$homePerPage?>">
-     </form>
-
-     <div class="tdh-table-toolbar">
-      <form method="get" class="tdh-per-page">
-       <?php foreach(['home_type','home_order','home_q'] as $key){if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'){?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php }}?>
-       <span>Mostrar</span><select class="form-select" name="home_per_page" onchange="this.form.submit()"><?php foreach([5,10,25] as $n):?><option value="<?=$n?>" <?=$homePerPage===$n?'selected':''?>><?=$n?></option><?php endforeach;?></select><span>registros</span>
-      </form>
-      <form method="get" class="tdh-search">
-       <?php foreach(['home_type','home_order','home_per_page'] as $key){if(isset($homeFilters[$key])&&$homeFilters[$key]!==''&&$homeFilters[$key]!=='all'){?><input type="hidden" name="<?=$key?>" value="<?=e((string)$homeFilters[$key])?>"><?php }}?>
-       <i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" name="home_q" value="<?=e((string)($homeFilters['home_q']??''))?>" placeholder="Buscar nesta tabela...">
-      </form>
-     </div>
 
      <div class="tdh-table-wrap">
       <table class="tdh-table">
-       <thead><tr><th class="tdh-col-client">Cliente</th><th class="tdh-col-type">Tipo</th><th class="tdh-col-consultant">Consultor</th><th class="tdh-col-purchase" title="Período de compra">Compra</th><th class="tdh-col-last-contact" title="Último contato">Últ. contato</th><th class="tdh-col-days" title="Dias sem contato">Sem contato</th><th class="tdh-col-last-activity" title="Última atividade">Últ. ativ.</th><th class="tdh-col-next" title="Próximo retorno">Próx. retorno</th><th class="tdh-col-status">Status</th><th class="tdh-col-actions">Ações</th></tr></thead>
+       <thead><tr><th class="tdh-col-client">Cliente</th><th class="tdh-col-type">Tipo</th><th class="tdh-col-days" title="Dias sem contato">Sem contato</th><th class="tdh-col-next" title="Próximo retorno">Próx. retorno</th><th class="tdh-col-status">Status</th><th class="tdh-col-actions">Ações</th></tr></thead>
        <tbody>
        <?php foreach($rows as $row):
         $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''));$days=(int)($row['days_without_contact']??999999);
@@ -207,16 +295,11 @@ function render(string $name,array $vars=[]): void{
         $isCfc=!empty($row['is_cfc']);$isReseller=!empty($row['is_reseller']);$linked=!empty($row['client_id']);
         $typeClass=$isCfc&&$isReseller?'both':($isCfc?'cfc':($isReseller?'reseller':($linked?'linked':'prospect')));
         $typeLabel=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':($linked?'Cliente vinculado':'Prospect')));
-        $lastChannel=!empty($row['last_activity_channel'])?CommercialActivityService::channelLabel((string)$row['last_activity_channel']):'';
        ?>
         <tr>
          <td class="tdh-col-client"><a class="tdh-client" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($display!==''?$display:'Conta sem nome')?></strong><small><?=e((string)($row['document']?:'Documento não informado'))?></small></a></td>
          <td class="tdh-col-type"><span class="tdh-type <?=$typeClass?>"><?=e($typeLabel)?></span></td>
-         <td class="tdh-col-consultant"><span class="tdh-consultant"><i class="fa-solid fa-user"></i><?=e((string)($row['owner_name']?:$u['name']))?></span></td>
-         <td class="tdh-col-purchase"><span class="tdh-cycle"><?=e((string)($row['purchase_cycle']??'Sem histórico'))?></span></td>
-         <td class="tdh-col-last-contact"><?php if(!empty($row['last_contact_at'])):?><strong class="tdh-date-main"><?=date('d/m',strtotime((string)$row['last_contact_at']))?></strong><small class="tdh-sub"><?=e($lastChannel!==''?'via '.$lastChannel:'atividade registrada')?></small><?php else:?><strong class="tdh-date-main">—</strong><small class="tdh-sub">sem contato</small><?php endif;?></td>
          <td class="tdh-col-days"><?php if(empty($row['last_contact_at'])):?><span class="tdh-days danger">Nunca</span><?php elseif($days>=30):?><span class="tdh-days danger"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php elseif($days>=15):?><span class="tdh-days warning"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php else:?><span class="tdh-days ok"><i class="fa-regular fa-clock"></i><?=$days?> dias</span><?php endif;?></td>
-         <td class="tdh-col-last-activity"><strong class="tdh-activity"><?=e($activityLabel($row))?></strong><?php if(!empty($row['last_activity_at'])):?><small class="tdh-sub"><i class="fa-regular fa-clock"></i><?=date('d/m',strtotime((string)$row['last_activity_at']))?></small><?php endif;?></td>
          <td class="tdh-col-next"><?php if($nextTs):?><strong class="tdh-next"><i class="fa-regular fa-calendar"></i><?=date('d/m H:i',$nextTs)?></strong><?php else:?><span class="tdh-empty-value">—</span><?php endif;?></td>
          <td class="tdh-col-status"><span class="tdh-status <?=$statusClass?>"><i></i><?=e($statusLabel)?></span></td>
          <td class="tdh-col-actions"><div class="tdh-actions">
@@ -227,15 +310,12 @@ function render(string $name,array $vars=[]): void{
          </div></td>
         </tr>
        <?php endforeach;?>
-       <?php if(!$rows):?><tr><td colspan="10"><div class="tdh-empty"><i class="fa-solid fa-filter-circle-xmark"></i><strong>Nenhuma conta encontrada</strong><span>Revise os filtros ou a busca aplicada.</span></div></td></tr><?php endif;?>
+       <?php if(!$rows):?><tr><td colspan="6"><div class="tdh-empty"><i class="fa-regular fa-circle-check"></i><strong>Nenhuma conta exige ação no momento</strong><span>A lista será atualizada automaticamente pelos registros comerciais.</span></div></td></tr><?php endif;?>
        </tbody>
       </table>
      </div>
 
-     <footer class="tdh-table-footer">
-      <span>Exibindo <?=($homeTotal>0?(($homePage-1)*$homePerPage+1):0)?>-<?=min($homeTotal,$homePage*$homePerPage)?> de <?=number_format($homeTotal,0,',','.')?> registros</span>
-      <?php if($homePages>1):?><nav><a class="<?=$homePage<=1?'disabled':''?>" href="<?=$homeUrl(['home_page'=>max(1,$homePage-1)])?>"><i class="fa-solid fa-chevron-left"></i></a><?php $first=max(1,$homePage-2);$last=min($homePages,$homePage+2);for($p=$first;$p<=$last;$p++):?><a class="<?=$p===$homePage?'active':''?>" href="<?=$homeUrl(['home_page'=>$p])?>"><?=$p?></a><?php endfor;?><?php if($last<$homePages):?><span>…</span><a href="<?=$homeUrl(['home_page'=>$homePages])?>"><?=$homePages?></a><?php endif;?><a class="<?=$homePage>=$homePages?'disabled':''?>" href="<?=$homeUrl(['home_page'=>min($homePages,$homePage+1)])?>"><i class="fa-solid fa-chevron-right"></i></a></nav><?php endif;?>
-     </footer>
+     <footer class="tdh-table-footer"><span>Mostrando <?=count($rows)?> conta<?=count($rows)===1?'':'s'?> prioritária<?=count($rows)===1?'':'s'?> para agir agora.</span><a href="<?=APP_URL?>/my-portfolio">Ver e filtrar toda a Minha Carteira <i class="fa-solid fa-arrow-right"></i></a></footer>
     </section>
 
     <?php render_commercial_activity_dialog([
@@ -544,7 +624,7 @@ function render(string $name,array $vars=[]): void{
      </section>
     <?php endif;?>   <div class="tdd-section-head"><div><span class="tdd-kicker">OPERAÇÃO</span><h2>Acessos rápidos</h2><p>As rotinas continuam separadas; somente Dashboard e Resultados foram unificados.</p></div></div>
     <div class="tdd-actions">
-     <?php if($u['role']==='seller'):?><a class="tdd-action green" href="<?=APP_URL?>/orders/new"><span><i class="fa-solid fa-plus"></i></span><div><strong>Novo pedido</strong><small>Criar e enviar para Omie</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action blue" href="<?=APP_URL?>/my-portfolio"><span><i class="fa-solid fa-briefcase"></i></span><div><strong>Minha Carteira</strong><small>Clientes vinculados a você</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Retornos e compromissos</small></div><i class="fa-solid fa-arrow-right"></i></a>
+     <?php if($u['role']==='seller'):?><a class="tdd-action green" href="<?=APP_URL?>/orders/new"><span><i class="fa-solid fa-plus"></i></span><div><strong>Novo pedido</strong><small>Criar e enviar para Omie</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action blue" href="<?=APP_URL?>/my-portfolio"><span><i class="fa-solid fa-briefcase"></i></span><div><strong>Carteira completa</strong><small>Todos os clientes vinculados</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Retornos e compromissos</small></div><i class="fa-solid fa-arrow-right"></i></a>
      <?php elseif($u['role']==='collector'):?><a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Priorizar devedores</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/agenda"><span><i class="fa-regular fa-calendar"></i></span><div><strong>Agenda</strong><small>Promessas e retornos</small></div><i class="fa-solid fa-arrow-right"></i></a>
      <?php else:?><a class="tdd-action blue" href="<?=APP_URL?>/orders"><span><i class="fa-solid fa-receipt"></i></span><div><strong>Pedidos</strong><small>Produção comercial</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action yellow" href="<?=APP_URL?>/services"><span><i class="fa-solid fa-screwdriver-wrench"></i></span><div><strong>Serviços</strong><small>Ordens de serviço</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action red" href="<?=APP_URL?>/collection"><span><i class="fa-solid fa-hand-holding-dollar"></i></span><div><strong>Cobrança</strong><small>Carteira financeira</small></div><i class="fa-solid fa-arrow-right"></i></a><a class="tdd-action green" href="<?=APP_URL?>/goals"><span><i class="fa-solid fa-bullseye"></i></span><div><strong>Metas</strong><small>Configurar objetivos</small></div><i class="fa-solid fa-arrow-right"></i></a><?php endif;?>
     </div>
@@ -723,8 +803,8 @@ function render(string $name,array $vars=[]): void{
     <header class="tdw-page-head">
      <div class="tdw-page-title">
       <span class="tdw-eyebrow">COMERCIAL / CARTEIRA</span>
-      <div><h1><?=$u['role']==='seller'?'Minha carteira':'Carteira comercial'?></h1><span class="tdw-live"><i></i> CRM Omie sincronizado localmente</span></div>
-      <p>Uma fila única para decidir quem atender agora, registrar o contato e deixar a próxima ação pronta.</p>
+      <div><h1><?=$u['role']==='seller'?'Minha Carteira':'Carteira comercial'?></h1><span class="tdw-live"><i></i> Contas CRM Omie sincronizadas</span></div>
+      <p><?=$u['role']==='seller'?'Todas as Contas CRM atribuídas a você, com filtros, histórico e próxima ação.':'Visão das Contas CRM distribuídas à equipe comercial.'?></p>
      </div>
      <div class="tdw-head-actions">
       <button class="tdw-btn secondary" type="button" data-global-task-open data-task-context="sales"><i class="fa-regular fa-calendar-plus"></i>Nova tarefa</button>
@@ -807,6 +887,7 @@ function render(string $name,array $vars=[]): void{
 
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$linked=!empty($account['client_id']);$profile=$profile??[];
+   $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$linked;$canCreateLink=$canAdminLink||$canSellerLink;
    $activities=array_values($activities??[]);$commercialNotes=array_values($commercialNotes??[]);$audit=array_values($audit??[]);
    $activityCount=count($activities);$noteCount=count($commercialNotes);
    $isCfc=!empty($profile['is_cfc']);$isReseller=!empty($profile['is_reseller']);
@@ -914,6 +995,51 @@ function render(string $name,array $vars=[]): void{
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+
+    <section class="tdf-integration <?=$linked?'linked':'unlinked'?>" data-commercial-client-link>
+     <div class="tdf-integration-icon"><i class="fa-solid <?=$linked?'fa-link':'fa-link-slash'?>"></i></div>
+     <div class="tdf-integration-copy">
+      <small>INTEGRAÇÃO OMIE · CONTA CRM ↔ CLIENTE GERAL</small>
+      <?php if($linked):?>
+       <strong>Vínculo ativo com <?=e((string)($account['client_name']??'Cliente Geral'))?></strong>
+       <p>Conta CRM <b><?=e((string)$account['omie_code'])?></b> ligada ao Cliente Omie <b><?=e((string)$account['client_omie_code'])?></b> por <?=e((string)($account['link_method']??'conciliação'))?>. Pedidos, vendas e cobrança usam o Cliente Geral; atividades e carteira usam esta Conta CRM.</p>
+       <div class="tdf-integration-actions">
+        <a href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>"><i class="fa-regular fa-address-card"></i>Abrir Cliente Geral</a>
+        <?php if(($account['collection_status']??'')==='open'):?><a href="<?=APP_URL?>/collection/<?=(int)$account['client_id']?>"><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança · <?=money($account['collection_open_amount']??0)?></a><?php endif;?>
+       </div>
+      <?php else:?>
+       <strong>Conta CRM ainda sem vínculo financeiro</strong>
+       <p>O relacionamento comercial pode continuar, mas vendas, pedidos e cobrança não devem ser associados até esta Conta CRM ser ligada ao Cliente Geral correto da Omie.</p>
+      <?php endif;?>
+     </div>
+     <?php if(($linked&&$canAdminLink)||(!$linked&&$canCreateLink)):?>
+      <div class="tdf-integration-manage">
+       <?php if($linked):?>
+        <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/client-unlink"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="notes" value="Vínculo removido pela ficha comercial"><button type="submit" data-confirm="Remover o vínculo entre esta Conta CRM e o Cliente Geral? Os históricos serão preservados, mas vendas e cobrança deixarão de aparecer nesta ficha."><i class="fa-solid fa-link-slash"></i>Desvincular</button></form>
+       <?php else:?>
+        <button type="button" data-commercial-client-link-open><i class="fa-solid fa-link"></i>Vincular Cliente Geral</button>
+       <?php endif;?>
+      </div>
+     <?php endif;?>
+    </section>
+
+    <?php if($canCreateLink&&!$linked):?>
+    <dialog class="tdf-link-dialog" data-commercial-client-link-dialog>
+     <form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/client-link" data-commercial-client-link-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="client_id" data-commercial-client-link-id>
+      <header><div><strong>Vincular Cliente Geral da Omie</strong><small>Selecione a identidade fiscal usada por vendas e cobrança.</small></div><button type="button" data-commercial-client-link-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="tdf-link-body">
+       <div class="tdf-link-account"><small>CONTA CRM</small><strong><?=e($display)?></strong><span><?=e((string)($account['document']?:'Documento não informado'))?> · código <?=e((string)$account['omie_code'])?></span></div>
+       <label>Buscar Cliente Geral<input class="form-control" type="search" autocomplete="off" placeholder="Nome, CPF/CNPJ ou código Omie" data-commercial-client-link-search></label>
+       <div class="tdf-link-results" data-commercial-client-link-results></div>
+       <div class="tdf-link-selected" data-commercial-client-link-selected hidden></div>
+       <?php if($canAdminLink):?><label class="tdf-link-confirm"><input type="checkbox" name="confirm_document_mismatch" value="1"><span>Confirmo o vínculo mesmo se os documentos estiverem ausentes ou divergentes. Esta decisão ficará auditada.</span></label><?php else:?><div class="tdf-link-policy"><i class="fa-solid fa-shield-halved"></i><span>Como vendedor, você pode concluir o vínculo quando o CPF/CNPJ for idêntico. Divergências devem ser encaminhadas ao supervisor.</span></div><?php endif;?>
+       <label>Justificativa da conciliação<textarea class="form-control" name="notes" rows="3" maxlength="500" placeholder="Ex.: cadastro duplicado na Omie validado com o financeiro"></textarea></label>
+      </div>
+      <footer><button type="button" class="secondary" data-commercial-client-link-close>Cancelar</button><button type="submit" class="primary"><i class="fa-solid fa-link"></i>Confirmar vínculo</button></footer>
+     </form>
+    </dialog>
+    <?php endif;?>
 
     <nav class="tdf-tabs" aria-label="Ficha do cliente">
      <button type="button" class="active" data-tdf-tab="overview"><i class="fa-solid fa-table-cells-large"></i>Visão geral</button>
@@ -1034,13 +1160,60 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
 
+  case 'commercial_partners':
+   $partnerRows=$partners['rows']??[];$partnerFilters=$partners['filters']??[];
+   ?>
+   <section class="cix-page">
+    <header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-people-group"></i></span><div><small>COMERCIAL / DESENVOLVIMENTO</small><h1>Parceiros EAD</h1><p>Acompanhamento do desenvolvimento dos parceiros revendedores.</p></div></div></header>
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. O resultado comercial do grupo é tratado de forma geral.</span></div>
+    <form class="cix-filters" method="get"><label class="grow"><span>Buscar parceiro</span><input class="form-control" type="search" name="q" value="<?=e($partnerFilters['q']??'')?>" placeholder="Nome, CNPJ ou CPF"></label><label><span>Situação</span><select class="form-select" name="status"><option value="all">Todos</option><option value="active" <?=($partnerFilters['status']??'')==='active'?'selected':''?>>Ativos</option><option value="activation" <?=($partnerFilters['status']??'')==='activation'?'selected':''?>>Em ativação</option><option value="reactivation" <?=($partnerFilters['status']??'')==='reactivation'?'selected':''?>>Precisam de reativação</option></select></label><button class="cix-btn primary"><i class="fa-solid fa-filter"></i>Aplicar</button><a class="cix-btn" href="<?=APP_URL?>/commercial-partners">Limpar</a></form>
+    <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table"><thead><tr><th>Parceiro</th><th>Tipo</th><th>Último trabalho</th><th>Dias sem trabalho</th><th>Desenvolvimento</th><th>Próximo passo</th><th>Ações</th></tr></thead><tbody>
+     <?php foreach($partnerRows as $row):$days=$row['last_work_at']===null?9999:(int)$row['days_without_work'];$stage=$days>30?['Precisa reativação','danger']:($days>14?['Em ativação','blue']:['Ativado e acompanhado','green']);$name=trim((string)($row['trade_name']??''))?:$row['name'];$type=!empty($row['is_cfc'])?'CFC + Revendedor':'Revendedor';?>
+      <tr><td><a class="cix-account" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$row['omie_code'])?>"><strong><?=e($name)?></strong><small><?=e($row['document']?:'Documento não informado')?></small></a></td><td><span class="cix-badge <?=!empty($row['is_cfc'])?'both':'reseller'?>"><?=e($type)?></span></td><td><?=!empty($row['last_work_at'])?'<strong>'.date('d/m/Y',strtotime($row['last_work_at'])).'</strong><small>'.e(mb_strimwidth((string)$row['last_work_description'],0,52,'…')).'</small>':'<strong>—</strong><small>Nunca trabalhado</small>'?></td><td><span class="cix-days <?=$days>30?'danger':($days>14?'warning':'green')?>"><?=$days===9999?'Nunca':$days.' dias'?></span></td><td><span class="cix-stage <?=$stage[1]?>"><?=$stage[0]?></span></td><td><?=e($row['next_step']?:'Definir próximo passo')?></td><td><button class="cix-btn primary" type="button" data-partner-work-open data-account-code="<?=e($row['omie_code'])?>" data-account-name="<?=e($name)?>"><i class="fa-solid fa-plus"></i>Registrar trabalho</button></td></tr>
+     <?php endforeach;?><?php if(!$partnerRows):?><tr><td colspan="7" class="cix-empty">Nenhum parceiro encontrado para os filtros atuais.</td></tr><?php endif;?>
+    </tbody></table></div></section>
+    <dialog class="cix-dialog" data-partner-work-dialog><form method="post" data-partner-work-form><input type="hidden" name="_token" value="<?=CSRF::token()?>"><header><div><small>DESENVOLVIMENTO DO PARCEIRO</small><h2>Registrar trabalho com parceiro</h2><p data-partner-work-name>Parceiro</p></div><button type="button" data-partner-work-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header><div class="cix-dialog-body">
+     <?php foreach($partnerCatalog as $categoryCode=>$category):?><fieldset><legend><?=e($category['label'])?></legend><div class="cix-choice-grid"><?php foreach($category['items'] as $subtypeCode=>$subtypeLabel):?><label><input type="checkbox" name="work_items[]" value="<?=e($categoryCode.':'.$subtypeCode)?>"><span><?=e($subtypeLabel)?></span></label><?php endforeach;?></div></fieldset><?php endforeach;?>
+     <label><span>Descrição do trabalho realizado</span><textarea class="form-control" name="description" rows="4" maxlength="5000" required placeholder="Descreva o que foi feito com o parceiro..."></textarea></label><label><span>Próximo passo</span><input class="form-control" name="next_step" maxlength="500" placeholder="Ex.: apresentar nova campanha"></label>
+     <label class="cix-check"><input type="checkbox" name="schedule_return" value="1" data-partner-schedule><span>Agendar retorno</span></label><div class="cix-schedule" data-partner-schedule-fields hidden><label><span>Data</span><input class="form-control" type="date" name="next_date"></label><label><span>Horário</span><input class="form-control" type="time" name="next_time"></label></div>
+    </div><footer><button class="cix-btn" type="button" data-partner-work-close>Cancelar</button><button class="cix-btn primary" type="submit">Salvar trabalho</button></footer></form></dialog>
+   </section>
+  <?php break;
+
+  case 'commercial_sales':
+   $saleRows=$salesData['rows']??[];$saleSummary=$salesData['summary']??[];$saleFilters=$salesData['filters']??[];
+   ?>
+   <section class="cix-page">
+    <header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-cart-shopping"></i></span><div><small>VENDAS</small><h1>Vendas</h1><p>Registro por tipo, condição comercial e acompanhamento.</p></div></div><button class="cix-btn primary" type="button" data-sale-open><i class="fa-solid fa-plus"></i>Registrar venda</button></header>
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
+    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><span>O <strong>tipo de venda</strong> (Material, EAD, Material + EAD) é diferente da <strong>classificação do cliente</strong> (CFC / Revendedor).</span></div>
+    <div class="cix-kpis"><article><i class="fa-solid fa-chart-column"></i><small>Vendas no mês</small><strong><?=number_format((int)($saleSummary['sale_count']??0),0,',','.')?></strong></article><article><i class="fa-solid fa-brazilian-real-sign"></i><small>Valor total</small><strong><?=money($saleSummary['total_amount']??0)?></strong></article><article class="amber"><i class="fa-solid fa-cart-shopping"></i><small>Valor em Material</small><strong><?=money($saleSummary['material_amount']??0)?></strong></article><article class="purple"><i class="fa-solid fa-graduation-cap"></i><small>Valor em EAD</small><strong><?=money($saleSummary['ead_amount']??0)?></strong></article></div>
+    <form class="cix-filters" method="get"><label class="grow"><span>Buscar venda ou cliente</span><input class="form-control" type="search" name="q" value="<?=e($saleFilters['q']??'')?>"></label><label><span>Período</span><input class="form-control" type="month" name="period" value="<?=e($saleFilters['period']??date('Y-m'))?>"></label><label><span>Tipo de venda</span><select class="form-select" name="sale_type"><option value="all">Todos</option><?php foreach($saleTypes as $code=>$label):?><option value="<?=e($code)?>" <?=($saleFilters['sale_type']??'')===$code?'selected':''?>><?=e($label)?></option><?php endforeach;?></select></label><?php if(Auth::can('admin','supervisor')):?><label><span>Consultora</span><select class="form-select" name="seller_id"><option value="0">Todas</option><?php foreach($commercialSellers as $seller):?><option value="<?=$seller['id']?>" <?=((int)($saleFilters['seller_id']??0)===(int)$seller['id'])?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select></label><?php endif;?><button class="cix-btn primary">Aplicar</button></form>
+    <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table"><thead><tr><th>Data</th><th>Cliente</th><th>Tipo de venda</th><th>Valor</th><th>Condição comercial</th><th>Consultora</th><th>Detalhes</th></tr></thead><tbody><?php foreach($saleRows as $sale):$saleName=trim((string)($sale['trade_name']??''))?:$sale['account_name'];?><tr><td><?=date('d/m/Y H:i',strtotime($sale['sold_at']))?></td><td><a class="cix-account" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode($sale['crm_account_code'])?>"><strong><?=e($saleName)?></strong><small><?=e($sale['document'])?></small></a></td><td><span class="cix-sale-type <?=e($sale['sale_type'])?>"><?=e($saleTypes[$sale['sale_type']]??$sale['sale_type'])?></span></td><td><strong><?=money($sale['amount'])?></strong><?php if((float)$sale['discount']>0):?><small>Desconto <?=money($sale['discount'])?></small><?php endif;?></td><td><?=e($saleConditions[$sale['commercial_condition']]??$sale['commercial_condition'])?></td><td><?=e($sale['user_name'])?></td><td><span title="<?=e($sale['negotiation_details'])?>"><?=e(mb_strimwidth((string)$sale['negotiation_details'],0,55,'…'))?></span></td></tr><?php endforeach;?><?php if(!$saleRows):?><tr><td colspan="7" class="cix-empty">Nenhuma venda registrada no período.</td></tr><?php endif;?></tbody></table></div></section>
+    <dialog class="cix-dialog cix-sale-dialog" data-sale-dialog><form method="post" data-sale-form><input type="hidden" name="_token" value="<?=CSRF::token()?>"><header><div><small>REGISTRO COMERCIAL</small><h2>Registrar venda</h2><p data-sale-selected-name>Selecione o cliente</p></div><button type="button" data-sale-close><i class="fa-solid fa-xmark"></i></button></header><div class="cix-dialog-body"><label><span>Cliente</span><input class="form-control" type="search" data-sale-account-search placeholder="Digite nome ou CNPJ" autocomplete="off" required><div class="cix-search-results" data-sale-account-results></div></label><input type="hidden" data-sale-account-code>
+     <label><span>Data e horário</span><input class="form-control" type="datetime-local" name="sold_at" value="<?=date('Y-m-d\TH:i')?>" required></label><fieldset><legend>Tipo de venda</legend><div class="cix-sale-options"><?php foreach($saleTypes as $code=>$label):?><label><input type="radio" name="sale_type" value="<?=e($code)?>" required><span><?=e($label)?></span></label><?php endforeach;?></div></fieldset><div class="cix-two"><label><span>Valor (R$)</span><input class="form-control" name="sale_amount" inputmode="decimal" required></label><label><span>Desconto (R$)</span><input class="form-control" name="sale_discount" inputmode="decimal" value="0,00"></label></div><fieldset><legend>Condição comercial</legend><div class="cix-sale-options"><?php foreach($saleConditions as $code=>$label):?><label><input type="radio" name="commercial_condition" value="<?=e($code)?>" required><span><?=e($label)?></span></label><?php endforeach;?></div></fieldset><label><span>Detalhes importantes da negociação</span><textarea class="form-control" name="negotiation_details" rows="4" maxlength="5000"></textarea></label><label class="cix-check"><input type="checkbox" name="future_promise" value="1" data-sale-future><span>Promessa ou expectativa de venda futura</span></label><div class="cix-schedule" data-sale-followup hidden><label><span>Data do acompanhamento</span><input class="form-control" type="date" name="next_date"></label><label><span>Horário</span><input class="form-control" type="time" name="next_time"></label><label><span>Observação</span><input class="form-control" name="return_note"></label></div>
+    </div><footer><button class="cix-btn" type="button" data-sale-close>Cancelar</button><button class="cix-btn primary" type="submit">Registrar venda</button></footer></form></dialog>
+   </section>
+  <?php break;
+
+  case 'commercial_management':
+   $mf=$managementData['filters'];$mm=$managementData['metrics'];$managementRows=$managementData['rows'];$daily=$managementData['daily'];$activityLabels=['contact_attempt'=>'Tentativa de contato','contact_completed'=>'Contato realizado','follow_up'=>'Follow-up','orientation'=>'Orientação','activation'=>'Ativação','campaign'=>'Campanha','material'=>'Material','access'=>'Acesso','sale'=>'Venda','other'=>'Outros'];
+   ?>
+   <section class="cix-page cix-management"><header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-chart-column"></i></span><div><small>GESTÃO</small><h1>Painel da Gestão</h1><p>O que foi produzido, por quem, quando e com qual resultado.</p></div></div><a class="cix-btn" href="<?=APP_URL?>/commercial-management?<?=e(http_build_query(array_merge($_GET,['export'=>'csv'])))?>"><i class="fa-solid fa-download"></i>Exportar</a></header>
+    <form class="cix-filters management" method="get"><label><span>Período</span><select class="form-select" name="period"><option value="today" <?=$mf['period']==='today'?'selected':''?>>Hoje</option><option value="yesterday" <?=$mf['period']==='yesterday'?'selected':''?>>Ontem</option><option value="week" <?=$mf['period']==='week'?'selected':''?>>Semana</option><option value="month" <?=$mf['period']==='month'?'selected':''?>>Mês</option><option value="custom" <?=$mf['period']==='custom'?'selected':''?>>Personalizado</option></select></label><label><span>Data inicial</span><input class="form-control" type="date" name="start" value="<?=e($mf['start'])?>"></label><label><span>Data final</span><input class="form-control" type="date" name="end" value="<?=e(date('Y-m-d',strtotime($mf['end'].' -1 day')))?>"></label><label><span>Consultora</span><select class="form-select" name="seller_id"><option value="0">Todas</option><?php foreach($commercialSellers as $seller):?><option value="<?=$seller['id']?>" <?=$mf['seller']==$seller['id']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select></label><label><span>Atividade</span><select class="form-select" name="activity_type"><option value="all">Todas</option><?php foreach($activityLabels as $code=>$label):?><option value="<?=e($code)?>" <?=$mf['activity']===$code?'selected':''?>><?=e($label)?></option><?php endforeach;?></select></label><label><span>Cliente</span><select class="form-select" name="classification"><option value="all">Todos</option><option value="cfc" <?=$mf['classification']==='cfc'?'selected':''?>>CFC</option><option value="reseller" <?=$mf['classification']==='reseller'?'selected':''?>>Revendedor</option><option value="both" <?=$mf['classification']==='both'?'selected':''?>>CFC + Revendedor</option></select></label><label><span>Venda</span><select class="form-select" name="sale_type"><option value="all">Todos</option><?php foreach($saleTypes as $code=>$label):?><option value="<?=e($code)?>" <?=$mf['saleType']===$code?'selected':''?>><?=e($label)?></option><?php endforeach;?></select></label><label><span>Canal</span><select class="form-select" name="channel"><option value="all">Todos</option><?php foreach($activityChannels as $channel):?><option value="<?=e($channel['code'])?>" <?=$mf['channel']===$channel['code']?'selected':''?>><?=e($channel['label'])?></option><?php endforeach;?></select></label><button class="cix-btn primary">Aplicar</button><a class="cix-btn" href="<?=APP_URL?>/commercial-management">Limpar</a></form>
+    <div class="cix-kpis management"><?php foreach([['Atividades',$mm['activities']??0,'fa-clipboard-list',''],['Tentativas',$mm['attempts']??0,'fa-phone',''],['Contatos',$mm['contacts']??0,'fa-people-arrows',''],['Follow-ups',$mm['followups']??0,'fa-rotate','purple'],['Retornos atrasados',$mm['overdue']??0,'fa-clock','danger'],['Vendas',$mm['sales']??0,'fa-cart-shopping','green'],['Valor total',money($mm['sales_amount']??0),'fa-brazilian-real-sign','green'],['Valor em EAD',money($mm['ead_amount']??0),'fa-graduation-cap','purple'],['Parceiros trabalhados',$mm['partners_worked']??0,'fa-handshake',''],['Retornos realizados',$mm['completed']??0,'fa-circle-check','green'],['Retornos pendentes',$mm['pending']??0,'fa-calendar','amber'],['Parceiros sem contato',$mm['partners_stale']??0,'fa-user-clock','danger']] as $kpi):?><article class="<?=$kpi[3]?>"><i class="fa-solid <?=$kpi[2]?>"></i><small><?=$kpi[0]?></small><strong><?=$kpi[1]?></strong></article><?php endforeach;?></div>
+    <div class="cix-management-grid"><section class="cix-card"><header><div><strong>Atividades e vendas por consultora</strong><small>Desempenho no período selecionado.</small></div></header><div class="cix-table-wrap"><table class="cix-table"><thead><tr><th>Consultora</th><th>Contatos</th><th>Tentativas</th><th>Follow-ups</th><th>Orientações</th><th>Ativações</th><th>Vendas</th><th>Valor vendido</th></tr></thead><tbody><?php foreach($managementRows as $row):?><tr><td><strong><?=e($row['name'])?></strong></td><td><?=$row['contacts']?></td><td><?=$row['attempts']?></td><td><?=$row['followups']?></td><td><?=$row['orientations']?></td><td><?=$row['activations']?></td><td><?=$row['sales']?></td><td><strong><?=money($row['sales_amount'])?></strong></td></tr><?php endforeach;?></tbody></table></div></section><aside class="cix-card cix-daily"><header><div><strong>Consulta por dia</strong><small>O que foi tratado em <?=date('d/m/Y',strtotime($mf['day']))?>?</small></div></header><form method="get"><input class="form-control" type="date" name="day" value="<?=e($mf['day'])?>"><select class="form-select" name="day_seller_id"><option value="0">Toda a equipe</option><?php foreach($commercialSellers as $seller):?><option value="<?=$seller['id']?>" <?=$mf['daySeller']==$seller['id']?'selected':''?>><?=e($seller['name'])?></option><?php endforeach;?></select><button class="cix-btn primary">Consultar</button></form><div class="cix-timeline"><?php foreach($daily as $item):?><article><time><?=date('H:i',strtotime($item['created_at']))?></time><span></span><div><strong><?=e($item['account_name'])?></strong><small><?=e($activityLabels[$item['activity_type']]??$item['activity_type'])?> · <?=e(CommercialActivityService::channelLabel($item['channel']))?> · <?=e($item['user_name'])?></small><p><?=e($item['notes']?:'Sem descrição adicional.')?></p></div></article><?php endforeach;?><?php if(!$daily):?><div class="cix-empty">Nenhuma atividade registrada neste dia.</div><?php endif;?></div></aside></div>
+   </section>
+  <?php break;
+
   case 'clients':?>
    <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$crmPortfolioReady=!empty($crmPortfolioReady);$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'supplier'=>0,'carrier'=>0,'crm_inactive'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$crmStatus=$crmStatus??'active';$clientSegment=$clientSegment??'all';$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$classificationFilter=$classificationFilter??'all';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralParams=[];if($clientSegment!=='all')$clientCentralParams['segment']=$clientSegment;if($crmStatus!=='active')$clientCentralParams['crm_status']=$crmStatus;$clientCentralUrl=APP_URL.'/clients'.($clientCentralParams?'?'.http_build_query($clientCentralParams):'');?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
     <header class="tdc-head">
      <div class="tdc-head-main">
       <span class="tdc-head-icon"><i class="fa-solid <?=$portfolioMode?'fa-briefcase':'fa-users'?>"></i></span>
-      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / MINHA CARTEIRA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Minha Carteira':'Central de clientes'?></h1><p><?=$portfolioMode?($crmPortfolioReady?'Carteira oficial do CRM Omie, priorizada para relacionamento e próxima ação.':'Carteira em modo de transição; o vínculo legado será substituído após a carga do CRM Omie.'):'Uma única base para relacionamento, classificação, saneamento cadastral e integração com a Omie.'?></p></div>
+      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / CARTEIRA COMPLETA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Carteira completa':'Central de clientes'?></h1><p><?=$portfolioMode?($crmPortfolioReady?'Carteira oficial do CRM Omie, priorizada para relacionamento e próxima ação.':'Carteira em modo de transição; o vínculo legado será substituído após a carga do CRM Omie.'):'Uma única base para relacionamento, classificação, saneamento cadastral e integração com a Omie.'?></p></div>
      </div>
      <div class="tdc-head-actions"><a class="tdc-btn" href="<?=$portfolioMode?APP_URL.'/my-portfolio':e($clientCentralUrl)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||in_array($clientSegment,['all','general'],true)):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
     </header>
@@ -1098,10 +1271,10 @@ function render(string $name,array $vars=[]): void{
     <?php if(Auth::can('seller')&&!$portfolioMode):?>
     <nav class="tdc-scope">
      <a class="<?=!$portfolioMode&&($clientScope??'all')==='all'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Todos os clientes</strong><small>Base ativa completa · todas as tags</small></span><i class="fa-solid fa-chevron-right"></i></a>
-     <a class="<?=$portfolioMode?'active':''?>" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span><strong>Minha carteira</strong><small>Somente os vinculados a você</small></span><i class="fa-solid fa-chevron-right"></i></a>
+     <a class="<?=$portfolioMode?'active':''?>" href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span><strong>Carteira completa</strong><small>Somente os vinculados a você</small></span><i class="fa-solid fa-chevron-right"></i></a>
      <?php if(!$crmPortfolioReady):?><a class="<?=!$portfolioMode&&($clientScope??'all')==='unassigned'?'active':''?>" href="<?=APP_URL?>/clients?scope=unassigned"><i class="fa-solid fa-user-plus"></i><span><strong>Sem vendedor</strong><small><?=number_format((int)($availableClients??0),0,',','.')?> disponíveis</small></span><i class="fa-solid fa-chevron-right"></i></a><?php endif;?>
     </nav>
-    <?php if(Auth::can('seller')):?><div class="tdc-seller-base-note"><i class="fa-solid fa-circle-info"></i><div><strong>Base de clientes sem restrição por tag</strong><small>Use esta tela para localizar qualquer cliente ativo. “Minha carteira” mostra somente as Contas atribuídas a você no CRM Omie<?=$crmPortfolioReady?'.':' assim que a sincronização inicial for concluída.'?> A classificação CFC/Revendedor pode ser corrigida na ficha do parceiro.</small></div></div><?php endif;?>
+    <?php if(Auth::can('seller')):?><div class="tdc-seller-base-note"><i class="fa-solid fa-circle-info"></i><div><strong>Base de clientes sem restrição por tag</strong><small>Use esta tela para localizar qualquer cliente ativo. “Carteira completa” mostra somente as Contas atribuídas a você no CRM Omie<?=$crmPortfolioReady?'.':' assim que a sincronização inicial for concluída.'?> A classificação CFC/Revendedor pode ser corrigida na ficha do parceiro.</small></div></div><?php endif;?>
     <?php endif;?>
 
     <section class="tdc-table-card">
@@ -1911,6 +2084,14 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
+    <section class="tdcob-omie-bridge <?=!empty($case['crm_account_code'])?'linked':'unlinked'?>">
+     <span><i class="fa-solid <?=!empty($case['crm_account_code'])?'fa-link':'fa-link-slash'?>"></i></span>
+     <div><small>IDENTIDADE OMIE INTEGRADA</small><strong>Cliente Geral <?=e((string)($case['client_omie_code']??''))?></strong>
+      <?php if(!empty($case['crm_account_code'])):?><p>Ligado à Conta CRM <a href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$case['crm_account_code'])?>"><?=e((string)($case['crm_account_name']?:$case['crm_account_code']))?></a><?=(int)($case['crm_account_count']??0)>1?' · existem '.(int)$case['crm_account_count'].' Contas CRM vinculadas':''?>. A cobrança usa a identidade financeira do Cliente Geral e consulta o contexto comercial pela ponte.</p>
+      <?php else:?><p>Este Cliente Geral ainda não possui Conta CRM vinculada. A cobrança permanece correta financeiramente, mas o histórico comercial não está conectado.</p><?php endif;?>
+     </div>
+    </section>
+
     <div class="tdcob-case-summary">
      <div class="available"><span>Saldo disponível</span><strong><?=money($case['available_amount'])?></strong></div>
      <div><span>Saldo informado pela Omie</span><strong><?=money($case['open_amount'])?></strong></div>
@@ -2014,10 +2195,14 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
            <div class="tdw-task-time"><strong><?=date($groupKey==='today'?'H:i':'d/m',$due)?></strong><small><?=date('H:i',$due)?></small></div>
            <div class="tdw-task-main"><div class="tdw-task-account"><a href="<?=$taskHref?>"><?=e((string)$r['name'])?></a><div class="tdw-inline-tags"><span class="<?=$isCollection?'collection':'sales'?>"><?=$isCollection?'Cobrança':'Comercial'?></span><?php if($taskAccountCode!==''&&empty($r['client_id'])):?><span class="prospect">Prospect</span><?php elseif($taskAccountCode!==''):?><span class="linked">Conta vinculada</span><?php endif;?></div></div><p><?=e((string)$r['title'])?></p><footer><span><i class="fa-regular fa-user"></i><?=e((string)($r['assigned_name']??'Não identificado'))?></span><span><i class="fa-solid fa-list-check"></i><?=e($taskTypeName)?></span><span><i class="fa-regular fa-calendar-plus"></i>Criada <?=date('d/m/Y',$created)?></span></footer></div>
            <div class="tdw-task-actions">
+            <?php if(!$isCollection&&$taskAccountCode!==''):?>
+             <button class="tdw-btn primary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="contact_completed" data-complete-task-id="<?=(int)$r['id']?>" data-schedule-return="0"><i class="fa-solid fa-check"></i>Concluir retorno</button>
+             <button class="tdw-btn secondary" type="button" data-commercial-activity-open data-account-code="<?=e($taskAccountCode)?>" data-account-name="<?=e((string)$r['name'])?>" data-account-owner="<?=e((string)($r['assigned_name']??''))?>" data-account-type="Cliente" data-client-id="<?=(int)($r['client_id']??0)?>" data-activity-type="follow_up"><i class="fa-regular fa-note-sticky"></i>Registrar atividade</button>
+            <?php endif;?>
             <button class="tdw-icon-btn" type="button" title="Ver tarefa" data-agenda-task-action="view" data-task-id="<?=(int)$r['id']?>"><i class="fa-regular fa-eye"></i></button>
             <button class="tdw-icon-btn" type="button" title="Editar" data-agenda-task-action="edit" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-pen"></i></button>
             <button class="tdw-icon-btn" type="button" title="Reagendar" data-agenda-task-action="reschedule" data-task-id="<?=(int)$r['id']?>"><i class="fa-regular fa-calendar-plus"></i></button>
-            <button class="tdw-icon-btn done" type="button" title="Concluir" data-agenda-task-action="complete" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-check"></i></button>
+            <?php if($isCollection||$taskAccountCode===''):?><button class="tdw-icon-btn done" type="button" title="Concluir" data-agenda-task-action="complete" data-task-id="<?=(int)$r['id']?>"><i class="fa-solid fa-check"></i></button><?php endif;?>
             <form method="post" action="<?=APP_URL?>/agenda/<?=$r['id']?>/delete"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="user_id" value="<?=(int)($agendaFilterUser??0)?>"><input type="hidden" name="type" value="<?=e($agendaType??'all')?>"><input type="hidden" name="period" value="<?=e($agendaPeriod??'all')?>"><input type="hidden" name="created_date" value="<?=e($agendaCreatedDate??'')?>"><button class="tdw-icon-btn danger" data-confirm="Excluir definitivamente esta tarefa da agenda de <?=e((string)$r['name'])?>?" data-confirm-title="Excluir tarefa" data-confirm-label="Excluir" data-confirm-tone="danger" title="Excluir"><i class="fa-regular fa-trash-can"></i></button></form>
            </div>
           </article>
@@ -2049,6 +2234,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <footer><button class="tda-btn" type="button" data-agenda-task-close>Fechar</button><button class="tda-btn tda-task-submit" type="submit" data-agenda-task-submit hidden><i class="fa-solid fa-check"></i><span>Salvar</span></button></footer>
      </form>
     </dialog>
+    <?php render_commercial_activity_dialog(['user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],'return_to'=>'agenda','return_query'=>'']);?>
    </section>
   <?php break;
 
@@ -2700,8 +2886,12 @@ function layout(string $body,?array $u,string $page=''): void{
   'test_data'=>['Sistema','Ferramentas técnicas','fa-flask'],
   'sync'=>['Sistema','Sincronização com Omie','fa-arrows-rotate'],
   'commercial_home'=>['Comercial','Minha Home','fa-house'],
-  'commercial_portfolio'=>['Comercial','Carteira comercial','fa-briefcase'],
+  'commercial_home_concept'=>['Comercial','Minha Home unificada','fa-house-laptop'],
+  'commercial_portfolio'=>['Comercial','Minha Carteira','fa-briefcase'],
   'commercial_account'=>['Comercial','Conta CRM','fa-building'],
+  'commercial_partners'=>['Comercial','Parceiros EAD','fa-people-group'],
+  'commercial_sales'=>['Vendas','Registro de vendas','fa-cart-shopping'],
+  'commercial_management'=>['Gestão','Painel da Gestão','fa-chart-column'],
   'opportunities'=>['Comercial','Oportunidades','fa-chart-column'],
   'opportunity_detail'=>['Comercial','Detalhe da oportunidade','fa-handshake'],
   'sales_flow_settings'=>['Gestão','Funil de vendas','fa-diagram-project'],
@@ -2709,7 +2899,7 @@ function layout(string $body,?array $u,string $page=''): void{
   'result'=>['Resultados','Meu desempenho','fa-chart-line']
  ];
  $pageInfo=$pageMeta[$page]??['Tecnodata CRM','Operação','fa-graduation-cap'];
- ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-intelligence-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-intelligence-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-intelligence-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/client-audit-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/client-audit-v1.css')?filemtime(APP_ROOT.'/public/assets/client-audit-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-palette-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-palette-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-palette-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-workspace-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-workspace-v2.css')?filemtime(APP_ROOT.'/public/assets/commercial-workspace-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-home-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-home-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-home-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-activity-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-activity-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-activity-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-account-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-account-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-account-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
+ ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-intelligence-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-intelligence-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-intelligence-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/client-audit-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/client-audit-v1.css')?filemtime(APP_ROOT.'/public/assets/client-audit-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-palette-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-palette-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-palette-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-workspace-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-workspace-v2.css')?filemtime(APP_ROOT.'/public/assets/commercial-workspace-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-home-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-home-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-home-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-activity-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-activity-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-activity-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-account-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-account-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-account-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-operations-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-operations-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-operations-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
@@ -2722,8 +2912,8 @@ function layout(string $body,?array $u,string $page=''): void{
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Minha Home</span></a>
-     <div class="tdcrm-nav-group" data-nav-group="seller-clients" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-users"></i>Clientes</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Base de clientes</span></a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a></div></div>
-     <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
+     <a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha Carteira</span></a>
+     <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a><a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a><?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?><a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a><a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a></div></div>
      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
      <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
     <?php elseif($u['role']==='collector'):?>
@@ -2743,7 +2933,9 @@ function layout(string $body,?array $u,string $page=''): void{
       <div class="tdcrm-nav-group-links">
        <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
        <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span>Carteira comercial</span></a>
-       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span>Clientes</span></a>
+       <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
+       <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-cart-shopping"></i><span>Vendas</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-database"></i><span>Base cadastral Omie</span></a>
        <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
        <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
        <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
@@ -2763,8 +2955,9 @@ function layout(string $body,?array $u,string $page=''): void{
      <div class="tdcrm-nav-section-label">GESTÃO</div>
 
      <div class="tdcrm-nav-group" data-nav-group="management" data-default-open="1">
-      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-chart-line"></i>Gestão da equipe</span><i class="fa-solid fa-chevron-down"></i></button>
-      <div class="tdcrm-nav-group-links">
+     <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-chart-line"></i>Gestão da equipe</span><i class="fa-solid fa-chevron-down"></i></button>
+     <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/commercial-management"><i class="fa-solid fa-chart-column"></i><span>Painel da Gestão</span></a>
        <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-days"></i><span>Agenda da equipe</span></a>
        <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas da equipe</span></a>
        <?php if($u['role']==='admin'):?><a href="<?=APP_URL?>/users"><i class="fa-solid fa-users-gear"></i><span>Usuários e permissões</span></a><?php endif;?>
