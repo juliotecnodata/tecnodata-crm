@@ -1060,7 +1060,7 @@ final class ClientService {
  }
 
  public static function deleteInactiveOmieBatchFromCrm(array $sourceIds,int $preferredTargetId,array $u,array $verifiedInactiveCodes=[],?array $preloadedAudit=null): array{
-  ClientSegmentPolicy::ensureSchema();
+  ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();
   $sourceIds=array_values(array_unique(array_filter(array_map('intval',$sourceIds),static fn($id)=>$id>0)));
   $verifiedInactiveCodes=array_fill_keys(array_values(array_unique(array_filter(array_map(static fn($code)=>trim((string)$code),$verifiedInactiveCodes),static fn($code)=>$code!==''))),true);
   if(!$sourceIds)throw new RuntimeException('Selecione pelo menos um cadastro inativo para excluir do CRM.');
@@ -1137,6 +1137,7 @@ final class ClientService {
     'tasks'=>(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE client_id=?",[$id])??0),
     'collection_actions'=>(int)(DB::scalar("SELECT COUNT(*) FROM collection_actions WHERE client_id=?",[$id])??0),
     'collection_cases'=>(int)(DB::scalar("SELECT COUNT(*) FROM collection_cases WHERE client_id=?",[$id])??0),
+    'crm_account_links'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE client_id=?",[$id])??0),
    ];
    try{$counts['opportunities']=(int)(DB::scalar("SELECT COUNT(*) FROM opportunities WHERE client_id=?",[$id])??0);}catch(Throwable $e){$counts['opportunities']=0;}
    try{$counts['drafts']=(int)(DB::scalar("SELECT COUNT(*) FROM local_order_drafts WHERE client_id=?",[$id])??0);}catch(Throwable $e){$counts['drafts']=0;}
@@ -1160,7 +1161,7 @@ final class ClientService {
    )");
   }
 
-  $pdo=DB::conn();$pdo->beginTransaction();
+  $pdo=DB::conn();$pdo->beginTransaction();$movedCrmLinks=0;$preservedArchived=[];
   try{
    if($targetId>0)DB::exec("UPDATE clients SET active=1,crm_inactive=0,crm_inactivated_at=NULL,crm_inactivated_by=NULL,updated_at=NOW() WHERE id=?",[$targetId]);
 
@@ -1170,6 +1171,21 @@ final class ClientService {
      DB::exec("UPDATE activities SET client_id=? WHERE client_id=?",[$targetId,$sourceId]);
      DB::exec("UPDATE tasks SET client_id=? WHERE client_id=?",[$targetId,$sourceId]);
      DB::exec("UPDATE collection_actions SET client_id=? WHERE client_id=?",[$targetId,$sourceId]);
+
+     // A Conta CRM é a identidade comercial principal. Ao consolidar um Cliente Geral
+     // inativo em outro cadastro Omie, o vínculo CRM acompanha o destino e recebe auditoria.
+     $sourceLinks=DB::all("SELECT crm_account_code,link_method,is_primary FROM crm_account_links WHERE client_id=? ORDER BY is_primary DESC,crm_account_code",[$sourceId]);
+     foreach($sourceLinks as $sourceLink){
+      $accountCode=(string)$sourceLink['crm_account_code'];
+      $hasPrimary=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE client_id=? AND is_primary=1 AND crm_account_code<>?",[$targetId,$accountCode])??0)>0;
+      $nextPrimary=$hasPrimary?0:1;
+      DB::exec("UPDATE crm_account_links SET client_id=?,is_primary=?,verified_by_user_id=?,verified_at=NOW(),updated_at=NOW() WHERE crm_account_code=?",
+       [$targetId,$nextPrimary,(int)($u['id']??0)?:null,$accountCode]);
+      DB::exec("INSERT INTO crm_account_link_audit(crm_account_code,previous_client_id,client_id,action,link_method,actor_user_id,notes,created_at)
+                VALUES(?,?,?,'relinked',?,?,?,NOW())",
+       [$accountCode,$sourceId,$targetId,(string)($sourceLink['link_method']??'reconcile'),(int)($u['id']??0)?:null,'Cliente Geral inativo consolidado em cadastro Omie ativo']);
+      $movedCrmLinks++;
+     }
      try{DB::exec("UPDATE opportunities SET client_id=? WHERE client_id=?",[$targetId,$sourceId]);}catch(Throwable $e){}
      try{DB::exec("UPDATE local_order_drafts SET client_id=? WHERE client_id=?",[$targetId,$sourceId]);}catch(Throwable $e){}
      try{DB::exec("UPDATE omie_order_logs SET client_id=? WHERE client_id=?",[$targetId,$sourceId]);}catch(Throwable $e){}
@@ -1197,6 +1213,7 @@ final class ClientService {
      try{$snapshot['opportunities']=DB::all("SELECT * FROM opportunities WHERE client_id=? ORDER BY id",[$sourceId]);}catch(Throwable $e){$snapshot['opportunities']=[];}
      try{$snapshot['drafts']=DB::all("SELECT * FROM local_order_drafts WHERE client_id=? ORDER BY id",[$sourceId]);}catch(Throwable $e){$snapshot['drafts']=[];}
      try{$snapshot['seller_audit']=DB::all("SELECT * FROM client_seller_audit WHERE client_id=? ORDER BY id",[$sourceId]);}catch(Throwable $e){$snapshot['seller_audit']=[];}
+     $snapshot['crm_account_links']=DB::all("SELECT * FROM crm_account_links WHERE client_id=? ORDER BY is_primary DESC,crm_account_code",[$sourceId]);
      DB::exec("INSERT INTO client_deleted_archive(original_client_id,omie_code,document,reason,client_json,history_json,deleted_by,deleted_at)
                VALUES(?,?,?,?,?,?,?,NOW())",[
       $sourceId,(string)($source['omie_code']??''),(string)($source['document']??''),
@@ -1206,8 +1223,20 @@ final class ClientService {
       (int)($u['id']??0)
      ]);
     }
-    DB::exec("DELETE FROM clients WHERE id=?",[$sourceId]);
+
+    $preserveSource=$targetId<=0&&array_sum((array)($historyBySource[$sourceId]??[]))>0;
+    if($preserveSource){
+     // Sem destino seguro, o cadastro sai da operação, mas permanece no banco para
+     // que atividades, tarefas, cobrança e vínculo CRM continuem íntegros.
+     DB::exec("UPDATE clients
+               SET active=0,crm_inactive=1,crm_inactivated_at=NOW(),crm_inactivated_by=?,updated_at=NOW()
+               WHERE id=?",[(int)($u['id']??0)?:null,$sourceId]);
+     $preservedArchived[]=$sourceId;
+    }else{
+     DB::exec("DELETE FROM clients WHERE id=?",[$sourceId]);
+    }
    }
+   if($movedCrmLinks>0)CommercialPortfolioService::rebuildOperationalOwners();
    $pdo->commit();
   }catch(Throwable $e){
    if($pdo->inTransaction())$pdo->rollBack();
@@ -1220,9 +1249,10 @@ final class ClientService {
    'removed'=>array_map(static fn($source)=>['id'=>(int)$source['id'],'name'=>(string)$source['name'],'omie_code'=>(string)$source['omie_code']],$sources),
    'removed_count'=>count($sources),'target'=>$target,'history_moved'=>$targetId>0?$historyBySource:[],
    'not_found_in_omie'=>array_keys($missingRemoteCodes),'archived_without_target'=>$archiveWithoutTarget,
+   'preserved_archived_ids'=>$preservedArchived,'moved_crm_links'=>$movedCrmLinks,
    'message'=>$targetId>0
-    ?count($sources).' cadastro(s) removido(s) somente do CRM em uma única operação. O histórico foi consolidado em “'.$target['name'].'” (Omie '.$target['omie_code'].').'.($missingRemoteCodes?' '.count($missingRemoteCodes).' código(s) não foram encontrados na Omie e foram removidos localmente mesmo assim.':'')
-    :count($sources).' cadastro(s) removido(s) somente do CRM em uma única operação.'.($missingRemoteCodes?' '.count($missingRemoteCodes).' código(s) não foram encontrados na Omie e foram removidos localmente mesmo assim.':'').($archiveWithoutTarget?' O histórico existente foi arquivado antes da exclusão.':''),
+    ?count($sources).' cadastro(s) inativo(s) tratados no CRM. Histórico e vínculos comerciais foram consolidados em “'.$target['name'].'” (Omie '.$target['omie_code'].').'.($movedCrmLinks?' '.$movedCrmLinks.' vínculo(s) de Conta CRM preservado(s).':'')
+    :count($sources).' cadastro(s) inativo(s) tratados no CRM.'.($preservedArchived?' '.count($preservedArchived).' cadastro(s) foram arquivados, e não apagados, porque possuem histórico ou vínculo comercial.':'').($missingRemoteCodes?' '.count($missingRemoteCodes).' código(s) não foram encontrados na Omie.':''),
   ];
  }
 
