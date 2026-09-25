@@ -3239,7 +3239,22 @@ final class SyncService {
 
   return self::finishProductSync($context,$logicalPage,$batchCount);
  }
- private static function finish(string $m,array $d,int $page,int $count): array{$total=(int)($d['total_de_paginas']??$d['nTotPaginas']??1);$total=max(1,$total);DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error) VALUES(?,?,?,?,NULL,NOW(),NULL) ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=NOW(),last_error=NULL",[$m,$page,$total,$count]);if(in_array($m,['orders','services'],true)&&$page>=$total)self::rebuildMetrics();return ['module'=>$m,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$page>=$total];}
+ private static function finish(string $m,array $d,int $page,int $count): array{
+  $total=(int)($d['total_de_paginas']??$d['nTotPaginas']??1);$total=max(1,$total);
+  DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+            VALUES(?,?,?,?,NULL,NOW(),NULL)
+            ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),context_json=NULL,last_success_at=NOW(),last_error=NULL",
+   [$m,$page,$total,$count]);
+  $done=$page>=$total;
+  if(in_array($m,['orders','services'],true)&&$done)self::rebuildMetrics();
+  $result=['module'=>$m,'page'=>$page,'total_pages'=>$total,'count'=>$count,'done'=>$done];
+  if($m==='sellers'&&$done&&class_exists('CommercialIdentityService')){
+   $identity=CommercialIdentityService::reconcileUsers();
+   $result['identity']=$identity;
+   if(class_exists('CommercialPortfolioService'))$result['portfolio']=CommercialPortfolioService::rebuildOperationalOwners();
+  }
+  return $result;
+ }
  public static function run(string $m,int $page=1): array{
   if(!isset(self::modules()[$m]))throw new RuntimeException('Módulo inválido.');$o=new OmieClient();$page=max(1,$page);
   if($m==='sellers'){$d=$o->call('sellers','ListarVendedores',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['cadastro','vendedores']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO sellers(omie_code,name,email,active,raw_json,updated_at) VALUES(?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['nome']??$c),$r['email']??null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}

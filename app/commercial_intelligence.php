@@ -387,46 +387,84 @@ final class CommercialIdentityService {
   return mb_strtolower(trim((string)$value),'UTF-8');
  }
 
+ private static function uniqueByEmail(array $rows): array{
+  $map=[];
+  foreach($rows as $row){
+   $email=self::normalizeEmail($row['email']??'');if($email==='')continue;
+   $map[$email][]=$row;
+  }
+  return $map;
+ }
+
+ /**
+  * O e-mail de acesso ao Tecnodata é a identidade canônica do colaborador no Omie.
+  * Liga o mesmo usuário às duas identidades do Omie:
+  * - crm_users.omie_code  -> responsável pelas Contas CRM
+  * - sellers.omie_code    -> vendedor de pedidos/serviços
+  *
+  * Nunca associa automaticamente por nome. Duplicidade de e-mail fica pendente
+  * para revisão em vez de escolher uma pessoa errada.
+  */
  public static function reconcileUsers(): array{
   CommercialSchema::ensure();
   $crmUsers=DB::all("SELECT omie_code,name,email FROM crm_users WHERE active=1 ORDER BY name");
-  $localUsers=DB::all("SELECT id,name,email,seller_omie_code,crm_user_omie_code,role,active FROM users WHERE active=1 AND role IN('seller','supervisor','admin')");
+  $salesSellers=DB::all("SELECT omie_code,name,email FROM sellers WHERE active=1 ORDER BY name");
+  $localUsers=DB::all("SELECT id,name,email,seller_omie_code,crm_user_omie_code,role,active
+                       FROM users WHERE active=1 AND role IN('seller','supervisor','admin') ORDER BY id");
 
-  $crmByEmail=[];$crmByName=[];
-  foreach($crmUsers as $crm){
-   $email=self::normalizeEmail($crm['email']??'');if($email!=='')$crmByEmail[$email][]=$crm;
-   $name=crm_normalize_key((string)($crm['name']??''));if($name!=='')$crmByName[$name][]=$crm;
-  }
+  $crmByEmail=self::uniqueByEmail($crmUsers);
+  $salesByEmail=self::uniqueByEmail($salesSellers);
 
-  $linked=0;$ambiguous=0;
+  $stats=[
+   'local_users'=>count($localUsers),'crm_users'=>count($crmUsers),'sales_sellers'=>count($salesSellers),
+   'complete'=>0,'crm_linked'=>0,'sales_linked'=>0,
+   'missing_crm'=>0,'missing_sales'=>0,'ambiguous_crm'=>0,'ambiguous_sales'=>0,'email_conflicts'=>0
+  ];
+
   foreach($localUsers as $user){
-   $userId=(int)$user['id'];
-   $current=trim((string)($user['crm_user_omie_code']??''));
-   if($current!==''&&DB::one("SELECT 1 FROM crm_users WHERE omie_code=? AND active=1",[$current])){
-    DB::exec("INSERT INTO user_omie_identity(user_id,sales_seller_code,crm_user_code,match_method,confidence,verified_at,updated_at)
-              VALUES(?,?,?,'existing',100,NOW(),NOW())
-              ON DUPLICATE KEY UPDATE sales_seller_code=VALUES(sales_seller_code),crm_user_code=VALUES(crm_user_code),updated_at=NOW()",
-     [$userId,$user['seller_omie_code']??null,$current]);
-    $linked++;continue;
-   }
+   $userId=(int)$user['id'];$email=self::normalizeEmail($user['email']??'');
+   if($email===''){continue;}
 
-   $matches=[];$method='';$confidence=0;
-   $email=self::normalizeEmail($user['email']??'');
-   if($email!==''&&count($crmByEmail[$email]??[])===1){$matches=$crmByEmail[$email];$method='email';$confidence=100;}
-   if(!$matches){
-    $name=crm_normalize_key((string)($user['name']??''));
-    if($name!==''&&count($crmByName[$name]??[])===1){$matches=$crmByName[$name];$method='name';$confidence=85;}
-   }
-   if(count($matches)!==1){$ambiguous++;continue;}
-   $crmCode=(string)$matches[0]['omie_code'];
-   DB::exec("UPDATE users SET crm_user_omie_code=?,updated_at=NOW() WHERE id=?",[$crmCode,$userId]);
+   $crmMatches=$crmByEmail[$email]??[];
+   $salesMatches=$salesByEmail[$email]??[];
+
+   if(count($crmMatches)>1)$stats['ambiguous_crm']++;
+   if(count($salesMatches)>1)$stats['ambiguous_sales']++;
+
+   $crmCode=count($crmMatches)===1?(string)$crmMatches[0]['omie_code']:null;
+   $salesCode=count($salesMatches)===1?(string)$salesMatches[0]['omie_code']:null;
+
+   if($crmCode===null)$stats['missing_crm']++;else $stats['crm_linked']++;
+   if((string)$user['role']==='seller'){
+    if($salesCode===null)$stats['missing_sales']++;else $stats['sales_linked']++;
+   }elseif($salesCode!==null)$stats['sales_linked']++;
+
+   // Detecta código antigo apontando para outro e-mail. O valor canônico por e-mail
+   // prevalece quando há correspondência única; sem correspondência, não adivinha.
+   $oldCrm=trim((string)($user['crm_user_omie_code']??''));
+   $oldSales=trim((string)($user['seller_omie_code']??''));
+   if($oldCrm!==''&&$crmCode!==null&&$oldCrm!==$crmCode)$stats['email_conflicts']++;
+   if($oldSales!==''&&$salesCode!==null&&$oldSales!==$salesCode)$stats['email_conflicts']++;
+
+   $nextCrm=$crmCode;
+   $nextSales=$salesCode;
+   // Supervisor/admin podem não ser vendedores de Vendas Omie; vendedor precisa
+   // das duas identidades quando ambas existem.
+   DB::exec("UPDATE users SET crm_user_omie_code=?,seller_omie_code=?,updated_at=NOW() WHERE id=?",
+    [$nextCrm,$nextSales,$userId]);
+
+   $method=($crmCode!==null||$salesCode!==null)?'email':'email_unmatched';
+   $confidence=($crmCode!==null||$salesCode!==null)?100:0;
    DB::exec("INSERT INTO user_omie_identity(user_id,sales_seller_code,crm_user_code,match_method,confidence,verified_at,updated_at)
              VALUES(?,?,?,?,?,NOW(),NOW())
-             ON DUPLICATE KEY UPDATE sales_seller_code=VALUES(sales_seller_code),crm_user_code=VALUES(crm_user_code),match_method=VALUES(match_method),confidence=VALUES(confidence),verified_at=NOW(),updated_at=NOW()",
-    [$userId,$user['seller_omie_code']??null,$crmCode,$method,$confidence]);
-   $linked++;
+             ON DUPLICATE KEY UPDATE sales_seller_code=VALUES(sales_seller_code),crm_user_code=VALUES(crm_user_code),
+                                     match_method=VALUES(match_method),confidence=VALUES(confidence),verified_at=NOW(),updated_at=NOW()",
+    [$userId,$nextSales,$nextCrm,$method,$confidence]);
+
+   if($crmCode!==null&&((string)$user['role']!=='seller'||$salesCode!==null))$stats['complete']++;
   }
-  return ['linked'=>$linked,'ambiguous'=>$ambiguous,'local_users'=>count($localUsers),'crm_users'=>count($crmUsers)];
+
+  return $stats;
  }
 }
 

@@ -2640,19 +2640,29 @@ $router->get('/users',function(){
  render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"),'edit'=>$editId?DB::one("SELECT * FROM users WHERE id=?",[$editId]):null]);
 });
 $router->post('/users',function(){
- Auth::requireRole('admin');CSRF::require($_POST['_token']??null);
+ Auth::requireRole('admin');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  $id=(int)($_POST['id']??0);$name=trim((string)($_POST['name']??''));$email=mb_strtolower(trim((string)($_POST['email']??'')));
  $role=(string)($_POST['role']??'seller');if(!in_array($role,['admin','supervisor','seller','collector'],true))exit('Perfil inválido.');
- $seller=trim((string)($_POST['seller_omie_code']??''))?:null;$active=!empty($_POST['active'])?1:0;$password=(string)($_POST['password']??'');
+ $active=!empty($_POST['active'])?1:0;$password=(string)($_POST['password']??'');
  if($name===''||!filter_var($email,FILTER_VALIDATE_EMAIL))exit('Nome/e-mail inválidos.');
- if($role==='seller'&&$seller===null)exit('Vincule o vendedor Omie.');
+
+ $seller=null;
+ if($role==='seller'){
+  $salesMatches=DB::all("SELECT omie_code,name,email FROM sellers WHERE active=1 AND LOWER(TRIM(email))=? ORDER BY omie_code",[$email]);
+  if(count($salesMatches)>1)exit('Há mais de um Vendedor Omie ativo com este e-mail. Revise a duplicidade na Omie antes de salvar o usuário.');
+  if(count($salesMatches)===0)exit('Nenhum Vendedor Omie ativo foi encontrado com o mesmo e-mail de acesso. Sincronize Vendedores e confira o e-mail na Omie.');
+  $seller=(string)$salesMatches[0]['omie_code'];
+ }
+
  if($id>0){
-  DB::exec("UPDATE users SET name=?,email=?,role=?,seller_omie_code=?,active=?,updated_at=NOW() WHERE id=?",[$name,$email,$role,$role==='seller'?$seller:null,$active,$id]);
+  DB::exec("UPDATE users SET name=?,email=?,role=?,seller_omie_code=?,active=?,updated_at=NOW() WHERE id=?",[$name,$email,$role,$seller,$active,$id]);
   if($password!=='')DB::exec("UPDATE users SET password_hash=? WHERE id=?",[password_hash($password,PASSWORD_DEFAULT),$id]);
  }else{
   if($password==='')exit('Senha obrigatória.');
-  DB::exec("INSERT INTO users(name,email,password_hash,role,seller_omie_code,active,created_at,updated_at) VALUES(?,?,?,?,?,?,NOW(),NOW())",[$name,$email,password_hash($password,PASSWORD_DEFAULT),$role,$role==='seller'?$seller:null,$active]);
+  DB::exec("INSERT INTO users(name,email,password_hash,role,seller_omie_code,active,created_at,updated_at) VALUES(?,?,?,?,?,?,NOW(),NOW())",[$name,$email,password_hash($password,PASSWORD_DEFAULT),$role,$seller,$active]);
  }
+ CommercialIdentityService::reconcileUsers();
+ CommercialPortfolioService::rebuildOperationalOwners();
  redirect('/users');
 });
 $router->get('/goals',function(){
