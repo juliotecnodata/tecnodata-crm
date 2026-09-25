@@ -35,9 +35,22 @@ try{
   exit(0);
  }
 
+ // Local e produção compartilham o mesmo banco. O lock MySQL impede que dois
+ // ambientes sincronizem a mesma base comercial ao mesmo tempo.
+ $lockName='tecnodata_commercial_omie_sync';
+ $lock=(int)(DB::scalar("SELECT GET_LOCK(?,0)",[$lockName])??0);
+ if($lock!==1){
+  echo "Sincronização comercial já está em execução por outro processo. Nada foi alterado.\n";
+  exit(0);
+ }
+ register_shutdown_function(static function()use($lockName): void{
+  try{DB::scalar("SELECT RELEASE_LOCK(?)",[$lockName]);}catch(Throwable $e){}
+ });
+
  cliSection('TECNODATA — SINCRONIZAÇÃO BASE CRM OMIE');
  cliRow('Modo de entrada','Omie -> Tecnodata');
  cliRow('Escrita no Omie',$push?'SIM, somente fila pendente':'NÃO');
+ cliRow('Lock compartilhado',$lockName);
 
  $summary=[];
  if(!$accountsOnly){
