@@ -1277,6 +1277,24 @@ $router->get('/commercial-partners',function(){
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_partners',['partners'=>CommercialPartnerService::listing($u,$_GET),'partnerCatalog'=>CommercialPartnerService::catalog(),'flash'=>$flash]);
 });
+$router->post('/commercial-partners/sync-registry',function(){
+ Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ try{
+  $stats=CommercialPartnerRegistryService::sync(Auth::id());
+  $message='Parceiros sincronizados: '
+   .number_format((int)$stats['matched_documents'],0,',','.').' CNPJ(s) encontrados no CRM; '
+   .number_format((int)$stats['updated_accounts'],0,',','.').' conta(s) atualizada(s) para CFC + Revendedor; '
+   .number_format((int)$stats['already_classified'],0,',','.').' já estavam classificadas; '
+   .number_format((int)$stats['not_found_documents'],0,',','.').' CNPJ(s) da base de parceiros ainda não foram localizados no CRM.';
+  if(!empty($stats['invalid_documents']))$message.=' '.number_format((int)$stats['invalid_documents'],0,',','.').' documento(s) inválido(s) foram ignorados.';
+  if(!empty($stats['duplicate_crm_documents']))$message.=' '.number_format((int)$stats['duplicate_crm_documents'],0,',','.').' CNPJ(s) possuem mais de uma Conta CRM ativa e todas as correspondências foram classificadas.';
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>$message];
+ }catch(Throwable $e){
+  $_SESSION['commercial_flash']=['type'=>'danger','message'=>'Não foi possível sincronizar a base de parceiros: '.$e->getMessage()];
+ }
+ redirect('/commercial-partners');
+});
+
 $router->post('/commercial-partners/{code}/work',function($p){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
  try{CommercialPartnerService::record($code,Auth::user(),$_POST);$_SESSION['commercial_flash']=['type'=>'success','message'=>'Trabalho com o parceiro registrado e indicadores atualizados.'];}
