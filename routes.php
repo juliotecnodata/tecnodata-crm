@@ -3218,6 +3218,59 @@ $router->post('/api/clients/bulk',function(){
  }catch(Throwable $e){json_response(['success'=>false,'error'=>$e->getMessage()],422);}
 });
 
+
+$router->get('/api/commercial/accounts/datatable',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();
+ $u=Auth::user();$draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));
+ $length=(int)($_GET['length']??10);$length=$length<10?10:min(100,$length);
+ $orderInput=$_GET['order']??[];$orderRow=is_array($orderInput)&&isset($orderInput[0])&&is_array($orderInput[0])?$orderInput[0]:[];
+ $orderIndex=(int)($orderRow['column']??0);$orderMap=[0=>'name',1=>'owner',2=>'stale',3=>'next',4=>'purchase'];
+ $filters=[
+  '_global_crm'=>1,'scope'=>'all','page'=>(int)floor($start/$length)+1,'per_page'=>$length,
+  'classification'=>(string)($_GET['classification']??'all'),'link'=>(string)($_GET['link']??'all'),
+  'owner'=>trim((string)($_GET['owner']??'')),'attention'=>(string)($_GET['attention']??'all'),
+  'sort'=>$orderMap[$orderIndex]??'name','sort_dir'=>strtolower((string)($orderRow['dir']??'asc'))==='desc'?'desc':'asc'
+ ];
+ $searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
+ $fixedQ=trim((string)($_GET['q']??''));$filters['q']=$search!==''?$search:$fixedQ;
+ $data=CommercialAccountService::portfolio($u,$filters);$rows=[];
+ foreach((array)($data['rows']??[]) as $row){
+  $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
+  $words=preg_split('/\s+/u',$display,-1,PREG_SPLIT_NO_EMPTY);$initials=mb_strtoupper(mb_substr((string)($words[0]??'?'),0,1).(count($words)>1?mb_substr((string)end($words),0,1):''));
+  $linked=!empty($row['client_id']);$canMaintain=!empty($row['can_maintain']);
+  $lastAt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):false;
+  $nextAt=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;
+  $lastPurchase=!empty($row['last_purchase_at'])?strtotime((string)$row['last_purchase_at']):false;
+  $isLate=$nextAt&&date('Y-m-d',$nextAt)<date('Y-m-d');
+  $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
+  $editHref=$linked?APP_URL.'/clients/'.(int)$row['client_id'].'/edit':'';
+  $classHref=$linked?$editHref:$accountHref.'?from=clients&classify=1';
+  $linkHref=$accountHref.'?from=clients&link=1';
+  $badges='';
+  if(!empty($row['is_cfc']))$badges.='<span class="cfc">CFC</span>';
+  if(!empty($row['is_reseller']))$badges.='<span class="reseller">Revendedor</span>';
+  $badges.='<span class="'.($linked?'linked':'crm-only').'">'.($linked?'CRM + Cliente Geral':'Somente CRM').'</span>';
+  if($linked)$badges.='<span class="bound"><i class="fa-solid fa-link"></i>Vinculado</span>';
+  $priority=$isLate?'<b><i class="fa-solid fa-star"></i>Prioridade</b>':'';
+  $client='<div class="tdcentral-client-cell"><span class="avatar">'.e($initials).'</span><div><div class="name-line"><a href="'.$accountHref.'">'.e($display).'</a>'.$priority.'</div><p>'.e((string)($row['document']?:'Documento não informado')).' <i>•</i> CRM '.e((string)$row['omie_code']).'</p><div class="badges">'.$badges.'</div></div></div>';
+  $owner='<div class="tdcentral-metric"><i class="fa-regular fa-user"></i><span><strong>'.e((string)($row['owner_name']?:'Sem responsável')).'</strong><em>'.e((string)($row['crm_user_code']??'')).'</em></span></div>';
+  $last='<div class="tdcentral-metric"><i class="fa-regular fa-calendar"></i><span><strong class="'.($lastAt?'':'danger').'">'.($lastAt?date('d/m/Y',$lastAt):'Nunca').'</strong><em>'.($lastAt?((int)($row['days_without_contact']??0).' dia(s) atrás'):'Prioridade inicial').'</em></span></div>';
+  $next='<div class="tdcentral-metric"><i class="fa-regular fa-square-check"></i><span><strong class="'.($isLate?'danger':'').'">'.($nextAt?($isLate?'Atrasado '.date('d/m',$nextAt):date('d/m/Y H:i',$nextAt)):'Sem retorno').'</strong><em>'.($nextAt?'Retorno comercial agendado':'Defina a próxima ação').'</em></span></div>';
+  $purchase='<div class="tdcentral-metric"><i class="fa-solid fa-chart-simple"></i><span><strong>'.($lastPurchase?date('d/m/Y',$lastPurchase):'—').'</strong><em>'.money((float)($row['revenue_12m']??0)).' em 12m</em></span></div>';
+  $actions='<div class="tdcentral-actions"><a href="'.$accountHref.'" title="Ficha rápida"><i class="fa-regular fa-address-card"></i><span>Ficha rápida</span></a>';
+  $actions.=$linked?'<a href="'.$editHref.'" title="Editar cadastro"><i class="fa-solid fa-pen"></i><span>Editar</span></a>':'<span class="disabled" title="Vincule um Cliente Geral antes de editar"><i class="fa-solid fa-pen"></i><span>Editar</span></span>';
+  if(!$linked&&$canMaintain)$actions.='<a href="'.$linkHref.'" data-no-client-modal title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a>';
+  elseif($linked)$actions.='<span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span>';
+  else $actions.='<span class="disabled" title="Vínculo indisponível para este perfil"><i class="fa-solid fa-link"></i><span>Vincular</span></span>';
+  if($linked&&Auth::can('admin','supervisor'))$actions.='<form method="post" action="'.APP_URL.'/clients/'.(int)$row['client_id'].'/omie-sync"><input type="hidden" name="_token" value="'.e(CSRF::token()).'"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form>';
+  elseif($linked)$actions.='<span class="disabled" title="A sincronização é executada por supervisor ou administrador"><i class="fa-regular fa-clock"></i><span>Pendente</span></span>';
+  else $actions.='<span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span>';
+  $actions.='<a href="'.$classHref.'" '.($linked?'':'data-no-client-modal').' title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a><a class="more" href="'.$accountHref.'?from=clients" data-no-client-modal title="Abrir ficha completa"><i class="fa-solid fa-ellipsis"></i></a></div>';
+  $rows[]=[$client,$owner,$last,$next,$purchase,$actions];
+ }
+ json_response(['draw'=>$draw,'recordsTotal'=>(int)($data['total']??0),'recordsFiltered'=>(int)($data['total']??0),'data'=>$rows]);
+});
+
 $router->get('/api/clients/datatable',function(){
  Auth::requireRole('admin','supervisor','seller');
  $u=Auth::user();
