@@ -85,6 +85,23 @@ foreach(preg_split('/;\s*(?:\r?\n|$)/',$schema)?:[] as $statement){
 $t=$prefix.'users';
 addCol($pdo,$log,$t,'crm_user_omie_code','VARCHAR(80) NULL AFTER seller_omie_code');
 addIndex($pdo,$log,$t,'idx_users_crm_user','crm_user_omie_code,active');
+addIndex($pdo,$log,$t,'idx_users_sales_seller','seller_omie_code,active');
+
+$t=$prefix.'sellers';
+addCol($pdo,$log,$t,'integration_code','VARCHAR(30) NULL AFTER omie_code');
+addCol($pdo,$log,$t,'can_invoice_orders','TINYINT(1) NULL AFTER email');
+addCol($pdo,$log,$t,'view_own_orders_only','TINYINT(1) NULL AFTER can_invoice_orders');
+addCol($pdo,$log,$t,'commission_pct','DECIMAL(10,4) NULL AFTER view_own_orders_only');
+addCol($pdo,$log,$t,'last_seen_token','VARCHAR(64) NULL AFTER raw_json');
+addIndex($pdo,$log,$t,'idx_sellers_email_active','email,active');
+addIndex($pdo,$log,$t,'idx_sellers_integration','integration_code');
+
+$t=$prefix.'user_omie_identity';
+addCol($pdo,$log,$t,'identity_email','VARCHAR(190) NULL AFTER user_id');
+addCol($pdo,$log,$t,'crm_match_status',"VARCHAR(20) NOT NULL DEFAULT 'pending' AFTER crm_user_code");
+addCol($pdo,$log,$t,'sales_match_status',"VARCHAR(20) NOT NULL DEFAULT 'pending' AFTER crm_match_status");
+addCol($pdo,$log,$t,'last_reconciled_at','DATETIME NULL AFTER verified_at');
+addIndex($pdo,$log,$t,'idx_user_identity_email','identity_email');
 
 $t=$prefix.'crm_contacts';
 addCol($pdo,$log,$t,'active','TINYINT(1) NOT NULL DEFAULT 1 AFTER mobile');

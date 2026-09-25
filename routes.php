@@ -2649,8 +2649,11 @@ $router->post('/users',function(){
  $seller=null;
  if($role==='seller'){
   $salesMatches=DB::all("SELECT omie_code,name,email FROM sellers WHERE active=1 AND LOWER(TRIM(email))=? ORDER BY omie_code",[$email]);
+  $crmMatches=DB::all("SELECT omie_code,name,email FROM crm_users WHERE active=1 AND LOWER(TRIM(email))=? ORDER BY omie_code",[$email]);
   if(count($salesMatches)>1)exit('Há mais de um Vendedor Omie ativo com este e-mail. Revise a duplicidade na Omie antes de salvar o usuário.');
+  if(count($crmMatches)>1)exit('Há mais de um Usuário CRM Omie ativo com este e-mail. Revise a duplicidade na Omie antes de salvar o usuário.');
   if(count($salesMatches)===0)exit('Nenhum Vendedor Omie ativo foi encontrado com o mesmo e-mail de acesso. Sincronize Vendedores e confira o e-mail na Omie.');
+  if(count($crmMatches)===0)exit('Nenhum Usuário CRM Omie ativo foi encontrado com o mesmo e-mail de acesso. Sincronize Usuários CRM e confira o e-mail na Omie.');
   $seller=(string)$salesMatches[0]['omie_code'];
  }
 

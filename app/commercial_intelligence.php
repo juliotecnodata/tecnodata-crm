@@ -35,7 +35,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=12;$stateRaw=null;
+  $schemaVersion=13;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::ensureLinkAuditTable();self::$ready=true;return;}
@@ -63,6 +63,19 @@ final class CommercialSchema {
   if(!isset($userColumns['crm_user_omie_code']))DB::exec("ALTER TABLE users ADD COLUMN crm_user_omie_code VARCHAR(80) NULL AFTER seller_omie_code");
   $userIndexes=[];foreach(DB::all("SHOW INDEX FROM users") as $row)$userIndexes[(string)$row['Key_name']]=true;
   if(!isset($userIndexes['idx_users_crm_user']))DB::exec("ALTER TABLE users ADD INDEX idx_users_crm_user(crm_user_omie_code,active)");
+  if(!isset($userIndexes['idx_users_sales_seller']))DB::exec("ALTER TABLE users ADD INDEX idx_users_sales_seller(seller_omie_code,active)");
+
+  // Vendedores de Vendas/NF-e (API geral/vendedores). Mantemos os campos de
+  // operação que a Omie realmente expõe para não depender apenas do raw_json.
+  $sellerColumns=[];foreach(DB::all("SHOW COLUMNS FROM sellers") as $row)$sellerColumns[(string)$row['Field']]=true;
+  if(!isset($sellerColumns['integration_code']))DB::exec("ALTER TABLE sellers ADD COLUMN integration_code VARCHAR(30) NULL AFTER omie_code");
+  if(!isset($sellerColumns['can_invoice_orders']))DB::exec("ALTER TABLE sellers ADD COLUMN can_invoice_orders TINYINT(1) NULL AFTER email");
+  if(!isset($sellerColumns['view_own_orders_only']))DB::exec("ALTER TABLE sellers ADD COLUMN view_own_orders_only TINYINT(1) NULL AFTER can_invoice_orders");
+  if(!isset($sellerColumns['commission_pct']))DB::exec("ALTER TABLE sellers ADD COLUMN commission_pct DECIMAL(10,4) NULL AFTER view_own_orders_only");
+  if(!isset($sellerColumns['last_seen_token']))DB::exec("ALTER TABLE sellers ADD COLUMN last_seen_token VARCHAR(64) NULL AFTER raw_json");
+  $sellerIndexes=[];foreach(DB::all("SHOW INDEX FROM sellers") as $row)$sellerIndexes[(string)$row['Key_name']]=true;
+  if(!isset($sellerIndexes['idx_sellers_email_active']))DB::exec("ALTER TABLE sellers ADD INDEX idx_sellers_email_active(email,active)");
+  if(!isset($sellerIndexes['idx_sellers_integration']))DB::exec("ALTER TABLE sellers ADD INDEX idx_sellers_integration(integration_code)");
 
   DB::exec("CREATE TABLE IF NOT EXISTS crm_users(
    omie_code VARCHAR(80) PRIMARY KEY,
@@ -100,6 +113,9 @@ final class CommercialSchema {
 
   $crmUserColumns=[];foreach(DB::all("SHOW COLUMNS FROM crm_users") as $row)$crmUserColumns[(string)$row['Field']]=true;
   if(!isset($crmUserColumns['last_seen_token']))DB::exec("ALTER TABLE crm_users ADD COLUMN last_seen_token VARCHAR(64) NULL AFTER raw_json");
+  DB::exec("ALTER TABLE crm_users MODIFY COLUMN email VARCHAR(200) NULL");
+  $crmUserIndexes=[];foreach(DB::all("SHOW INDEX FROM crm_users") as $row)$crmUserIndexes[(string)$row['Key_name']]=true;
+  if(!isset($crmUserIndexes['idx_crm_users_email_active']))DB::exec("ALTER TABLE crm_users ADD INDEX idx_crm_users_email_active(email,active)");
   $crmAccountColumns=[];foreach(DB::all("SHOW COLUMNS FROM crm_accounts") as $row)$crmAccountColumns[(string)$row['Field']]=true;
   if(!isset($crmAccountColumns['active']))DB::exec("ALTER TABLE crm_accounts ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1 AFTER notes");
   if(!isset($crmAccountColumns['last_seen_token']))DB::exec("ALTER TABLE crm_accounts ADD COLUMN last_seen_token VARCHAR(64) NULL AFTER raw_json");
@@ -178,16 +194,28 @@ final class CommercialSchema {
 
   DB::exec("CREATE TABLE IF NOT EXISTS user_omie_identity(
    user_id INT UNSIGNED PRIMARY KEY,
+   identity_email VARCHAR(190) NULL,
    sales_seller_code VARCHAR(80) NULL,
    crm_user_code VARCHAR(80) NULL,
-   match_method VARCHAR(30) NOT NULL DEFAULT 'manual',
-   confidence TINYINT UNSIGNED NOT NULL DEFAULT 100,
+   crm_match_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+   sales_match_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+   match_method VARCHAR(30) NOT NULL DEFAULT 'email',
+   confidence TINYINT UNSIGNED NOT NULL DEFAULT 0,
    verified_at DATETIME NULL,
+   last_reconciled_at DATETIME NULL,
    updated_at DATETIME NOT NULL,
    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+   INDEX idx_user_identity_email(identity_email),
    INDEX idx_user_identity_sales(sales_seller_code),
    INDEX idx_user_identity_crm(crm_user_code)
   )");
+  $identityColumns=[];foreach(DB::all("SHOW COLUMNS FROM user_omie_identity") as $row)$identityColumns[(string)$row['Field']]=true;
+  if(!isset($identityColumns['identity_email']))DB::exec("ALTER TABLE user_omie_identity ADD COLUMN identity_email VARCHAR(190) NULL AFTER user_id");
+  if(!isset($identityColumns['crm_match_status']))DB::exec("ALTER TABLE user_omie_identity ADD COLUMN crm_match_status VARCHAR(20) NOT NULL DEFAULT 'pending' AFTER crm_user_code");
+  if(!isset($identityColumns['sales_match_status']))DB::exec("ALTER TABLE user_omie_identity ADD COLUMN sales_match_status VARCHAR(20) NOT NULL DEFAULT 'pending' AFTER crm_match_status");
+  if(!isset($identityColumns['last_reconciled_at']))DB::exec("ALTER TABLE user_omie_identity ADD COLUMN last_reconciled_at DATETIME NULL AFTER verified_at");
+  $identityIndexes=[];foreach(DB::all("SHOW INDEX FROM user_omie_identity") as $row)$identityIndexes[(string)$row['Key_name']]=true;
+  if(!isset($identityIndexes['idx_user_identity_email']))DB::exec("ALTER TABLE user_omie_identity ADD INDEX idx_user_identity_email(identity_email)");
 
   DB::exec("CREATE TABLE IF NOT EXISTS client_commercial_profiles(
    client_id BIGINT UNSIGNED PRIMARY KEY,
@@ -387,7 +415,7 @@ final class CommercialIdentityService {
   return mb_strtolower(trim((string)$value),'UTF-8');
  }
 
- private static function uniqueByEmail(array $rows): array{
+ private static function byEmail(array $rows): array{
   $map=[];
   foreach($rows as $row){
    $email=self::normalizeEmail($row['email']??'');if($email==='')continue;
@@ -396,15 +424,22 @@ final class CommercialIdentityService {
   return $map;
  }
 
- /**
-  * O e-mail de acesso ao Tecnodata é a identidade canônica do colaborador no Omie.
-  * Liga o mesmo usuário às duas identidades do Omie:
-  * - crm_users.omie_code  -> responsável pelas Contas CRM
-  * - sellers.omie_code    -> vendedor de pedidos/serviços
-  *
-  * Nunca associa automaticamente por nome. Duplicidade de e-mail fica pendente
-  * para revisão em vez de escolher uma pessoa errada.
-  */
+ private static function ensureUniqueIdentityIndexes(): void{
+  $dupSales=(int)(DB::scalar("SELECT COUNT(*) FROM (
+    SELECT sales_seller_code FROM user_omie_identity
+    WHERE sales_seller_code IS NOT NULL AND TRIM(sales_seller_code)<>''
+    GROUP BY sales_seller_code HAVING COUNT(*)>1
+   ) x")??0);
+  $dupCrm=(int)(DB::scalar("SELECT COUNT(*) FROM (
+    SELECT crm_user_code FROM user_omie_identity
+    WHERE crm_user_code IS NOT NULL AND TRIM(crm_user_code)<>''
+    GROUP BY crm_user_code HAVING COUNT(*)>1
+   ) x")??0);
+  $indexes=[];foreach(DB::all("SHOW INDEX FROM user_omie_identity") as $row)$indexes[(string)$row['Key_name']]=true;
+  if($dupSales===0&&!isset($indexes['uq_user_identity_sales_code']))DB::exec("ALTER TABLE user_omie_identity ADD UNIQUE INDEX uq_user_identity_sales_code(sales_seller_code)");
+  if($dupCrm===0&&!isset($indexes['uq_user_identity_crm_code']))DB::exec("ALTER TABLE user_omie_identity ADD UNIQUE INDEX uq_user_identity_crm_code(crm_user_code)");
+ }
+
  public static function reconcileUsers(): array{
   CommercialSchema::ensure();
   $crmUsers=DB::all("SELECT omie_code,name,email FROM crm_users WHERE active=1 ORDER BY name");
@@ -412,8 +447,14 @@ final class CommercialIdentityService {
   $localUsers=DB::all("SELECT id,name,email,seller_omie_code,crm_user_omie_code,role,active
                        FROM users WHERE active=1 AND role IN('seller','supervisor','admin') ORDER BY id");
 
-  $crmByEmail=self::uniqueByEmail($crmUsers);
-  $salesByEmail=self::uniqueByEmail($salesSellers);
+  $crmByEmail=self::byEmail($crmUsers);$salesByEmail=self::byEmail($salesSellers);
+  DB::exec("UPDATE user_omie_identity i
+            JOIN users u ON u.id=i.user_id
+            SET i.sales_seller_code=NULL,i.crm_user_code=NULL,
+                i.crm_match_status=CASE WHEN u.active=0 THEN 'inactive' ELSE 'not_required' END,
+                i.sales_match_status=CASE WHEN u.active=0 THEN 'inactive' ELSE 'not_required' END,
+                i.last_reconciled_at=NOW(),i.updated_at=NOW()
+            WHERE u.active=0 OR u.role NOT IN('seller','supervisor','admin')");
 
   $stats=[
    'local_users'=>count($localUsers),'crm_users'=>count($crmUsers),'sales_sellers'=>count($salesSellers),
@@ -422,49 +463,52 @@ final class CommercialIdentityService {
   ];
 
   foreach($localUsers as $user){
-   $userId=(int)$user['id'];$email=self::normalizeEmail($user['email']??'');
-   if($email===''){continue;}
+   $userId=(int)$user['id'];$email=self::normalizeEmail($user['email']??'');$role=(string)$user['role'];
+   $crmMatches=$email!==''?($crmByEmail[$email]??[]):[];
+   $salesMatches=$email!==''?($salesByEmail[$email]??[]):[];
 
-   $crmMatches=$crmByEmail[$email]??[];
-   $salesMatches=$salesByEmail[$email]??[];
+   $crmStatus=$email===''?'missing':(count($crmMatches)===1?'matched':(count($crmMatches)>1?'ambiguous':'missing'));
+   $salesRequired=$role==='seller';
+   $salesStatus=$email===''?'missing':(count($salesMatches)===1?'matched':(count($salesMatches)>1?'ambiguous':($salesRequired?'missing':'not_required')));
 
-   if(count($crmMatches)>1)$stats['ambiguous_crm']++;
-   if(count($salesMatches)>1)$stats['ambiguous_sales']++;
+   if($crmStatus==='ambiguous')$stats['ambiguous_crm']++;
+   if($crmStatus==='missing')$stats['missing_crm']++;
+   if($salesStatus==='ambiguous')$stats['ambiguous_sales']++;
+   if($salesRequired&&$salesStatus==='missing')$stats['missing_sales']++;
 
-   $crmCode=count($crmMatches)===1?(string)$crmMatches[0]['omie_code']:null;
-   $salesCode=count($salesMatches)===1?(string)$salesMatches[0]['omie_code']:null;
+   $crmCode=$crmStatus==='matched'?(string)$crmMatches[0]['omie_code']:null;
+   $salesCode=$salesStatus==='matched'?(string)$salesMatches[0]['omie_code']:null;
+   if($crmCode!==null)$stats['crm_linked']++;
+   if($salesCode!==null)$stats['sales_linked']++;
 
-   if($crmCode===null)$stats['missing_crm']++;else $stats['crm_linked']++;
-   if((string)$user['role']==='seller'){
-    if($salesCode===null)$stats['missing_sales']++;else $stats['sales_linked']++;
-   }elseif($salesCode!==null)$stats['sales_linked']++;
-
-   // Detecta código antigo apontando para outro e-mail. O valor canônico por e-mail
-   // prevalece quando há correspondência única; sem correspondência, não adivinha.
-   $oldCrm=trim((string)($user['crm_user_omie_code']??''));
-   $oldSales=trim((string)($user['seller_omie_code']??''));
+   $oldCrm=trim((string)($user['crm_user_omie_code']??''));$oldSales=trim((string)($user['seller_omie_code']??''));
    if($oldCrm!==''&&$crmCode!==null&&$oldCrm!==$crmCode)$stats['email_conflicts']++;
    if($oldSales!==''&&$salesCode!==null&&$oldSales!==$salesCode)$stats['email_conflicts']++;
 
-   $nextCrm=$crmCode;
-   $nextSales=$salesCode;
-   // Supervisor/admin podem não ser vendedores de Vendas Omie; vendedor precisa
-   // das duas identidades quando ambas existem.
-   DB::exec("UPDATE users SET crm_user_omie_code=?,seller_omie_code=?,updated_at=NOW() WHERE id=?",
-    [$nextCrm,$nextSales,$userId]);
+   DB::exec("UPDATE users SET crm_user_omie_code=?,seller_omie_code=?,updated_at=NOW() WHERE id=?",[$crmCode,$salesCode,$userId]);
 
-   $method=($crmCode!==null||$salesCode!==null)?'email':'email_unmatched';
-   $confidence=($crmCode!==null||$salesCode!==null)?100:0;
-   DB::exec("INSERT INTO user_omie_identity(user_id,sales_seller_code,crm_user_code,match_method,confidence,verified_at,updated_at)
-             VALUES(?,?,?,?,?,NOW(),NOW())
-             ON DUPLICATE KEY UPDATE sales_seller_code=VALUES(sales_seller_code),crm_user_code=VALUES(crm_user_code),
-                                     match_method=VALUES(match_method),confidence=VALUES(confidence),verified_at=NOW(),updated_at=NOW()",
-    [$userId,$nextSales,$nextCrm,$method,$confidence]);
-
-   if($crmCode!==null&&((string)$user['role']!=='seller'||$salesCode!==null))$stats['complete']++;
+   $complete=$crmStatus==='matched'&&(!$salesRequired||$salesStatus==='matched');
+   DB::exec("INSERT INTO user_omie_identity(user_id,identity_email,sales_seller_code,crm_user_code,crm_match_status,sales_match_status,match_method,confidence,verified_at,last_reconciled_at,updated_at)
+             VALUES(?,?,?,?,?,?, 'email', ?,NOW(),NOW(),NOW())
+             ON DUPLICATE KEY UPDATE identity_email=VALUES(identity_email),sales_seller_code=VALUES(sales_seller_code),crm_user_code=VALUES(crm_user_code),
+                                     crm_match_status=VALUES(crm_match_status),sales_match_status=VALUES(sales_match_status),
+                                     match_method='email',confidence=VALUES(confidence),verified_at=NOW(),last_reconciled_at=NOW(),updated_at=NOW()",
+    [$userId,$email!==''?$email:null,$salesCode,$crmCode,$crmStatus,$salesStatus,$complete?100:0]);
+   if($complete)$stats['complete']++;
   }
 
+  self::ensureUniqueIdentityIndexes();
   return $stats;
+ }
+
+ public static function health(): array{
+  CommercialSchema::ensure();
+  return [
+   'complete'=>(int)(DB::scalar("SELECT COUNT(*) FROM user_omie_identity i JOIN users u ON u.id=i.user_id WHERE u.active=1 AND u.role='seller' AND i.crm_match_status='matched' AND i.sales_match_status='matched'")??0),
+   'seller_missing_crm'=>(int)(DB::scalar("SELECT COUNT(*) FROM user_omie_identity i JOIN users u ON u.id=i.user_id WHERE u.active=1 AND u.role='seller' AND i.crm_match_status<>'matched'")??0),
+   'seller_missing_sales'=>(int)(DB::scalar("SELECT COUNT(*) FROM user_omie_identity i JOIN users u ON u.id=i.user_id WHERE u.active=1 AND u.role='seller' AND i.sales_match_status<>'matched'")??0),
+   'ambiguous'=>(int)(DB::scalar("SELECT COUNT(*) FROM user_omie_identity WHERE crm_match_status='ambiguous' OR sales_match_status='ambiguous'")??0),
+  ];
  }
 }
 
@@ -575,7 +619,7 @@ final class CommercialPortfolioService {
    DB::exec("INSERT INTO crm_users(omie_code,name,email,phone,mobile,annual_goal,active,raw_json,last_seen_token,updated_at)
              VALUES(?,?,?,?,?,?,1,?,?,NOW())
              ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),phone=VALUES(phone),mobile=VALUES(mobile),annual_goal=VALUES(annual_goal),active=1,raw_json=VALUES(raw_json),last_seen_token=VALUES(last_seen_token),updated_at=NOW()",
-    [$code,(string)($row['cNome']??$code),$row['cEmail']??null,$row['cTelefone']??null,$row['cCelular']??null,(float)($row['nMetaAnual']??0),json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$syncToken]);
+    [$code,(string)($row['cNome']??$code),($email=mb_strtolower(trim((string)($row['cEmail']??''))))!==''?$email:null,$row['cTelefone']??null,$row['cCelular']??null,(float)($row['nMetaAnual']??0),json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$syncToken]);
   }
   $total=max(1,(int)($data['total_de_paginas']??1));$done=$page>=$total;
   if($done){
@@ -1010,6 +1054,10 @@ final class CommercialPortfolioService {
    'clients_with_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NOT NULL")??0),
    'clients_without_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_user_id IS NULL")??0),
    'active_crm_sellers'=>count(self::activeCrmSellerCodes()),
+   'identity_complete'=>(int)(CommercialIdentityService::health()['complete']??0),
+   'identity_missing_crm'=>(int)(CommercialIdentityService::health()['seller_missing_crm']??0),
+   'identity_missing_sales'=>(int)(CommercialIdentityService::health()['seller_missing_sales']??0),
+   'identity_ambiguous'=>(int)(CommercialIdentityService::health()['ambiguous']??0),
    'clients_with_stale_crm_owner'=>(int)(DB::scalar("SELECT COUNT(*) FROM clients WHERE active=1 AND crm_inactive=0 AND crm_owner_omie_code IS NOT NULL AND crm_owner_user_id IS NULL")??0),
    'profiles'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles")??0),
    'cfc'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles WHERE is_cfc=1")??0),

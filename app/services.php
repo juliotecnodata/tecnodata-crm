@@ -3257,7 +3257,49 @@ final class SyncService {
  }
  public static function run(string $m,int $page=1): array{
   if(!isset(self::modules()[$m]))throw new RuntimeException('Módulo inválido.');$o=new OmieClient();$page=max(1,$page);
-  if($m==='sellers'){$d=$o->call('sellers','ListarVendedores',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);$it=self::pick($d,['cadastro','vendedores']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO sellers(omie_code,name,email,active,raw_json,updated_at) VALUES(?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name),email=VALUES(email),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['nome']??$c),$r['email']??null,(($r['inativo']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}
+  if($m==='sellers'){
+   $token='';
+   if($page===1)$token=bin2hex(random_bytes(16));
+   else{
+    $state=DB::one("SELECT context_json FROM sync_state WHERE module_key='sellers' LIMIT 1");
+    $ctx=$state&&!empty($state['context_json'])?json_decode((string)$state['context_json'],true):null;
+    $token=is_array($ctx)?trim((string)($ctx['sync_token']??'')):'';
+    if($token==='')throw new RuntimeException('Snapshot de Vendedores Omie sem token. Reinicie a sincronização pela página 1.');
+   }
+   $d=$o->call('sellers','ListarVendedores',['pagina'=>$page,'registros_por_pagina'=>100,'apenas_importado_api'=>'N']);
+   $it=self::pick($d,['cadastro','vendedores']);
+   foreach($it as $row){
+    if(!is_array($row))continue;$code=trim((string)($row['codigo']??''));if($code==='')continue;
+    $email=mb_strtolower(trim((string)($row['email']??'')));
+    $invoice=strtoupper(trim((string)($row['fatura_pedido']??'')));
+    $ownOnly=strtoupper(trim((string)($row['visualiza_pedido']??'')));
+    DB::exec("INSERT INTO sellers(omie_code,integration_code,name,email,can_invoice_orders,view_own_orders_only,commission_pct,active,raw_json,last_seen_token,updated_at)
+              VALUES(?,?,?,?,?,?,?,?,?,?,NOW())
+              ON DUPLICATE KEY UPDATE integration_code=VALUES(integration_code),name=VALUES(name),email=VALUES(email),
+                                      can_invoice_orders=VALUES(can_invoice_orders),view_own_orders_only=VALUES(view_own_orders_only),
+                                      commission_pct=VALUES(commission_pct),active=VALUES(active),raw_json=VALUES(raw_json),
+                                      last_seen_token=VALUES(last_seen_token),updated_at=NOW()",
+     [$code,trim((string)($row['codInt']??''))?:null,(string)($row['nome']??$code),$email!==''?$email:null,
+      $invoice===''?null:($invoice==='S'?1:0),$ownOnly===''?null:($ownOnly==='S'?1:0),
+      isset($row['comissao'])?(float)$row['comissao']:null,strtoupper((string)($row['inativo']??'N'))==='S'?0:1,
+      json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$token]);
+   }
+   $total=max(1,(int)($d['total_de_paginas']??1));$done=$page>=$total;
+   if($done){
+    DB::exec("UPDATE sellers SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$token]);
+    $identity=class_exists('CommercialIdentityService')?CommercialIdentityService::reconcileUsers():[];
+    $portfolio=class_exists('CommercialPortfolioService')?CommercialPortfolioService::rebuildOperationalOwners():[];
+    $context=null;
+   }else{
+    $identity=[];$portfolio=[];$context=json_encode(['sync_token'=>$token],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+   }
+   DB::exec("INSERT INTO sync_state(module_key,last_page,total_pages,last_count,context_json,last_success_at,last_error)
+             VALUES('sellers',?,?,?,?,IF(?,NOW(),NULL),NULL)
+             ON DUPLICATE KEY UPDATE last_page=VALUES(last_page),total_pages=VALUES(total_pages),last_count=VALUES(last_count),
+                                     context_json=VALUES(context_json),last_success_at=VALUES(last_success_at),last_error=NULL",
+    [$page,$total,count($it),$context,$done?1:0]);
+   return ['module'=>'sellers','page'=>$page,'total_pages'=>$total,'count'=>count($it),'done'=>$done,'identity'=>$identity,'portfolio'=>$portfolio];
+  }
   if($m==='clients')return self::syncClients($o,$page);
   if($m==='products')return self::syncProducts($o,$page);
   if($m==='categories'){$d=$o->call('categories','ListarCategorias',['pagina'=>$page,'registros_por_pagina'=>100]);$it=self::pick($d,['categoria_cadastro']);foreach($it as $r){$c=(string)($r['codigo']??'');if($c==='')continue;DB::exec("INSERT INTO categories(code,description,active,raw_json,updated_at) VALUES(?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE description=VALUES(description),active=VALUES(active),raw_json=VALUES(raw_json),updated_at=NOW()",[$c,(string)($r['descricao']??$c),(($r['conta_inativa']??'N')==='S'?0:1),json_encode($r,JSON_UNESCAPED_UNICODE)]);}return self::finish($m,$d,$page,count($it));}

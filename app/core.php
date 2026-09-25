@@ -89,9 +89,18 @@ final class SchemaGuard {
 }
 
 final class Auth {
- public static function user(): ?array{return $_SESSION['user']??null;}
+ private static ?array $requestUser=null;
+ public static function user(): ?array{
+  if(self::$requestUser!==null)return self::$requestUser;
+  $session=$_SESSION['user']??null;if(!is_array($session)||empty($session['id']))return null;
+  try{
+   $fresh=DB::one("SELECT id,name,email,role,seller_omie_code,crm_user_omie_code,active FROM users WHERE id=? LIMIT 1",[(int)$session['id']]);
+   if(!$fresh||!(int)$fresh['active'])return null;
+   unset($fresh['active']);$_SESSION['user']=$fresh;return self::$requestUser=$fresh;
+  }catch(Throwable $e){return self::$requestUser=$session;}
+ }
  public static function id(): int{return (int)(self::user()['id']??0);}
- public static function check(): bool{return self::id()>0;}
+ public static function check(): bool{return self::id()>0;
  public static function can(string ...$roles): bool{$u=self::user();return $u&&in_array((string)$u['role'],$roles,true);}
  public static function attempt(string $email,string $password): bool{
   $u=DB::one("SELECT id,name,email,password_hash,role,seller_omie_code,crm_user_omie_code,active FROM users WHERE email=? LIMIT 1",[mb_strtolower(trim($email))]);
@@ -104,12 +113,12 @@ final class Auth {
   self::establishSession($u);return true;
  }
  private static function establishSession(array $u): void{
-  unset($u['password_hash'],$u['active']);$_SESSION['user']=$u;session_regenerate_id(true);
+  unset($u['password_hash'],$u['active']);$_SESSION['user']=$u;self::$requestUser=$u;session_regenerate_id(true);
   DB::exec("UPDATE users SET last_login_at=NOW() WHERE id=?",[(int)$u['id']]);
  }
  public static function requireLogin(): void{if(!self::check())redirect('/login');}
  public static function requireRole(string ...$roles): void{self::requireLogin();if(!self::can(...$roles)){http_response_code(403);exit('Sem permissão.');}}
- public static function logout(): void{$_SESSION=[];session_destroy();}
+ public static function logout(): void{self::$requestUser=null;$_SESSION=[];session_destroy();}
 }
 
 final class CSRF {
