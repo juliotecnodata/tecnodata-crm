@@ -56,6 +56,27 @@ return [
   ],
  ],
 
+ 'partner_database'=>[
+  // Base externa de parceiros/CFCs. O sistema lê somente dados cadastrais necessários
+  // para conciliar CNPJ com a Conta CRM; campos sensíveis como senha não são consultados.
+  'local'=>[
+   'host'=>'127.0.0.1',
+   'port'=>3306,
+   'database'=>'u695906402_Tecno_Loja_BD',
+   'username'=>'root',
+   'password'=>'',
+   'charset'=>'utf8mb4',
+  ],
+  'production'=>[
+   'host'=>'127.0.0.1',
+   'port'=>3306,
+   'database'=>'u695906402_Tecno_Loja_BD',
+   'username'=>'SEU_USUARIO_PARCEIROS',
+   'password'=>'SUA_SENHA_PARCEIROS',
+   'charset'=>'utf8mb4',
+  ],
+ ],
+
  'omie'=>[
   'app_key'=>'SUA_APP_KEY',
   'app_secret'=>'SEU_APP_SECRET',
