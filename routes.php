@@ -2880,8 +2880,14 @@ $router->post('/settings/baldussi/dial',function(){
    if(!CommercialAccountService::canWork($u,$accountCode))throw new RuntimeException('A conta selecionada não pertence à sua carteira operacional.');
    $account=CommercialAccountService::get($accountCode);if(!$account)throw new RuntimeException('A conta selecionada não foi encontrada.');
   }
+  $accountType='Cliente';
+  if($account){
+   $profile=CommercialAccountService::profile($accountCode);
+   $isCfc=!empty($profile['is_cfc']);$isReseller=!empty($profile['is_reseller']);
+   $accountType=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':'Cliente'));
+  }
   $result=BaldussiService::dial($origin,(string)($_POST['destination']??''));
-  $startedAt=date('Y-m-d H:i:s');$state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];$state['last_call']=array_merge($result,['at'=>$startedAt,'started_at'=>$startedAt,'active'=>!empty($result['ok']),'requested_by'=>Auth::id(),'crm_account_code'=>$accountCode,'account_name'=>$account?trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')):'','account_owner'=>$account?(string)($account['owner_name']??$u['name']):'','client_id'=>$account?(int)($account['client_id']??0):0]);$_SESSION['baldussi_test_state']=$state;
+  $startedAt=date('Y-m-d H:i:s');$state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];$state['last_call']=array_merge($result,['at'=>$startedAt,'started_at'=>$startedAt,'active'=>!empty($result['ok']),'requested_by'=>Auth::id(),'crm_account_code'=>$accountCode,'account_name'=>$account?trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')):'','account_owner'=>$account?(string)($account['owner_name']??$u['name']):'','account_type'=>$accountType,'client_id'=>$account?(int)($account['client_id']??0):0]);$_SESSION['baldussi_test_state']=$state;
   $_SESSION['baldussi_test_flash']=['type'=>$result['ok']?'success':'danger','message'=>($result['ok']?'Ligação solicitada: ':'A ligação não foi iniciada: ').$result['message']];
  }catch(Throwable $e){$_SESSION['baldussi_test_flash']=['type'=>'danger','message'=>'Não foi possível testar a chamada: '.$e->getMessage()];}
  redirect('/settings/baldussi');
