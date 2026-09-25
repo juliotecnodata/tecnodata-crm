@@ -2231,3 +2231,148 @@ document.addEventListener('DOMContentLoaded',()=>{
  });
  document.addEventListener('click',e=>{if(!e.target.closest('.tdopp-client-search'))hide();});
 })();
+
+
+/* GLOBAL CLIENT QUICK VIEW */
+(()=>{
+ const modal=document.querySelector('[data-client-quick-modal]');
+ const activityModal=document.querySelector('[data-client-quick-activity-modal]');
+ if(!modal)return;
+ const base=String(window.APP_URL||'').replace(/\/$/,'');
+ const basePath=(()=>{try{return new URL(base||location.origin,location.origin).pathname.replace(/\/$/,'');}catch(e){return '';}})();
+ const q=(sel,root=modal)=>root.querySelector(sel);
+ const qa=(sel,root=modal)=>[...root.querySelectorAll(sel)];
+ const esc=value=>{const node=document.createElement('div');node.textContent=String(value??'');return node.innerHTML;};
+ const digits=value=>String(value||'').replace(/\D+/g,'');
+ const notify=(tone,title,message)=>window.appNotify?.(tone,title,message,9000);
+ const dateLabel=value=>{if(!value)return '—';const d=new Date(String(value).replace(' ','T'));if(Number.isNaN(d.getTime()))return '—';return d.toLocaleDateString('pt-BR')+(String(value).includes(':')?' · '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'');};
+ const relative=value=>{if(!value)return '';const d=new Date(String(value).replace(' ','T'));if(Number.isNaN(d.getTime()))return '';const diff=Math.floor((Date.now()-d.getTime())/86400000);if(diff<=0)return 'Hoje';if(diff===1)return 'Há 1 dia';return 'Há '+diff+' dias';};
+ const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+ const waUrl=value=>{let d=digits(value);if(!d)return '#';if((d.length===10||d.length===11)&&!d.startsWith('55'))d='55'+d;return 'https://wa.me/'+d;};
+ const iconFor=channel=>({whatsapp:'fa-brands fa-whatsapp',phone:'fa-solid fa-phone',email:'fa-regular fa-envelope',presential:'fa-solid fa-user-group'}[channel]||'fa-regular fa-note-sticky');
+ let currentRequest=null,currentPayload=null;
+
+ const setTab=name=>{
+  qa('[data-client-quick-tab]').forEach(button=>button.classList.toggle('active',button.dataset.clientQuickTab===name));
+  qa('[data-client-quick-panel]').forEach(panel=>{const active=panel.dataset.clientQuickPanel===name;panel.classList.toggle('active',active);panel.hidden=!active;});
+ };
+ qa('[data-client-quick-tab]').forEach(button=>button.addEventListener('click',()=>setTab(button.dataset.clientQuickTab||'overview')));
+
+ const setLink=(el,value,href,enabled=true)=>{
+  if(!el)return;
+  const label=el.querySelector('span');if(label)label.textContent=value||'Não informado';
+  const active=!!value&&enabled;el.classList.toggle('disabled',!active);el.href=active?href:'#';el.setAttribute('aria-disabled',active?'false':'true');
+ };
+ const renderTimeline=items=>{
+  const target=q('[data-client-quick-timeline]');if(!target)return;
+  if(!items?.length){target.innerHTML='<div class="tdq-timeline-empty"><i class="fa-regular fa-clock"></i><br>Nenhuma interação registrada.</div>';return;}
+  target.innerHTML=items.slice(0,7).map(item=>'<article class="tdq-timeline-item"><span class="tdq-timeline-icon '+esc(item.channel||'other')+'"><i class="'+iconFor(item.channel)+'"></i></span><div class="tdq-timeline-copy"><time>'+esc(dateLabel(item.created_at))+(item.user_name?' · '+esc(item.user_name):'')+'</time><strong>'+esc(item.channel_label||item.type_label||'Atividade')+'</strong><p>'+esc(item.notes||item.type_label||'Atividade registrada')+'</p></div></article>').join('');
+ };
+ const renderActivities=items=>{
+  const target=q('[data-client-quick-activities]');if(!target)return;
+  if(!items?.length){target.innerHTML='<div class="tdq-list-empty">Nenhuma atividade registrada.</div>';return;}
+  target.innerHTML=items.map(item=>'<article class="tdq-list-row"><span><i class="'+iconFor(item.channel)+'"></i></span><div><strong>'+esc(item.type_label||'Atividade')+' · '+esc(item.channel_label||'Outro')+'</strong><small>'+esc(item.user_name||'Usuário')+'</small><p>'+esc(item.notes||'Sem observação adicional')+'</p></div><em>'+esc(dateLabel(item.created_at))+'</em></article>').join('');
+ };
+ const renderContacts=items=>{
+  const target=q('[data-client-quick-contacts]');if(!target)return;
+  if(!items?.length){target.innerHTML='<div class="tdq-list-empty">Nenhum contato da Conta CRM sincronizado.</div>';return;}
+  target.innerHTML=items.map(item=>'<article class="tdq-list-row"><span><i class="fa-regular fa-user"></i></span><div><strong>'+esc(item.name||'Contato')+'</strong><small>'+esc(item.position||'Cargo não informado')+'</small><p>'+esc([item.mobile||item.phone,item.email].filter(Boolean).join(' · ')||'Sem telefone ou e-mail')+'</p></div><em>'+esc(item.mobile?'WhatsApp':(item.phone?'Telefone':'Contato'))+'</em></article>').join('');
+ };
+ const render=data=>{
+  currentPayload=data;const client=data.client||{},contact=data.primary_contact||{},counts=data.counts||{};
+  q('[data-client-quick-name]').textContent=client.name||'Cliente';
+  q('[data-client-quick-meta]').textContent=[client.city&&client.uf?client.city+' / '+client.uf:(client.city||client.uf),client.crm_account_code?'CRM '+client.crm_account_code:'Cliente Geral'].filter(Boolean).join(' · ');
+  const status=q('[data-client-quick-status]');status.textContent=client.status||'—';status.className='tdq-status '+String(client.status_tone||'neutral');
+  q('[data-client-quick-classification]').textContent=client.classification||'Sem classificação';
+  q('[data-client-quick-status-detail]').textContent=client.status||'—';
+  q('[data-client-quick-owner]').textContent=client.owner_name||'Sem responsável';
+  q('[data-client-quick-last-contact]').textContent=dateLabel(client.last_contact_at);
+  q('[data-client-quick-last-contact-relative]').textContent=relative(client.last_contact_at);
+  q('[data-client-quick-next-return]').textContent=dateLabel(client.next_return_at);
+  q('[data-client-quick-next-return-title]').textContent=String(client.next_return_title||'').replace(/^Retorno\s*[·:\-]\s*/iu,'');
+  q('[data-client-quick-document]').textContent=client.document||'Não informado';
+  q('[data-client-quick-contact-name]').textContent=contact.name||client.name||'Cliente';
+  q('[data-client-quick-contact-position]').textContent=contact.position||'Contato principal';
+  q('[data-client-quick-notes]').textContent=client.strategic_notes||'Nenhuma observação estratégica registrada.';
+  q('[data-client-quick-activities-count]').textContent=String(counts.activities||0);
+  q('[data-client-quick-contacts-count]').textContent=String(counts.contacts||0);
+  q('[data-client-quick-orders-count]').textContent=String(counts.orders||0);
+  q('[data-client-quick-revenue]').textContent=money(client.revenue_12m);
+  q('[data-client-quick-orders]').textContent=String(client.orders_12m||0);
+  q('[data-client-quick-first-purchase]').textContent=dateLabel(client.first_purchase_at);
+  q('[data-client-quick-last-purchase]').textContent=dateLabel(client.last_purchase_at);
+  const canWork=!!client.can_work;
+  setLink(q('[data-client-quick-phone]'),contact.phone,'tel:'+digits(contact.phone),canWork);
+  setLink(q('[data-client-quick-mobile]'),contact.mobile,waUrl(contact.mobile),canWork);
+  setLink(q('[data-client-quick-email]'),contact.email,'mailto:'+contact.email,canWork);
+  const call=q('[data-client-quick-call]');call.href=contact.phone&&canWork?'tel:'+digits(contact.phone):'#';call.classList.toggle('disabled',!contact.phone||!canWork);
+  const whatsapp=q('[data-client-quick-whatsapp]');whatsapp.href=contact.mobile&&canWork?waUrl(contact.mobile):'#';whatsapp.classList.toggle('disabled',!contact.mobile||!canWork);
+  const activity=q('[data-client-quick-activity]');activity.disabled=!canWork||!client.crm_account_code;activity.classList.toggle('disabled',activity.disabled);
+  const task=q('[data-client-quick-task]');task.disabled=!canWork;task.classList.toggle('disabled',task.disabled);
+  const full=q('[data-client-quick-full]');full.href=client.full_url||'#';
+  renderTimeline(data.interactions||[]);renderActivities(data.interactions||[]);renderContacts(data.contacts||[]);
+  setTab('overview');
+ };
+ const loading=()=>{
+  currentPayload=null;q('[data-client-quick-name]').textContent='Carregando cliente...';q('[data-client-quick-meta]').textContent='Consultando CRM e dados vinculados';
+  const status=q('[data-client-quick-status]');status.textContent='Carregando';status.className='tdq-status neutral';
+  q('[data-client-quick-timeline]').innerHTML='<div class="tdq-timeline-empty"><i class="fa-solid fa-spinner fa-spin"></i><br>Carregando informações...</div>';
+ };
+ const load=async params=>{
+  currentRequest=params;loading();if(!modal.open)modal.showModal();
+  const query=new URLSearchParams(params);
+  try{
+   const response=await fetch(base+'/api/client-quick-view?'+query.toString(),{credentials:'same-origin',headers:{Accept:'application/json'}});
+   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível abrir a ficha do cliente.');
+   render(data);
+  }catch(error){modal.close();notify('danger','Cliente',error.message||'Não foi possível carregar o cadastro.');}
+ };
+ const paramsFromAnchor=anchor=>{
+  if(!anchor||anchor.dataset.noClientModal!==undefined||anchor.target==='_blank'||anchor.hasAttribute('download'))return null;
+  let url;try{url=new URL(anchor.href,location.origin);}catch(e){return null;}if(url.origin!==location.origin)return null;
+  let path=url.pathname;if(basePath&&path.startsWith(basePath))path=path.slice(basePath.length)||'/';
+  let match=path.match(/^\/clients\/(\d+)\/?$/);if(match)return {client_id:match[1]};
+  match=path.match(/^\/commercial\/accounts\/([^/]+)\/?$/);if(match)return {account_code:decodeURIComponent(match[1])};
+  return null;
+ };
+ document.addEventListener('click',event=>{
+  if(event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+  const anchor=event.target.closest?.('a[href]');const params=paramsFromAnchor(anchor);if(!params)return;
+  event.preventDefault();load(params);
+ });
+ qa('[data-client-quick-close]').forEach(button=>button.addEventListener('click',()=>modal.close()));
+ modal.addEventListener('click',event=>{if(event.target===modal)modal.close();});
+
+ const taskButton=q('[data-client-quick-task]');
+ taskButton?.addEventListener('click',()=>{
+  const client=currentPayload?.client||{};if(!client.can_work)return;
+  const trigger=document.createElement('button');trigger.type='button';trigger.hidden=true;trigger.dataset.globalTaskOpen='';
+  if(client.id)trigger.dataset.taskClientId=String(client.id);
+  trigger.dataset.taskClientName=client.name||'Cliente';
+  if(client.crm_account_code){trigger.dataset.taskAccountCode=client.crm_account_code;trigger.dataset.taskAccountName=client.name||'Conta CRM';}
+  trigger.dataset.taskContext='sales';document.body.appendChild(trigger);trigger.click();setTimeout(()=>trigger.remove(),0);
+ });
+
+ const activityButton=q('[data-client-quick-activity]');
+ const activityForm=activityModal?.querySelector('[data-client-quick-activity-form]');
+ activityButton?.addEventListener('click',()=>{
+  const client=currentPayload?.client||{};if(!client.can_work||!client.crm_account_code||!activityModal||!activityForm)return;
+  activityForm.reset();activityForm.querySelector('[data-client-quick-activity-account]').value=client.crm_account_code;
+  activityModal.querySelector('[data-client-quick-activity-name]').textContent=client.name||'Cliente';
+  const next=activityForm.querySelector('[data-client-quick-activity-next]');if(next){const d=new Date(Date.now()+86400000);d.setMinutes(0,0,0);next.min=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);next.value='';}
+  activityModal.showModal();
+ });
+ activityModal?.querySelectorAll('[data-client-quick-activity-close]').forEach(button=>button.addEventListener('click',()=>activityModal.close()));
+ activityModal?.addEventListener('click',event=>{if(event.target===activityModal)activityModal.close();});
+ activityForm?.addEventListener('submit',async event=>{
+  event.preventDefault();const submit=activityForm.querySelector('[type="submit"]');const original=submit?.innerHTML;if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Salvando...';}
+  try{
+   const formData=new FormData(activityForm);
+   const response=await fetch(base+'/api/client-quick-view/activity',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},body:formData});
+   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível registrar a atividade.');
+   activityModal.close();notify('success','Atividade registrada',data.message||'O histórico do cliente foi atualizado.');
+   if(currentRequest)load(currentRequest);
+  }catch(error){notify('danger','Atividade',error.message||'Não foi possível registrar a atividade.');}
+  finally{if(submit){submit.disabled=false;submit.innerHTML=original;}}
+ });
+})();
