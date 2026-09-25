@@ -1498,7 +1498,7 @@ final class CommercialAccountService {
   }
   $rows=DB::all("SELECT a.omie_code,a.integration_code,a.name,a.trade_name,a.document,a.crm_user_code,a.updated_at,
                         l.client_id,c.name client_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
-                        c.city client_city,c.uf client_uf,c.phone_ddd client_phone_ddd,c.phone_number client_phone_number,
+                        c.city client_city,c.uf client_uf,c.phone client_phone,
                         cu.name owner_name,cu.email owner_email,
                         COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,ap.classification_source,
                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
