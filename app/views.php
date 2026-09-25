@@ -1411,9 +1411,45 @@ function render(string $name,array $vars=[]): void{
    $partnerRows=$partners['rows']??[];$partnerFilters=$partners['filters']??[];
    ?>
    <section class="cix-page">
-    <header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-people-group"></i></span><div><small>COMERCIAL / DESENVOLVIMENTO</small><h1>Parceiros EAD</h1><p>Acompanhamento do desenvolvimento dos parceiros revendedores.</p></div></div><?php if(Auth::can('admin','supervisor')):?><form class="cix-head-sync" method="post" action="<?=APP_URL?>/commercial-partners/sync-registry"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button class="cix-btn primary" type="submit" data-confirm="Sincronizar a base de parceiros e classificar no CRM todos os CNPJs encontrados como CFC + Revendedor?"><i class="fa-solid fa-arrows-rotate"></i>Sincronizar parceiros</button></form><?php endif;?></header>
+    <header class="cix-head"><div><span class="cix-icon"><i class="fa-solid fa-people-group"></i></span><div><small>COMERCIAL / DESENVOLVIMENTO</small><h1>Parceiros EAD</h1><p>Acompanhamento do desenvolvimento dos parceiros revendedores.</p></div></div><?php if(Auth::can('admin','supervisor')):?><button class="cix-btn primary" type="button" data-partner-sync-open><i class="fa-solid fa-arrows-rotate"></i>Sincronizar parceiros</button><?php endif;?></header>
     <?php if(!empty($flash)):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
-    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. A sincronização cruza o CNPJ da base de parceiros com a Conta CRM e classifica automaticamente os encontrados como CFC + Revendedor.</span></div>
+    <div class="cix-info"><i class="fa-solid fa-circle-info"></i><strong>Objetivo:</strong><span>acompanhar se o parceiro está ativado, orientado, atualizado e munido de materiais. A sincronização cruza o CNPJ da base de parceiros com a Conta CRM; você revisa os resultados antes de salvar qualquer classificação.</span></div>
+    <?php if(Auth::can('admin','supervisor')):?>
+    <dialog class="cix-dialog cix-partner-sync-dialog" data-partner-sync-dialog>
+     <form method="post" action="<?=APP_URL?>/commercial-partners/sync-apply" data-partner-sync-form>
+      <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+      <header class="cix-partner-sync-head">
+       <div><small>CONCILIAÇÃO / BASE DE PARCEIROS</small><h2>Revisar parceiros encontrados</h2><p>Marque somente os cadastros que devem ser validados e classificados como CFC + Revendedor.</p></div>
+       <button type="button" data-partner-sync-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="cix-partner-sync-content">
+       <section class="cix-partner-sync-summary" data-partner-sync-summary>
+        <article><small>Base consultada</small><strong>—</strong><span>registros em cfcs</span></article>
+        <article><small>Encontrados no CRM</small><strong>—</strong><span>contas correspondentes</span></article>
+        <article><small>Para validar</small><strong>—</strong><span>selecionáveis</span></article>
+        <article><small>Não localizados</small><strong>—</strong><span>revisar cadastro</span></article>
+       </section>
+       <div class="cix-partner-sync-toolbar">
+        <label class="grow"><span>Filtrar resultados</span><div><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="form-control" placeholder="Parceiro, CNPJ, Conta CRM ou responsável" data-partner-sync-search></div></label>
+        <label class="cix-partner-sync-toggle"><input type="checkbox" data-partner-sync-select-all checked><span>Selecionar todos os elegíveis</span></label>
+        <div class="cix-partner-sync-selected"><small>Selecionados</small><strong data-partner-sync-selected>0</strong></div>
+       </div>
+       <div class="cix-partner-sync-loading" data-partner-sync-loading><i class="fa-solid fa-spinner fa-spin"></i><strong>Consultando base de parceiros...</strong><span>Nenhuma classificação será alterada nesta etapa.</span></div>
+       <div class="cix-partner-sync-table-wrap" data-partner-sync-table hidden>
+        <table class="cix-partner-sync-table">
+         <thead><tr><th class="select"></th><th>Parceiro na origem</th><th>CNPJ</th><th>Conta CRM encontrada</th><th>Responsável</th><th>Classificação atual</th><th>Situação</th></tr></thead>
+         <tbody data-partner-sync-body></tbody>
+        </table>
+       </div>
+       <div class="cix-partner-sync-error" data-partner-sync-error hidden></div>
+      </div>
+      <footer class="cix-partner-sync-footer">
+       <div><i class="fa-solid fa-shield-halved"></i><span>Somente os itens marcados serão salvos. Desmarcar um cadastro não altera nada no CRM.</span></div>
+       <div><button class="cix-btn" type="button" data-partner-sync-close>Cancelar</button><button class="cix-btn primary" type="submit" data-partner-sync-save disabled><i class="fa-solid fa-check"></i>Validar selecionados</button></div>
+      </footer>
+     </form>
+    </dialog>
+    <?php endif;?>
     <form class="cix-filters" method="get"><label class="grow"><span>Buscar parceiro</span><input class="form-control" type="search" name="q" value="<?=e($partnerFilters['q']??'')?>" placeholder="Nome, CNPJ ou CPF"></label><label><span>Situação</span><select class="form-select" name="status"><option value="all">Todos</option><option value="active" <?=($partnerFilters['status']??'')==='active'?'selected':''?>>Ativos</option><option value="activation" <?=($partnerFilters['status']??'')==='activation'?'selected':''?>>Em ativação</option><option value="reactivation" <?=($partnerFilters['status']??'')==='reactivation'?'selected':''?>>Precisam de reativação</option></select></label><button class="cix-btn primary"><i class="fa-solid fa-filter"></i>Aplicar</button><a class="cix-btn" href="<?=APP_URL?>/commercial-partners">Limpar</a></form>
     <section class="cix-card"><div class="cix-table-wrap"><table class="cix-table"><thead><tr><th>Parceiro</th><th>Tipo</th><th>Último trabalho</th><th>Dias sem trabalho</th><th>Desenvolvimento</th><th>Próximo passo</th><th>Ações</th></tr></thead><tbody>
      <?php foreach($partnerRows as $row):$days=$row['last_work_at']===null?9999:(int)$row['days_without_work'];$stage=$days>30?['Precisa reativação','danger']:($days>14?['Em ativação','blue']:['Ativado e acompanhado','green']);$name=trim((string)($row['trade_name']??''))?:$row['name'];$type=!empty($row['is_cfc'])?'CFC + Revendedor':'Revendedor';?>
@@ -2971,7 +3007,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      <a class="active" href="#geral"><span class="blue"><i class="fa-solid fa-sliders"></i></span><strong>Geral</strong><small>Preferências operacionais</small></a>
      <a href="<?=APP_URL?>/sales-flow-settings"><span class="green"><i class="fa-solid fa-filter-circle-dollar"></i></span><strong>Fluxo comercial</strong><small>Funil e oportunidades</small></a>
      <a href="#contact-channels"><span class="red"><i class="fa-regular fa-calendar-check"></i></span><strong>Agenda e tarefas</strong><small>Canais, tipos e resultados</small></a>
-     <a href="<?=$settingsAdmin?'#partner-database':APP_URL.'/sync'?>"><span class="blue"><i class="fa-solid fa-link"></i></span><strong>Integrações</strong><small><?=$settingsAdmin?'Omie e banco de parceiros':'Omie e sincronização'?></small></a>
+     <a href="<?=APP_URL?>/sync"><span class="blue"><i class="fa-solid fa-link"></i></span><strong>Integrações</strong><small>Omie e sincronização</small></a>
      <a href="#acompanhamento"><span class="yellow"><i class="fa-solid fa-bell"></i></span><strong>Acompanhamento</strong><small>Usuários monitorados</small></a>
      <?php if($settingsAdmin):?><a href="<?=APP_URL?>/users"><span class="orange"><i class="fa-solid fa-shield-halved"></i></span><strong>Segurança</strong><small>Usuários e acessos</small></a><?php endif;?>
     </nav>
@@ -3021,33 +3057,6 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       </section>
 
       <?php if($settingsAdmin):?>
-      <?php $partnerDb=$partnerDbConfig??['host'=>'','port'=>3306,'database'=>'u695906402_Tecno_Loja_BD','username'=>'','password_saved'=>false];?>
-      <section class="tdcfg-card" id="partner-database">
-       <header>
-        <span class="green"><i class="fa-solid fa-database"></i></span>
-        <div><strong>Banco de parceiros</strong><small>Conexão usada para consultar a tabela cfcs e classificar automaticamente os parceiros encontrados no CRM.</small></div>
-        <b class="tdcfg-state <?=!empty($partnerDb['username'])&&!empty($partnerDb['password_saved'])?'ok':'neutral'?>"><?=!empty($partnerDb['username'])&&!empty($partnerDb['password_saved'])?'Configurado':'Pendente'?></b>
-       </header>
-       <form method="post" action="<?=APP_URL?>/settings/partner-database" class="tdcfg-partner-db">
-        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-        <div class="tdcfg-info"><i class="fa-solid fa-shield-halved"></i><span>Esta conexão é independente do banco principal do CRM. A senha salva nunca é exibida novamente nesta tela.</span></div>
-        <div class="tdcfg-fields tdcfg-partner-db-grid">
-         <label><span>Host</span><input class="form-control" name="host" value="<?=e((string)($partnerDb['host']??''))?>" placeholder="127.0.0.1" required></label>
-         <label><span>Porta</span><input class="form-control" type="number" min="1" max="65535" name="port" value="<?=(int)($partnerDb['port']??3306)?>" required></label>
-         <label><span>Banco de dados</span><input class="form-control" name="database" value="<?=e((string)($partnerDb['database']??'u695906402_Tecno_Loja_BD'))?>" required></label>
-         <label><span>Usuário</span><input class="form-control" name="username" value="<?=e((string)($partnerDb['username']??''))?>" autocomplete="off" required></label>
-         <label class="wide"><span>Senha</span><input class="form-control" type="password" name="password" value="" autocomplete="new-password" placeholder="<?=!empty($partnerDb['password_saved'])?'Senha já salva · deixe em branco para manter':'Informe a senha do banco de parceiros'?>"><small><?=!empty($partnerDb['password_saved'])?'Uma senha já está armazenada. Preencha somente para substituir.':'Nenhuma senha salva ainda.'?></small></label>
-        </div>
-        <div class="tdcfg-save">
-         <span><i class="fa-solid fa-circle-info"></i>O teste valida a conexão e confirma o acesso à tabela <strong>cfcs</strong>.</span>
-         <div class="tdcfg-partner-db-actions">
-          <button class="tdcfg-btn" type="submit" name="action" value="save"><i class="fa-solid fa-floppy-disk"></i>Salvar conexão</button>
-          <button class="tdcfg-btn primary" type="submit" name="action" value="save_test"><i class="fa-solid fa-plug-circle-check"></i>Salvar e testar</button>
-         </div>
-        </div>
-       </form>
-      </section>
-
       <form method="post" action="<?=APP_URL?>/settings" class="tdcfg-admin-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
        <section class="tdcfg-card" id="geral">
         <header><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><strong>Padrões operacionais do pedido</strong><small>Valores iniciais usados na criação de pedidos. O vendedor ainda pode ajustar durante o atendimento.</small></div></header>
@@ -3089,8 +3098,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
       <section class="tdcfg-side-card">
        <header><span class="blue"><i class="fa-solid fa-plug"></i></span><div><strong>Integrações</strong><small>Dados e sincronização</small></div></header>
        <div class="tdcfg-integration"><i class="fa-solid fa-arrows-rotate"></i><div><strong>Omie</strong><span>Clientes, pedidos, serviços e financeiro.</span></div><b>Integrado</b></div>
-       <?php if($settingsAdmin):?><div class="tdcfg-integration"><i class="fa-solid fa-database"></i><div><strong>Parceiros</strong><span>Consulta externa da tabela cfcs.</span></div><b><?=!empty($partnerDbConfig['username'])&&!empty($partnerDbConfig['password_saved'])?'Configurado':'Pendente'?></b></div><?php endif;?>
-       <a class="tdcfg-link" href="<?=$settingsAdmin?'#partner-database':APP_URL.'/sync'?>"><?=$settingsAdmin?'Configurar integrações':'Gerenciar sincronização'?> <i class="fa-solid fa-arrow-right"></i></a>
+       <a class="tdcfg-link" href="<?=APP_URL?>/sync">Gerenciar sincronização <i class="fa-solid fa-arrow-right"></i></a>
       </section>
 
       <?php if($settingsAdmin):?>
