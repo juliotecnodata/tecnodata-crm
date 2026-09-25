@@ -1498,10 +1498,13 @@ final class CommercialAccountService {
   }
   $rows=DB::all("SELECT a.omie_code,a.integration_code,a.name,a.trade_name,a.document,a.crm_user_code,a.updated_at,
                         l.client_id,c.name client_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
+                        c.city client_city,c.uf client_uf,c.phone_ddd client_phone_ddd,c.phone_number client_phone_number,
                         cu.name owner_name,cu.email owner_email,
                         COALESCE(ap.is_cfc,0) is_cfc,COALESCE(ap.is_reseller,0) is_reseller,ap.classification_source,
                         m.first_purchase_at,m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_ticket_12m,m.avg_interval_days,
                         act.last_contact_at,nt.next_due_at,
+                        (SELECT NULLIF(TRIM(ct.phone),'') FROM crm_contacts ct WHERE ct.crm_account_code=a.omie_code AND ct.active=1 AND NULLIF(TRIM(ct.phone),'') IS NOT NULL ORDER BY (NULLIF(TRIM(ct.mobile),'') IS NOT NULL) DESC,ct.updated_at DESC LIMIT 1) contact_phone,
+                        (SELECT NULLIF(TRIM(ct.mobile),'') FROM crm_contacts ct WHERE ct.crm_account_code=a.omie_code AND ct.active=1 AND NULLIF(TRIM(ct.mobile),'') IS NOT NULL ORDER BY ct.updated_at DESC LIMIT 1) contact_mobile,
                         CASE WHEN act.last_contact_at IS NULL THEN 999999 ELSE DATEDIFF(CURDATE(),DATE(act.last_contact_at)) END days_without_contact
                  ".$join."
                  WHERE ".$whereSql."
@@ -1517,7 +1520,7 @@ final class CommercialAccountService {
  }
 
  private static function stats(array $where,array $params): array{
-  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
+  if(!$where)return ['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
   $sql=implode(' AND ',$where);
   $join=" FROM crm_accounts a
           LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code
@@ -1540,12 +1543,13 @@ final class CommercialAccountService {
                          SUM(CASE WHEN l.client_id IS NOT NULL THEN 1 ELSE 0 END) linked,
                          SUM(CASE WHEN l.client_id IS NULL THEN 1 ELSE 0 END) prospects,
                          SUM(CASE WHEN act.last_contact_at IS NULL THEN 1 ELSE 0 END) never_contacted,
+                         SUM(CASE WHEN act.last_contact_at IS NULL OR DATEDIFF(CURDATE(),DATE(act.last_contact_at))>30 THEN 1 ELSE 0 END) over30,
                          SUM(CASE WHEN act.last_contact_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(act.last_contact_at))>60 THEN 1 ELSE 0 END) over60,
                          SUM(CASE WHEN nt.next_due_at<CURDATE() THEN 1 ELSE 0 END) overdue_count,
                          SUM(CASE WHEN nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) today_count,
                          SUM(CASE WHEN nt.next_due_at>=CURDATE()+INTERVAL 1 DAY THEN 1 ELSE 0 END) upcoming_count,
                          SUM(CASE WHEN nt.next_due_at IS NULL THEN 1 ELSE 0 END) unplanned_count
-                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
+                  ".$join." WHERE ".$sql,$params)??['total'=>0,'linked'=>0,'prospects'=>0,'never_contacted'=>0,'over30'=>0,'over60'=>0,'overdue_count'=>0,'today_count'=>0,'upcoming_count'=>0,'unplanned_count'=>0];
  }
 
  public static function owners(): array{
