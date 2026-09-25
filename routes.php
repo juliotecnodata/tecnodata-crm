@@ -795,7 +795,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
    WHERE ".$summaryWhere,
   $p
  )?:[];
- $perPage=5;
+ $perPage=10;
  $totalClients=(int)($summary['total_clients']??0);
  $totalPages=max(1,(int)ceil($totalClients/$perPage));
  $page=max(1,min($totalPages,(int)($_GET['page']??1)));
