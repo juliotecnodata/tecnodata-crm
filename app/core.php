@@ -54,8 +54,16 @@ final class DB {
 
 final class PartnerDB {
  private static ?\PDO $pdo=null;
+ private static bool $legacyConfigPurged=false;
+
+ private static function purgeLegacyConfig(): void{
+  if(self::$legacyConfigPurged)return;
+  self::$legacyConfigPurged=true;
+  try{DB::exec("DELETE FROM settings WHERE setting_key='partner_database_connection'");}catch(Throwable $ignored){}
+ }
 
  public static function config(bool $includePassword=false): array{
+  self::purgeLegacyConfig();
   $environment=defined('APP_ENV')?APP_ENV:'local';
   $source=$GLOBALS['config']['partner_database'][$environment]??null;
   if(!is_array($source))throw new \RuntimeException('Configuração do banco de parceiros ausente para o ambiente '.$environment);
