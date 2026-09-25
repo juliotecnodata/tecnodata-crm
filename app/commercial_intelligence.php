@@ -1418,7 +1418,7 @@ final class CommercialAccountService {
   $sellerCentral=$role==='seller'&&!empty($filters['_seller_central']);
   if($role==='seller'&&!$sellerCentral){
    $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
-   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>$perPage,'stats'=>self::stats([],[]),'filters'=>compact('q','classification','link','attention','owner','scope','sort','perPage')];
+   if($crmUserCode===''||!in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true))return ['rows'=>[],'total'=>0,'page'=>1,'pages'=>1,'per_page'=>$perPage,'stats'=>self::stats([],[]),'filters'=>['q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>$owner,'scope'=>$scope,'sort'=>$sort,'per_page'=>$perPage]];
    $where[]='a.crm_user_code=?';$params[]=$crmUserCode;
   }elseif($sellerCentral){
    if($owner!==''){$where[]='a.crm_user_code=?';$params[]=$owner;}
@@ -1538,7 +1538,7 @@ final class CommercialAccountService {
           LEFT JOIN (
            SELECT crm_account_code,MIN(due_at) next_due_at
            FROM tasks
-           WHERE crm_account_code IS NOT NULL AND status='pending'
+           WHERE crm_account_code IS NOT NULL AND status='pending' AND type='sales'
            GROUP BY crm_account_code
           ) nt ON nt.crm_account_code=a.omie_code";
   return DB::one("SELECT COUNT(*) total,
