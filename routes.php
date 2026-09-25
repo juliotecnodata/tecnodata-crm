@@ -1224,6 +1224,7 @@ $router->post('/commercial/accounts/{code}/activity',function($p){
  }
  if($returnTo==='home_concept')redirect('/commercial-home-concept');
  if($returnTo==='agenda')redirect('/agenda?type=sales');
+ if($returnTo==='baldussi')redirect('/settings/baldussi');
  redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
@@ -2853,6 +2854,47 @@ $router->get('/settings',function(){
  ]);
  render('settings',$data);
 });
+$router->get('/settings/baldussi',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ $state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];
+ $flash=$_SESSION['baldussi_test_flash']??($_SESSION['commercial_flash']??null);unset($_SESSION['baldussi_test_flash'],$_SESSION['commercial_flash']);
+ render('baldussi_test',['baldussiConfig'=>BaldussiService::publicConfig(),'baldussiState'=>$state,'baldussiExtension'=>BaldussiService::userExtension($u),'flash'=>$flash,
+  'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),'activityCategories'=>CommercialActivityService::categories(),'activityAssignableUsers'=>CommercialActivityService::assignableUsers($u)]);
+});
+$router->post('/settings/baldussi/test-connection',function(){
+ Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
+ try{
+  $extensions=BaldussiService::listExtensions('0');
+  $_SESSION['baldussi_test_state']=['extensions'=>$extensions,'tested_at'=>date('Y-m-d H:i:s'),'last_call'=>($_SESSION['baldussi_test_state']['last_call']??null)];
+  $_SESSION['baldussi_test_flash']=['type'=>'success','message'=>'Conexão autenticada. A API retornou '.$extensions['returned'].' de '.$extensions['total'].' ramais; somente campos seguros foram carregados.'];
+ }catch(Throwable $e){$_SESSION['baldussi_test_flash']=['type'=>'danger','message'=>'Falha no teste Baldussi: '.$e->getMessage()];}
+ redirect('/settings/baldussi');
+});
+$router->post('/settings/baldussi/dial',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ try{
+  if(empty($_POST['confirm_call']))throw new RuntimeException('Confirme que o número está autorizado a receber a ligação.');
+  $u=Auth::user();$origin=BaldussiService::userExtension($u);if(!$origin)throw new RuntimeException('Seu usuário ainda não possui um ramal Baldussi ativo. Solicite o vínculo ao administrador.');
+  $accountCode=trim((string)($_POST['crm_account_code']??''));$account=null;
+  if($accountCode!==''){
+   if(!CommercialAccountService::canWork($u,$accountCode))throw new RuntimeException('A conta selecionada não pertence à sua carteira operacional.');
+   $account=CommercialAccountService::get($accountCode);if(!$account)throw new RuntimeException('A conta selecionada não foi encontrada.');
+  }
+  $result=BaldussiService::dial($origin,(string)($_POST['destination']??''));
+  $startedAt=date('Y-m-d H:i:s');$state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];$state['last_call']=array_merge($result,['at'=>$startedAt,'started_at'=>$startedAt,'active'=>!empty($result['ok']),'requested_by'=>Auth::id(),'crm_account_code'=>$accountCode,'account_name'=>$account?trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')):'','account_owner'=>$account?(string)($account['owner_name']??$u['name']):'','client_id'=>$account?(int)($account['client_id']??0):0]);$_SESSION['baldussi_test_state']=$state;
+  $_SESSION['baldussi_test_flash']=['type'=>$result['ok']?'success':'danger','message'=>($result['ok']?'Ligação solicitada: ':'A ligação não foi iniciada: ').$result['message']];
+ }catch(Throwable $e){$_SESSION['baldussi_test_flash']=['type'=>'danger','message'=>'Não foi possível testar a chamada: '.$e->getMessage()];}
+ redirect('/settings/baldussi');
+});
+$router->post('/settings/baldussi/finish-tracking',function(){
+ Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
+ header('Content-Type: application/json; charset=utf-8');
+ $state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];
+ $call=is_array($state['last_call']??null)?$state['last_call']:[];
+ if(!$call||empty($call['active'])){echo json_encode(['ok'=>true,'already_finished'=>true],JSON_UNESCAPED_UNICODE);return;}
+ $call['active']=false;$call['finished_at']=date('Y-m-d H:i:s');$call['finished_by']=Auth::id();$state['last_call']=$call;$_SESSION['baldussi_test_state']=$state;
+ echo json_encode(['ok'=>true,'finished_at'=>$call['finished_at']],JSON_UNESCAPED_UNICODE);
+});
 $router->post('/settings/contact-monitoring',function(){
  Auth::requireRole('admin','supervisor');CSRF::require($_POST['_token']??null);
  try{
@@ -2970,7 +3012,7 @@ $router->post('/settings',function(){
 });
 $router->post('/settings/order-profile',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveProfile($_POST);redirect('/settings');});
 $router->get('/users',function(){
- Auth::requireRole('admin');
+ Auth::requireRole('admin');CommercialSchema::ensure();
  $editId=(int)($_GET['edit']??0);
  render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"),'edit'=>$editId?DB::one("SELECT * FROM users WHERE id=?",[$editId]):null]);
 });
@@ -2979,6 +3021,10 @@ $router->post('/users',function(){
  $id=(int)($_POST['id']??0);$name=trim((string)($_POST['name']??''));$email=mb_strtolower(trim((string)($_POST['email']??'')));
  $role=(string)($_POST['role']??'seller');if(!in_array($role,['admin','supervisor','seller','collector'],true))exit('Perfil inválido.');
  $active=!empty($_POST['active'])?1:0;$password=(string)($_POST['password']??'');
+ $baldussiExtension=preg_replace('/\D+/','',(string)($_POST['baldussi_extension']??''))??'';$baldussiEnabled=!empty($_POST['baldussi_enabled'])?1:0;
+ if($baldussiExtension!==''&&(strlen($baldussiExtension)<2||strlen($baldussiExtension)>10))exit('Informe um ramal Baldussi válido.');
+ if($baldussiEnabled&&$baldussiExtension==='')exit('Informe o ramal antes de ativar a telefonia.');
+ if($baldussiExtension!==''&&(int)(DB::scalar("SELECT COUNT(*) FROM users WHERE baldussi_extension=? AND id<>?",[$baldussiExtension,$id])??0)>0)exit('Este ramal Baldussi já está vinculado a outro usuário.');
  if($name===''||!filter_var($email,FILTER_VALIDATE_EMAIL))exit('Nome/e-mail inválidos.');
 
  $seller=null;
@@ -2993,11 +3039,11 @@ $router->post('/users',function(){
  }
 
  if($id>0){
-  DB::exec("UPDATE users SET name=?,email=?,role=?,seller_omie_code=?,active=?,updated_at=NOW() WHERE id=?",[$name,$email,$role,$seller,$active,$id]);
+  DB::exec("UPDATE users SET name=?,email=?,role=?,seller_omie_code=?,baldussi_extension=?,baldussi_enabled=?,active=?,updated_at=NOW() WHERE id=?",[$name,$email,$role,$seller,$baldussiExtension!==''?$baldussiExtension:null,$baldussiEnabled,$active,$id]);
   if($password!=='')DB::exec("UPDATE users SET password_hash=? WHERE id=?",[password_hash($password,PASSWORD_DEFAULT),$id]);
  }else{
   if($password==='')exit('Senha obrigatória.');
-  DB::exec("INSERT INTO users(name,email,password_hash,role,seller_omie_code,active,created_at,updated_at) VALUES(?,?,?,?,?,?,NOW(),NOW())",[$name,$email,password_hash($password,PASSWORD_DEFAULT),$role,$seller,$active]);
+  DB::exec("INSERT INTO users(name,email,password_hash,role,seller_omie_code,baldussi_extension,baldussi_enabled,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,NOW(),NOW())",[$name,$email,password_hash($password,PASSWORD_DEFAULT),$role,$seller,$baldussiExtension!==''?$baldussiExtension:null,$baldussiEnabled,$active]);
  }
  CommercialIdentityService::reconcileUsers();
  CommercialPortfolioService::rebuildOperationalOwners();
@@ -3223,17 +3269,56 @@ $router->get('/api/commercial/accounts/datatable',function(){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();
  $u=Auth::user();$draw=max(0,(int)($_GET['draw']??0));$start=max(0,(int)($_GET['start']??0));
  $length=(int)($_GET['length']??10);$length=$length<10?10:min(100,$length);
+ $portfolioView=(string)($_GET['view']??'')==='portfolio';
  $orderInput=$_GET['order']??[];$orderRow=is_array($orderInput)&&isset($orderInput[0])&&is_array($orderInput[0])?$orderInput[0]:[];
- $orderIndex=(int)($orderRow['column']??0);$orderMap=[0=>'name',1=>'owner',2=>'stale',3=>'next',4=>'purchase'];
+ $orderIndex=(int)($orderRow['column']??0);$orderMap=$portfolioView?[0=>'name',1=>'name',2=>'name',3=>'stale',4=>'next',5=>'urgent']:[0=>'name',1=>'owner',2=>'stale',3=>'next',4=>'purchase'];
  $filters=[
-  '_global_crm'=>1,'scope'=>'all','page'=>(int)floor($start/$length)+1,'per_page'=>$length,
+  '_skip_stats'=>1,'scope'=>$portfolioView?'active':'all','page'=>(int)floor($start/$length)+1,'per_page'=>$length,
   'classification'=>(string)($_GET['classification']??'all'),'link'=>(string)($_GET['link']??'all'),
   'owner'=>trim((string)($_GET['owner']??'')),'attention'=>(string)($_GET['attention']??'all'),
-  'sort'=>$orderMap[$orderIndex]??'name','sort_dir'=>strtolower((string)($orderRow['dir']??'asc'))==='desc'?'desc':'asc'
+  'sort'=>$orderRow?($orderMap[$orderIndex]??'name'):($portfolioView?'urgent':'name'),'sort_dir'=>strtolower((string)($orderRow['dir']??'asc'))==='desc'?'desc':'asc'
  ];
+ if(!$portfolioView)$filters['_global_crm']=1;
  $searchInput=$_GET['search']??[];$search=trim((string)(is_array($searchInput)?($searchInput['value']??''):''));
- $fixedQ=trim((string)($_GET['q']??''));$filters['q']=$search!==''?$search:$fixedQ;
+ $fixedQ=trim((string)($_GET['q']??''));$filters['q']=trim($fixedQ.' '.$search);
  $data=CommercialAccountService::portfolio($u,$filters);$rows=[];
+ if($portfolioView){
+  foreach((array)($data['rows']??[]) as $row){
+   $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
+   $city=trim((string)($row['client_city']??''));$uf=trim((string)($row['client_uf']??''));
+   $linked=!empty($row['client_id']);$canWork=!empty($row['can_work']);
+   $classification=!empty($row['is_cfc'])&&!empty($row['is_reseller'])?'CFC + Revendedor':(!empty($row['is_cfc'])?'CFC':(!empty($row['is_reseller'])?'Revendedor':'Sem classificação'));
+   $classTone=!empty($row['is_cfc'])&&!empty($row['is_reseller'])?'both':(!empty($row['is_cfc'])?'cfc':(!empty($row['is_reseller'])?'reseller':'neutral'));
+   $lastAt=!empty($row['last_contact_at'])?strtotime((string)$row['last_contact_at']):false;$days=(int)($row['days_without_contact']??999999);
+   $nextAt=!empty($row['next_due_at'])?strtotime((string)$row['next_due_at']):false;$today=date('Y-m-d');
+   $statusLabel='Em dia';$statusTone='ok';
+   if($nextAt&&date('Y-m-d',$nextAt)<$today){$statusLabel='Atrasado';$statusTone='late';}
+   elseif($nextAt&&date('Y-m-d',$nextAt)===$today){$statusLabel='Hoje';$statusTone='today';}
+   elseif(!$lastAt){$statusLabel='Sem contato';$statusTone='neutral';}
+   elseif($nextAt){$statusLabel='Pendente';$statusTone='pending';}
+   $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
+   $location=$city!==''?$city.($uf!==''?' - '.$uf:''):($linked?'Cliente vinculado':'Conta CRM');
+   $client='<div class="tdp-client"><span>'.e(mb_strtoupper(mb_substr($display,0,1))).'</span><div><a href="'.$accountHref.'"><strong>'.e($display).'</strong></a><small>'.e($location).(!empty($row['document'])?' · '.e((string)$row['document']):'').'</small></div></div>';
+   $ufCell='<span class="tdp-uf">'.e($uf?:'—').'</span>';
+   $classCell='<span class="tdp-class '.$classTone.'">'.e($classification).'</span>';
+   $last=$lastAt?'<strong>'.date('d/m/Y',$lastAt).'</strong><small>'.($days===0?'Hoje':'Há '.$days.' dia'.($days===1?'':'s')).'</small>':'<strong>—</strong><small>Nunca</small>';
+   $next=$nextAt?'<strong class="'.(date('Y-m-d',$nextAt)===$today?'today':'').'">'.date('d/m/Y',$nextAt).'</strong><small>'.(date('Y-m-d',$nextAt)===$today?'Hoje':date('H:i',$nextAt)).'</small>':'<strong>—</strong><small>Não agendado</small>';
+   $status='<span class="tdp-status '.$statusTone.'"><i></i>'.e($statusLabel).'</span>';
+   $actions='<div class="tdh-actions tdp-home-actions">';
+   if($canWork){
+    $common=' data-commercial-activity-open data-account-code="'.e((string)$row['omie_code']).'" data-account-name="'.e($display).'" data-account-owner="'.e((string)($row['owner_name']?:$u['name'])).'" data-account-type="'.e($classification).'" data-client-id="'.($linked?(int)$row['client_id']:'').'"';
+    $actions.='<button type="button" class="attempt" title="Registrar tentativa de contato" aria-label="Registrar tentativa de contato" data-activity-type="contact_attempt"'.$common.'><i class="fa-solid fa-phone"></i><span class="tdh-action-label">Tentativa</span></button>';
+    $actions.='<button type="button" class="contact" title="Registrar contato" aria-label="Registrar contato" data-activity-type="contact_completed"'.$common.'><i class="fa-solid fa-comment-dots"></i><span class="tdh-action-label">Contato</span></button>';
+    $actions.='<button type="button" class="follow" title="Registrar follow-up" aria-label="Registrar follow-up" data-activity-type="follow_up"'.$common.'><i class="fa-solid fa-clipboard-check"></i><span class="tdh-action-label">Follow-up</span></button>';
+    $actions.=$linked?'<button type="button" class="sale" title="Registrar venda" aria-label="Registrar venda" data-activity-type="sale"'.$common.'><i class="fa-solid fa-circle-dollar-to-slot"></i><span class="tdh-action-label">Venda</span></button>':'<span class="sale disabled" title="A venda exige Cliente Geral vinculado" aria-disabled="true"><i class="fa-solid fa-circle-dollar-to-slot"></i><span class="tdh-action-label">Venda</span></span>';
+   }else{
+    $actions.='<span class="attempt disabled" title="Ações comerciais restritas à carteira responsável"><i class="fa-solid fa-phone"></i><span class="tdh-action-label">Tentativa</span></span><span class="contact disabled" title="Ações comerciais restritas à carteira responsável"><i class="fa-solid fa-comment-dots"></i><span class="tdh-action-label">Contato</span></span><span class="follow disabled" title="Ações comerciais restritas à carteira responsável"><i class="fa-solid fa-clipboard-check"></i><span class="tdh-action-label">Follow-up</span></span><span class="sale disabled" title="Ações comerciais restritas à carteira responsável"><i class="fa-solid fa-circle-dollar-to-slot"></i><span class="tdh-action-label">Venda</span></span>';
+   }
+   $actions.='</div>';
+   $rows[]=[$client,$ufCell,$classCell,$last,$next,$status,$actions];
+  }
+  json_response(['draw'=>$draw,'recordsTotal'=>(int)($data['total']??0),'recordsFiltered'=>(int)($data['total']??0),'data'=>$rows]);
+ }
  foreach((array)($data['rows']??[]) as $row){
   $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
   $words=preg_split('/\s+/u',$display,-1,PREG_SPLIT_NO_EMPTY);$initials=mb_strtoupper(mb_substr((string)($words[0]??'?'),0,1).(count($words)>1?mb_substr((string)end($words),0,1):''));

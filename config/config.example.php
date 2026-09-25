@@ -63,6 +63,20 @@ return [
   'timeout'=>60,
  ],
 
+ 'baldussi'=>[
+  // Solicite à Baldussi as credenciais e a documentação da API do PABX.
+  // Em produção, também podem ser usados TDCRM_BALDUSSI_USER e TDCRM_BALDUSSI_TOKEN.
+  'enabled'=>false,
+  'base_url'=>'https://cloud.baldussi.com.br/pabx/api.php',
+  'username'=>'SEU_USUARIO_API',
+  'token'=>'SEU_TOKEN_API',
+  // Durante a homologação, somente este ramal poderá originar chamadas.
+  'test_extension'=>'',
+  // DDD local do PABX, usado para adaptar o número ao plano de discagem.
+  'area_code'=>'41',
+  'timeout'=>20,
+ ],
+
  'installer'=>[
   'enabled'=>false,
   'token'=>'TROQUE_ESTE_TOKEN',

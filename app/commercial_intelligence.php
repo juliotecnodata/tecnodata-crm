@@ -35,7 +35,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=13;$stateRaw=null;
+  $schemaVersion=14;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::ensureLinkAuditTable();self::$ready=true;return;}
@@ -61,9 +61,12 @@ final class CommercialSchema {
 
   $userColumns=[];foreach(DB::all("SHOW COLUMNS FROM users") as $row)$userColumns[(string)$row['Field']]=true;
   if(!isset($userColumns['crm_user_omie_code']))DB::exec("ALTER TABLE users ADD COLUMN crm_user_omie_code VARCHAR(80) NULL AFTER seller_omie_code");
+  if(!isset($userColumns['baldussi_extension']))DB::exec("ALTER TABLE users ADD COLUMN baldussi_extension VARCHAR(10) NULL AFTER crm_user_omie_code");
+  if(!isset($userColumns['baldussi_enabled']))DB::exec("ALTER TABLE users ADD COLUMN baldussi_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER baldussi_extension");
   $userIndexes=[];foreach(DB::all("SHOW INDEX FROM users") as $row)$userIndexes[(string)$row['Key_name']]=true;
   if(!isset($userIndexes['idx_users_crm_user']))DB::exec("ALTER TABLE users ADD INDEX idx_users_crm_user(crm_user_omie_code,active)");
   if(!isset($userIndexes['idx_users_sales_seller']))DB::exec("ALTER TABLE users ADD INDEX idx_users_sales_seller(seller_omie_code,active)");
+  if(!isset($userIndexes['uq_users_baldussi_extension']))DB::exec("ALTER TABLE users ADD UNIQUE INDEX uq_users_baldussi_extension(baldussi_extension)");
 
   // Vendedores de Vendas/NF-e (API geral/vendedores). Mantemos os campos de
   // operação que a Omie realmente expõe para não depender apenas do raw_json.
@@ -1542,7 +1545,8 @@ final class CommercialAccountService {
   }
   unset($row);
 
-  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>self::stats($statsWhere,$statsParams),'filters'=>[
+  $stats=!empty($filters['_skip_stats'])?[]:self::stats($statsWhere,$statsParams);
+  return ['rows'=>$rows,'total'=>$total,'page'=>$page,'pages'=>$pages,'per_page'=>$perPage,'stats'=>$stats,'filters'=>[
    'q'=>$q,'classification'=>$classification,'link'=>$link,'attention'=>$attention,'owner'=>$owner,'scope'=>$scope,'sort'=>$sort,'sort_dir'=>$sortDir,'per_page'=>$perPage
   ]];
  }
@@ -2036,9 +2040,21 @@ final class CommercialPartnerService {
   CommercialSchema::ensure();$where=['a.active=1','p.is_reseller=1'];$params=[];
   if(($user['role']??'')==='seller'){$where[]='a.crm_user_code=?';$params[]=(string)($user['crm_user_omie_code']??'__NONE__');}
   $q=trim((string)($filters['q']??''));if($q!==''){$where[]='(a.name LIKE ? OR a.trade_name LIKE ? OR a.document LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like);}
-  $status=(string)($filters['status']??'all');$having='';if($status==='active')$having='HAVING days_without_work<=14';elseif($status==='activation')$having='HAVING days_without_work BETWEEN 15 AND 30';elseif($status==='reactivation')$having='HAVING days_without_work>30 OR last_work_at IS NULL';else $status='all';
+  $metrics=DB::one("SELECT COUNT(*) total,
+    COALESCE(SUM(w.last_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(w.last_at))<=14),0) active,
+    COALESCE(SUM(w.last_at IS NOT NULL AND DATEDIFF(CURDATE(),DATE(w.last_at)) BETWEEN 15 AND 30),0) activation,
+    COALESCE(SUM(w.last_at IS NULL OR DATEDIFF(CURDATE(),DATE(w.last_at))>30),0) reactivation,
+    COALESCE(SUM(w.last_at IS NULL),0) never
+   FROM crm_accounts a
+   JOIN crm_account_commercial_profiles p ON p.crm_account_code=a.omie_code
+   LEFT JOIN (SELECT crm_account_code,MAX(created_at) last_at FROM commercial_partner_work GROUP BY crm_account_code) w ON w.crm_account_code=a.omie_code
+   WHERE ".implode(' AND ',$where),$params)?:[];
+  $status=(string)($filters['status']??'all');$having='';if($status==='active')$having='HAVING days_without_work<=14';elseif($status==='activation')$having='HAVING days_without_work BETWEEN 15 AND 30';elseif($status==='reactivation')$having='HAVING days_without_work>30 OR last_work_at IS NULL';elseif($status==='never')$having='HAVING last_work_at IS NULL';else $status='all';
   $rows=DB::all("SELECT a.omie_code,a.name,a.trade_name,a.document,l.client_id,p.is_cfc,p.is_reseller,cu.name owner_name,w.created_at last_work_at,w.description last_work_description,w.next_step,DATEDIFF(CURDATE(),DATE(w.created_at)) days_without_work FROM crm_accounts a JOIN crm_account_commercial_profiles p ON p.crm_account_code=a.omie_code LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code LEFT JOIN commercial_partner_work w ON w.id=(SELECT MAX(w2.id) FROM commercial_partner_work w2 WHERE w2.crm_account_code=a.omie_code) WHERE ".implode(' AND ',$where)." ".$having." ORDER BY CASE WHEN w.created_at IS NULL THEN 0 ELSE 1 END,DATEDIFF(CURDATE(),DATE(w.created_at)) DESC,a.name LIMIT 500",$params);
-  return ['rows'=>$rows,'filters'=>['q'=>$q,'status'=>$status]];
+  return ['rows'=>$rows,'filters'=>['q'=>$q,'status'=>$status],'metrics'=>[
+   'total'=>(int)($metrics['total']??0),'active'=>(int)($metrics['active']??0),'activation'=>(int)($metrics['activation']??0),
+   'reactivation'=>(int)($metrics['reactivation']??0),'never'=>(int)($metrics['never']??0)
+  ]];
  }
  public static function record(string $accountCode,array $user,array $data): array{
   if(!CommercialAccountService::canWork($user,$accountCode))throw new RuntimeException('Este parceiro não pertence à carteira autorizada.');
@@ -2064,7 +2080,7 @@ final class CommercialPartnerService {
 
 final class CommercialManagementService {
  public static function build(array $filters=[]): array{
-  CommercialSchema::ensure();$period=(string)($filters['period']??'month');$today=date('Y-m-d');
+  CommercialSchema::ensure();$period=(string)($filters['period']??'week');$today=date('Y-m-d');
   if($period==='today'){$start=$today;$end=date('Y-m-d',strtotime($today.' +1 day'));}
   elseif($period==='yesterday'){$start=date('Y-m-d',strtotime($today.' -1 day'));$end=$today;}
   elseif($period==='week'){$start=date('Y-m-d',strtotime('monday this week'));$end=date('Y-m-d',strtotime($start.' +7 days'));}
@@ -2087,7 +2103,14 @@ final class CommercialManagementService {
   $partnersStale=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_commercial_profiles p JOIN crm_accounts ca ON ca.omie_code=p.crm_account_code LEFT JOIN (SELECT crm_account_code,MAX(created_at) last_at FROM commercial_partner_work GROUP BY crm_account_code) w ON w.crm_account_code=ca.omie_code WHERE p.is_reseller=1 AND ca.active=1 AND (w.last_at IS NULL OR w.last_at<CURDATE()-INTERVAL 30 DAY)")??0);
   $rows=DB::all("SELECT u.id,u.name,COALESCE(SUM(a.activity_type='contact_completed'),0) contacts,COALESCE(SUM(a.activity_type='contact_attempt'),0) attempts,COALESCE(SUM(a.activity_type='follow_up'),0) followups,COALESCE(SUM(a.activity_type='orientation'),0) orientations,COALESCE(SUM(a.activity_type='activation'),0) activations,(SELECT COUNT(*) FROM commercial_sales s WHERE s.user_id=u.id AND s.sold_at>=? AND s.sold_at<?) sales,(SELECT COALESCE(SUM(s.amount),0) FROM commercial_sales s WHERE s.user_id=u.id AND s.sold_at>=? AND s.sold_at<?) sales_amount FROM users u LEFT JOIN activities a ON a.user_id=u.id AND a.created_at>=? AND a.created_at<? WHERE u.active=1 AND u.role='seller' ".($seller>0?'AND u.id='.(int)$seller:'')." GROUP BY u.id,u.name ORDER BY u.name",[$start,$end,$start,$end,$start,$end]);
   $day=(string)($filters['day']??$today);if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$day))$day=$today;$daySeller=(int)($filters['day_seller_id']??$seller);$dw=['a.created_at>=?','a.created_at<?'];$dp=[$day,date('Y-m-d',strtotime($day.' +1 day'))];if($daySeller>0){$dw[]='a.user_id=?';$dp[]=$daySeller;}
-  $daily=DB::all("SELECT a.*,u.name user_name,COALESCE(ca.trade_name,ca.name,'Conta') account_name FROM activities a JOIN users u ON u.id=a.user_id LEFT JOIN crm_accounts ca ON ca.omie_code=a.crm_account_code WHERE ".implode(' AND ',$dw)." ORDER BY a.created_at",$dp);
+  $daily=DB::all("SELECT a.*,u.name user_name,
+    COALESCE(NULLIF(TRIM(ca.trade_name),''),NULLIF(TRIM(ca.name),''),NULLIF(TRIM(c.name),''),'Contato não identificado') account_name
+   FROM activities a
+   JOIN users u ON u.id=a.user_id
+   LEFT JOIN crm_accounts ca ON ca.omie_code=a.crm_account_code
+   LEFT JOIN clients c ON c.id=a.client_id
+   WHERE ".implode(' AND ',$dw)."
+   ORDER BY a.created_at",$dp);
   return ['filters'=>compact('period','start','end','seller','activity','channel','saleType','classification','day','daySeller'),'metrics'=>array_merge($metrics,$sales,['overdue'=>(int)($tasks['overdue']??0),'pending'=>(int)($tasks['pending']??0),'completed'=>(int)($tasks['completed']??0),'partners_worked'=>$partnersWorked,'partners_stale'=>$partnersStale]),'rows'=>$rows,'daily'=>$daily];
  }
 }

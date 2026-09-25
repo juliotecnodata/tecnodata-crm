@@ -73,6 +73,7 @@ if(session_status()!==PHP_SESSION_ACTIVE){
 require APP_ROOT.'/app/core.php';
 require APP_ROOT.'/app/google_auth.php';
 require APP_ROOT.'/app/services.php';
+require APP_ROOT.'/app/baldussi.php';
 require APP_ROOT.'/app/commercial_intelligence.php';
 require APP_ROOT.'/app/order_pdf.php';
 require APP_ROOT.'/app/opportunities.php';

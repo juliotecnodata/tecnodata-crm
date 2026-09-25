@@ -20,6 +20,153 @@ document.addEventListener('DOMContentLoaded',()=>{
   const globalTopbarActions=document.querySelector('.topbar-actions');
   if(pageTopbarTools&&globalTopbarActions)globalTopbarActions.prepend(pageTopbarTools);
 
+  const formatBrazilPhone=value=>{
+    const digits=String(value||'').replace(/\D/g,'').slice(0,11);
+    if(!digits)return '';
+    if(digits.length<3)return '('+digits;
+    const area=digits.slice(0,2);
+    const number=digits.slice(2);
+    if(number.length<=4)return '('+area+') '+number;
+    const split=number.length>8?5:4;
+    return '('+area+') '+number.slice(0,split)+'-'+number.slice(split);
+  };
+  document.querySelectorAll('[data-brazil-phone]').forEach(input=>{
+    const applyMask=()=>{input.value=formatBrazilPhone(input.value);};
+    input.addEventListener('input',applyMask);
+    input.addEventListener('blur',applyMask);
+    applyMask();
+  });
+
+  // Um telefone clicável dentro do CRM sempre usa o PABX Baldussi. Isso evita
+  // que o Windows entregue links tel: ao WhatsApp ou a outro aplicativo local.
+  document.addEventListener('click',async event=>{
+    const link=event.target.closest?.('[data-baldussi-phone],a[href^="tel:"]');
+    if(!link||link.closest('[data-client-quick-modal]'))return;
+    event.preventDefault();
+    const raw=String(link.dataset.baldussiPhone||link.getAttribute('href')?.replace(/^tel:/i,'')||'');
+    const destination=raw.replace(/\D+/g,'');
+    if(!destination){window.appNotify?.('warning','Ligação indisponível','O telefone deste cadastro não é válido.');return;}
+    const context=link.closest('[data-baldussi-account-code]');
+    const accountCode=String(link.dataset.baldussiAccountCode||context?.dataset.baldussiAccountCode||'');
+    const accountName=String(link.dataset.baldussiAccountName||context?.dataset.baldussiAccountName||'cliente');
+    if(!(await askConfirm('Deseja completar a ligação para '+raw+'? O PABX chamará primeiro o seu ramal; depois de atender, aguarde a discagem automática.',{title:'Ligar para '+accountName,label:'Completar ligação',tone:'phone',icon:'fa-phone-volume'})))return;
+    const form=document.createElement('form');form.method='post';form.action=(window.APP_URL||'')+'/settings/baldussi/dial';form.hidden=true;
+    const fields={_token:String(window.CSRF||''),destination,crm_account_code:accountCode,confirm_call:'1'};
+    Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
+    form.dataset.accountName=accountName;document.body.appendChild(form);form.submit();
+  });
+
+  document.querySelectorAll('[data-baldussi-dial-form]').forEach(form=>{
+    const search=form.querySelector('[data-baldussi-account-search]');
+    const results=form.querySelector('[data-baldussi-account-results]');
+    const code=form.querySelector('[data-baldussi-account-code]');
+    const selected=form.querySelector('[data-baldussi-account-selected]');
+    let searchTimer=0;
+    search?.addEventListener('input',()=>{
+      window.clearTimeout(searchTimer);if(code)code.value='';
+      const q=search.value.trim();if(q.length<2){if(results)results.innerHTML='';return;}
+      searchTimer=window.setTimeout(async()=>{
+        try{
+          const response=await fetch((window.APP_URL||'')+'/api/commercial/accounts/search?q='+encodeURIComponent(q),{headers:{Accept:'application/json'}});
+          const body=await response.json();const items=body.items||[];
+          if(results)results.innerHTML=items.length?items.map((item,index)=>'<button type="button" data-baldussi-account="'+index+'"><strong></strong><small></small></button>').join(''):'<p>Nenhuma conta encontrada.</p>';
+          results?.querySelectorAll('[data-baldussi-account]').forEach((button,index)=>{const item=items[index];button.querySelector('strong').textContent=item.name;button.querySelector('small').textContent=[item.document,item.owner_name].filter(Boolean).join(' · ');button.addEventListener('click',()=>{search.value=item.name;if(code)code.value=item.crm_account_code;if(selected)selected.innerHTML='<i class="fa-solid fa-circle-check"></i> Ligação será vinculada a <b></b>';selected?.querySelector('b')?.append(document.createTextNode(item.name));if(results)results.innerHTML='';});});
+        }catch(error){if(results)results.innerHTML='';}
+      },250);
+    });
+  });
+
+  const baldussiCallDock=document.querySelector('[data-baldussi-call-dock]');
+  if(baldussiCallDock){
+    const timer=baldussiCallDock.querySelector('[data-baldussi-call-timer]');
+    const minimize=baldussiCallDock.querySelector('[data-baldussi-call-minimize]');
+    const dragHandle=baldussiCallDock.querySelector('[data-baldussi-call-drag]');
+    const finish=baldussiCallDock.querySelector('[data-baldussi-call-finish]');
+    const register=baldussiCallDock.querySelector('[data-baldussi-call-register]');
+    const startedAt=(Number(baldussiCallDock.dataset.startedAt)||Math.floor(Date.now()/1000))*1000;
+    const storageKey='tdcrm-baldussi-call-dock';
+    const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('tdcrm-baldussi-call'):null;
+    const paintTimer=()=>{
+      const seconds=Math.max(0,Math.floor((Date.now()-startedAt)/1000));
+      const hours=Math.floor(seconds/3600),minutes=Math.floor((seconds%3600)/60),secs=seconds%60;
+      if(timer)timer.textContent=(hours?String(hours).padStart(2,'0')+':':'')+String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+    };
+    paintTimer();const timerId=window.setInterval(paintTimer,1000);
+    const hideDock=()=>{window.clearInterval(timerId);baldussiCallDock.remove();};
+    try{
+      const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');
+      if(saved.minimized)baldussiCallDock.classList.add('is-minimized');
+      if(innerWidth>650&&Number.isFinite(saved.left)&&Number.isFinite(saved.top)){
+        baldussiCallDock.style.left=Math.max(8,Math.min(saved.left,innerWidth-baldussiCallDock.offsetWidth-8))+'px';
+        baldussiCallDock.style.top=Math.max(8,Math.min(saved.top,innerHeight-baldussiCallDock.offsetHeight-8))+'px';
+        baldussiCallDock.style.right='auto';baldussiCallDock.style.bottom='auto';
+      }
+    }catch(error){}
+    const saveDock=()=>{
+      const rect=baldussiCallDock.getBoundingClientRect();
+      try{localStorage.setItem(storageKey,JSON.stringify({left:Math.round(rect.left),top:Math.round(rect.top),minimized:baldussiCallDock.classList.contains('is-minimized')}));}catch(error){}
+    };
+    const syncMinimizeIcon=()=>{const icon=minimize?.querySelector('i');if(icon)icon.className='fa-solid '+(baldussiCallDock.classList.contains('is-minimized')?'fa-up-right-and-down-left-from-center':'fa-minus');};
+    minimize?.addEventListener('click',()=>{baldussiCallDock.classList.toggle('is-minimized');syncMinimizeIcon();saveDock();});syncMinimizeIcon();
+    let drag=null;
+    dragHandle?.addEventListener('pointerdown',event=>{
+      if(innerWidth<=650||event.target.closest('button,a'))return;
+      const rect=baldussiCallDock.getBoundingClientRect();drag={pointerId:event.pointerId,offsetX:event.clientX-rect.left,offsetY:event.clientY-rect.top};
+      baldussiCallDock.style.left=rect.left+'px';baldussiCallDock.style.top=rect.top+'px';baldussiCallDock.style.right='auto';baldussiCallDock.style.bottom='auto';
+      dragHandle.setPointerCapture?.(event.pointerId);
+    });
+    dragHandle?.addEventListener('pointermove',event=>{
+      if(!drag||drag.pointerId!==event.pointerId)return;
+      const left=Math.max(8,Math.min(event.clientX-drag.offsetX,innerWidth-baldussiCallDock.offsetWidth-8));
+      const top=Math.max(8,Math.min(event.clientY-drag.offsetY,innerHeight-baldussiCallDock.offsetHeight-8));
+      baldussiCallDock.style.left=left+'px';baldussiCallDock.style.top=top+'px';
+    });
+    const endDrag=event=>{if(!drag||drag.pointerId!==event.pointerId)return;drag=null;saveDock();};
+    dragHandle?.addEventListener('pointerup',endDrag);dragHandle?.addEventListener('pointercancel',endDrag);
+    const finishTracking=async()=>{
+      baldussiCallDock.classList.add('is-finishing');
+      try{
+        const body=new FormData();body.append('_token',window.CSRF||'');
+        const response=await fetch(baldussiCallDock.dataset.finishUrl,{method:'POST',body,credentials:'same-origin',headers:{Accept:'application/json'}});
+        const result=await response.json();if(!response.ok||!result.ok)throw new Error('Não foi possível encerrar o acompanhamento.');return true;
+      }catch(error){baldussiCallDock.classList.remove('is-finishing');alert(error.message||'Não foi possível encerrar o acompanhamento.');return false;}
+    };
+    finish?.addEventListener('click',async()=>{
+      if(await finishTracking()){channel?.postMessage({type:'finished'});hideDock();}
+    });
+    register?.addEventListener('click',async()=>{
+      const detail={
+        accountCode:String(baldussiCallDock.dataset.accountCode||''),
+        accountName:String(baldussiCallDock.dataset.accountName||'Cliente'),
+        notes:String(baldussiCallDock.dataset.activityNotes||'Ligação realizada pelo CRM via telefonia Baldussi.')
+      };
+      document.dispatchEvent(new CustomEvent('baldussi:register-activity',{detail}));
+      if(!(await finishTracking()))return;
+      channel?.postMessage({type:'finished'});hideDock();
+    });
+    channel?.addEventListener('message',event=>{if(event.data?.type==='finished')hideDock();});
+  }
+
+  document.querySelectorAll('[data-management-filters]').forEach(form=>{
+    const period=form.querySelector('[data-management-period]');
+    const customPeriod=form.querySelector('[data-management-custom-period]');
+    const submitFilters=()=>{
+      if(form.dataset.submitting==='1')return;
+      form.dataset.submitting='1';
+      form.requestSubmit();
+    };
+    const updateCustomPeriod=()=>{
+      const isCustom=period?.value==='custom';
+      if(customPeriod)customPeriod.hidden=!isCustom;
+      return isCustom;
+    };
+    period?.addEventListener('change',()=>{
+      if(!updateCustomPeriod())submitFilters();
+    });
+    form.querySelectorAll('[data-management-auto-filter]').forEach(filter=>filter.addEventListener('change',submitFilters));
+    updateCustomPeriod();
+  });
+
   const contactDialog=document.querySelector('[data-contact-dialog]');
   const contactScheduleForm=document.querySelector('[data-contact-schedule-form]');
   if(contactDialog&&contactScheduleForm){
@@ -277,11 +424,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       const counter=form.querySelector('[data-commercial-notes-count]');if(counter)counter.textContent='0';
       const completeTask=form.querySelector('[data-commercial-complete-task]');if(completeTask)completeTask.value=String(button.dataset.completeTaskId||'');
       const schedule=form.querySelector('[data-commercial-schedule-toggle]');if(schedule){schedule.checked=button.dataset.scheduleReturn!=='0';schedule.dispatchEvent(new Event('change',{bubbles:true}));}
+      const requestedChannel=String(button.dataset.activityChannel||'').trim();if(requestedChannel){const channelInput=form.querySelector('[name="channel"][value="'+CSS.escape(requestedChannel)+'"]');if(channelInput)channelInput.checked=true;}
+      const requestedNotes=String(button.dataset.activityNotes||'').trim();const notes=form.querySelector('[data-commercial-notes]');if(notes&&requestedNotes){notes.value=requestedNotes;notes.dispatchEvent(new Event('input',{bubbles:true}));}
       commercialActivityDialog.showModal();
     });
     commercialActivityDialog.querySelectorAll('[data-commercial-activity-close]').forEach(button=>button.addEventListener('click',()=>commercialActivityDialog.close()));
     commercialActivityDialog.addEventListener('click',event=>{if(event.target===commercialActivityDialog)commercialActivityDialog.close();});
     commercialActivityDialog.addEventListener('cancel',()=>commercialActivityDialog.close());
+    document.querySelector('[data-baldussi-auto-register]')?.click();
   }
 
   const partnerSyncDialog=document.querySelector('[data-partner-sync-dialog]');
@@ -1348,9 +1498,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   if(window.DataTable?.ext)window.DataTable.ext.errMode='none';
+  const dataTableSelector='.tdcrm-content table:not([data-no-datatable]), [data-datatable]:not([data-no-datatable]), .cix-partners-datatable:not([data-no-datatable])';
   const initDataTable=table=>{
     if(!window.DataTable)return null;
-      if(table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable')||!table.tHead)return;
+      if(!(table instanceof HTMLTableElement)||table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable')||!table.tHead)return null;
       if(table.closest('details:not([open])'))return null;
       const bodyRows=table.tBodies?.[0]?.rows?[...table.tBodies[0].rows]:[];
       const hasBodyColspan=bodyRows.some(row=>[...row.cells].some(cell=>(Number(cell.colSpan)||1)>1));
@@ -1366,7 +1517,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         pageLength:Number.parseInt(table.dataset.pageLength??'10',10)||10,
         lengthChange:serverPaged?false:lengthChange,
         lengthMenu:[[10,25,50,100],[10,25,50,100]],
-        searching:serverPaged?false:searching,
+        searching,
         ordering:true,
         paging:serverPaged?false:true,
         info:serverPaged?false:true,
@@ -1389,15 +1540,19 @@ document.addEventListener('DOMContentLoaded',()=>{
       table._dataTable=new DataTable(table,options);
       return table._dataTable;
   };
-  document.querySelectorAll('.table-card table, .cix-partners-datatable, [data-datatable]').forEach(table=>{
-    if(table.classList.contains('tdcentral-datatable'))return;
-    initDataTable(table);
-  });
-  document.querySelectorAll('.tdcrm-content table').forEach(table=>{
-    if(table.classList.contains('tdcentral-datatable')||table.dataset.dtReady==='1'||table.hasAttribute('data-no-datatable'))return;
-    initDataTable(table);
-  });
-  document.querySelectorAll('.cix-partners-datatable').forEach(initDataTable);
+  const initDataTables=(root=document)=>{
+    const tables=[];
+    if(root instanceof HTMLTableElement&&root.matches(dataTableSelector))tables.push(root);
+    if(typeof root.querySelectorAll==='function')tables.push(...root.querySelectorAll(dataTableSelector));
+    tables.forEach(table=>{
+      if(table.classList.contains('tdcentral-datatable'))return;
+      try{initDataTable(table);}catch(error){
+        delete table.dataset.dtReady;
+        console.error('Falha ao inicializar DataTable:',table,error);
+      }
+    });
+  };
+  initDataTables();
 
   // A Central de Clientes usa uma base CRM grande e precisa de inicializacao
   // server-side explicita. Nao depende da heuristica das demais tabelas.
@@ -1412,7 +1567,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       pageLength:10,
       lengthChange:true,
       lengthMenu:[[10,25,50,100],[10,25,50,100]],
-      searching:false,
+      searching:true,
       ordering:true,
       paging:true,
       info:true,
@@ -1597,13 +1752,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     paint();
   }
 
-  document.querySelectorAll('[data-datatable-container]').forEach(container=>container.addEventListener('toggle',()=>{
+  document.querySelectorAll('details').forEach(container=>container.addEventListener('toggle',()=>{
     if(!container.open)return;
-    container.querySelectorAll('.table-card table').forEach(table=>{
-      const instance=initDataTable(table)||table._dataTable;
+    container.querySelectorAll(dataTableSelector).forEach(table=>{
+      let instance=table._dataTable;
+      try{instance=initDataTable(table)||instance;}catch(error){
+        delete table.dataset.dtReady;
+        console.error('Falha ao inicializar DataTable:',table,error);
+      }
       setTimeout(()=>{try{instance?.columns?.adjust();}catch(e){}},0);
     });
   }));
+
+  const dataTableContent=document.querySelector('.tdcrm-content');
+  if(dataTableContent&&window.MutationObserver){
+    new MutationObserver(mutations=>mutations.forEach(mutation=>mutation.addedNodes.forEach(node=>{
+      if(node instanceof Element)initDataTables(node);
+    }))).observe(dataTableContent,{childList:true,subtree:true});
+  }
 
   const sidebar=document.querySelector('.tdcrm-sidebar');
   const mainShell=document.querySelector('.tdcrm-main');
@@ -1618,7 +1784,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const adjustVisibleTables=()=>{
     window.clearTimeout(tableAdjustTimer);
     window.clearTimeout(tableAdjustLateTimer);
-    const adjust=()=>document.querySelectorAll('.table-card table').forEach(table=>{
+    const adjust=()=>document.querySelectorAll(dataTableSelector).forEach(table=>{
       try{table._dataTable?.columns?.adjust();}catch(e){}
     });
     requestAnimationFrame(adjust);
@@ -1720,13 +1886,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     const icon=modal.querySelector('[data-confirm-icon]');
     const ok=modal.querySelector('[data-confirm-ok]');
     const cancel=modal.querySelector('[data-confirm-cancel]');
-    const tone=['success','danger','warning'].includes(options.tone)?options.tone:'warning';
+    const tone=['success','danger','warning','phone'].includes(options.tone)?options.tone:'warning';
     modal.dataset.tone=tone;
     title.textContent=options.title||'Confirmar operação';
     msg.textContent=message||'Confirmar operação?';
     ok.textContent=options.label||'Confirmar';
-    ok.className='btn app-confirm-ok '+(tone==='success'?'btn-success':tone==='danger'?'btn-danger':'btn-warning');
-    icon.innerHTML=tone==='success'?'<i class="fa-solid fa-check"></i>':tone==='danger'?'<i class="fa-regular fa-trash-can"></i>':'<i class="fa-solid fa-triangle-exclamation"></i>';
+    ok.className='btn app-confirm-ok '+(tone==='success'||tone==='phone'?'btn-success':tone==='danger'?'btn-danger':'btn-warning');
+    icon.innerHTML=options.icon?'<i class="fa-solid '+String(options.icon).replace(/[^a-z0-9-]/gi,'')+'"></i>':tone==='success'?'<i class="fa-solid fa-check"></i>':tone==='danger'?'<i class="fa-regular fa-trash-can"></i>':'<i class="fa-solid fa-triangle-exclamation"></i>';
     modal.classList.add('show');
     const finish=value=>{
       modal.classList.remove('show');
@@ -2764,10 +2930,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   q('[data-client-quick-first-purchase]').textContent=dateLabel(client.first_purchase_at);
   q('[data-client-quick-last-purchase]').textContent=dateLabel(client.last_purchase_at);
   const canWork=!!client.can_work;
-  setLink(q('[data-client-quick-phone]'),contact.phone,'tel:'+digits(contact.phone),canWork);
+  const phoneValue=q('[data-client-quick-phone]');if(phoneValue)phoneValue.textContent=contact.phone||'Telefone não informado';
   setLink(q('[data-client-quick-mobile]'),contact.mobile,waUrl(contact.mobile),canWork);
   setLink(q('[data-client-quick-email]'),contact.email,'mailto:'+contact.email,canWork);
-  const call=q('[data-client-quick-call]');call.href=contact.phone&&canWork?'tel:'+digits(contact.phone):'#';call.classList.toggle('disabled',!contact.phone||!canWork);
+  const dialNumber=contact.phone||contact.mobile||'';
+  const call=q('[data-client-quick-call]');call.href='#';call.classList.toggle('disabled',!dialNumber||!canWork);
+  const inlineCall=q('[data-client-quick-call-inline]');if(inlineCall){inlineCall.disabled=!dialNumber||!canWork;inlineCall.classList.toggle('disabled',inlineCall.disabled);}
   const whatsapp=q('[data-client-quick-whatsapp]');whatsapp.href=contact.mobile&&canWork?waUrl(contact.mobile):'#';whatsapp.classList.toggle('disabled',!contact.mobile||!canWork);
   const activity=q('[data-client-quick-activity]');activity.disabled=!canWork||!client.crm_account_code;activity.classList.toggle('disabled',activity.disabled);
   const task=q('[data-client-quick-task]');task.disabled=!canWork;task.classList.toggle('disabled',task.disabled);
@@ -2834,6 +3002,20 @@ document.addEventListener('DOMContentLoaded',()=>{
  });
  qa('[data-client-quick-close]').forEach(button=>button.addEventListener('click',()=>modal.close()));
  modal.addEventListener('click',event=>{if(event.target===modal)modal.close();});
+
+ const startBaldussiCall=async event=>{
+  event.preventDefault();
+  const client=currentPayload?.client||{},contact=currentPayload?.primary_contact||{};
+  const destination=digits(contact.phone||contact.mobile||'');
+  if(!client.can_work||!destination){notify('warning','Ligação indisponível','Este cliente não possui telefone disponível ou não pertence à sua carteira.');return;}
+  if(!(await askConfirm('Deseja completar a ligação para '+(contact.phone||contact.mobile)+'? O PABX chamará primeiro o seu ramal; depois de atender, aguarde a discagem automática.',{title:'Ligar para '+(client.name||'cliente'),label:'Completar ligação',tone:'phone',icon:'fa-phone-volume'})))return;
+  const form=document.createElement('form');form.method='post';form.action=base+'/settings/baldussi/dial';form.hidden=true;
+  const fields={_token:String(window.CSRF||''),destination,crm_account_code:String(client.crm_account_code||''),confirm_call:'1'};
+  Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
+  document.body.appendChild(form);form.submit();
+ };
+ q('[data-client-quick-call-inline]')?.addEventListener('click',startBaldussiCall);
+ q('[data-client-quick-call]')?.addEventListener('click',startBaldussiCall);
 
  const taskButton=q('[data-client-quick-task]');
  taskButton?.addEventListener('click',()=>{
@@ -2948,23 +3130,33 @@ document.addEventListener('DOMContentLoaded',()=>{
 
  const activityButton=q('[data-client-quick-activity]');
  const activityForm=activityModal?.querySelector('[data-client-quick-activity-form]');
- activityButton?.addEventListener('click',()=>{
-  const client=currentPayload?.client||{};if(!client.can_work||!client.crm_account_code||!activityModal||!activityForm)return;
+ const openActivityModal=(client,notes='')=>{
+  if(!client.crm_account_code||!activityModal||!activityForm)return false;
   activityForm.reset();activityForm.querySelector('[data-client-quick-activity-account]').value=client.crm_account_code;
   activityModal.querySelector('[data-client-quick-activity-name]').textContent=client.name||'Cliente';
-  const next=activityForm.querySelector('[data-client-quick-activity-next]');if(next){const d=new Date(Date.now()+86400000);d.setMinutes(0,0,0);next.min=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);next.value='';}
-  activityModal.showModal();
+  activityForm.elements.namedItem('activity_type').value='contact_completed';activityForm.elements.namedItem('channel').value='phone';
+  activityForm.elements.namedItem('notes').value=notes;
+  activityForm.dataset.source=notes?'baldussi':'';
+  const next=activityForm.querySelector('[data-client-quick-activity-next]');if(next){next.min=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);next.value='';}
+  if(modal.open)modal.close();activityModal.showModal();return true;
+ };
+ activityButton?.addEventListener('click',()=>{
+  const client=currentPayload?.client||{};if(!client.can_work||!client.crm_account_code||!activityModal||!activityForm)return;
+  openActivityModal(client);
+ });
+ document.addEventListener('baldussi:register-activity',event=>{
+  const detail=event.detail||{};openActivityModal({crm_account_code:String(detail.accountCode||''),name:String(detail.accountName||'Cliente')},String(detail.notes||''));
  });
  activityModal?.querySelectorAll('[data-client-quick-activity-close]').forEach(button=>button.addEventListener('click',()=>activityModal.close()));
  activityModal?.addEventListener('click',event=>{if(event.target===activityModal)activityModal.close();});
  activityForm?.addEventListener('submit',async event=>{
-  event.preventDefault();const submit=activityForm.querySelector('[type="submit"]');const original=submit?.innerHTML;if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Salvando...';}
+  event.preventDefault();const fromBaldussi=activityForm.dataset.source==='baldussi';const submit=activityForm.querySelector('[type="submit"]');const original=submit?.innerHTML;if(submit){submit.disabled=true;submit.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>Salvando...';}
   try{
    const formData=new FormData(activityForm);
    const response=await fetch(base+'/api/client-quick-view/activity',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},body:formData});
    const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'Não foi possível registrar a atividade.');
    activityModal.close();notify('success','Atividade registrada',data.message||'O histórico do cliente foi atualizado.');
-   if(currentRequest)load(currentRequest);
+   if(currentRequest)load(currentRequest);else if(fromBaldussi)setTimeout(()=>location.reload(),350);
   }catch(error){notify('danger','Atividade',error.message||'Não foi possível registrar a atividade.');}
   finally{if(submit){submit.disabled=false;submit.innerHTML=original;}}
  });
