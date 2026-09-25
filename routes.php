@@ -919,8 +919,22 @@ $router->get('/api/client-quick-view',function(){
   ],
   'primary_contact'=>['name'=>$contactName,'position'=>$contactRole,'phone'=>$phone,'mobile'=>$mobile,'email'=>$email],
   'contacts'=>$contactItems,'interactions'=>$interactionItems,
+  'edit_form'=>$client?ClientService::formFromClient($client):null,
+  'seller_options'=>$client?DB::all("SELECT omie_code,name FROM sellers WHERE active=1 ORDER BY name"):[],
   'counts'=>['contacts'=>count($contactItems),'activities'=>count($interactionItems),'orders'=>(int)($client['orders_12m']??0)]
  ]);
+});
+
+$router->post('/api/client-quick-view/{id}/update',function($p){
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $u=Auth::user();$id=(int)($p['id']??0);
+ try{
+  $client=DB::one("SELECT id,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
+  if(!$client||empty($client['active'])||!empty($client['crm_inactive']))throw new RuntimeException('Cliente não está disponível para edição.');
+  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cliente não pertence ao universo CRM disponível para manutenção.');
+  ClientService::updateInOmie($id,$_POST,$u);
+  json_response(['ok'=>true,'message'=>'Cadastro atualizado no CRM. A sincronização com a Omie continua explícita.']);
+ }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
 
 $router->post('/api/client-quick-view/activity',function(){
