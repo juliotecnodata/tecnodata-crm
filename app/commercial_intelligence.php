@@ -1439,7 +1439,7 @@ final class CommercialAccountService {
     if($activeCodes){$where[]='a.crm_user_code IN ('.implode(',',array_fill(0,count($activeCodes),'?')).')';array_push($params,...$activeCodes);}
     else $where[]='1=0';
    }elseif($scope==='legacy'){
-    if($activeCodes){$where[]="(a.crm_user_code IS NULL OR a.crm_user_code NOT IN (".implode(',',array_fill(0,count($activeCodes),'?')).')";array_push($params,...$activeCodes);}
+    if($activeCodes){$where[]="(a.crm_user_code IS NULL OR a.crm_user_code NOT IN (".implode(',',array_fill(0,count($activeCodes),'?'))."))";array_push($params,...$activeCodes);}
    }
   }
 
