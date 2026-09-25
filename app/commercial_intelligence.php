@@ -1828,46 +1828,139 @@ final class CommercialSaleService {
 }
 
 final class CommercialPartnerRegistryService {
- public static function sync(int $actorUserId): array{
+ private static function sourceRows(): array{
+  return PartnerDB::all("SELECT id,razao,cnpj,nomefantasia,cidade,uf,ativo FROM cfcs WHERE cnpj IS NOT NULL AND TRIM(cnpj)<>'' ORDER BY razao,id");
+ }
+
+ private static function formatDocument(string $digits): string{
+  return strlen($digits)===14
+   ?substr($digits,0,2).'.'.substr($digits,2,3).'.'.substr($digits,5,3).'/'.substr($digits,8,4).'-'.substr($digits,12,2)
+   :$digits;
+ }
+
+ public static function preview(): array{
   CommercialSchema::ensure();
-  $rows=PartnerDB::all("SELECT id,razao,cnpj,nomefantasia,ativo FROM cfcs WHERE cnpj IS NOT NULL AND TRIM(cnpj)<>'' ORDER BY id");
-  $sourceByDocument=[];$invalid=0;
-  foreach($rows as $row){
+  $source=self::sourceRows();
+  $sourceByDocument=[];$invalidRows=[];
+  foreach($source as $row){
    $document=crm_digits((string)($row['cnpj']??''));
-   if(strlen($document)!==14){$invalid++;continue;}
-   if(!isset($sourceByDocument[$document]))$sourceByDocument[$document]=[];
+   if(strlen($document)!==14){
+    $invalidRows[]=[
+     'source_id'=>(int)($row['id']??0),
+     'source_name'=>trim((string)($row['nomefantasia']??''))?:trim((string)($row['razao']??'')),
+     'document'=>(string)($row['cnpj']??''),
+     'document_digits'=>$document,
+     'city'=>(string)($row['cidade']??''),
+     'uf'=>(string)($row['uf']??''),
+     'source_active'=>(int)($row['ativo']??0)===1,
+     'account_code'=>null,'account_name'=>null,'owner_name'=>null,
+     'current_classification'=>'—','status'=>'invalid','selectable'=>false
+    ];
+    continue;
+   }
    $sourceByDocument[$document][]=$row;
   }
 
   $crmByDocument=[];
-  foreach(DB::all("SELECT omie_code,document FROM crm_accounts WHERE active=1 AND document IS NOT NULL AND TRIM(document)<>''") as $account){
+  $crmRows=DB::all("SELECT a.omie_code,a.name,a.trade_name,a.document,cu.name owner_name,
+                           COALESCE(p.is_cfc,0) is_cfc,COALESCE(p.is_reseller,0) is_reseller
+                    FROM crm_accounts a
+                    LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
+                    LEFT JOIN crm_account_commercial_profiles p ON p.crm_account_code=a.omie_code
+                    WHERE a.active=1 AND a.document IS NOT NULL AND TRIM(a.document)<>''
+                    ORDER BY a.name,a.omie_code");
+  foreach($crmRows as $account){
    $document=crm_digits((string)($account['document']??''));
-   if($document==='')continue;
-   $crmByDocument[$document][]=(string)$account['omie_code'];
+   if($document!=='')$crmByDocument[$document][]=$account;
   }
 
-  $stats=[
-   'source_rows'=>count($rows),
-   'source_documents'=>count($sourceByDocument),
-   'invalid_documents'=>$invalid,
-   'matched_documents'=>0,
-   'matched_accounts'=>0,
-   'updated_accounts'=>0,
-   'already_classified'=>0,
-   'not_found_documents'=>0,
-   'duplicate_crm_documents'=>0,
-  ];
-
+  $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;
   foreach($sourceByDocument as $document=>$sourceRows){
-   $accountCodes=array_values(array_unique($crmByDocument[$document]??[]));
-   if(!$accountCodes){$stats['not_found_documents']++;continue;}
-   $stats['matched_documents']++;
-   if(count($accountCodes)>1)$stats['duplicate_crm_documents']++;
-   foreach($accountCodes as $accountCode){
-    $stats['matched_accounts']++;
+   $names=[];$ids=[];$places=[];$activeCount=0;
+   foreach($sourceRows as $sourceRow){
+    $name=trim((string)($sourceRow['nomefantasia']??''))?:trim((string)($sourceRow['razao']??''));
+    if($name!=='')$names[$name]=true;
+    $ids[]=(int)($sourceRow['id']??0);
+    $place=trim((string)($sourceRow['cidade']??'')).(trim((string)($sourceRow['uf']??''))!==''?' / '.trim((string)$sourceRow['uf']):'');
+    if(trim($place,' /')!=='')$places[$place]=true;
+    if((int)($sourceRow['ativo']??0)===1)$activeCount++;
+   }
+   $sourceName=implode(' · ',array_keys($names));$place=implode(' · ',array_keys($places));
+   $matches=$crmByDocument[$document]??[];
+   if(!$matches){
+    $notFound++;
+    $rows[]=[
+     'source_ids'=>$ids,'source_name'=>$sourceName,'document'=>self::formatDocument($document),'document_digits'=>$document,
+     'city_uf'=>$place,'source_active'=>$activeCount>0,'source_count'=>count($sourceRows),
+     'account_code'=>null,'account_name'=>null,'owner_name'=>null,'current_classification'=>'—',
+     'status'=>'not_found','selectable'=>false,'duplicate_crm'=>false
+    ];
+    continue;
+   }
+
+   $matchedDocuments++;
+   if(count($matches)>1)$duplicateCrm++;
+   foreach($matches as $account){
+    $matchedAccounts++;
+    $isCfc=(int)($account['is_cfc']??0)===1;$isReseller=(int)($account['is_reseller']??0)===1;
+    $current=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':'Sem classificação'));
+    $isAlready=$isCfc&&$isReseller;
+    if($isAlready)$already++;else $pending++;
+    $rows[]=[
+     'source_ids'=>$ids,'source_name'=>$sourceName,'document'=>self::formatDocument($document),'document_digits'=>$document,
+     'city_uf'=>$place,'source_active'=>$activeCount>0,'source_count'=>count($sourceRows),
+     'account_code'=>(string)$account['omie_code'],
+     'account_name'=>trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')),
+     'owner_name'=>(string)($account['owner_name']??''),
+     'current_classification'=>$current,
+     'status'=>$isAlready?'already':'pending',
+     'selectable'=>!$isAlready,
+     'duplicate_crm'=>count($matches)>1
+    ];
+   }
+  }
+  foreach($invalidRows as $row)$rows[]=$row;
+
+  usort($rows,static function(array $a,array $b): int{
+   $rank=['pending'=>0,'already'=>1,'not_found'=>2,'invalid'=>3];
+   $cmp=($rank[$a['status']]??9)<=>($rank[$b['status']]??9);
+   if($cmp!==0)return $cmp;
+   return strcasecmp((string)($a['source_name']??''),(string)($b['source_name']??''));
+  });
+
+  return [
+   'rows'=>$rows,
+   'summary'=>[
+    'source_rows'=>count($source),
+    'source_documents'=>count($sourceByDocument),
+    'matched_documents'=>$matchedDocuments,
+    'matched_accounts'=>$matchedAccounts,
+    'pending_accounts'=>$pending,
+    'already_classified'=>$already,
+    'not_found_documents'=>$notFound,
+    'invalid_documents'=>count($invalidRows),
+    'duplicate_crm_documents'=>$duplicateCrm,
+   ]
+  ];
+ }
+
+ public static function apply(array $accountCodes,int $actorUserId): array{
+  CommercialSchema::ensure();
+  $requested=array_values(array_unique(array_filter(array_map(static fn($v)=>trim((string)$v),$accountCodes),static fn($v)=>$v!=='')));
+  if(!$requested)return ['requested'=>0,'updated_accounts'=>0,'skipped_accounts'=>0];
+
+  $preview=self::preview();$allowed=[];
+  foreach($preview['rows'] as $row){
+   $code=trim((string)($row['account_code']??''));
+   if($code!==''&&!empty($row['selectable'])&&($row['status']??'')==='pending')$allowed[$code]=$row;
+  }
+
+  $updated=0;$skipped=0;
+  DB::conn()->beginTransaction();
+  try{
+   foreach($requested as $accountCode){
+    if(!isset($allowed[$accountCode])){$skipped++;continue;}
     $profile=CommercialAccountService::profile($accountCode);
-    $isAlready=!empty($profile['is_cfc'])&&!empty($profile['is_reseller']);
-    if($isAlready){$stats['already_classified']++;continue;}
     CommercialAccountService::updateProfile(
      $accountCode,
      true,
@@ -1875,10 +1968,14 @@ final class CommercialPartnerRegistryService {
      $actorUserId,
      (string)($profile['strategic_notes']??'')
     );
-    $stats['updated_accounts']++;
+    $updated++;
    }
+   DB::conn()->commit();
+  }catch(Throwable $e){
+   if(DB::conn()->inTransaction())DB::conn()->rollBack();
+   throw $e;
   }
-  return $stats;
+  return ['requested'=>count($requested),'updated_accounts'=>$updated,'skipped_accounts'=>$skipped];
  }
 }
 
