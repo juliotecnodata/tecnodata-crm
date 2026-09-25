@@ -593,8 +593,9 @@ body{background:var(--bg)}
 .client-omie-linked>i{font-size:18px;color:var(--green)}
 @media(max-width:760px){.client-omie-pending,.client-omie-linked{grid-template-columns:auto 1fr}.client-omie-pending form{grid-column:1/-1}.client-omie-pending .btn{width:100%}}
 
-.app-confirm-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(18,27,37,.48);display:none;align-items:center;justify-content:center;padding:18px}
-.app-confirm-backdrop.show{display:flex}
+.app-confirm-backdrop{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;border:0;box-sizing:border-box;z-index:2147483647;background:rgba(18,27,37,.48);display:none;align-items:center;justify-content:center;padding:18px}
+.app-confirm-backdrop[open],.app-confirm-backdrop.show{display:flex}
+.app-confirm-backdrop::backdrop{background:transparent}
 .app-confirm-card{width:min(460px,100%);background:#fff;border:1px solid #DCE3E6;border-radius:10px;padding:18px;display:grid;grid-template-columns:auto 1fr;gap:14px}
 .app-confirm-icon{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;background:#FCEDEA;color:#C55252;font-size:17px}
 .app-confirm-copy{display:flex;flex-direction:column;min-width:0}
