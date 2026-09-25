@@ -92,6 +92,14 @@ final class PartnerDB {
   return $d;
  }
 
+ public static function editableConfig(): array{
+  $d=array_replace(self::baseConfig(),self::savedConfig());
+  $passwordSaved=trim((string)($d['password']??''))!=='';
+  unset($d['password']);
+  $d['password_saved']=$passwordSaved;
+  return $d;
+ }
+
  public static function saveConfig(array $data): array{
   $current=array_replace(self::baseConfig(),self::savedConfig());
   $host=trim((string)($data['host']??''));$database=trim((string)($data['database']??''));
