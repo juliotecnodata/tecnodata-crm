@@ -875,15 +875,15 @@ $router->get('/api/client-quick-view',function(){
                     WHERE c.id=? LIMIT 1",[$clientId]);
   }
 
-  $isAdmin=in_array($role,['admin','supervisor'],true);
-  if($role==='seller'){
-   $allowed=$accountCode!==''?CommercialAccountService::canView($u,$accountCode):($clientId>0&&client_central_seller_accessible($clientId));
-   if(!$allowed)json_response(['ok'=>false,'error'=>'Este cadastro não está disponível na sua Central de Clientes.'],403);
+  $isAdmin=$role==='admin';$isSupervisor=$role==='supervisor';
+  if(in_array($role,['seller','supervisor'],true)){
+   $allowed=$accountCode!==''?CommercialAccountService::canView($u,$accountCode):($clientId>0&&($role==='seller'?client_central_seller_accessible($clientId):client_central_supervisor_accessible($clientId)));
+   if(!$allowed)json_response(['ok'=>false,'error'=>$role==='supervisor'?'Este cadastro não pertence às carteiras comerciais da equipe.':'Este cadastro não está disponível na sua carteira.'],403);
   }elseif($role==='collector'){
    if(!$client||empty($client['active'])||!empty($client['crm_inactive']))json_response(['ok'=>false,'error'=>'Cliente indisponível para consulta.'],403);
   }elseif(!$isAdmin)json_response(['ok'=>false,'error'=>'Sem permissão para consultar este cadastro.'],403);
 
-  if($client&&$role!=='admin'&&$role!=='supervisor'&&(!empty($client['crm_inactive'])||empty($client['active'])))json_response(['ok'=>false,'error'=>'Cliente indisponível para consulta.'],404);
+  if($client&&!$isAdmin&&(!empty($client['crm_inactive'])||empty($client['active'])))json_response(['ok'=>false,'error'=>'Cliente indisponível para consulta.'],404);
 
   $profile=['is_cfc'=>0,'is_reseller'=>0,'strategic_notes'=>''];
   if($accountCode!==''){
@@ -945,7 +945,7 @@ $router->get('/api/client-quick-view',function(){
    else{$status='Agendado';$statusTone='scheduled';}
   }elseif($lastContactAt===''){$status='Sem contato';$statusTone='neutral';}
 
-  $canWork=$isAdmin||($role==='seller'&&$accountCode!==''&&CommercialAccountService::canWork($u,$accountCode));
+  $canWork=$isAdmin||(in_array($role,['seller','supervisor'],true)&&$accountCode!==''&&CommercialAccountService::canWork($u,$accountCode));
   $strategicNotes=trim((string)($profile['strategic_notes']??''));
   if($strategicNotes===''&&!empty($notes[0]['note']))$strategicNotes=trim((string)$notes[0]['note']);
   if($strategicNotes===''&&$client)$strategicNotes=trim((string)($client['notes']??''));
@@ -980,7 +980,7 @@ $router->get('/api/client-quick-view',function(){
     'first_purchase_at'=>$client['first_purchase_at']??null,'last_purchase_at'=>$client['last_purchase_at']??null,
     'revenue_12m'=>(float)($client['revenue_12m']??0),'orders_12m'=>(int)($client['orders_12m']??0),
     'strategic_notes'=>$strategicNotes,'full_url'=>$fullUrl,'can_work'=>$canWork,
-    'can_edit'=>$clientId>0&&($isAdmin||$role==='seller'),'edit_url'=>$clientId>0?APP_URL.'/clients/'.$clientId.'/edit':null,
+    'can_edit'=>$clientId>0&&($isAdmin||$isSupervisor||$role==='seller'),'edit_url'=>$clientId>0?APP_URL.'/clients/'.$clientId.'/edit':null,
     'linked_client'=>$clientId>0,'source'=>$accountCode!==''?'crm_account':'client'
    ],
    'primary_contact'=>['name'=>$contactName,'position'=>$contactRole,'phone'=>$phone,'mobile'=>$mobile,'email'=>$email],
@@ -1005,7 +1005,8 @@ $router->post('/api/client-quick-view/{id}/update',function($p){
  try{
   $client=DB::one("SELECT id,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
   if(!$client||empty($client['active'])||!empty($client['crm_inactive']))throw new RuntimeException('Cliente não está disponível para edição.');
-  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cliente não pertence ao universo CRM disponível para manutenção.');
+  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cliente não pertence à sua carteira.');
+  if((string)($u['role']??'')==='supervisor'&&!client_central_supervisor_accessible($id))throw new RuntimeException('Este cliente não pertence às carteiras comerciais da equipe.');
   ClientService::updateInOmie($id,$_POST,$u);
   $accountCode=trim((string)(DB::scalar("SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=? ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1",[$id])??''));
   if($accountCode!==''){
@@ -1059,7 +1060,7 @@ $renderCommercialPortfolio=function(){
  $u=Auth::user();$data=CommercialAccountService::portfolio($u,$_GET);
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_portfolio',[
-  'portfolio'=>$data,'owners'=>in_array((string)$u['role'],['admin','supervisor'],true)?CommercialAccountService::owners():[],
+  'portfolio'=>$data,'owners'=>in_array((string)$u['role'],['admin','supervisor'],true)?CommercialAccountService::owners((string)$u['role']==='supervisor'):[],
   'activeSellerCodes'=>CommercialPortfolioService::activeCrmSellerCodes(),'flash'=>$flash,
   'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
   'activityCategories'=>CommercialActivityService::categories(),'activityOutcomes'=>CommercialActivityService::outcomes(),
@@ -1616,16 +1617,17 @@ $router->post('/clients/portfolio/assign',function(){
 $router->get('/clients/{id}/edit',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$id=(int)$p['id'];
  $client=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);
- if(!$client||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
+ if(!$client||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))||((string)($u['role']??'')==='supervisor'&&!client_central_supervisor_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
  redirect('/clients/'.$id.'?edit=1');
 });
 $router->post('/clients/{id}/update',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de editar.');
-  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cadastro não pertence à Central de Clientes CRM.');
+  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))throw new RuntimeException('Este cadastro não pertence à sua carteira.');
+  if((string)($u['role']??'')==='supervisor'&&!client_central_supervisor_accessible($id))throw new RuntimeException('Este cadastro não pertence às carteiras comerciais da equipe.');
   ClientService::updateInOmie($id,$_POST,$u);
-  $_SESSION['client_flash']=['type'=>'success','message'=>(string)($u['role']??'')==='seller'?'Alterações salvas no CRM e deixadas como pendentes para sincronização por um supervisor ou administrador.':'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.'];
+  $_SESSION['client_flash']=['type'=>'success','message'=>((string)($u['role']??'')==='seller'?'Alterações salvas no CRM e deixadas como pendentes para sincronização por um supervisor ou administrador.':'Alterações salvas no CRM. A Omie ainda não foi alterada. Use o botão “Sincronizar Omie” para concluir.')];
   redirect('/clients/'.$id);
  }catch(Throwable $e){
   $_SESSION['client_flash']=['type'=>'danger','message'=>'Não foi possível salvar o cadastro: '.$e->getMessage()];
@@ -1722,8 +1724,9 @@ $router->get('/clients/{id}',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();$u=Auth::user();$id=(int)$p['id'];$flash=$_SESSION['client_flash']??null;unset($_SESSION['client_flash']);
  $c=DB::one("SELECT c.*,m.*,ciu.name crm_inactivated_by_name FROM clients c LEFT JOIN client_metrics m ON m.client_id=c.id LEFT JOIN users ciu ON ciu.id=c.crm_inactivated_by WHERE c.id=?",[$id]);
  if(!$c){http_response_code(404);exit('Cliente não encontrado.');}
- if(!in_array((string)($u['role']??''),['admin','supervisor'],true)&&(!empty($c['crm_inactive'])||(int)($c['active']??0)!==1)){http_response_code(404);exit('Cliente não encontrado.');}
+ if((string)($u['role']??'')!=='admin'&&(!empty($c['crm_inactive'])||(int)($c['active']??0)!==1)){http_response_code(404);exit('Cliente não encontrado.');}
  if((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id)){http_response_code(404);exit('Cliente não encontrado.');}
+ if((string)($u['role']??'')==='supervisor'&&!client_central_supervisor_accessible($id)){http_response_code(404);exit('Cliente não encontrado.');}
  $portfolioMonth=ClientPortfolioService::monthRef();$portfolioAssignment=ClientPortfolioService::assignment($id,$portfolioMonth);$effectiveSellerCode=ClientPortfolioService::effectiveSellerCode($id,$portfolioMonth);
  $isUnassigned=$effectiveSellerCode==='';
  $a=DB::all("SELECT a.*,u.name user_name FROM activities a JOIN users u ON u.id=a.user_id WHERE a.client_id=? ORDER BY a.created_at DESC LIMIT 30",[$id]);
@@ -1746,7 +1749,7 @@ $router->post('/clients/{id}/commercial-profile',function($p){
  Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  $id=(int)$p['id'];$u=Auth::user();
  $client=DB::one("SELECT id,name,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
- if(!$client||(int)($client['active']??0)!==1||!empty($client['crm_inactive'])||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
+ if(!$client||(int)($client['active']??0)!==1||!empty($client['crm_inactive'])||((string)($u['role']??'')==='seller'&&!client_central_seller_accessible($id))||((string)($u['role']??'')==='supervisor'&&!client_central_supervisor_accessible($id))){http_response_code(404);exit('Cliente não encontrado.');}
  $isCfc=!empty($_POST['is_cfc']);$isReseller=!empty($_POST['is_reseller']);
  $notes=trim((string)($_POST['strategic_notes']??''));if(mb_strlen($notes)>10000)throw new RuntimeException('A observação estratégica deve ter até 10.000 caracteres.');
  CommercialClassificationService::update($id,$isCfc,$isReseller,(int)$u['id'],$notes);
