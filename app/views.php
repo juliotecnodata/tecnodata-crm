@@ -888,6 +888,8 @@ function render(string $name,array $vars=[]): void{
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$linked=!empty($account['client_id']);$profile=$profile??[];
    $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$linked;$canCreateLink=$canAdminLink||$canSellerLink;
+   $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
+   $contacts=array_values($contacts??[]);
    $activities=array_values($activities??[]);$commercialNotes=array_values($commercialNotes??[]);$audit=array_values($audit??[]);
    $activityCount=count($activities);$noteCount=count($commercialNotes);
    $isCfc=!empty($profile['is_cfc']);$isReseller=!empty($profile['is_reseller']);
@@ -1022,6 +1024,37 @@ function render(string $name,array $vars=[]): void{
       </div>
      <?php endif;?>
     </section>
+
+    <section class="tdf-ecosystem" aria-label="Integrações deste cliente">
+     <article class="ok">
+      <span><i class="fa-solid fa-building"></i></span>
+      <div><small>CRM OMIE</small><strong>Conta conectada</strong><p><?=e((string)$account['omie_code'])?> · <?=e((string)($account['owner_name']?:'Sem responsável'))?></p></div>
+     </article>
+     <article class="<?=!empty($ecosystem['has_contacts'])?'ok':'empty'?>">
+      <span><i class="fa-regular fa-address-book"></i></span>
+      <div><small>CONTATOS CRM</small><strong><?=number_format((int)($ecosystem['contacts_count']??count($contacts)),0,',','.')?> contato(s)</strong><p><?=!empty($ecosystem['has_contacts'])?'Sincronizados com a Conta CRM':'Nenhum contato retornado pelo CRM Omie'?></p></div>
+     </article>
+     <article class="<?=!empty($ecosystem['has_sales_client'])?'ok':'warning'?>">
+      <span><i class="fa-solid fa-cart-shopping"></i></span>
+      <div><small>CLIENTE / VENDAS OMIE</small><strong><?=!empty($ecosystem['has_sales_client'])?'Vinculado':'Sem vínculo'?></strong><p><?php if(!empty($ecosystem['has_sales_client'])):?><?=number_format((int)($ecosystem['orders_count']??0),0,',','.')?> pedido(s) · <?=number_format((int)($ecosystem['services_count']??0),0,',','.')?> serviço(s)<?php else:?>Vendas e financeiro ainda não compartilham esta identidade<?php endif;?></p></div>
+     </article>
+     <article class="<?=!empty($ecosystem['has_financial'])||!empty($ecosystem['collection_open'])?'attention':'empty'?>">
+      <span><i class="fa-solid fa-hand-holding-dollar"></i></span>
+      <div><small>FINANCEIRO / COBRANÇA</small><strong><?=!empty($ecosystem['has_financial'])||!empty($ecosystem['collection_open'])?'Com movimento':'Sem pendência'?></strong><p><?=!empty($ecosystem['has_financial'])?money($ecosystem['financial_open_amount']??0).' em aberto':'Nenhum título aberto localizado'?></p></div>
+     </article>
+     <article class="<?=!empty($ecosystem['has_commercial_history'])?'ok':'empty'?>">
+      <span><i class="fa-solid fa-clock-rotate-left"></i></span>
+      <div><small>TECNODATA CRM</small><strong><?=number_format((int)($ecosystem['activities_count']??0),0,',','.')?> atividade(s)</strong><p><?=number_format((int)($ecosystem['pending_tasks_count']??0),0,',','.')?> tarefa(s) pendente(s) preservadas</p></div>
+     </article>
+    </section>
+
+    <?php if($linked&&$canWork):?>
+    <div class="tdf-source-actions">
+     <a href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/edit"><i class="fa-solid fa-pen"></i>Editar Cliente Omie</a>
+     <form method="post" action="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit"><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Cliente Omie</button></form>
+     <span><i class="fa-solid fa-circle-info"></i>Responsável e contatos pertencem à Conta CRM Omie. Cadastro fiscal e vendas pertencem ao Cliente Geral Omie.</span>
+    </div>
+    <?php endif;?>
 
     <?php if($canCreateLink&&!$linked):?>
     <dialog class="tdf-link-dialog" data-commercial-client-link-dialog>
