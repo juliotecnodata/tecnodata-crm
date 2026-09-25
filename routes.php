@@ -1012,11 +1012,16 @@ $router->get('/clients',function()use($renderClients){
  $u=Auth::user();
  if((string)($u['role']??'')==='seller'){
   CommercialSchema::ensure();
-  $filters=$_GET;$filters['_seller_central']=1;$filters['attention']='all';$filters['scope']='all';$filters['sort']='name';
+  $filters=$_GET;$filters['_seller_central']=1;$filters['scope']='all';$filters['sort']='name';
+  $filters['per_page']=max(10,min(50,(int)($_GET['per_page']??10)));
   $flash=$_SESSION['commercial_flash']??($_SESSION['clients_flash']??null);
   unset($_SESSION['commercial_flash'],$_SESSION['clients_flash']);
+  $pendingSync=0;
+  try{$pendingSync=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE c.active=1 AND c.crm_inactive=0 AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update')")??0);}catch(Throwable $ignored){}
   render('commercial_portfolio',[
    'portfolio'=>CommercialAccountService::portfolio($u,$filters),
+   'centralStats'=>CommercialAccountService::centralStats(),
+   'centralPendingSync'=>$pendingSync,
    'owners'=>CommercialAccountService::owners(),
    'flash'=>$flash,'centralMode'=>true,
    'activityTypes'=>CommercialActivityService::types(),'activityChannels'=>CommercialActivityService::channels(),
@@ -1145,6 +1150,7 @@ $router->post('/commercial/accounts/{code}/client-link',function($p){
   CommercialAccountService::linkClient($code,$clientId,Auth::id(),$allowMismatch,trim((string)($_POST['notes']??'')));
   $_SESSION['commercial_flash']=['type'=>'success','message'=>'Conta CRM vinculada ao Cliente Geral. Vendas e cobrança agora compartilham a mesma identidade Omie.'];
  }catch(Throwable $e){$_SESSION['commercial_flash']=['type'=>'danger','message'=>$e->getMessage()];}
+ if((string)($_POST['return_to']??'')==='clients')redirect('/clients');
  redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
@@ -1225,8 +1231,8 @@ $router->post('/commercial/accounts/{code}/profile',function($p){
  if(!CommercialAccountService::canView($u,$code)){http_response_code(403);exit('Sem permissão para alterar esta Conta CRM.');}
  CommercialAccountService::updateProfile($code,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Perfil comercial atualizado. A alteração foi auditada e entrou na fila de sincronização do Omie.'];
- $suffix=(string)($_POST['return_to']??'')==='clients'?'?from=clients':'';
- redirect('/commercial/accounts/'.rawurlencode($code).$suffix);
+ if((string)($_POST['return_to']??'')==='clients')redirect('/clients');
+ redirect('/commercial/accounts/'.rawurlencode($code));
 });
 
 $router->get('/commercial-partners',function(){
