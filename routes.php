@@ -2839,7 +2839,7 @@ $router->post('/settings/partner-database',function(){
   $action=(string)($_POST['action']??'save');
   if($action==='save_test'){
    $test=PartnerDB::test();
-   $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva e testada com sucesso. '.number_format((int)($test['cfcs']??0),0,','.').' registro(s) encontrados na tabela cfcs.'];
+   $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva e testada com sucesso. '.number_format((int)($test['cfcs']??0),0,',','.').' registro(s) encontrados na tabela cfcs.'];
   }else{
    $_SESSION['settings_flash']=['type'=>'success','message'=>'Conexão com o banco de parceiros salva.'];
   }
