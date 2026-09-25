@@ -56,27 +56,6 @@ return [
   ],
  ],
 
- 'partner_database'=>[
-  // Configuração feita somente em config/config.php (não é exibida na interface do CRM).
-  // Base externa de parceiros/CFCs. O sistema lê somente dados cadastrais necessários
-  // para conciliar CNPJ com a Conta CRM; o campo senha da tabela cfcs não é consultado.
-  'local'=>[
-   'host'=>'127.0.0.1',
-   'port'=>3306,
-   'database'=>'u695906402_Tecno_Loja_BD',
-   'username'=>'root',
-   'password'=>'',
-   'charset'=>'utf8mb4',
-  ],
-  'production'=>[
-   'host'=>'127.0.0.1',
-   'port'=>3306,
-   'database'=>'u695906402_Tecno_Loja_BD',
-   'username'=>'SEU_USUARIO_PARCEIROS',
-   'password'=>'SUA_SENHA_PARCEIROS',
-   'charset'=>'utf8mb4',
-  ],
- ],
 
  'omie'=>[
   'app_key'=>'SUA_APP_KEY',
