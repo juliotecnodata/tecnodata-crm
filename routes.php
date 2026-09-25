@@ -915,6 +915,7 @@ $router->get('/api/client-quick-view',function(){
    'first_purchase_at'=>$client['first_purchase_at']??null,'last_purchase_at'=>$client['last_purchase_at']??null,
    'revenue_12m'=>(float)($client['revenue_12m']??0),'orders_12m'=>(int)($client['orders_12m']??0),
    'strategic_notes'=>$strategicNotes,'full_url'=>$fullUrl,'can_work'=>$canWork,
+   'can_edit'=>$clientId>0&&($isAdmin||$role==='seller'),'edit_url'=>$clientId>0?APP_URL.'/clients/'.$clientId.'/edit':null,
    'linked_client'=>$clientId>0,'source'=>$accountCode!==''?'crm_account':'client'
   ],
   'primary_contact'=>['name'=>$contactName,'position'=>$contactRole,'phone'=>$phone,'mobile'=>$mobile,'email'=>$email],
