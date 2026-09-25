@@ -187,6 +187,18 @@ function client_search_fields(string $alias='c'): array{
   "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.codigo_cliente_integracao'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.nome_fantasia'))",
   "JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.razao_social'))","JSON_UNQUOTE(JSON_EXTRACT(".$p."raw_json,'$.request.codigo_cliente_integracao'))"];
 }
+function commercial_active_crm_link_sql(string $clientAlias='c'): string{
+ if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$clientAlias))throw new InvalidArgumentException('Alias de cliente inválido.');
+ return "EXISTS (SELECT 1 FROM crm_account_links identity_link
+                 JOIN crm_accounts identity_account ON identity_account.omie_code=identity_link.crm_account_code AND identity_account.active=1
+                 WHERE identity_link.client_id=".$clientAlias.".id)";
+}
+function commercial_historical_crm_link_sql(string $clientAlias='c'): string{
+ if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$clientAlias))throw new InvalidArgumentException('Alias de cliente inválido.');
+ return "EXISTS (SELECT 1 FROM crm_account_links historical_link
+                 JOIN crm_accounts historical_account ON historical_account.omie_code=historical_link.crm_account_code AND historical_account.active=0
+                 WHERE historical_link.client_id=".$clientAlias.".id)";
+}
 function commercial_account_for_client_user(int $clientId,array $user): ?array{
  if($clientId<=0)return null;CommercialSchema::ensure();
  $where=['l.client_id=?','a.active=1'];$params=[$clientId];
@@ -689,6 +701,8 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
+ $identityFilter=$canManage?(string)($_GET['identity']??'linked'):'linked';
+ if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter='linked';
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
@@ -702,6 +716,10 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
  $w=['c.active=1',$segmentSql];$p=$segmentParams;
  if($crmStatus==='active')$w[]='c.crm_inactive=0';elseif($crmStatus==='inactive')$w[]='c.crm_inactive=1';
+ $activeIdentitySql=commercial_active_crm_link_sql('c');$historicalIdentitySql=commercial_historical_crm_link_sql('c');
+ if($identityFilter==='linked')$w[]=$activeIdentitySql;
+ elseif($identityFilter==='sales_only')$w[]='NOT ('.$activeIdentitySql.')';
+ elseif($identityFilter==='historical'){$w[]='NOT ('.$activeIdentitySql.')';$w[]=$historicalIdentitySql;}
  if($u['role']==='seller'){
   if($portfolioOnly){[$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$w[]=$portfolioSql;array_push($p,...$portfolioParams);}
   elseif($clientScope==='unassigned'){
@@ -761,6 +779,27 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  $baseCounts=client_base_counts_cached();
  if($portfolioOnly&&$u['role']==='seller'){[$statePortfolioSql,$statePortfolioParams]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$stateWhere.=' AND '.$statePortfolioSql;array_push($stateParams,...$statePortfolioParams);}
  $stateWhereJoined=str_replace($stateEffectiveSql,$stateEffectiveExpr,$stateWhere);
+
+ $identitySummary=['linked'=>0,'crm_only'=>0,'sales_only'=>0,'historical'=>0,'conflicts'=>0];
+ $crmOnlyAccounts=[];
+ if($canManage){
+  $identitySummary['linked']=(int)(DB::scalar("SELECT COUNT(DISTINCT c.id) FROM clients c WHERE c.active=1 AND c.crm_inactive=0 AND ".commercial_active_crm_link_sql('c'))??0);
+  $identitySummary['crm_only']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a WHERE a.active=1 AND NOT EXISTS (SELECT 1 FROM crm_account_links l WHERE l.crm_account_code=a.omie_code)")??0);
+  $identitySummary['sales_only']=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE c.active=1 AND c.crm_inactive=0 AND NOT (".commercial_active_crm_link_sql('c').")")??0);
+  $identitySummary['historical']=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE c.active=1 AND c.crm_inactive=0 AND NOT (".commercial_active_crm_link_sql('c').") AND ".commercial_historical_crm_link_sql('c'))??0);
+  $identitySummary['conflicts']=(int)(DB::scalar("SELECT COUNT(*) FROM (
+    SELECT l.client_id FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+    GROUP BY l.client_id HAVING COUNT(*)>1
+   ) conflict_clients")??0);
+  $crmOnlyAccounts=DB::all("SELECT a.omie_code,COALESCE(NULLIF(a.trade_name,''),a.name) account_name,a.document,
+                                  COALESCE(u.name,cu.name,'Sem responsável mapeado') owner_name,a.updated_at
+                           FROM crm_accounts a
+                           LEFT JOIN crm_users cu ON cu.omie_code=a.crm_user_code
+                           LEFT JOIN users u ON u.crm_user_omie_code=a.crm_user_code AND u.active=1
+                           WHERE a.active=1 AND NOT EXISTS (SELECT 1 FROM crm_account_links l WHERE l.crm_account_code=a.omie_code)
+                           ORDER BY a.updated_at DESC,a.omie_code
+                           LIMIT 8");
+ }
  render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'classificationFilter'=>$classificationFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
@@ -780,7 +819,8 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
    :DB::all("SELECT DISTINCT (".$stateEffectiveExpr.") omie_code,COALESCE(s.name,CONCAT('Código ',(".$stateEffectiveExpr."))) name,COALESCE(s.active,0) active FROM clients c".$statePortfolioJoin." LEFT JOIN sellers s ON s.omie_code=(".$stateEffectiveExpr.") WHERE ".$stateWhereJoined." AND (".$stateEffectiveExpr.") IS NOT NULL AND TRIM((".$stateEffectiveExpr."))<>'' ORDER BY active DESC,name",$stateParams),
  'portfolioStates'=>Auth::can('admin','supervisor')&&$segment==='general'?DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams):[],
  'clientStates'=>DB::all("SELECT DISTINCT UPPER(TRIM(c.uf)) uf FROM clients c".$statePortfolioJoin." WHERE ".$stateWhereJoined." AND c.uf IS NOT NULL AND TRIM(c.uf)<>'' ORDER BY uf",$stateParams),
- 'crmPortfolioReady'=>$crmPortfolioReady,'commercialHealth'=>$crmPortfolioReady?CommercialPortfolioService::health():[]
+ 'crmPortfolioReady'=>$crmPortfolioReady,'commercialHealth'=>$crmPortfolioReady?CommercialPortfolioService::health():[],
+ 'identityFilter'=>$identityFilter,'identitySummary'=>$identitySummary,'crmOnlyAccounts'=>$crmOnlyAccounts
  ]);
 };
 $router->get('/clients',function()use($renderClients){
@@ -2895,6 +2935,7 @@ $router->get('/api/clients/datatable',function(){
  if($portfolioOnly)$segment='general';
  elseif(($u['role']??'')==='seller')$segment='all';
  $canManage=in_array((string)$u['role'],['admin','supervisor'],true);
+ $identityFilter=$canManage?(string)($_GET['identity']??'linked'):'linked';if(!in_array($identityFilter,['linked','sales_only','historical','all'],true))$identityFilter='linked';
  $crmStatus=$canManage?(string)($_GET['crm_status']??'active'):'active';if(!in_array($crmStatus,['active','inactive','all'],true))$crmStatus='active';
  if($portfolioOnly)$crmStatus='active';
  $clientScope=$portfolioOnly?'mine':(($u['role']==='seller'&&(string)($_GET['scope']??'all')==='unassigned')?'unassigned':'all');
@@ -2909,6 +2950,10 @@ $router->get('/api/clients/datatable',function(){
  [$segmentSql,$segmentParams]=client_segment_filter($segment,'c');
  $baseWhere=['c.active=1',$segmentSql];$baseParams=$segmentParams;
  if($crmStatus==='active')$baseWhere[]='c.crm_inactive=0';elseif($crmStatus==='inactive')$baseWhere[]='c.crm_inactive=1';
+ $activeIdentitySql=commercial_active_crm_link_sql('c');$historicalIdentitySql=commercial_historical_crm_link_sql('c');
+ if($identityFilter==='linked')$baseWhere[]=$activeIdentitySql;
+ elseif($identityFilter==='sales_only')$baseWhere[]='NOT ('.$activeIdentitySql.')';
+ elseif($identityFilter==='historical'){$baseWhere[]='NOT ('.$activeIdentitySql.')';$baseWhere[]=$historicalIdentitySql;}
  if(($u['role']??'')==='seller'){
   if($portfolioOnly){[$portfolioSql,$portfolioParams,$portfolioSource]=CommercialPortfolioService::sellerPortfolioCondition($u,'c',$portfolioMonth);$baseWhere[]=$portfolioSql;array_push($baseParams,...$portfolioParams);}
   elseif($clientScope==='unassigned'){
@@ -2946,7 +2991,7 @@ $router->get('/api/clients/datatable',function(){
  $recordsFiltered=$search===''?$recordsTotal:(int)(DB::scalar("SELECT COUNT(*) FROM clients c".$portfolioJoin.$sellerJoin." WHERE ".$sqlWhere,$params)??0);
  $canBulk=$canManage&&$crmStatus==='active';
  $lastContactOrder="GREATEST(COALESCE((SELECT MAX(a_order.created_at) FROM activities a_order WHERE a_order.client_id=c.id),'1000-01-01'),COALESCE((SELECT MAX(ca_order.created_at) FROM collection_actions ca_order WHERE ca_order.client_id=c.id),'1000-01-01'))";
- $orderColumns=$canBulk?['c.id','c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id'];
+ $orderColumns=$canBulk?['c.id','c.name','c.id','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id']:['c.name','c.id','c.city','('.$effectiveSellerExpr.')','c.id','m.last_purchase_at',$lastContactOrder,'m.last_purchase_at','m.revenue_12m','c.id'];
  $orderInput=$_GET['order']??[];
  $orderIndex=(int)(is_array($orderInput)?($orderInput[0]['column']??0):0);
  $orderBy=$orderColumns[$orderIndex]??'c.name';
@@ -2958,7 +3003,15 @@ $router->get('/api/clients/datatable',function(){
           pa.id portfolio_assignment_id,pa.seller_omie_code portfolio_seller_code,
           m.last_purchase_at,m.revenue_12m,m.orders_12m,m.avg_interval_days,
           (SELECT MAX(a_last.created_at) FROM activities a_last WHERE a_last.client_id=c.id) last_activity_at,
-          (SELECT MAX(ca_last.created_at) FROM collection_actions ca_last WHERE ca_last.client_id=c.id) last_collection_at
+          (SELECT MAX(ca_last.created_at) FROM collection_actions ca_last WHERE ca_last.client_id=c.id) last_collection_at,
+          (SELECT l.crm_account_code
+             FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+            WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC,l.crm_account_code LIMIT 1) active_crm_account_code,
+          (SELECT COALESCE(NULLIF(a.trade_name,''),a.name)
+             FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1
+            WHERE l.client_id=c.id ORDER BY l.is_primary DESC,l.updated_at DESC,l.crm_account_code LIMIT 1) active_crm_account_name,
+          (SELECT COUNT(*) FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=c.id) active_crm_account_count,
+          (SELECT COUNT(*) FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=0 WHERE l.client_id=c.id) historical_crm_account_count
    FROM clients c
    LEFT JOIN client_metrics m ON m.client_id=c.id
    ".$portfolioJoin."
@@ -2979,7 +3032,17 @@ $router->get('/api/clients/datatable',function(){
   $canOpen=$canManage||(!$crmInactive&&$u['role']==='seller');
   $initial=mb_strtoupper(mb_substr($name,0,1));
   $inactiveBadge=$crmInactive?'<b class="client-crm-inactive-badge"><i class="fa-solid fa-user-slash"></i> Inativo no CRM</b>':'';
-  $identity='<div class="client-table-identity'.($crmInactive?' is-inactive':'').'"><span>'.e($initial).'</span><div>'.($canOpen?'<a href="'.APP_URL.'/clients/'.$id.'"><strong>'.e($name).'</strong></a>':'<strong>'.e($name).'</strong>').$inactiveBadge.'<small>'.e($document!==''?$document:'Documento não informado').'</small></div></div>';
+  $crmAccountCode=trim((string)($row['active_crm_account_code']??''));$crmAccountName=trim((string)($row['active_crm_account_name']??''));
+  $activeCrmCount=(int)($row['active_crm_account_count']??0);$historicalCrmCount=(int)($row['historical_crm_account_count']??0);
+  $primaryHref=$crmAccountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($crmAccountCode):APP_URL.'/clients/'.$id;
+  $identity='<div class="client-table-identity'.($crmInactive?' is-inactive':'').'"><span>'.e($initial).'</span><div>'.($canOpen?'<a href="'.e($primaryHref).'"><strong>'.e($name).'</strong></a>':'<strong>'.e($name).'</strong>').$inactiveBadge.'<small>'.e($document!==''?$document:'Documento não informado').'</small></div></div>';
+  if($activeCrmCount>0){
+   $integrationHtml='<div class="tdc-integration linked"><span><i class="fa-solid fa-link"></i>CRM + Vendas</span><small>'.e($crmAccountName!==''?$crmAccountName:$crmAccountCode).($activeCrmCount>1?' · '.$activeCrmCount.' Contas CRM':'').'</small></div>';
+  }elseif($historicalCrmCount>0){
+   $integrationHtml='<div class="tdc-integration historical"><span><i class="fa-solid fa-clock-rotate-left"></i>CRM histórico</span><small>Sem Conta CRM ativa vinculada</small></div>';
+  }else{
+   $integrationHtml='<div class="tdc-integration sales-only"><span><i class="fa-solid fa-cart-shopping"></i>Somente Vendas</span><small>Aguardando conciliação com Conta CRM</small></div>';
+  }
   $location=trim((string)($row['city']??'').' / '.(string)($row['uf']??''),' /');
   $phoneDigits=preg_replace('/\D+/','',(string)($row['phone']??''));$rowDdd=strlen($phoneDigits)>=2?substr($phoneDigits,0,2):'';
   $locationHtml='<span class="client-location"><i class="fa-solid fa-location-dot"></i>'.e($location!==''?$location:'Não informado').($rowDdd!==''?'<b>DDD '.e($rowDdd).'</b>':'').'</span>';
@@ -3009,8 +3072,8 @@ $router->get('/api/clients/datatable',function(){
    $daysContactHtml='<span class="tdc-contact-days '.$contactClass.'"><strong>'.$contactDays.'</strong></span>';
   }
   $openLabel=$canEdit?'Abrir cliente':($unassigned?'Selecionar cliente disponível':'Cliente vinculado a outro vendedor');
-  $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.APP_URL.'/clients/'.$id.'" title="'.e($openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
-  if($canEdit)$actions.='<a class="client-action client-action-edit" href="'.APP_URL.'/clients/'.$id.'/edit" title="Editar cliente"><i class="fa-regular fa-pen-to-square"></i><span>Editar</span></a>';
+  $actions='<div class="client-action-group">'.($canOpen?'<a class="client-action client-action-view" href="'.e($primaryHref).'" title="'.e($crmAccountCode!==''?'Abrir ficha comercial integrada':$openLabel).'"><i class="fa-regular fa-eye"></i><span>Ver</span></a>':'<span class="client-action client-action-locked" title="'.e($openLabel).'"><i class="fa-solid fa-lock"></i><span>Vinculado</span></span>');
+  if($canEdit)$actions.='<a class="client-action client-action-edit" href="'.e($crmAccountCode!==''?$primaryHref:APP_URL.'/clients/'.$id.'/edit').'" title="'.e($crmAccountCode!==''?'Gerenciar cliente pela ficha CRM':'Editar Cliente Omie').'"><i class="fa-regular fa-pen-to-square"></i><span>'.($crmAccountCode!==''?'Gerenciar':'Editar').'</span></a>';
   if($canManage){
    if($crmInactive){
     $actions.='<form method="post" action="'.APP_URL.'/clients/'.$id.'/crm-status"><input type="hidden" name="_token" value="'.e($token).'"><input type="hidden" name="inactive" value="0"><button class="client-action client-action-reactivate" type="submit" title="Reativar no CRM" data-confirm="Reativar este cliente no CRM e devolvê-lo às carteiras e buscas operacionais?"><i class="fa-solid fa-user-check"></i><span>Reativar</span></button></form>';
@@ -3022,7 +3085,7 @@ $router->get('/api/clients/datatable',function(){
    }
   }
   $actions.='</div>';
-  $cells=[$identity,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$daysContactHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
+  $cells=[$identity,$integrationHtml,$locationHtml,$sellerHtml,$tagsHtml,$cycleHtml,$daysContactHtml,$purchaseHtml,'<strong class="client-revenue">'.money($row['revenue_12m']??0).'</strong>',$actions];
   if($canBulk)array_unshift($cells,'<label class="tdc-row-check" title="Selecionar cliente"><input type="checkbox" data-client-select value="'.$id.'"><span></span></label>');
   $data[]=$cells;
  }
