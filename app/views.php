@@ -2525,7 +2525,6 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     <?php render_commercial_activity_dialog(['user'=>$u,'types'=>$activityTypes??[],'channels'=>$activityChannels??[],'categories'=>$activityCategories??[],'assignable'=>$activityAssignableUsers??[],'return_to'=>'agenda','return_query'=>'']);?>
    </section>
    <?php break; endif;?>
-   ?>
    <section class="tdw-page tdw-agenda">
     <header class="tdw-page-head tdw-agenda-head">
      <div class="tdw-page-title"><span class="tdw-eyebrow"><?=!empty($teamAgenda)?'GESTÃO / AGENDA':'COMERCIAL / AGENDA'?></span><div><h1><?=$u['role']==='collector'?'Agenda de cobrança':'Agenda e retornos'?></h1><span class="tdw-live"><i></i><?=e($weekDays[date('l')]??'Hoje')?> · <?=date('d/m/Y')?></span></div><p>Execute o que está vencido, resolva o que é de hoje e deixe os próximos retornos organizados.</p></div>
