@@ -597,7 +597,8 @@ final class CommercialPortfolioService {
   if($done){
    DB::exec("UPDATE crm_accounts SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
    DB::exec("UPDATE clients c JOIN crm_account_links l ON l.client_id=c.id JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=0 SET c.crm_owner_omie_code=NULL,c.crm_owner_user_id=NULL WHERE c.active=1");
-   self::rebuildOperationalOwners();
+   $ownerStats=self::rebuildOperationalOwners();
+   $stats['reassigned_pending_tasks']=(int)($ownerStats['reassigned_pending_tasks']??0);
    $history=CommercialAccountService::reconcileLinkedHistory();
    $stats['history_activities_linked']=(int)($history['activities_account_backfilled']??0);
    $stats['history_tasks_linked']=(int)($history['tasks_account_backfilled']??0);
@@ -899,10 +900,14 @@ final class CommercialPortfolioService {
 
  public static function runFullBase(): array{
   CommercialSchema::ensure();$result=[];
-  foreach(['crm_users','crm_accounts'] as $module){
+  foreach(['crm_users','crm_accounts','crm_contacts'] as $module){
    $page=1;$processed=0;
    do{
-    $r=$module==='crm_users'?self::syncUsersPage($page):self::syncAccountsPage($page);
+    $r=match($module){
+     'crm_users'=>self::syncUsersPage($page),
+     'crm_accounts'=>self::syncAccountsPage($page),
+     'crm_contacts'=>self::syncContactsPage($page),
+    };
     $processed+=(int)($r['count']??0);$page++;
    }while(empty($r['done'])&&$page<=10000);
    $result[$module]=['processed'=>$processed,'last'=>$r];
@@ -920,8 +925,13 @@ final class CommercialPortfolioService {
 
  public static function crmSyncComplete(): bool{
   CommercialSchema::ensure();
-  $state=DB::one("SELECT last_success_at,last_error FROM sync_state WHERE module_key='crm_accounts' LIMIT 1");
-  return $state&&!empty($state['last_success_at'])&&empty($state['last_error'])&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1")??0)>0;
+  $states=DB::all("SELECT module_key,last_success_at,last_error FROM sync_state WHERE module_key IN('crm_accounts','crm_contacts')");
+  $byModule=[];foreach($states as $state)$byModule[(string)$state['module_key']]=$state;
+  foreach(['crm_accounts','crm_contacts'] as $module){
+   $state=$byModule[$module]??null;
+   if(!$state||empty($state['last_success_at'])||!empty($state['last_error']))return false;
+  }
+  return (int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1")??0)>0;
  }
 
  public static function setCrmPortfolioAuthority(bool $enabled,int $actorUserId=0,string $notes=''): void{
