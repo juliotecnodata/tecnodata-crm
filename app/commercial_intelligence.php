@@ -1504,7 +1504,7 @@ final class CommercialAccountService {
                        CASE WHEN nt.next_due_at<CURDATE() THEN nt.next_due_at END ASC,
                        CASE WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN act.last_contact_at END ASC,
                        nt.next_due_at ASC,a.trade_name ASC,a.name ASC")))
-                 LIMIT ".$perPage." OFFSET ".$offset,$params);
+                 ." LIMIT ".$perPage." OFFSET ".$offset,$params);
 
   $crmUserCode=trim((string)($user['crm_user_omie_code']??''));
   $sellerOperational=$role!=='seller'||($crmUserCode!==''&&in_array($crmUserCode,CommercialPortfolioService::activeCrmSellerCodes(),true));
