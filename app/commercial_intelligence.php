@@ -35,7 +35,7 @@ final class CommercialSchema {
 
  public static function ensure(): void{
   if(self::$ready)return;
-  $schemaVersion=10;$stateRaw=null;
+  $schemaVersion=11;$stateRaw=null;
   try{$stateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");}catch(Throwable $e){}
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::ensureLinkAuditTable();self::$ready=true;return;}
@@ -328,15 +328,34 @@ final class CommercialSchema {
    FOREIGN KEY(work_id) REFERENCES commercial_partner_work(id) ON DELETE CASCADE
   )");
 
-  // Migra histórico legado somente quando o cliente possui uma única Conta CRM.
+  // Preserva o histórico existente e conecta as identidades CRM/Vendas sem recriar registros.
+  // Só associa registros legados quando o Cliente Geral possui uma única Conta CRM ativa.
   DB::exec("UPDATE activities a
-            JOIN (SELECT client_id,MIN(crm_account_code) crm_account_code FROM crm_account_links GROUP BY client_id HAVING COUNT(*)=1) l ON l.client_id=a.client_id
+            JOIN (SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
+                  FROM crm_account_links l
+                  JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+                  GROUP BY l.client_id HAVING COUNT(*)=1) l ON l.client_id=a.client_id
             SET a.crm_account_code=l.crm_account_code
             WHERE a.crm_account_code IS NULL");
   DB::exec("UPDATE tasks t
-            JOIN (SELECT client_id,MIN(crm_account_code) crm_account_code FROM crm_account_links GROUP BY client_id HAVING COUNT(*)=1) l ON l.client_id=t.client_id
+            JOIN (SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
+                  FROM crm_account_links l
+                  JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+                  GROUP BY l.client_id HAVING COUNT(*)=1) l ON l.client_id=t.client_id
             SET t.crm_account_code=l.crm_account_code
-            WHERE t.crm_account_code IS NULL");
+            WHERE t.crm_account_code IS NULL AND t.type='sales'");
+
+  // Se o histórico já conhece a Conta CRM, completa o vínculo com Cliente Geral quando existir.
+  DB::exec("UPDATE activities a
+            JOIN crm_account_links l ON l.crm_account_code=a.crm_account_code
+            JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+            SET a.client_id=l.client_id
+            WHERE a.crm_account_code IS NOT NULL AND a.client_id IS NULL");
+  DB::exec("UPDATE tasks t
+            JOIN crm_account_links l ON l.crm_account_code=t.crm_account_code
+            JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+            SET t.client_id=l.client_id
+            WHERE t.crm_account_code IS NOT NULL AND t.client_id IS NULL");
 
   if(!DB::scalar("SELECT 1 FROM settings WHERE setting_key='commercial_active_crm_sellers' LIMIT 1")){
    DB::exec("INSERT INTO settings(setting_key,value_json,updated_at) VALUES('commercial_active_crm_sellers',?,NOW())",
@@ -550,6 +569,9 @@ final class CommercialPortfolioService {
    DB::exec("UPDATE crm_accounts SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
    DB::exec("UPDATE clients c JOIN crm_account_links l ON l.client_id=c.id JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=0 SET c.crm_owner_omie_code=NULL,c.crm_owner_user_id=NULL WHERE c.active=1");
    self::rebuildOperationalOwners();
+   $history=CommercialAccountService::reconcileLinkedHistory();
+   $stats['history_activities_linked']=(int)($history['activities_account_backfilled']??0);
+   $stats['history_tasks_linked']=(int)($history['tasks_account_backfilled']??0);
   }
   $stats['sync_token']=$syncToken;
   self::saveState('crm_accounts',$page,$total,count($items),$done,$stats);
@@ -721,6 +743,11 @@ final class CommercialPortfolioService {
    self::activeCrmSellerCodes()?:['__NONE__']);
 
   self::rebuildOperationalOwners();
+  $history=CommercialAccountService::reconcileLinkedHistory();
+  $stats['history_activities_linked']=(int)($history['activities_account_backfilled']??0);
+  $stats['history_tasks_linked']=(int)($history['tasks_account_backfilled']??0);
+  $stats['history_client_refs_linked']=(int)($history['activities_client_backfilled']??0)+(int)($history['tasks_client_backfilled']??0);
+  $stats['ambiguous_history_preserved']=(int)($history['ambiguous_clients_preserved']??0);
   $stats['profiles_mirrored']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links l JOIN crm_account_commercial_profiles ap ON ap.crm_account_code=l.crm_account_code")??0);
   $stats['remaining_unlinked']=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0);
   return $stats;
@@ -748,9 +775,11 @@ final class CommercialPortfolioService {
             WHERE c.active=1",
    $activeCodes?:['__NONE__']);
   $owners=self::rebuildOperationalOwners();
+  $history=CommercialAccountService::reconcileLinkedHistory();
   return [
    'owners'=>$owners,
    'health'=>self::health(),
+   'history'=>$history,
    'linked_accounts'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links")??0),
    'remaining_unlinked'=>(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts a LEFT JOIN crm_account_links l ON l.crm_account_code=a.omie_code WHERE a.active=1 AND l.crm_account_code IS NULL")??0),
   ];
@@ -1023,6 +1052,7 @@ final class CommercialAccountService {
     [$accountCode,$previousClientId?:null,$clientId,$action,$method,$actorUserId?:null,$notes!==''?$notes:null]);
    self::refreshClientProjection($clientId);
    if($previousClientId>0&&$previousClientId!==$clientId)self::refreshClientProjection($previousClientId);
+   self::reconcileLinkedHistory($accountCode);
    if($ownsTransaction)DB::conn()->commit();
   }catch(Throwable $e){if($ownsTransaction&&DB::conn()->inTransaction())DB::conn()->rollBack();throw $e;}
   return self::get($accountCode)??[];
@@ -1058,6 +1088,95 @@ final class CommercialAccountService {
  public static function contacts(string $accountCode): array{
   CommercialSchema::ensure();
   return DB::all("SELECT * FROM crm_contacts WHERE crm_account_code=? ORDER BY name,last_name",[$accountCode]);
+ }
+
+ /**
+  * Completa somente referências ausentes entre Conta CRM e Cliente Geral.
+  * IDs, datas, responsáveis, status, textos e prazos existentes nunca são alterados.
+  * Quando um Cliente Geral possui mais de uma Conta CRM ativa, o histórico legado é preservado sem adivinhação.
+  */
+ public static function reconcileLinkedHistory(?string $accountCode=null): array{
+  CommercialSchema::ensure();$accountCode=$accountCode!==null?trim($accountCode):null;
+  $stats=['activities_account_backfilled'=>0,'tasks_account_backfilled'=>0,'activities_client_backfilled'=>0,'tasks_client_backfilled'=>0,'ambiguous_clients_preserved'=>0];
+
+  if($accountCode!==null&&$accountCode!==''){
+   $link=DB::one("SELECT l.client_id FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.crm_account_code=? LIMIT 1",[$accountCode]);
+   if(!$link)return $stats;
+   $clientId=(int)$link['client_id'];
+   $stats['activities_client_backfilled']=DB::exec("UPDATE activities SET client_id=? WHERE crm_account_code=? AND client_id IS NULL",[$clientId,$accountCode]);
+   $stats['tasks_client_backfilled']=DB::exec("UPDATE tasks SET client_id=? WHERE crm_account_code=? AND client_id IS NULL",[$clientId,$accountCode]);
+
+   $activeLinks=(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=?",[$clientId])??0);
+   if($activeLinks===1){
+    $stats['activities_account_backfilled']=DB::exec("UPDATE activities SET crm_account_code=? WHERE client_id=? AND crm_account_code IS NULL",[$accountCode,$clientId]);
+    $stats['tasks_account_backfilled']=DB::exec("UPDATE tasks SET crm_account_code=? WHERE client_id=? AND crm_account_code IS NULL AND type='sales'",[$accountCode,$clientId]);
+   }elseif($activeLinks>1)$stats['ambiguous_clients_preserved']=1;
+   return $stats;
+  }
+
+  $stats['activities_client_backfilled']=DB::exec("UPDATE activities a
+    JOIN crm_account_links l ON l.crm_account_code=a.crm_account_code
+    JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+    SET a.client_id=l.client_id
+    WHERE a.crm_account_code IS NOT NULL AND a.client_id IS NULL");
+  $stats['tasks_client_backfilled']=DB::exec("UPDATE tasks t
+    JOIN crm_account_links l ON l.crm_account_code=t.crm_account_code
+    JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+    SET t.client_id=l.client_id
+    WHERE t.crm_account_code IS NOT NULL AND t.client_id IS NULL");
+
+  $unique="SELECT l.client_id,MIN(l.crm_account_code) crm_account_code
+           FROM crm_account_links l
+           JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+           GROUP BY l.client_id HAVING COUNT(*)=1";
+  $stats['activities_account_backfilled']=DB::exec("UPDATE activities a JOIN (".$unique.") x ON x.client_id=a.client_id SET a.crm_account_code=x.crm_account_code WHERE a.crm_account_code IS NULL");
+  $stats['tasks_account_backfilled']=DB::exec("UPDATE tasks t JOIN (".$unique.") x ON x.client_id=t.client_id SET t.crm_account_code=x.crm_account_code WHERE t.crm_account_code IS NULL AND t.type='sales'");
+  $stats['ambiguous_clients_preserved']=(int)(DB::scalar("SELECT COUNT(*) FROM (
+    SELECT l.client_id FROM crm_account_links l JOIN crm_accounts ca ON ca.omie_code=l.crm_account_code AND ca.active=1
+    GROUP BY l.client_id HAVING COUNT(*)>1
+   ) x")??0);
+  return $stats;
+ }
+
+ /**
+  * Estado consolidado da identidade comercial.
+  * CRM Omie é a raiz; Cliente/Vendas, financeiro, contatos, tarefas e histórico complementam a mesma Conta CRM.
+  */
+ public static function ecosystem(string $accountCode): array{
+  CommercialSchema::ensure();$account=self::get($accountCode);
+  if(!$account)return ['has_crm'=>false,'has_contacts'=>false,'has_sales_client'=>false,'has_sales_history'=>false,'has_financial'=>false,'has_commercial_history'=>false];
+
+  $clientId=(int)($account['client_id']??0);$clientOmieCode=trim((string)($account['client_omie_code']??''));
+  $contacts=(int)(DB::scalar("SELECT COUNT(*) FROM crm_contacts WHERE crm_account_code=?",[$accountCode])??0);
+  $activities=(int)(DB::scalar("SELECT COUNT(*) FROM activities WHERE crm_account_code=?",[$accountCode])??0);
+  $tasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE crm_account_code=? AND type='sales'",[$accountCode])??0);
+  $pendingTasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE crm_account_code=? AND type='sales' AND status='pending'",[$accountCode])??0);
+
+  $orders=0;$services=0;$orderAmount=0.0;$serviceAmount=0.0;$financialTitles=0;$financialOpen=0.0;$lastOrder=null;$lastService=null;
+  if($clientOmieCode!==''){
+   $o=DB::one("SELECT COUNT(*) total,COALESCE(SUM(total),0) amount,MAX(order_date) last_at FROM orders WHERE client_omie_code=?",[$clientOmieCode])??[];
+   $s=DB::one("SELECT COUNT(*) total,COALESCE(SUM(total),0) amount,MAX(service_date) last_at FROM service_orders WHERE client_omie_code=?",[$clientOmieCode])??[];
+   $f=DB::one("SELECT COUNT(*) total,COALESCE(SUM(open_amount),0) open_amount FROM financial_movements WHERE client_omie_code=? AND open_amount>0",[$clientOmieCode])??[];
+   $orders=(int)($o['total']??0);$orderAmount=(float)($o['amount']??0);$lastOrder=$o['last_at']??null;
+   $services=(int)($s['total']??0);$serviceAmount=(float)($s['amount']??0);$lastService=$s['last_at']??null;
+   $financialTitles=(int)($f['total']??0);$financialOpen=(float)($f['open_amount']??0);
+  }
+
+  $legacyActivities=$clientId>0?(int)(DB::scalar("SELECT COUNT(*) FROM activities WHERE client_id=? AND crm_account_code IS NULL",[$clientId])??0):0;
+  $legacyTasks=$clientId>0?(int)(DB::scalar("SELECT COUNT(*) FROM tasks WHERE client_id=? AND crm_account_code IS NULL AND type='sales'",[$clientId])??0):0;
+
+  return [
+   'has_crm'=>true,'crm_account_code'=>$accountCode,'crm_owner_code'=>(string)($account['crm_user_code']??''),'crm_owner_name'=>(string)($account['owner_name']??''),
+   'contacts_count'=>$contacts,'has_contacts'=>$contacts>0,
+   'client_id'=>$clientId,'client_omie_code'=>$clientOmieCode,'has_sales_client'=>$clientId>0&&$clientOmieCode!=='',
+   'orders_count'=>$orders,'orders_amount'=>$orderAmount,'last_order_at'=>$lastOrder,
+   'services_count'=>$services,'services_amount'=>$serviceAmount,'last_service_at'=>$lastService,'has_sales_history'=>($orders+$services)>0,
+   'financial_titles_count'=>$financialTitles,'financial_open_amount'=>$financialOpen,'has_financial'=>$financialTitles>0,
+   'collection_open'=>(string)($account['collection_status']??'')==='open','collection_open_amount'=>(float)($account['collection_open_amount']??0),
+   'activities_count'=>$activities,'tasks_count'=>$tasks,'pending_tasks_count'=>$pendingTasks,'has_commercial_history'=>($activities+$tasks)>0,
+   'legacy_activities_without_account'=>$legacyActivities,'legacy_tasks_without_account'=>$legacyTasks,
+   'identity_complete'=>$clientId>0&&$clientOmieCode!==''&&($legacyActivities+$legacyTasks)===0
+  ];
  }
 
  public static function audit(string $accountCode,int $limit=50): array{
