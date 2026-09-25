@@ -1410,7 +1410,7 @@ final class CommercialAccountService {
 
  public static function portfolio(array $user,array $filters=[]): array{
   CommercialSchema::ensure();
-  $page=max(1,(int)($filters['page']??1));$perPage=max(5,min(100,(int)($filters['per_page']??25)));
+  $page=max(1,(int)($filters['page']??1));$perPage=max(10,min(100,(int)($filters['per_page']??10)));
   $q=trim((string)($filters['q']??''));$classification=(string)($filters['classification']??'all');
   if(!in_array($classification,['all','cfc','reseller','both','unclassified'],true))$classification='all';
   $link=(string)($filters['link']??'all');if(!in_array($link,['all','linked','prospect'],true))$link='all';
@@ -1829,7 +1829,7 @@ final class CommercialSaleService {
 
 final class CommercialPartnerRegistryService {
  private static function sourceRows(): array{
-  return PartnerDB::all("SELECT id,razao,cnpj,nomefantasia,cidade,uf,ativo FROM cfcs WHERE cnpj IS NOT NULL AND TRIM(cnpj)<>'' ORDER BY razao,id");
+  return PartnerDB::all("SELECT id,razao,cnpj,nomefantasia,cidade,uf,ativo FROM cfcs WHERE COALESCE(ativo,0)=1 AND cnpj IS NOT NULL AND TRIM(cnpj)<>'' ORDER BY razao,id");
  }
 
  private static function formatDocument(string|int $digits): string{
@@ -1853,8 +1853,8 @@ final class CommercialPartnerRegistryService {
      'document_digits'=>$document,
      'city'=>(string)($row['cidade']??''),
      'uf'=>(string)($row['uf']??''),
-     'source_active'=>(int)($row['ativo']??0)===1,
-     'source_status'=>(int)($row['ativo']??0)===1?'active':'inactive',
+     'source_active'=>true,
+     'source_status'=>'active',
      'account_code'=>null,'account_name'=>null,'owner_name'=>null,
      'current_classification'=>'—','status'=>'invalid','selectable'=>false,'default_selected'=>false
     ];
@@ -1876,7 +1876,7 @@ final class CommercialPartnerRegistryService {
    if(in_array(strlen($document),[11,14],true))$crmByDocument['doc:'.$document][]=$account;
   }
 
-  $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;$inactiveDocuments=0;$mixedDocuments=0;
+  $rows=[];$matchedDocuments=0;$matchedAccounts=0;$pending=0;$already=0;$notFound=0;$duplicateCrm=0;
   foreach($sourceByDocument as $documentKey=>$sourceRows){
    $document=str_starts_with((string)$documentKey,'doc:')?substr((string)$documentKey,4):(string)$documentKey;
    $names=[];$ids=[];$places=[];$activeCount=0;
@@ -1890,9 +1890,7 @@ final class CommercialPartnerRegistryService {
    }
    $sourceName=implode(' · ',array_keys($names));$place=implode(' · ',array_keys($places));
    $sourceCount=count($sourceRows);
-   $sourceStatus=$activeCount===0?'inactive':($activeCount===$sourceCount?'active':'mixed');
-   if($sourceStatus==='inactive')$inactiveDocuments++;
-   elseif($sourceStatus==='mixed')$mixedDocuments++;
+   $sourceStatus='active';
    $matches=$crmByDocument[(string)$documentKey]??[];
    if(!$matches){
     $notFound++;
@@ -1923,7 +1921,7 @@ final class CommercialPartnerRegistryService {
      'current_classification'=>$current,
      'status'=>'pending',
      'selectable'=>true,
-     'default_selected'=>$sourceStatus==='active',
+     'default_selected'=>true,
      'duplicate_crm'=>count($matches)>1
     ];
    }
@@ -1933,9 +1931,6 @@ final class CommercialPartnerRegistryService {
   usort($rows,static function(array $a,array $b): int{
    $rank=['pending'=>0,'not_found'=>1,'invalid'=>2];
    $cmp=($rank[$a['status']]??9)<=>($rank[$b['status']]??9);
-   if($cmp!==0)return $cmp;
-   $originRank=['active'=>0,'mixed'=>1,'inactive'=>2];
-   $cmp=($originRank[$a['source_status']??'active']??9)<=>($originRank[$b['source_status']??'active']??9);
    if($cmp!==0)return $cmp;
    return strcasecmp((string)($a['source_name']??''),(string)($b['source_name']??''));
   });
@@ -1952,9 +1947,6 @@ final class CommercialPartnerRegistryService {
     'omitted_already_classified'=>$already,
     'not_found_documents'=>$notFound,
     'invalid_documents'=>count($invalidRows),
-    'inactive_documents'=>$inactiveDocuments,
-    'mixed_documents'=>$mixedDocuments,
-    'inactive_source_rows'=>count(array_filter($source,static fn($row)=>(int)($row['ativo']??0)!==1)),
     'displayed_rows'=>count($rows),
     'duplicate_crm_documents'=>$duplicateCrm,
    ]
