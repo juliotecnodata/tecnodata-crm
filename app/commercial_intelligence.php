@@ -1433,8 +1433,8 @@ final class CommercialAccountService {
    }
   }
 
-  if($link==='linked')$where[]='l.client_id IS NOT NULL';
-  elseif($link==='prospect')$where[]='l.client_id IS NULL';
+  $linkCondition=$link==='linked'?'l.client_id IS NOT NULL':($link==='prospect'?'l.client_id IS NULL':'');
+  if(!$sellerCentral&&$linkCondition!=='')$where[]=$linkCondition;
 
   if($classification==='cfc')$where[]='COALESCE(ap.is_cfc,0)=1';
   elseif($classification==='reseller')$where[]='COALESCE(ap.is_reseller,0)=1';
@@ -1449,6 +1449,7 @@ final class CommercialAccountService {
   }
 
   $statsWhere=$where;$statsParams=$params;
+  if($sellerCentral&&$linkCondition!=='')$where[]=$linkCondition;
   if($attention==='overdue')$where[]="nt.next_due_at<CURDATE()";
   elseif($attention==='today')$where[]="nt.next_due_at>=CURDATE() AND nt.next_due_at<CURDATE()+INTERVAL 1 DAY";
   elseif($attention==='never')$where[]='act.last_contact_at IS NULL';
