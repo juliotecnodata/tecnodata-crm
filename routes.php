@@ -1136,7 +1136,7 @@ $router->post('/commercial/accounts',function(){
 });
 
 $router->post('/commercial/accounts/{code}/omie-sync',function($p){
- Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
  try{
   $result=CommercialAccountService::syncLocalWithOmie($code,Auth::user());
   $pendingCharacteristics=(int)(DB::scalar("SELECT COUNT(*) FROM sync_outbox WHERE entity_type='crm_account_classification' AND entity_id=? AND status IN('pending','error')",[(string)$result['account_code']])??0);
@@ -1187,11 +1187,37 @@ $router->get('/commercial-home-concept/account/{code}',function($p){
  json_response(['ok'=>true,'account'=>$account,'profile'=>CommercialAccountService::profile($code),'activities'=>$activities,'next_return'=>$next]);
 });
 
+$router->get('/commercial/accounts/{code}/edit',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$code=trim((string)$p['code']);
+ $account=CommercialAccountService::get($code);if(!$account){http_response_code(404);exit('Conta CRM não encontrada.');}
+ if((string)($u['role']??'')==='seller'&&!CommercialAccountService::canWork($u,$code)){http_response_code(403);exit('Você só pode editar Contas CRM da sua própria carteira.');}
+ $old=$_SESSION['crm_account_edit_old']??CommercialAccountService::editForm($code);$error=$_SESSION['crm_account_edit_error']??null;
+ unset($_SESSION['crm_account_edit_old'],$_SESSION['crm_account_edit_error']);
+ $owners=DB::all("SELECT DISTINCT u.crm_user_omie_code omie_code,u.name,u.email FROM users u WHERE u.active=1 AND u.role='seller' AND u.crm_user_omie_code IS NOT NULL AND TRIM(u.crm_user_omie_code)<>'' ORDER BY u.name");
+ render('commercial_account_new',[
+  'old'=>$old,'error'=>$error,'owners'=>$owners,'sellerOwner'=>(string)($u['crm_user_omie_code']??''),
+  'editingAccount'=>$account,'editingAccountCode'=>$code
+ ]);
+});
+
+$router->post('/commercial/accounts/{code}',function($p){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $code=trim((string)$p['code']);
+ try{
+  $account=CommercialAccountService::updateAccount($code,$_POST,Auth::user());
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Conta CRM e contato atualizados no CRM. As alterações ficaram pendentes para sincronização com a Omie.'];
+  redirect('/commercial/accounts/'.rawurlencode((string)$account['omie_code']).'?from=clients');
+ }catch(Throwable $e){
+  $_SESSION['crm_account_edit_error']=$e->getMessage();$_SESSION['crm_account_edit_old']=$_POST;
+  redirect('/commercial/accounts/'.rawurlencode($code).'/edit');
+ }
+});
+
 $router->get('/commercial/accounts/{code}',function($p){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$code=trim((string)$p['code']);
  $account=CommercialAccountService::get($code);if(!$account){http_response_code(404);exit('Conta CRM não encontrada.');}
  if(($u['role']??'')==='seller'&&!CommercialAccountService::canView($u,$code)){http_response_code(403);exit('Esta Conta CRM não está disponível para consulta.');}
- $canWork=CommercialAccountService::canWork($u,$code);$canMaintain=CommercialAccountService::canView($u,$code);
+ $canWork=CommercialAccountService::canWork($u,$code);$canMaintain=(string)($u['role']??'')==='seller'?$canWork:CommercialAccountService::canView($u,$code);
  $from=(string)($_GET['from']??'');$backUrl=$from==='clients'?APP_URL.'/clients':APP_URL.'/my-portfolio';$backLabel=$from==='clients'?'Voltar para a Central de Clientes':'Voltar para a carteira';
  $flash=$_SESSION['commercial_flash']??null;unset($_SESSION['commercial_flash']);
  render('commercial_account',[
