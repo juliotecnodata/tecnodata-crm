@@ -292,6 +292,62 @@ body[data-page="client-sync"] .tdcrm-content *{box-shadow:none!important;letter-
 .tdc-form-actions>div:first-child i{color:var(--tdc-blue)}
 .tdc-form-actions .actions{display:flex;align-items:center;gap:8px}
 
+/* Nova Conta CRM — acabamento dos componentes comerciais */
+.tdc-client-editor-page .tdc-commercial-org-fields{gap:16px}
+.tdc-client-editor-page .tdc-subsection-title{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:2px 0 7px;border-bottom:1px solid #E8EEF2}
+.tdc-client-editor-page .tdc-subsection-title span{font-size:11px;font-weight:800;text-transform:uppercase;color:#36505F}
+.tdc-client-editor-page .tdc-subsection-title small{font-size:10px;line-height:1.35;color:var(--tdc-muted);text-align:right}
+.tdc-client-editor-page .tdc-owner-fixed{gap:9px;background:#F7FAFB}
+.tdc-client-editor-page .tdc-owner-fixed i{color:var(--tdc-blue)}
+.tdc-client-editor-page .tdc-owner-fixed span{font-weight:700;color:var(--tdc-text)}
+
+.tdc-client-editor-page .tdc-classification-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tdc-client-editor-page .tdc-check-card{position:relative;min-height:54px;margin:0!important;padding:10px 12px!important;border:1px solid var(--tdc-line-2);border-radius:9px;background:#fff;display:flex!important;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s ease,background-color .15s ease}
+.tdc-client-editor-page .tdc-check-card:hover{border-color:#9CC7DC;background:#F8FBFD}
+.tdc-client-editor-page .tdc-check-card input{position:absolute;opacity:0;pointer-events:none}
+.tdc-client-editor-page .tdc-check-box{width:22px;height:22px;display:grid;place-items:center;flex:0 0 22px;border:1.5px solid #B9C8D2;border-radius:6px;background:#fff;color:transparent;font-size:10px}
+.tdc-client-editor-page .tdc-check-card>span:last-child{min-width:0}
+.tdc-client-editor-page .tdc-check-card strong{display:block;font-size:12px;color:var(--tdc-text)}
+.tdc-client-editor-page .tdc-check-card small{display:block;margin-top:2px;font-size:9px;color:var(--tdc-muted)}
+.tdc-client-editor-page .tdc-check-card:has(input:checked){border-color:#7FC7A5;background:#F1FAF6}
+.tdc-client-editor-page .tdc-check-card:has(input:checked) .tdc-check-box{border-color:var(--tdc-green);background:var(--tdc-green);color:#fff}
+
+.tdc-client-editor-page .tdc-tag-editor{min-height:46px;width:100%;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:6px 9px;border:1px solid var(--tdc-line-2);border-radius:8px;background:#fff;cursor:text}
+.tdc-client-editor-page .tdc-tag-editor:focus-within{border-color:#82B7D4;outline:3px solid rgba(10,132,232,.08)}
+.tdc-client-editor-page .tdc-tag-editor>[data-tag-chips]{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tdc-client-editor-page .tdc-tag-editor .tag-chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 7px 0 9px;border:1px solid #CCE7D9;border-radius:7px;background:#EDF8F2;color:#087846;font-size:11px;font-weight:700}
+.tdc-client-editor-page .tdc-tag-editor .tag-chip button{width:20px;height:20px;display:grid;place-items:center;padding:0;border:0;border-radius:5px;background:transparent;color:#5B786A;font-size:15px;line-height:1}
+.tdc-client-editor-page .tdc-tag-editor .tag-chip button:hover{background:#D9EFE3;color:#065E39}
+.tdc-client-editor-page .tdc-tag-editor [data-tag-input]{min-width:210px;flex:1 1 240px;height:30px;padding:0 4px;border:0!important;outline:0!important;background:transparent!important;color:var(--tdc-text);font-size:12px}
+.tdc-client-editor-page .tdc-tag-editor [data-tag-input]::placeholder{color:#8A9AA4}
+.tdc-client-editor-page .tdc-notes-field{min-height:92px!important}
+
+.tdc-client-editor-page #crm-revisao .tdc-section-head{background:#F7FBF9}
+.tdc-client-editor-page .tdc-review{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px}
+.tdc-client-editor-page .tdc-review-item{display:flex;align-items:flex-start;gap:11px;min-height:84px;padding:13px;border:1px solid var(--tdc-line);border-radius:10px;background:#fff}
+.tdc-client-editor-page .tdc-review-icon{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;border-radius:9px}
+.tdc-client-editor-page .tdc-review-item.positive{border-color:#CFE7DA;background:#F8FCFA}
+.tdc-client-editor-page .tdc-review-item.positive .tdc-review-icon{background:#E5F6ED;color:var(--tdc-green)}
+.tdc-client-editor-page .tdc-review-item.neutral{background:#F9FBFC}
+.tdc-client-editor-page .tdc-review-item.neutral .tdc-review-icon{background:#EDF2F5;color:#536A78}
+.tdc-client-editor-page .tdc-review-item strong{display:block;font-size:12px;line-height:1.35;color:var(--tdc-text)}
+.tdc-client-editor-page .tdc-review-item small{display:block;margin-top:4px;font-size:10px;line-height:1.45;color:var(--tdc-muted)}
+.tdc-client-editor-page #crm-revisao .tdc-create-actions{margin:0;border:0;border-top:1px solid var(--tdc-line);border-radius:0;background:#FBFCFD;padding:13px 16px}
+.tdc-client-editor-page #crm-revisao .tdc-create-actions .tdc-btn{min-width:118px}
+.tdc-client-editor-page #crm-revisao .tdc-create-actions .tdc-btn-primary{min-width:180px}
+
+@media(max-width:900px){
+ .tdc-client-editor-page .tdc-subsection-title{display:block}
+ .tdc-client-editor-page .tdc-subsection-title small{display:block;margin-top:3px;text-align:left}
+ .tdc-client-editor-page .tdc-classification-options,.tdc-client-editor-page .tdc-review{grid-template-columns:1fr}
+}
+@media(max-width:720px){
+ .tdc-client-editor-page .tdc-commercial-org-fields .span-3,
+ .tdc-client-editor-page .tdc-commercial-org-fields .span-6{grid-column:1/-1}
+ .tdc-client-editor-page #crm-revisao .tdc-create-actions{align-items:stretch}
+ .tdc-client-editor-page #crm-revisao .tdc-create-actions .tdc-btn{flex:1}
+}
+
 /* detalhe */
 .tdc-detail-head .tdc-head-main{align-items:center}
 .tdc-detail-avatar{width:54px;height:54px;display:grid;place-items:center;flex:0 0 54px;border-radius:50%;background:#EAF4FB;color:var(--tdc-blue);font-size:18px;font-weight:800}
