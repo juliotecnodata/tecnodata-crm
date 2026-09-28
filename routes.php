@@ -1004,7 +1004,8 @@ $router->get('/api/client-quick-view',function(){
     'first_purchase_at'=>$client['first_purchase_at']??null,'last_purchase_at'=>$client['last_purchase_at']??null,
     'revenue_12m'=>(float)($client['revenue_12m']??0),'orders_12m'=>(int)($client['orders_12m']??0),
     'strategic_notes'=>$strategicNotes,'full_url'=>$fullUrl,'can_work'=>$canWork,
-    'can_edit'=>$clientId>0&&($isAdmin||$isSupervisor||$role==='seller'),'edit_url'=>$clientId>0?APP_URL.'/clients/'.$clientId.'/edit':null,
+    'can_edit'=>$accountCode!==''?($isAdmin||$isSupervisor||$canWork):($clientId>0&&($isAdmin||$isSupervisor||$role==='seller')),
+    'edit_url'=>$accountCode!==''?APP_URL.'/commercial/accounts/'.rawurlencode($accountCode).'/edit':($clientId>0?APP_URL.'/clients/'.$clientId.'/edit':null),
     'linked_client'=>$clientId>0,'source'=>$accountCode!==''?'crm_account':'client'
    ],
    'primary_contact'=>['name'=>$contactName,'position'=>$contactRole,'phone'=>$phone,'mobile'=>$mobile,'email'=>$email],
@@ -1029,9 +1030,11 @@ $router->post('/api/client-quick-view/{id}/update',function($p){
  try{
   $client=DB::one("SELECT id,active,crm_inactive FROM clients WHERE id=? LIMIT 1",[$id]);
   if(!$client||empty($client['active'])||!empty($client['crm_inactive']))throw new RuntimeException('Cliente não está disponível para edição.');
-  if(in_array((string)($u['role']??''),['seller','supervisor'],true)&&!client_central_crm_accessible($id))throw new RuntimeException('Este cliente não pertence à base CRM ativa.');
-  ClientService::updateInOmie($id,$_POST,$u);
   $accountCode=trim((string)(DB::scalar("SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=? ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1",[$id])??''));
+  if((string)($u['role']??'')==='seller'){
+   if($accountCode===''||!CommercialAccountService::canWork($u,$accountCode))throw new RuntimeException('Você só pode editar clientes vinculados a uma Conta CRM da sua própria carteira.');
+  }elseif((string)($u['role']??'')==='supervisor'&&!client_central_crm_accessible($id))throw new RuntimeException('Este cliente não pertence à base CRM ativa.');
+  ClientService::updateInOmie($id,$_POST,$u);
   if($accountCode!==''){
    CommercialAccountService::updateProfile($accountCode,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
   }
