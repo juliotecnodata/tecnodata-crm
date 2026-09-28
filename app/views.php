@@ -1164,6 +1164,7 @@ function render(string $name,array $vars=[]): void{
     </header>
 
     <?php if($error):?><div class="alert alert-danger"><strong>Nao foi possivel salvar:</strong> <?=e($error)?></div><?php endif;?>
+    <?php if(!empty($ownerWarning)):?><div class="alert alert-warning"><strong>Atenção:</strong> <?=e((string)$ownerWarning)?></div><?php endif;?>
     <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i> Este fluxo cria somente uma <strong>Conta no CRM</strong>. Depois de conferir, administrador ou supervisor poderá sincronizá-la com o CRM Omie. O Cliente de Vendas fica para outra etapa.</div>
 
     <div class="tdc-form-layout">
