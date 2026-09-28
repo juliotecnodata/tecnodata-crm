@@ -1035,7 +1035,7 @@ $router->post('/api/client-quick-view/{id}/update',function($p){
   if($accountCode!==''){
    CommercialAccountService::updateProfile($accountCode,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
   }
-  $message=(string)($u['role']??'')==='seller'?'Cadastro atualizado no CRM e deixado como pendente. A sincronização com a Omie será concluída por um supervisor ou administrador.':'Cadastro completo atualizado no CRM. A sincronização com a Omie continua explícita.';
+  $message=(string)($u['role']??'')==='seller'?'Cadastro atualizado no CRM. Você pode sincronizar as alterações com a Omie quando concluir a revisão.':'Cadastro completo atualizado no CRM. A sincronização com a Omie continua explícita.';
   json_response(['ok'=>true,'message'=>$message]);
  }catch(Throwable $e){json_response(['ok'=>false,'error'=>$e->getMessage()],422);}
 });
