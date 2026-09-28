@@ -1929,7 +1929,7 @@ final class CommercialAccountService {
               CASE WHEN act.last_contact_at IS NULL OR act.last_contact_at<CURDATE()-INTERVAL 30 DAY THEN act.last_contact_at END ASC,
               nt.next_due_at ASC,a.trade_name ASC,a.name ASC";
   }
-  $rows=DB::all("SELECT a.omie_code,a.integration_code,a.name,a.trade_name,a.document,a.crm_user_code,a.updated_at,
+  $rows=DB::all("SELECT a.omie_code,a.integration_code,a.name,a.trade_name,a.document,a.crm_user_code,a.raw_json,a.updated_at,
                         l.client_id,c.name client_name,c.omie_code client_omie_code,c.active client_active,c.crm_inactive,
                         c.city client_city,c.uf client_uf,c.phone client_phone,
                         cu.name owner_name,cu.email owner_email,
@@ -1949,7 +1949,7 @@ final class CommercialAccountService {
   foreach($rows as &$row){
    $rowOwner=trim((string)($row['crm_user_code']??''));
    $row['can_work']=$role==='admin'||($role==='supervisor'&&in_array($rowOwner,$activeCodes,true))||($role==='seller'&&$sellerOperational&&$rowOwner===$crmUserCode);
-   $row['can_maintain']=in_array($role,['admin','supervisor','seller'],true);
+   $row['can_maintain']=$role==='seller'?$row['can_work']:in_array($role,['admin','supervisor'],true);
   }
   unset($row);
 
