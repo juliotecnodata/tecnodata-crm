@@ -1347,7 +1347,13 @@ final class CommercialAccountService {
 
   $omie=new OmieClient();$document=crm_digits((string)($account['document']??''));$remoteCode=$isLocal?'':$accountCode;$remoteRow=null;$created=false;
   if($isLocal){
-   $listed=$omie->call('crm_accounts','ListarContas',['pagina'=>1,'registros_por_pagina'=>10,'apenas_importado_api'=>'N','cDoc'=>$document]);
+   try{
+    $listed=$omie->call('crm_accounts','ListarContas',['pagina'=>1,'registros_por_pagina'=>10,'apenas_importado_api'=>'N','cDoc'=>$document]);
+   }catch(Throwable $e){
+    $normalizedError=crm_normalize_key($e->getMessage());
+    if(str_contains($normalizedError,'nao existem registros para a pagina'))$listed=['cadastros'=>[],'total_de_paginas'=>0];
+    else throw $e;
+   }
    foreach((array)($listed['cadastros']??[]) as $candidate){
     $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
     if(crm_digits((string)($ident['cDoc']??''))===$document){$remoteCode=trim((string)($ident['nCod']??''));$remoteRow=$candidate;break;}
@@ -1450,7 +1456,13 @@ final class CommercialAccountService {
   if(!$contacts)return [];
   $remoteContacts=[];$page=1;
   do{
-   $listed=$omie->call('crm_contacts','ListarContatos',['pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_obs'=>'S','filtrar_por_conta'=>(int)$remoteAccountCode]);
+   try{
+    $listed=$omie->call('crm_contacts','ListarContatos',['pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_obs'=>'S','filtrar_por_conta'=>(int)$remoteAccountCode]);
+   }catch(Throwable $e){
+    $normalizedError=crm_normalize_key($e->getMessage());
+    if(str_contains($normalizedError,'nao existem registros para a pagina')){$listed=['cadastros'=>[],'total_de_paginas'=>0];break;}
+    throw $e;
+   }
    foreach((array)($listed['cadastros']??[]) as $candidate)if(is_array($candidate))$remoteContacts[]=$candidate;
    $total=max(1,(int)($listed['total_de_paginas']??1));$page++;
   }while($page<=$total&&$page<=100);
