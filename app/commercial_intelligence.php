@@ -1339,6 +1339,11 @@ final class CommercialAccountService {
   $raw=json_decode((string)($account['raw_json']??''),true);if(!is_array($raw))$raw=[];
   $request=is_array($raw['request']??null)?$raw['request']:[];
   if(!$request)throw new RuntimeException('O cadastro não possui alterações locais preparadas para sincronizar.');
+  $profile=self::profile($accountCode);
+  $request['caracteristicas']=[
+   ['campo'=>'TD_CFC','conteudo'=>!empty($profile['is_cfc'])?'SIM':'NAO'],
+   ['campo'=>'TD_REVENDEDOR','conteudo'=>!empty($profile['is_reseller'])?'SIM':'NAO']
+  ];
 
   $omie=new OmieClient();$document=crm_digits((string)($account['document']??''));$remoteCode=$isLocal?'':$accountCode;$remoteRow=null;$created=false;
   if($isLocal){
@@ -1388,6 +1393,9 @@ final class CommercialAccountService {
     ]);
    }
    if($isLocal)DB::exec("UPDATE sync_outbox SET entity_id=?,payload_json=REPLACE(payload_json,?,?) WHERE entity_type='crm_account_classification' AND entity_id=?",[$remoteCode,$accountCode,$remoteCode,$accountCode]);
+   $classificationEntity=$isLocal?$remoteCode:$accountCode;
+   DB::exec("UPDATE sync_outbox SET status='synced',last_error=NULL,next_attempt_at=NULL,synced_at=NOW(),updated_at=NOW() WHERE entity_type='crm_account_classification' AND entity_id=? AND operation='upsert_omie_crm_characteristics' AND status IN('pending','error','processing')",[$classificationEntity]);
+   DB::exec("UPDATE crm_account_commercial_audit SET sync_status='synced',sync_error=NULL,synced_at=NOW() WHERE crm_account_code=? AND field_name='classification' AND sync_status IN('pending','error')",[$classificationEntity]);
    if($own)$pdo->commit();
   }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
   $contactCount=count($contactSync);
