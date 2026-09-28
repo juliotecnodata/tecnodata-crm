@@ -1520,6 +1520,10 @@ final class CommercialAccountService {
     $ident=is_array($remote['identificacao']??null)?$remote['identificacao']:[];
     $remoteCode=trim((string)($ident['nCod']??''));
     if($remoteCode==='')throw new RuntimeException('A Omie localizou o contato, mas não retornou o código.');
+    // O contato já existia na Omie: vincular o nCod não basta.
+    // Aplicamos os dados locais pelo método oficial AlterarContato.
+    $request['identificacao']['nCod']=(int)$remoteCode;
+    $response=$omie->call('crm_contacts','AlterarContato',$request);
    }
 
    $confirmedContact=$omie->call('crm_contacts','ConsultarContato',['nCod'=>(int)$remoteCode]);
@@ -1531,7 +1535,7 @@ final class CommercialAccountService {
 
    $confirmedContact['_tecnodata']=[
     'request'=>$request,
-    'source'=>$created?'tecnodata_contact_created':($localContact?'tecnodata_contact_linked':'tecnodata_contact_updated'),
+    'source'=>$created?'tecnodata_contact_created':'tecnodata_contact_updated',
     'omie_status'=>'synced','local_code'=>(string)$contact['omie_code'],'synced_at'=>date(DATE_ATOM)
    ];
    if($response!==null)$confirmedContact['_tecnodata']['response']=$response;
