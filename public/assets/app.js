@@ -3259,7 +3259,13 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(!anchor||anchor.dataset.noClientModal!==undefined||anchor.target==='_blank'||anchor.hasAttribute('download'))return null;
   const parsed=normalizedLocalPath(anchor.href);if(!parsed)return null;
   let match=parsed.path.match(/^\/clients\/(\d+)\/?$/);if(match)return {client_id:match[1]};
-  match=parsed.path.match(/^\/commercial\/accounts\/([^/]+)\/?$/);if(match)return {account_code:decodeURIComponent(match[1])};
+  match=parsed.path.match(/^\/commercial\/accounts\/([^/]+)\/?$/);
+  if(match){
+    const accountCode=decodeURIComponent(match[1]).trim();
+    const reserved=new Set(['new']);
+    if(!accountCode||reserved.has(accountCode.toLowerCase()))return null;
+    return {account_code:accountCode};
+  }
   return null;
  };
  document.addEventListener('click',event=>{
