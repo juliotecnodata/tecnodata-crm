@@ -1156,24 +1156,24 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
 
-  case 'commercial_account_new':$old=$old??[];$owners=$owners??[];$sellerOwner=$sellerOwner??'';$isSeller=(string)($u['role']??'')==='seller';?>
+  case 'commercial_account_new':$old=$old??[];$owners=$owners??[];$sellerOwner=$sellerOwner??'';$isSeller=(string)($u['role']??'')==='seller';$editingAccount=$editingAccount??null;$editingAccountCode=(string)($editingAccountCode??'');$isEditingAccount=$editingAccountCode!=='';?>
    <section class="tdc-page tdc-client-editor-page">
     <header class="tdc-head">
-     <div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid fa-building-circle-check"></i></span><div><span class="tdc-kicker">COMERCIAL / CONTAS CRM</span><h1>Nova Conta CRM</h1><p>Cadastre a empresa na operação comercial. Cliente de Vendas, pedidos e financeiro não serão criados nesta etapa.</p></div></div>
+     <div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid fa-building-circle-check"></i></span><div><span class="tdc-kicker">COMERCIAL / CONTAS CRM</span><h1><?=$isEditingAccount?'Editar Conta CRM':'Nova Conta CRM'?></h1><p><?=$isEditingAccount?'Atualize os dados comerciais e deixe as alterações prontas para sincronização com a Omie.':'Cadastre a empresa na operação comercial. Cliente de Vendas, pedidos e financeiro não serão criados nesta etapa.'?></p></div></div>
      <div class="tdc-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar para Contas CRM</a></div>
     </header>
 
     <?php if($error):?><div class="alert alert-danger"><strong>Nao foi possivel salvar:</strong> <?=e($error)?></div><?php endif;?>
     <?php if(!empty($ownerWarning)):?><div class="alert alert-warning"><strong>Atenção:</strong> <?=e((string)$ownerWarning)?></div><?php endif;?>
-    <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i> Este fluxo cria somente uma <strong>Conta no CRM</strong>. Depois de conferir, administrador ou supervisor poderá sincronizá-la com o CRM Omie. O Cliente de Vendas fica para outra etapa.</div>
+    <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i> <?=$isEditingAccount?'As alterações serão salvas primeiro no <strong>CRM Tecnodata</strong>. Depois você poderá sincronizar a Conta e o contato com o CRM Omie.':'Este fluxo cria somente uma <strong>Conta no CRM</strong>. Depois de conferir, o responsável pela conta, supervisor ou administrador poderá sincronizá-la com o CRM Omie. O Cliente de Vendas fica para outra etapa.'?></div>
 
     <div class="tdc-form-layout">
      <aside class="tdc-steps">
-      <div class="tdc-steps-head"><span>CONTA COMERCIAL</span><strong>Novo relacionamento</strong><small>Organize a carteira primeiro. A identidade de vendas permanece independente.</small></div>
+      <div class="tdc-steps-head"><span>CONTA COMERCIAL</span><strong><?=$isEditingAccount?'Editar cadastro':'Novo relacionamento'?></strong><small><?=$isEditingAccount?'As alterações ficam registradas no CRM antes da sincronização com a Omie.':'Organize a carteira primeiro. A identidade de vendas permanece independente.'?></small></div>
       <nav class="tdc-step-list"><a class="active" href="#crm-identificacao"><b>1</b><span><strong>Identificação</strong><small>Empresa e contato</small></span></a><a href="#crm-endereco"><b>2</b><span><strong>Localização</strong><small>Endereço da conta</small></span></a><a href="#crm-carteira"><b>3</b><span><strong>Carteira</strong><small>Responsável, perfil e dados adicionais</small></span></a><a href="#crm-revisao"><b>4</b><span><strong>Salvar</strong><small>Conta + contato pendentes</small></span></a></nav>
      </aside>
      <main>
-      <form method="post" action="<?=APP_URL?>/commercial/accounts" id="clientCreateForm" class="tdc-form">
+      <form method="post" action="<?=$isEditingAccount?APP_URL.'/commercial/accounts/'.rawurlencode($editingAccountCode):APP_URL.'/commercial/accounts'?>" id="clientCreateForm" class="tdc-form">
        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
        <section class="tdc-section" id="crm-identificacao">
         <div class="tdc-section-head"><span class="tdc-section-icon blue"><i class="fa-solid fa-building"></i></span><div><strong>Identificação da Conta CRM</strong><small>Dados usados na carteira e no relacionamento comercial.</small></div><span class="tdc-badge">Não cria Cliente de Vendas</span></div>
@@ -1212,7 +1212,7 @@ function render(string $name,array $vars=[]): void{
          <div class="field span-3"><label>Regime tributário</label><input class="form-control" name="tax_regime" value="<?=e((string)($old['tax_regime']??''))?>" placeholder="Ex.: Simples Nacional"></div>
 
          <div class="tdc-subsection-title span-12"><span>Carteira e classificação</span><small>Defina quem acompanha a conta e como ela será tratada comercialmente.</small></div>
-         <div class="field span-6"><label>Responsável pela Conta CRM<span class="tdc-required">*</span></label><?php if($isSeller):?><input type="hidden" name="crm_user_code" value="<?=e($sellerOwner)?>"><div class="tdc-fixed tdc-owner-fixed"><i class="fa-solid fa-user-tie"></i><span><?=e((string)($u['name']??'Vendedor atual'))?></span></div><small class="tdc-hint">A conta entrará diretamente na sua carteira.</small><?php else:?><select class="form-select" name="crm_user_code" required><option value="">Selecione o responsável</option><?php foreach($owners as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=((string)($old['crm_user_code']??'')===(string)$owner['omie_code'])?'selected':''?>><?=e((string)$owner['name'])?></option><?php endforeach;?></select><?php endif;?></div>
+         <div class="field span-6"><label>Responsável pela Conta CRM<span class="tdc-required">*</span></label><?php if($isSeller):?><input type="hidden" name="crm_user_code" value="<?=e((string)($old['crm_user_code']??$sellerOwner))?>"><div class="tdc-fixed tdc-owner-fixed"><i class="fa-solid fa-user-tie"></i><span><?=e((string)($u['name']??'Vendedor atual'))?></span></div><small class="tdc-hint"><?=$isEditingAccount?'Você pode editar somente contas da sua própria carteira.':'A conta entrará diretamente na sua carteira.'?></small><?php else:?><select class="form-select" name="crm_user_code" required><option value="">Selecione o responsável</option><?php foreach($owners as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=((string)($old['crm_user_code']??'')===(string)$owner['omie_code'])?'selected':''?>><?=e((string)$owner['name'])?></option><?php endforeach;?></select><?php endif;?></div>
          <div class="field span-6 tdc-classification-field"><label>Classificação comercial</label><div class="tdc-classification-options"><label class="tdc-check-card"><input type="checkbox" name="is_cfc" value="1" <?=!empty($old['is_cfc'])?'checked':''?>><span class="tdc-check-box"><i class="fa-solid fa-check"></i></span><span><strong>CFC</strong><small>Centro de formação</small></span></label><label class="tdc-check-card"><input type="checkbox" name="is_reseller" value="1" <?=!empty($old['is_reseller'])?'checked':''?>><span class="tdc-check-box"><i class="fa-solid fa-check"></i></span><span><strong>Revendedor</strong><small>Canal ou parceiro</small></span></label></div></div>
          <div class="field span-12"><label>Tags</label><div class="tdc-tag-editor" data-tag-editor><div data-tag-chips></div><input type="text" data-tag-input placeholder="Digite uma tag e pressione Enter"><input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??''))?>"></div><small class="tdc-hint">Use tags curtas para facilitar filtros e segmentações.</small></div>
          <div class="field span-12"><label>Observações comerciais</label><textarea class="form-control tdc-notes-field" name="notes" rows="4" maxlength="500" placeholder="Contexto inicial, origem do contato e próximo passo."><?=e((string)($old['notes']??''))?></textarea></div>
@@ -1222,10 +1222,10 @@ function render(string $name,array $vars=[]): void{
        <section class="tdc-section" id="crm-revisao">
         <div class="tdc-section-head"><span class="tdc-section-icon green"><i class="fa-solid fa-shield-check"></i></span><div><strong>Salvar na base correta</strong><small>A conta sera criada em Contas CRM e aparecera na carteira do responsavel.</small></div></div>
         <div class="tdc-review">
-         <div class="tdc-review-item positive"><span class="tdc-review-icon"><i class="fa-solid fa-building-circle-check"></i></span><span><strong>Conta CRM + Contato principal</strong><small>Os dois registros serão salvos localmente e entrarão como pendentes de sincronização com a Omie.</small></span></div>
+         <div class="tdc-review-item positive"><span class="tdc-review-icon"><i class="fa-solid fa-building-circle-check"></i></span><span><strong>Conta CRM + Contato principal</strong><small><?=$isEditingAccount?'As alterações dos dois registros serão salvas no CRM e ficarão prontas para sincronização com a Omie.':'Os dois registros serão salvos localmente e entrarão como pendentes de sincronização com a Omie.'?></small></span></div>
          <div class="tdc-review-item neutral"><span class="tdc-review-icon"><i class="fa-solid fa-shield-halved"></i></span><span><strong>Cliente de Vendas permanece separado</strong><small>Nenhum pedido, cadastro fiscal ou financeiro será criado nesta etapa.</small></span></div>
         </div>
-        <div class="tdc-form-actions tdc-create-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Cancelar</a><button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="Salvando Conta CRM..."><i class="fa-solid fa-check"></i>Salvar Conta CRM</button></div>
+        <div class="tdc-form-actions tdc-create-actions"><a class="tdc-btn" href="<?=$isEditingAccount?APP_URL.'/commercial/accounts/'.rawurlencode($editingAccountCode):APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Cancelar</a><button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="<?=$isEditingAccount?'Salvando alterações...':'Salvando Conta CRM...'?>"><i class="fa-solid fa-check"></i><?=$isEditingAccount?'Salvar alterações':'Salvar Conta CRM'?></button></div>
        </section>
       </form>
      </main>
@@ -1328,7 +1328,7 @@ function render(string $name,array $vars=[]): void{
         <?php if($isCfc):?><span class="tdf-badge cfc">CFC</span><?php endif;?>
         <?php if($isReseller):?><span class="tdf-badge reseller">Revendedor</span><?php endif;?>
         <?php if(!$isCfc&&!$isReseller):?><span class="tdf-badge neutral">Sem classificação</span><?php endif;?>
-        <?php if($canMaintain):?><?php if($linked):?><a class="tdf-edit" href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/edit"><i class="fa-solid fa-pen"></i>Editar cadastro</a><?php else:?><button class="tdf-edit" type="button" data-tdf-classification-open><i class="fa-solid fa-pen"></i>Editar classificação CRM</button><?php endif;?><?php endif;?>
+        <?php if($canMaintain):?><a class="tdf-edit" href="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/edit" data-no-client-modal><i class="fa-solid fa-pen"></i>Editar Conta CRM</a><?php endif;?>
        </div>
        <div class="tdf-document"><?=e((string)($account['document']?:'Documento não informado'))?></div>
        <div class="tdf-customer-meta">
@@ -1352,7 +1352,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($localPending):?><section class="tdf-integration unlinked">
      <div class="tdf-integration-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
      <div class="tdf-integration-copy"><small>CONTA CRM LOCAL</small><strong>Conta e contato aguardando sincronização com o CRM Omie</strong><p>Esta conta já está disponível na carteira do responsável<?= $pendingContactCount>0?' e possui '.$pendingContactCount.' contato(s) local(is) vinculado(s)':''?>. Cliente de Vendas, pedidos e financeiro continuam separados.</p></div>
-     <div class="tdf-integration-manage"><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Sincronizar esta Conta CRM e seus contatos pendentes com os módulos correspondentes da Omie? Isso não criará Cliente de Vendas."><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Conta + Contatos</button></form><?php else:?><span><i class="fa-regular fa-clock"></i>Aguardando supervisão</span><?php endif;?></div>
+     <div class="tdf-integration-manage"><?php if($canWork||Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Sincronizar esta Conta CRM e seus contatos pendentes com os módulos correspondentes da Omie? Isso não criará Cliente de Vendas."><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Conta + Contatos</button></form><?php else:?><span><i class="fa-solid fa-lock"></i>Somente o responsável pode sincronizar</span><?php endif;?></div>
     </section><?php endif;?>
 
     <?php if(!$localPending):?><section class="tdf-integration <?=$linked?'linked':($hasClientLink?'historical':'unlinked')?>" data-commercial-client-link>
@@ -1411,7 +1411,7 @@ function render(string $name,array $vars=[]): void{
     <?php if($linked&&$canWork):?>
     <div class="tdf-source-actions">
      <a href="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/edit"><i class="fa-solid fa-pen"></i>Editar Cliente Omie</a>
-     <?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit"><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Cliente Omie</button></form><?php else:?><span><i class="fa-regular fa-clock"></i>Alterações do vendedor ficam pendentes para sincronização pela supervisão.</span><?php endif;?>
+     <form method="post" action="<?=APP_URL?>/clients/<?=(int)$account['client_id']?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Sincronizar este Cliente Geral com a Omie agora?"><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Cliente Omie</button></form>
      <span><i class="fa-solid fa-circle-info"></i>Responsável e contatos pertencem à Conta CRM Omie. Cadastro fiscal e vendas pertencem ao Cliente Geral Omie.</span>
     </div>
     <?php endif;?>
