@@ -25,6 +25,12 @@ final class OmieClient {
   'crm_opportunities'=>'https://app.omie.com.br/api/v1/crm/oportunidades/',
   'crm_tasks'=>'https://app.omie.com.br/api/v1/crm/tarefas/',
  ];
+ private static function normalizeErrorText(string $value): string{
+  $value=mb_strtolower(trim($value),'UTF-8');
+  $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
+  if(is_string($ascii)&&$ascii!=='')$value=$ascii;
+  return (string)preg_replace('/\\s+/',' ',$value);
+ }
  public function call(string $endpoint,string $call,array $param): array{
   $url=$this->endpoints[$endpoint]??null;if(!$url)throw new RuntimeException('Endpoint Omie desconhecido.');
   $cfg=$GLOBALS['config']['omie'];
@@ -38,6 +44,40 @@ final class OmieClient {
   $raw=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$err=curl_error($ch);curl_close($ch);
   if($raw===false||$err)throw new RuntimeException('Falha de comunicação Omie: '.$err);
   $data=json_decode($raw,true);if(!is_array($data))throw new RuntimeException('Resposta inválida Omie HTTP '.$http.'.');
+
+  // A Omie usa o código 5113 em chamadas Listar* quando a página consultada
+  // não possui registros. Apesar de aparecer como "erro" no monitor da Omie,
+  // semanticamente é uma listagem vazia e não deve interromper sincronizações.
+  $isListCall=str_starts_with($call,'Listar');
+  $errorCodes=[];
+  $collectCode=static function(mixed $value) use (&$errorCodes): void{
+   if($value===null||$value==='')return;
+   if(is_numeric($value)){$errorCodes[]=(int)$value;return;}
+   if(preg_match('/\\b(\\d{3,6})\\b/',(string)$value,$m))$errorCodes[]=(int)$m[1];
+  };
+  $collectCode($data['CODIGO']??null);
+  $collectCode($data['codigo']??null);
+  $collectCode($data['codigo_status']??null);
+  $collectCode($data['cCodigoStatus']??null);
+  $collectCode($data['faultcode']??null);
+  foreach((array)($data['errors']??$data['erros']??[]) as $omieError){
+   if(!is_array($omieError))continue;
+   $collectCode($omieError['CODIGO']??$omieError['codigo']??$omieError['code']??null);
+  }
+  $faultMessage=(string)($data['faultstring']??$data['message']??$data['MENSAGEM']??'');
+  if($faultMessage!==''&&str_contains(self::normalizeErrorText($faultMessage),'nao existem registros para a pagina'))$errorCodes[]=5113;
+
+  if($isListCall&&in_array(5113,$errorCodes,true)){
+   if(!isset($data['cadastros'])||!is_array($data['cadastros']))$data['cadastros']=[];
+   $data['pagina']=0;
+   $data['registros']=0;
+   $data['total_de_paginas']=0;
+   $data['total_de_registros']=0;
+   $data['_omie_empty_result']=true;
+   $data['_omie_status_code']=5113;
+   return $data;
+  }
+
   if($http>=400||isset($data['faultstring']))throw new RuntimeException((string)($data['faultstring']??$data['message']??('Erro Omie HTTP '.$http)));
   // Algumas operações da Omie retornam HTTP 200 mesmo quando o processamento falha.
   // Nesses casos codigo_status/cCodigoStatus > 0 representa erro de negócio.
