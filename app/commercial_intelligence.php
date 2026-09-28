@@ -40,6 +40,19 @@ final class CommercialSchema {
   $state=$stateRaw?json_decode((string)$stateRaw,true):null;
   if(is_array($state)&&(int)($state['version']??0)>=$schemaVersion){self::ensureLinkAuditTable();self::$ready=true;return;}
 
+  // Impede que duas requisições web executem a mesma migração ao mesmo
+  // tempo. ALTER TABLE concorrente pode manter as demais telas aguardando um
+  // metadata lock até o limite do PHP, dando a impressão de que todo o CRM caiu.
+  $schemaLock=DB::prefix().'commercial_intelligence_schema';
+  $schemaLockAcquired=(int)(DB::scalar('SELECT GET_LOCK(?,10)',[$schemaLock])??0)===1;
+  if(!$schemaLockAcquired)throw new RuntimeException('A estrutura comercial está sendo atualizada. Aguarde alguns segundos e recarregue a tela.');
+  try{
+   // Outra requisição pode ter concluído a migração enquanto esta
+   // aguardava o lock. Revalidamos para não repetir nenhuma alteração.
+   $lockedStateRaw=DB::scalar("SELECT value_json FROM settings WHERE setting_key='commercial_intelligence_schema_version' LIMIT 1");
+   $lockedState=$lockedStateRaw?json_decode((string)$lockedStateRaw,true):null;
+   if(is_array($lockedState)&&(int)($lockedState['version']??0)>=$schemaVersion){self::ensureLinkAuditTable();self::$ready=true;return;}
+
   $clientColumns=[];foreach(DB::all("SHOW COLUMNS FROM clients") as $row)$clientColumns[(string)$row['Field']]=true;
   if(!isset($clientColumns['crm_account_code']))DB::exec("ALTER TABLE clients ADD COLUMN crm_account_code VARCHAR(80) NULL AFTER omie_seller_code");
   if(!isset($clientColumns['crm_owner_omie_code']))DB::exec("ALTER TABLE clients ADD COLUMN crm_owner_omie_code VARCHAR(80) NULL AFTER crm_account_code");
@@ -409,7 +422,10 @@ final class CommercialSchema {
             ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=NOW()",
    [json_encode(['version'=>$schemaVersion],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
 
-  self::$ready=true;
+   self::$ready=true;
+  }finally{
+   try{DB::scalar('SELECT RELEASE_LOCK(?)',[$schemaLock]);}catch(Throwable $ignored){}
+  }
  }
 }
 
@@ -680,7 +696,7 @@ final class CommercialPortfolioService {
 
   $total=max(1,(int)($data['total_de_paginas']??1));$done=$page>=$total;
   if($done){
-   DB::exec("UPDATE crm_accounts SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
+   DB::exec("UPDATE crm_accounts SET active=0 WHERE omie_code NOT LIKE 'LOCAL-CRM-%' AND (last_seen_token IS NULL OR last_seen_token<>?)",[$syncToken]);
    DB::exec("UPDATE clients c JOIN crm_account_links l ON l.client_id=c.id JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=0 SET c.crm_owner_omie_code=NULL,c.crm_owner_user_id=NULL WHERE c.active=1");
    $ownerStats=self::rebuildOperationalOwners();
    $stats['reassigned_pending_tasks']=(int)($ownerStats['reassigned_pending_tasks']??0);
@@ -1143,6 +1159,119 @@ final class CommercialHomeService {
 }
 
 final class CommercialAccountService {
+ public static function createLocal(array $input,array $user): array{
+  CommercialSchema::ensure();
+  $name=trim((string)($input['legal_name']??$input['name']??''));
+  $tradeName=trim((string)($input['trade_name']??''));
+  $document=crm_digits((string)($input['document']??''));
+  if($name==='')throw new RuntimeException('Informe o nome ou a razao social da Conta CRM.');
+  if(!in_array(strlen($document),[11,14],true))throw new RuntimeException('Informe um CPF ou CNPJ valido.');
+  if((int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE document=? AND active=1",[$document])??0)>0)throw new RuntimeException('Ja existe uma Conta CRM ativa com este CPF/CNPJ.');
+
+  $role=(string)($user['role']??'');
+  $ownerCode=$role==='seller'?trim((string)($user['crm_user_omie_code']??'')):trim((string)($input['crm_user_code']??''));
+  if($ownerCode==='')throw new RuntimeException($role==='seller'?'Seu usuario ainda nao esta vinculado a um usuario do CRM Omie. Solicite o ajuste ao administrador.':'Selecione o responsavel comercial da conta.');
+  if(!(int)(DB::scalar("SELECT COUNT(*) FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.omie_code=? AND cu.active=1",[$ownerCode])??0))throw new RuntimeException('O responsavel selecionado nao esta vinculado a um vendedor ativo do sistema.');
+
+  $integrationCode='TDCRM-CTA-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
+  $localCode='LOCAL-CRM-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
+  $tags=[];foreach(preg_split('/[,;\r\n]+/',(string)($input['tags']??''))?:[] as $tag){$tag=trim($tag);if($tag!==''&&!in_array($tag,$tags,true))$tags[]=mb_substr($tag,0,60);if(count($tags)>=20)break;}
+  $request=self::accountRequest($input,$ownerCode,$integrationCode,$name,$tradeName,$document,$tags);
+  $salesDraft=[];foreach(['email','contact_name','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','notes'] as $field)$salesDraft[$field]=trim((string)($input[$field]??''));
+  $raw=['request'=>$request,'sales_draft'=>$salesDraft,'source'=>'tecnodata_local','omie_status'=>'pending','created_by'=>(int)($user['id']??0),'created_at'=>date(DATE_ATOM)];
+  $notes=trim((string)($input['notes']??''));
+  $pdo=DB::conn();$own=!$pdo->inTransaction();if($own)$pdo->beginTransaction();
+  try{
+   DB::exec("INSERT INTO crm_accounts(omie_code,integration_code,name,trade_name,document,crm_user_code,vertical_code,telemarketing_code,notes,active,raw_json,last_seen_token,updated_at) VALUES(?,?,?,?,?,?,NULL,NULL,?,1,?,NULL,NOW())",[
+    $localCode,$integrationCode,$name,$tradeName!==''?$tradeName:null,$document,$ownerCode,$notes!==''?$notes:null,json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+   ]);
+   DB::exec("INSERT INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,strategic_notes,classification_source,updated_by_user_id,updated_at) VALUES(?,?,?,?, 'tecnodata',?,NOW())",[
+    $localCode,!empty($input['is_cfc'])?1:0,!empty($input['is_reseller'])?1:0,$notes!==''?$notes:null,(int)($user['id']??0)?:null
+   ]);
+   if($own)$pdo->commit();
+  }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+  return self::get($localCode)??[];
+ }
+
+ public static function syncLocalWithOmie(string $accountCode,array $user): array{
+  CommercialSchema::ensure();
+  if(!in_array((string)($user['role']??''),['admin','supervisor'],true))throw new RuntimeException('Somente supervisores e administradores podem enviar uma Conta CRM para a Omie.');
+  $account=DB::one("SELECT * FROM crm_accounts WHERE omie_code=? AND active=1 LIMIT 1",[$accountCode]);
+  if(!$account)throw new RuntimeException('Conta CRM nao encontrada.');
+  if(!str_starts_with($accountCode,'LOCAL-CRM-'))throw new RuntimeException('Esta Conta CRM ja possui codigo da Omie.');
+  $raw=json_decode((string)($account['raw_json']??''),true);$request=is_array($raw['request']??null)?$raw['request']:[];
+  if(!$request)throw new RuntimeException('O cadastro local nao possui os dados necessarios para sincronizar.');
+
+  $omie=new OmieClient();$document=crm_digits((string)($account['document']??''));$remoteCode='';$remoteRow=null;$created=false;
+  $listed=$omie->call('crm_accounts','ListarContas',['pagina'=>1,'registros_por_pagina'=>10,'apenas_importado_api'=>'N','cDoc'=>$document]);
+  foreach((array)($listed['cadastros']??[]) as $candidate){
+   $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
+   if(crm_digits((string)($ident['cDoc']??''))===$document){$remoteCode=trim((string)($ident['nCod']??''));$remoteRow=$candidate;break;}
+  }
+  if($remoteCode===''){
+   $response=$omie->call('crm_accounts','IncluirConta',$request);
+   $status=(string)($response['cCodStatus']??$response['codigo_status']??'0');
+   if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou a inclusao da Conta CRM.'));
+   $remoteCode=trim((string)($response['nCod']??$response['codigo_conta']??''));$created=true;
+  }
+  if($remoteCode==='')throw new RuntimeException('A Omie nao retornou o codigo da Conta CRM.');
+  if((int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=?",[$remoteCode])??0)>0)throw new RuntimeException('A Conta CRM ja existe localmente com o codigo Omie '.$remoteCode.'. Abra o cadastro existente para evitar duplicidade.');
+
+  $remoteRaw=$remoteRow??['identificacao'=>$request['identificacao']??[],'endereco'=>$request['endereco']??[],'telefone_email'=>$request['telefone_email']??[],'tags'=>$request['tags']??[]];
+  if(isset($remoteRaw['identificacao'])&&is_array($remoteRaw['identificacao']))$remoteRaw['identificacao']['nCod']=$remoteCode;
+  $remoteRaw['_tecnodata']=['sales_draft'=>(array)($raw['sales_draft']??[]),'source'=>'tecnodata_synced','created_by'=>(int)($raw['created_by']??0),'created_at'=>(string)($raw['created_at']??date(DATE_ATOM))];
+  $pdo=DB::conn();$own=!$pdo->inTransaction();if($own)$pdo->beginTransaction();
+  try{
+   DB::exec("UPDATE crm_accounts SET omie_code=?,raw_json=?,last_seen_token=NULL,updated_at=NOW() WHERE omie_code=?",[$remoteCode,json_encode($remoteRaw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$accountCode]);
+   foreach(['crm_account_commercial_profiles','crm_account_commercial_audit','crm_contacts','activities','tasks','commercial_partner_work','commercial_sales','crm_account_notes'] as $table)DB::exec("UPDATE ".$table." SET crm_account_code=? WHERE crm_account_code=?",[$remoteCode,$accountCode]);
+   DB::exec("UPDATE sync_outbox SET entity_id=?,payload_json=REPLACE(payload_json,?,?) WHERE entity_type='crm_account_classification' AND entity_id=?",[$remoteCode,$accountCode,$remoteCode,$accountCode]);
+   if($own)$pdo->commit();
+  }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+  return ['account_code'=>$remoteCode,'created'=>$created,'message'=>$created?'Conta CRM criada e sincronizada com a Omie.':'A conta ja existia na Omie e foi vinculada ao cadastro local.'];
+ }
+
+ public static function promoteToSalesClient(string $accountCode,array $input,array $user): array{
+  CommercialSchema::ensure();$account=self::get($accountCode);
+  if(!$account||empty($account['active']))throw new RuntimeException('Conta CRM não encontrada ou inativa.');
+  if(str_starts_with($accountCode,'LOCAL-CRM-'))throw new RuntimeException('Sincronize primeiro a Conta CRM com a Omie. A conversão para Cliente de Vendas é a etapa seguinte.');
+  if(!self::canWork($user,$accountCode))throw new RuntimeException('Você não pode converter uma conta que não pertence à sua operação comercial.');
+  if(!empty($account['client_id']))throw new RuntimeException('Esta Conta CRM já está vinculada a um Cliente de Vendas.');
+
+  $document=crm_digits((string)($account['document']??''));
+  $existing=DB::one("SELECT id,omie_code,name FROM clients WHERE REGEXP_REPLACE(COALESCE(document,''),'[^0-9]','')=? AND active=1 AND crm_inactive=0 ORDER BY id LIMIT 1",[$document]);
+  $pdo=DB::conn();$own=!$pdo->inTransaction();if($own)$pdo->beginTransaction();
+  try{
+   if($existing){
+    $client=$existing;$created=false;
+   }else{
+    $owner=DB::one("SELECT seller_omie_code FROM users WHERE active=1 AND role='seller' AND crm_user_omie_code=? ORDER BY id LIMIT 1",[(string)($account['crm_user_code']??'')]);
+    $form=$input;
+    $form['legal_name']=(string)($account['name']??'');
+    $form['trade_name']=trim((string)($account['trade_name']??''))?:$form['legal_name'];
+    $form['document']=$document;
+    $form['seller_omie_code']=trim((string)($owner['seller_omie_code']??($user['seller_omie_code']??'')));
+    $tags=ClientService::normalizeTags($form['tags']??[]);if(!in_array('CLIENTE',$tags,true))array_unshift($tags,'CLIENTE');$form['tags']=$tags;
+    $result=ClientService::createLocal($form,$user);$client=(array)($result['client']??[]);$created=true;
+   }
+   $clientId=(int)($client['id']??0);if($clientId<=0)throw new RuntimeException('Não foi possível preparar o Cliente de Vendas.');
+   self::linkClient($accountCode,$clientId,(int)($user['id']??0),false,$created?'Conversão aprovada a partir da Conta CRM.':'Cliente de Vendas existente conciliado pelo CPF/CNPJ.');
+   if($own)$pdo->commit();
+   return ['client_id'=>$clientId,'created'=>$created,'message'=>$created?'Cliente de Vendas criado localmente e vinculado. Ele agora aguarda a sincronização própria com a Omie.':'O CPF/CNPJ já existia na base de Vendas; o vínculo foi realizado sem duplicar o cliente.'];
+  }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+ }
+
+ private static function accountRequest(array $input,string $ownerCode,string $integrationCode,string $name,string $tradeName,string $document,array $tags): array{
+  $ddd=crm_digits((string)($input['phone_ddd']??''));$phone=crm_digits((string)($input['phone_number']??''));
+  $address=trim((string)($input['address']??''));$number=trim((string)($input['address_number']??''));if($number!=='')$address=trim($address.', '.$number);
+  $request=[
+   'identificacao'=>['cCodInt'=>$integrationCode,'cNome'=>mb_substr($name,0,100),'cNomeFantasia'=>mb_substr($tradeName!==''?$tradeName:$name,0,100),'cDoc'=>$document,'nCodVend'=>(int)$ownerCode,'cObs'=>mb_substr(trim((string)($input['notes']??'')),0,500)],
+   'endereco'=>['cEndereco'=>mb_substr($address,0,100),'cCompl'=>mb_substr(trim((string)($input['complement']??'')),0,100),'cCEP'=>crm_digits((string)($input['zip_code']??'')),'cBairro'=>mb_substr(trim((string)($input['neighborhood']??'')),0,60),'cCidade'=>mb_substr(trim((string)($input['city']??'')),0,60),'cUF'=>strtoupper(mb_substr(trim((string)($input['uf']??'')),0,2)),'cPais'=>'BRASIL'],
+   'telefone_email'=>['cDDDTel'=>$ddd,'cNumTel'=>$phone,'cEmail'=>mb_substr(trim((string)($input['email']??'')),0,200),'cWebsite'=>mb_substr(trim((string)($input['website']??'')),0,200)]
+  ];
+  if($tags)$request['tags']=array_map(static fn($tag)=>['tag'=>$tag],$tags);
+  return $request;
+ }
+
  public static function canView(array $user,string $accountCode): bool{
   CommercialSchema::ensure();
   $role=(string)($user['role']??'');
@@ -1464,7 +1593,7 @@ final class CommercialAccountService {
 
   if($q!==''){
    $like='%'.$q.'%';$digits=crm_digits($q);
-   $parts=['a.name LIKE ?','a.trade_name LIKE ?','a.document LIKE ?','cu.name LIKE ?','c.name LIKE ?'];array_push($params,$like,$like,$like,$like,$like);
+   $parts=['a.name LIKE ?','a.trade_name LIKE ?','a.document LIKE ?','a.omie_code LIKE ?','cu.name LIKE ?','c.name LIKE ?'];array_push($params,$like,$like,$like,$like,$like,$like);
    if($digits!==''){$parts[]="REPLACE(REPLACE(REPLACE(REPLACE(a.document,'.',''),'/',''),'-',''),' ','') LIKE ?";$params[]='%'.$digits.'%';}
    $where[]='('.implode(' OR ',$parts).')';
   }

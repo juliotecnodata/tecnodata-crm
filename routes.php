@@ -735,7 +735,8 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  if($portfolioOnly)$segment='general';
  elseif(($u['role']??'')==='seller')$segment='all';
  $segmentMeta=$segment==='all'?['label'=>'Todos os clientes','description'=>'Base ativa completa, sem restrição por tag ou operação. Use os filtros para localizar e corrigir classificações quando necessário.']:(array)($segmentCatalog[$segment]??[]);
- $clientBasePath='clients';
+ $requestPath=(string)(parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)??'');
+ $clientBasePath=str_ends_with(rtrim($requestPath,'/'),'/sales/clients')?'sales/clients':'clients';
  if($portfolioOnly&&$u['role']!=='seller'){redirect('/clients');}
  $flash=$_SESSION['clients_flash']??null;unset($_SESSION['clients_flash']);
  $q=trim((string)($_GET['q']??''));
@@ -836,7 +837,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
                            ORDER BY a.updated_at DESC,a.omie_code
                            LIMIT 8");
  }
- render('clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'classificationFilter'=>$classificationFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
+ render($clientBasePath==='sales/clients'?'sales_clients':'clients',['rows'=>$rows,'q'=>$q,'uf'=>$uf,'clientUfs'=>$clientUfs,'ddds'=>$ddds,'tag'=>$tag,'sellerFilter'=>$sellerFilter,'classificationFilter'=>$classificationFilter,'crmStatus'=>$crmStatus,'portfolioMonth'=>$portfolioMonth,'clientTags'=>client_tag_catalog(),'clientTagsSelected'=>$clientTagsSelected,'clientScope'=>$clientScope,'portfolioMode'=>$portfolioOnly,'clientSegment'=>$segment,'clientSegmentCatalog'=>$segmentCatalog,'clientSegmentLabel'=>(string)($segmentMeta['label']??'Clientes Geral'),'clientSegmentDescription'=>(string)($segmentMeta['description']??''),'clientBasePath'=>$clientBasePath,'availableClients'=>$availableClients,'portfolioDddMap'=>client_portfolio_ddd_map(),'flash'=>$flash,'clientStats'=>[
   'total'=>$totalClients,
   'revenue'=>(float)($summary['revenue_12m']??0),
   'orders'=>(int)($summary['orders_12m']??0),
@@ -859,6 +860,7 @@ $renderClients=function(bool $portfolioOnly=false,?string $forcedSegment=null){
  'identityFilter'=>$identityFilter,'identitySummary'=>$identitySummary,'crmOnlyAccounts'=>$crmOnlyAccounts
  ]);
 };
+$router->get('/sales/clients',function()use($renderClients){$renderClients(false);});
 $router->get('/api/client-quick-view',function(){
  Auth::requireLogin();ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();
  try{
@@ -1052,9 +1054,8 @@ $router->get('/clients',function()use($renderClients){
   $filters['per_page']=max(10,min(50,(int)($_GET['per_page']??10)));
   $flash=$_SESSION['commercial_flash']??($_SESSION['clients_flash']??null);
   unset($_SESSION['commercial_flash'],$_SESSION['clients_flash']);
-  $pendingWhere=["c.active=1","c.crm_inactive=0","COALESCE(JSON_UNQUOTE(JSON_EXTRACT(c.raw_json,'$.omie_status')),'') IN ('pending','pending_update')",commercial_active_crm_link_sql('c')];$pendingParams=[];
   $pendingSync=0;
-  try{$pendingSync=(int)(DB::scalar("SELECT COUNT(*) FROM clients c WHERE ".implode(' AND ',$pendingWhere),$pendingParams)??0);}catch(Throwable $ignored){}
+  try{$pendingSync=(int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE active=1 AND omie_code LIKE 'LOCAL-CRM-%'")??0);}catch(Throwable $ignored){}
   render('commercial_portfolio',[
    'portfolio'=>CommercialAccountService::portfolio($u,$filters),
    'centralStats'=>CommercialAccountService::centralStats($u),
@@ -1084,6 +1085,62 @@ $renderCommercialPortfolio=function(){
 };
 $router->get('/my-portfolio',$renderCommercialPortfolio);
 $router->get('/commercial-portfolio',$renderCommercialPortfolio);
+
+$router->get('/crm',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();$role=(string)($u['role']??'');
+ $portfolio=CommercialAccountService::portfolio($u,['page'=>1,'per_page'=>10,'scope'=>'all','sort'=>'name']);
+ $crmCode=trim((string)($u['crm_user_omie_code']??''));$contactParams=[];$contactWhere=['c.active=1','a.active=1'];
+ if($role==='seller'){$contactWhere[]='a.crm_user_code=?';$contactParams[]=$crmCode!==''?$crmCode:'__NO_CRM_OWNER__';}
+ $contactCount=(int)(DB::scalar("SELECT COUNT(*) FROM crm_contacts c JOIN crm_accounts a ON a.omie_code=c.crm_account_code WHERE ".implode(' AND ',$contactWhere),$contactParams)??0);
+ $taskWhere=["t.status='pending'","t.type='sales'"];$taskParams=[];
+ if($role==='seller'){$taskWhere[]='t.assigned_user_id=?';$taskParams[]=(int)$u['id'];}
+ $pendingTasks=(int)(DB::scalar("SELECT COUNT(*) FROM tasks t WHERE ".implode(' AND ',$taskWhere),$taskParams)??0);
+ $openOpportunities=0;
+ if(sales_flow_enabled()){
+  ensure_sales_flow_tables();$opportunityWhere=["status='open'"];$opportunityParams=[];
+  if($role==='seller'){$opportunityWhere[]='owner_user_id=?';$opportunityParams[]=(int)$u['id'];}
+  $openOpportunities=(int)(DB::scalar("SELECT COUNT(*) FROM opportunities WHERE ".implode(' AND ',$opportunityWhere),$opportunityParams)??0);
+ }
+ render('crm_hub',[
+  'crmMetrics'=>['accounts'=>(int)($portfolio['total']??0),'contacts'=>$contactCount,'tasks'=>$pendingTasks,'opportunities'=>$openOpportunities],
+  'flowEnabled'=>sales_flow_enabled()
+ ]);
+});
+
+$router->get('/commercial/accounts/new',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ $old=$_SESSION['crm_account_create_old']??[];$error=$_SESSION['crm_account_create_error']??null;
+ unset($_SESSION['crm_account_create_old'],$_SESSION['crm_account_create_error']);
+ render('commercial_account_new',[
+  'old'=>$old,'error'=>$error,
+  'owners'=>DB::all("SELECT DISTINCT cu.omie_code,cu.name,cu.email FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.active=1 ORDER BY cu.name"),
+  'sellerOwner'=>(string)($u['crm_user_omie_code']??'')
+ ]);
+});
+
+$router->post('/commercial/accounts',function(){
+ Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ try{
+  $account=CommercialAccountService::createLocal($_POST,Auth::user());
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Conta salva no CRM Tecnodata. Nenhum Cliente Geral/Vendas foi criado. A sincronizacao com o CRM Omie e uma etapa separada.'];
+  redirect('/commercial/accounts/'.rawurlencode((string)$account['omie_code']).'?from=clients');
+ }catch(Throwable $e){
+  $_SESSION['crm_account_create_error']=$e->getMessage();$_SESSION['crm_account_create_old']=$_POST;
+  redirect('/commercial/accounts/new');
+ }
+});
+
+$router->post('/commercial/accounts/{code}/omie-sync',function($p){
+ Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
+ try{
+  $result=CommercialAccountService::syncLocalWithOmie($code,Auth::user());
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>(string)$result['message'].' O cadastro de Cliente Geral/Vendas permanece separado.'];
+  redirect('/commercial/accounts/'.rawurlencode((string)$result['account_code']).'?from=clients');
+ }catch(Throwable $e){
+  $_SESSION['commercial_flash']=['type'=>'danger','message'=>'Nao foi possivel sincronizar a Conta CRM com a Omie: '.$e->getMessage()];
+  redirect('/commercial/accounts/'.rawurlencode($code).'?from=clients');
+ }
+});
 
 // Prova de conceito isolada: Home e carteira no mesmo espaço de trabalho.
 // Não substitui a Home atual nem participa do menu principal.
@@ -2854,8 +2911,12 @@ $router->get('/settings',function(){
  ]);
  render('settings',$data);
 });
+$router->get('/design-preview',function(){
+ Auth::requireRole('admin','supervisor');
+ render('design_preview');
+});
 $router->get('/settings/baldussi',function(){
- Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ Auth::requireRole('admin','supervisor');CommercialSchema::ensure();$u=Auth::user();
  $state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];
  $flash=$_SESSION['baldussi_test_flash']??($_SESSION['commercial_flash']??null);unset($_SESSION['baldussi_test_flash'],$_SESSION['commercial_flash']);
  render('baldussi_test',['baldussiConfig'=>BaldussiService::publicConfig(),'baldussiState'=>$state,'baldussiExtension'=>BaldussiService::userExtension($u),'flash'=>$flash,
@@ -2872,6 +2933,9 @@ $router->post('/settings/baldussi/test-connection',function(){
 });
 $router->post('/settings/baldussi/dial',function(){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
+ $returnTo=trim((string)($_POST['return_to']??''));$returnParts=$returnTo!==''?parse_url($returnTo):false;
+ if(!is_array($returnParts)||isset($returnParts['scheme'])||isset($returnParts['host'])||!str_starts_with((string)($returnParts['path']??''),'/')||str_starts_with((string)($returnParts['path']??''),'//')||preg_match('/[\r\n]/',$returnTo))$returnTo='/';
+ else{$returnTo=(string)$returnParts['path'].(isset($returnParts['query'])?'?'.(string)$returnParts['query']:'');}
  try{
   if(empty($_POST['confirm_call']))throw new RuntimeException('Confirme que o número está autorizado a receber a ligação.');
   $u=Auth::user();$origin=BaldussiService::userExtension($u);if(!$origin)throw new RuntimeException('Seu usuário ainda não possui um ramal Baldussi ativo. Solicite o vínculo ao administrador.');
@@ -2887,10 +2951,10 @@ $router->post('/settings/baldussi/dial',function(){
    $accountType=$isCfc&&$isReseller?'CFC + Revendedor':($isCfc?'CFC':($isReseller?'Revendedor':'Cliente'));
   }
   $result=BaldussiService::dial($origin,(string)($_POST['destination']??''));
-  $startedAt=date('Y-m-d H:i:s');$state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];$state['last_call']=array_merge($result,['at'=>$startedAt,'started_at'=>$startedAt,'active'=>!empty($result['ok']),'requested_by'=>Auth::id(),'crm_account_code'=>$accountCode,'account_name'=>$account?trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')):'','account_owner'=>$account?(string)($account['owner_name']??$u['name']):'','account_type'=>$accountType,'client_id'=>$account?(int)($account['client_id']??0):0]);$_SESSION['baldussi_test_state']=$state;
+  $startedAt=date('Y-m-d H:i:s');$expiresAt=date('Y-m-d H:i:s',time()+7200);$state=is_array($_SESSION['baldussi_test_state']??null)?$_SESSION['baldussi_test_state']:[];$state['last_call']=array_merge($result,['at'=>$startedAt,'started_at'=>$startedAt,'expires_at'=>$expiresAt,'active'=>!empty($result['ok']),'requested_by'=>Auth::id(),'crm_account_code'=>$accountCode,'account_name'=>$account?trim((string)($account['trade_name']??''))?:trim((string)($account['name']??'')):'','account_owner'=>$account?(string)($account['owner_name']??$u['name']):'','account_type'=>$accountType,'client_id'=>$account?(int)($account['client_id']??0):0]);$_SESSION['baldussi_test_state']=$state;
   $_SESSION['baldussi_test_flash']=['type'=>$result['ok']?'success':'danger','message'=>($result['ok']?'Ligação solicitada: ':'A ligação não foi iniciada: ').$result['message']];
- }catch(Throwable $e){$_SESSION['baldussi_test_flash']=['type'=>'danger','message'=>'Não foi possível testar a chamada: '.$e->getMessage()];}
- redirect('/settings/baldussi');
+ }catch(Throwable $e){$_SESSION['baldussi_test_flash']=['type'=>'danger','message'=>'Não foi possível testar a chamada: '.$e->getMessage()];if($returnTo!=='/settings/baldussi')$_SESSION['commercial_flash']=$_SESSION['baldussi_test_flash'];}
+ redirect($returnTo);
 });
 $router->post('/settings/baldussi/finish-tracking',function(){
  Auth::requireRole('admin','supervisor','seller');CSRF::require($_POST['_token']??null);
@@ -3014,13 +3078,14 @@ $router->post('/settings',function(){
   if(DB::conn()->inTransaction())DB::conn()->rollBack();
   $_SESSION['settings_flash']=['type'=>'danger','message'=>'Não foi possível salvar as configurações: '.$e->getMessage()];
  }
- redirect('/settings');
+ redirect('/settings#settings-orders');
 });
-$router->post('/settings/order-profile',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveProfile($_POST);redirect('/settings');});
+$router->post('/settings/order-profile',function(){Auth::requireRole('admin');CSRF::require($_POST['_token']??null);OrderService::saveProfile($_POST);redirect('/settings#settings-profiles');});
 $router->get('/users',function(){
  Auth::requireRole('admin');CommercialSchema::ensure();
  $editId=(int)($_GET['edit']??0);
- render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"),'edit'=>$editId?DB::one("SELECT * FROM users WHERE id=?",[$editId]):null]);
+ $flash=$_SESSION['users_flash']??null;unset($_SESSION['users_flash']);
+ render('users',['users'=>DB::all("SELECT * FROM users ORDER BY active DESC,name"),'sellers'=>DB::all("SELECT * FROM sellers WHERE active=1 ORDER BY name"),'edit'=>$editId?DB::one("SELECT * FROM users WHERE id=?",[$editId]):null,'flash'=>$flash]);
 });
 $router->post('/users',function(){
  Auth::requireRole('admin');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
@@ -3053,6 +3118,7 @@ $router->post('/users',function(){
  }
  CommercialIdentityService::reconcileUsers();
  CommercialPortfolioService::rebuildOperationalOwners();
+ $_SESSION['users_flash']=['type'=>'success','message'=>$id>0?'Usuário atualizado com sucesso.':'Usuário criado com sucesso.'];
  redirect('/users');
 });
 $router->get('/goals',function(){

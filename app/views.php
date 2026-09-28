@@ -630,6 +630,59 @@ function render(string $name,array $vars=[]): void{
     </div>
    </section>
   <?php break;
+  case 'design_preview':
+   $designScreens=[
+    ['Acesso','Login','/login','login','fa-right-to-bracket'],
+    ['Comercial','Minha Home','/','dashboard','fa-house'],
+    ['Comercial','Home unificada','/commercial-home-concept','dashboard','fa-house-laptop'],
+    ['Gestão','Dashboard geral','/','dashboard','fa-chart-line'],
+    ['Comercial','Minha carteira','/my-portfolio','table','fa-briefcase'],
+    ['Comercial','Conta CRM','/commercial/accounts/{conta}','detail','fa-building'],
+    ['Comercial','Parceiros EAD','/commercial-partners','table','fa-people-group'],
+    ['Comercial','Registro de vendas','/commercial-sales','table','fa-cart-shopping'],
+    ['Gestão','Painel da Gestão','/commercial-management','dashboard','fa-chart-column'],
+    ['Comercial','Contatos e retornos','/contact-monitoring','table','fa-headset'],
+    ['Comercial','Oportunidades','/opportunities','board','fa-arrow-trend-up'],
+    ['Comercial','Detalhe da oportunidade','/opportunities/{id}','detail','fa-handshake'],
+    ['CRM','Contas CRM','/clients','table','fa-building'],
+    ['CRM','Nova Conta CRM','/commercial/accounts/new','form','fa-building-circle-check'],
+    ['Vendas','Clientes de Vendas','/sales/clients','table','fa-address-card'],
+    ['Vendas','Novo Cliente de Vendas','/clients/new','form','fa-user-plus'],
+    ['Vendas','Detalhe do Cliente de Vendas','/clients/{id}','detail','fa-address-card'],
+    ['Vendas','Sincronização de clientes','/clients-sync','table','fa-cloud-arrow-up'],
+    ['Vendas','Duplicados','/clients-duplicates','table','fa-clone'],
+    ['Vendas','Auditoria de vínculos','/clients-audit','table','fa-shield-halved'],
+    ['Produtos','Catálogo','/products','table','fa-boxes-stacked'],
+    ['Pedidos','Lista de pedidos','/orders','table','fa-receipt'],
+    ['Pedidos','Novo pedido','/orders/new','form','fa-cart-plus'],
+    ['Pedidos','Detalhe do pedido','/orders/{id}','detail','fa-file-invoice'],
+    ['Serviços','Ordens de serviço','/services','table','fa-screwdriver-wrench'],
+    ['Cobrança','Carteira de cobrança','/collection','table','fa-hand-holding-dollar'],
+    ['Cobrança','Caso de cobrança','/collection/{id}','detail','fa-file-invoice-dollar'],
+    ['Cobrança','Relatório','/collection/report','dashboard','fa-chart-column'],
+    ['Cobrança','Valores recuperados','/collection/recoveries','table','fa-money-bill-transfer'],
+    ['Agenda','Agenda e retornos','/agenda','board','fa-calendar-check'],
+    ['Gestão','Metas da equipe','/goals','dashboard','fa-bullseye'],
+    ['Gestão','Usuários e permissões','/users','settings','fa-users-gear'],
+    ['Administração','Centro administrativo','/admin','settings','fa-table-cells-large'],
+    ['Sistema','Configurações','/settings','settings','fa-gears'],
+    ['Telefonia','Baldussi','/settings/baldussi','form','fa-phone-volume'],
+    ['Sistema','Sincronização Omie','/sync','dashboard','fa-arrows-rotate'],
+    ['Sistema','Ferramentas técnicas','/test-data','settings','fa-flask'],
+    ['Resultados','Meu desempenho','/result','dashboard','fa-chart-line'],
+   ];
+   $designAreas=array_values(array_unique(array_column($designScreens,0)));?>
+   <main class="tdpreview-page">
+    <header class="tdpreview-hero"><div><span>TECNODATA DESIGN SYSTEM</span><h1>Uma linguagem visual para todo o CRM</h1><p>Modelos conceituais das <?=count($designScreens)?> telas atuais. A galeria é isolada e não altera a operação.</p></div><aside><i class="fa-solid fa-palette"></i><span><small>DIREÇÃO VISUAL</small><strong>Clareza, confiança e ritmo</strong><em>Menos ruído, mais hierarquia.</em></span></aside></header>
+    <section class="tdpreview-foundation"><article><small>Marca</small><div><i></i><i></i><i></i><i></i><i></i></div><strong>Paleta Tecnodata</strong></article><article><small>Tipografia</small><strong>Inter</strong><span>Pesos 500, 600 e 800</span></article><article><small>Componentes</small><strong>8 px</strong><span>Ritmo e raios consistentes</span></article><article><small>Densidade</small><strong>Confortável</strong><span>Legibilidade sem desperdiçar espaço</span></article></section>
+    <section class="tdpreview-toolbar" data-design-preview-toolbar><label><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Buscar uma tela..." data-design-preview-search></label><div><button class="active" type="button" data-design-preview-filter="all">Todas</button><?php foreach($designAreas as $area):?><button type="button" data-design-preview-filter="<?=e($area)?>"><?=e($area)?></button><?php endforeach;?></div></section>
+    <section class="tdpreview-grid" data-design-preview-grid>
+     <?php foreach($designScreens as [$area,$title,$route,$kind,$icon]):?>
+      <article class="tdpreview-screen <?=$route==='/sync'?'sync-special':''?>" data-design-screen data-area="<?=e($area)?>" data-search="<?=e(mb_strtolower($area.' '.$title.' '.$route))?>"><header><span><i class="fa-solid <?=e($icon)?>"></i></span><div><small><?=e(mb_strtoupper($area))?></small><strong><?=e($title)?></strong></div><em><?=e($route)?></em></header><div class="tdpreview-canvas <?=e($kind)?>"><aside><i></i><i></i><i></i><i></i><i></i></aside><div class="tdpreview-content"><div class="tdpreview-minihead"><span><b></b><small></small></span><button></button></div><?php if(in_array($kind,['dashboard','table','board'],true)):?><div class="tdpreview-kpis"><i></i><i></i><i></i><i></i></div><?php endif;?><?php if($kind==='dashboard'):?><div class="tdpreview-dashboard"><div><i></i><i></i><i></i><i></i><i></i><i></i></div><aside><span></span><span></span><span></span></aside></div><?php elseif($kind==='form'):?><div class="tdpreview-form"><span></span><span></span><span></span><span></span><span class="wide"></span><button></button></div><?php elseif($kind==='detail'):?><div class="tdpreview-detail"><div><span></span><span></span><span></span><span></span></div><aside><i></i><i></i><i></i></aside></div><?php elseif($kind==='settings'):?><div class="tdpreview-settings"><span></span><span></span><span></span><span></span><span></span><span></span></div><?php elseif($kind==='login'):?><div class="tdpreview-login"><div><b></b><span></span><span></span></div><form><i></i><i></i><button></button></form></div><?php elseif($kind==='board'):?><div class="tdpreview-board"><div><span></span><span></span></div><div><span></span></div><div><span></span><span></span></div></div><?php else:?><div class="tdpreview-table"><span></span><span></span><span></span><span></span></div><?php endif;?></div></div><footer><p>Hierarquia padronizada, ações claras e componentes reutilizáveis.</p><span>Modelo <?=e(ucfirst($kind))?></span></footer></article>
+     <?php endforeach;?>
+    </section>
+   </main>
+  <?php break;
   case 'client_sync':
    $syncRows=$syncRows??[];$syncStats=$syncStats??[];$syncStatus=$syncStatus??'all';$syncQuery=$syncQuery??'';$syncPagination=$syncPagination??['page'=>1,'pages'=>1,'total'=>0,'from'=>0,'to'=>0];
    $syncUrl=static function(array $changes=[])use($syncStatus,$syncQuery){$params=['status'=>$syncStatus,'q'=>$syncQuery];foreach($changes as $key=>$value){if($value===null||$value==='')unset($params[$key]);else $params[$key]=$value;}return APP_URL.'/clients-sync?'.http_build_query($params);};
@@ -793,6 +846,35 @@ function render(string $name,array $vars=[]): void{
     <?php endif;?>
    </section>
   <?php break;
+  case 'crm_hub':$crmMetrics=$crmMetrics??[];$flowEnabled=!empty($flowEnabled);?>
+   <link rel="stylesheet" href="<?=APP_URL?>/assets/crm-hub-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-hub-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-hub-v1.css'):time()?>">
+   <main class="crmhub">
+    <header class="crmhub-hero">
+     <div><span class="crmhub-kicker">CRM TECNODATA</span><h1>Relacionamento com clientes</h1><p>Contas, contatos, oportunidades e tarefas reunidos em um só lugar. O módulo de Vendas continua separado.</p></div>
+     <a class="crmhub-primary" href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-plus"></i>Incluir nova conta</a>
+    </header>
+    <section class="crmhub-metrics" aria-label="Resumo do CRM">
+     <a href="<?=APP_URL?>/clients"><span class="blue"><i class="fa-solid fa-building"></i></span><div><small>Contas CRM</small><strong><?=number_format((int)($crmMetrics['accounts']??0),0,',','.')?></strong></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a href="<?=APP_URL?>/contact-monitoring"><span class="green"><i class="fa-solid fa-address-book"></i></span><div><small>Contatos</small><strong><?=number_format((int)($crmMetrics['contacts']??0),0,',','.')?></strong></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a href="<?=APP_URL?>/agenda"><span class="amber"><i class="fa-regular fa-calendar-check"></i></span><div><small>Tarefas pendentes</small><strong><?=number_format((int)($crmMetrics['tasks']??0),0,',','.')?></strong></div><i class="fa-solid fa-arrow-right"></i></a>
+     <a href="<?=$flowEnabled?APP_URL.'/opportunities':APP_URL.'/sales-flow-settings'?>"><span class="violet"><i class="fa-solid fa-arrow-trend-up"></i></span><div><small>Oportunidades abertas</small><strong><?=$flowEnabled?number_format((int)($crmMetrics['opportunities']??0),0,',','.'):'Inativo'?></strong></div><i class="fa-solid fa-arrow-right"></i></a>
+    </section>
+    <section class="crmhub-workspace">
+     <aside class="crmhub-shortcuts">
+      <a class="active" href="<?=APP_URL?>/crm"><i class="fa-solid fa-table-columns"></i><span>Resumo do CRM</span></a>
+      <a href="<?=APP_URL?>/agenda"><i class="fa-solid fa-list-check"></i><span>Minhas tarefas</span></a>
+      <?php if($flowEnabled):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-simple"></i><span>Painel de oportunidades</span></a><?php endif;?>
+      <a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-bullseye"></i><span>Minha carteira</span></a>
+     </aside>
+     <div class="crmhub-modules">
+      <article class="crmhub-module featured"><header><span><i class="fa-solid fa-building"></i></span><div><h2>Contas</h2><p>Empresas e pessoas em relacionamento no CRM.</p></div></header><nav><a class="create" href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-plus"></i>Incluir conta CRM</a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-list"></i>Exibir todas as contas</a><a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i>Minha carteira CRM</a></nav></article>
+      <article class="crmhub-module"><header><span><i class="fa-solid fa-user-group"></i></span><div><h2>Contatos</h2><p>Acompanhamentos e retornos comerciais.</p></div></header><nav><a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i>Contatos e retornos</a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar"></i>Tarefas e agenda</a><a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i>Parceiros EAD</a></nav></article>
+      <article class="crmhub-module"><header><span><i class="fa-solid fa-arrow-trend-up"></i></span><div><h2>Oportunidades</h2><p>Negociações e evolução do funil comercial.</p></div></header><nav><?php if($flowEnabled):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-table-columns"></i>Exibir oportunidades</a><?php else:?><a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-toggle-off"></i>Ativar fluxo comercial</a><?php endif;?><a href="<?=APP_URL?>/commercial-management"><i class="fa-solid fa-chart-column"></i>Desempenho comercial</a></nav></article>
+      <article class="crmhub-module"><header><span><i class="fa-solid fa-shield-halved"></i></span><div><h2>Gestão do CRM</h2><p>Qualidade cadastral e organização da base.</p></div></header><nav><a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-magnifying-glass-chart"></i>Auditoria de vínculos</a><a href="<?=APP_URL?>/clients-duplicates"><i class="fa-regular fa-copy"></i>Cadastros duplicados</a><?php if(Auth::can('admin','supervisor')):?><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i>Configurações</a><?php endif;?></nav></article>
+     </div>
+    </section>
+   </main>
+  <?php break;
   case 'commercial_portfolio':
    $portfolio=is_array($portfolio??null)?$portfolio:[];$rows=$portfolio['rows']??[];$stats=$portfolio['stats']??[];$filters=$portfolio['filters']??[];
    $pageNum=(int)($portfolio['page']??1);$pages=(int)($portfolio['pages']??1);$total=(int)($portfolio['total']??0);$centralMode=!empty($centralMode);
@@ -805,14 +887,14 @@ function render(string $name,array $vars=[]): void{
    ?>
    <section class="tdp-portfolio">
     <header class="tdp-head">
-     <div><span>COMERCIAL / CARTEIRA</span><h1>Minha Carteira</h1><p>Clientes da sua carteira comercial. Consulte, contate e registre o próximo passo sem sair desta tela.</p></div>
+     <div><span>COMERCIAL / CONTAS CRM</span><h1>Minha Carteira</h1><p>Contas CRM sob sua responsabilidade. Consulte, contate e registre o próximo passo sem sair desta tela.</p></div>
      <a class="tdp-refresh" href="<?=$portfolioUrl()?>"><i class="fa-solid fa-rotate-right"></i>Atualizar carteira</a>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
     <div class="tdp-kpis">
-     <article class="clients"><span><i class="fa-solid fa-user-group"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['total']??0),0,',','.')?></strong><small>Clientes na carteira</small></div></article>
+     <article class="clients"><span><i class="fa-solid fa-building"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['total']??0),0,',','.')?></strong><small>Contas CRM na carteira</small></div></article>
      <a class="today" href="<?=$portfolioUrl(['attention'=>'today','page'=>1])?>"><span><i class="fa-regular fa-calendar-check"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['today_count']??0),0,',','.')?></strong><small>Retornos hoje</small></div></a>
      <a class="late" href="<?=$portfolioUrl(['attention'=>'overdue','page'=>1])?>"><span><i class="fa-solid fa-triangle-exclamation"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['overdue_count']??0),0,',','.')?></strong><small>Atrasados</small></div></a>
      <a class="stale" href="<?=$portfolioUrl(['attention'=>'stale30','page'=>1])?>"><span><i class="fa-regular fa-clock"></i></span><div><strong><?=number_format((int)($sellerPortfolioStats['over30']??0),0,',','.')?></strong><small>Sem contato &gt; 30 dias</small></div></a>
@@ -833,7 +915,7 @@ function render(string $name,array $vars=[]): void{
      ?>
      <div class="tdp-table-wrap">
       <table class="tdp-table" data-datatable data-server-url="<?=APP_URL?>/api/commercial/accounts/datatable?<?=e(http_build_query($portfolioDataParams))?>" data-page-length="10" data-length-change="1">
-       <thead><tr><th>Cliente</th><th>UF</th><th>Classificação</th><th>Último contato</th><th>Próximo retorno</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead>
+       <thead><tr><th>Conta CRM</th><th>UF</th><th>Classificação</th><th>Último contato</th><th>Próximo retorno</th><th>Status</th><th data-dt-order="disable">Ações</th></tr></thead>
        <tbody>
        <?php foreach($rows as $row):
         $display=trim((string)($row['trade_name']??''))?:trim((string)($row['name']??''))?:'Conta sem nome';
@@ -893,7 +975,7 @@ function render(string $name,array $vars=[]): void{
     $centralRole=(string)($u['role']??'');
     $centralIsAdmin=$centralRole==='admin';
     $centralIsSeller=$centralRole==='seller';
-    $centralTitle=$centralIsAdmin?'Central de Clientes':'Base de clientes CRM';
+    $centralTitle='Contas CRM';
     $centralDescription=$centralIsAdmin
      ?'Todas as contas CRM ativas da empresa, com dados sincronizados do Omie. O Cliente Geral, vendas, pedidos e financeiro aparecem como complemento quando houver vínculo.'
      :'Toda a base CRM ativa da empresa para consulta e manutenção cadastral. A carteira operacional e as atividades comerciais continuam respeitando o vendedor responsável.';
@@ -916,20 +998,20 @@ function render(string $name,array $vars=[]): void{
    <section class="tdcentral-page">
     <header class="tdcentral-head">
      <div>
-      <span class="tdcentral-kicker">CRM OMIE / CLIENTES</span>
+      <span class="tdcentral-kicker">COMERCIAL / CONTAS CRM</span>
       <h1><?=e($centralTitle)?></h1>
       <p><?=e($centralDescription)?></p>
      </div>
      <div class="tdcentral-head-actions">
       <a class="tdcentral-btn primary" href="<?=$portfolioUrl(['page'=>1])?>"><i class="fa-solid fa-rotate"></i><?=$centralIsSeller?'Atualizar lista':'Atualizar CRM'?></a>
-      <a class="tdcentral-btn success" href="<?=APP_URL?>/clients?link=prospect"><i class="fa-solid fa-plus"></i>Novo vínculo</a>
-      <?php if(!$centralIsSeller):?><a class="tdcentral-btn warning" href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-regular fa-clock"></i>Pendentes de sincronização<?php if($centralPending>0):?><b><?=number_format($centralPending,0,',','.')?></b><?php endif;?></a><?php elseif($centralPending>0):?><span class="tdcentral-btn warning disabled" title="A sincronização é executada pela supervisão ou administração"><i class="fa-regular fa-clock"></i><?=$centralPending?> pendente<?=$centralPending===1?'':'s'?> para supervisão</span><?php endif;?>
+      <a class="tdcentral-btn success" href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-building-circle-check"></i>Nova Conta CRM</a>
+      <?php if(!$centralIsSeller):?><a class="tdcentral-btn warning" href="<?=APP_URL?>/clients?q=LOCAL-CRM-"><i class="fa-regular fa-clock"></i>Contas CRM pendentes<?php if($centralPending>0):?><b><?=number_format($centralPending,0,',','.')?></b><?php endif;?></a><?php elseif($centralPending>0):?><span class="tdcentral-btn warning disabled" title="A sincronização é executada pela supervisão ou administração"><i class="fa-regular fa-clock"></i><?=$centralPending?> Conta CRM pendente<?=$centralPending===1?'':'s'?> para supervisão</span><?php endif;?>
      </div>
     </header>
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <nav class="tdcentral-kpis" aria-label="Resumo da Central de Clientes">
+    <nav class="tdcentral-kpis" aria-label="Resumo de Contas CRM">
      <a class="all" href="<?=$portfolioUrl(['q'=>'','classification'=>'all','link'=>'all','owner'=>'','attention'=>'all','page'=>1])?>"><span><i class="fa-solid fa-user-group"></i></span><div><small>Todas no CRM</small><strong><?=number_format((int)($centralSummary['total']??0),0,',','.')?></strong><em>Contas CRM ativas da empresa</em></div></a>
      <a class="linked" href="<?=$portfolioUrl(['link'=>'linked','page'=>1])?>"><span><i class="fa-solid fa-link"></i></span><div><small>CRM + Cliente Geral</small><strong><?=number_format((int)($centralSummary['linked']??0),0,',','.')?></strong><em>Com vínculo ativo</em></div></a>
      <a class="crm" href="<?=$portfolioUrl(['link'=>'prospect','page'=>1])?>"><span><i class="fa-regular fa-file-lines"></i></span><div><small>Somente CRM</small><strong><?=number_format((int)($centralSummary['prospects']??0),0,',','.')?></strong><em>Ainda sem Cliente Geral</em></div></a>
@@ -964,7 +1046,7 @@ function render(string $name,array $vars=[]): void{
       <table class="table tdcentral-datatable" data-datatable data-server-url="<?=APP_URL?>/api/commercial/accounts/datatable?<?=e(http_build_query($centralDataParams))?>" data-page-length="10" data-length-change="1" data-order-column="0" data-order-direction="asc">
        <thead>
         <tr>
-         <th>Cliente</th>
+         <th>Conta CRM</th>
          <th>Responsável</th>
          <th>Último contato</th>
          <th>Próxima ação</th>
@@ -1074,10 +1156,75 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
 
+  case 'commercial_account_new':$old=$old??[];$owners=$owners??[];$sellerOwner=$sellerOwner??'';$isSeller=(string)($u['role']??'')==='seller';?>
+   <section class="tdc-page tdc-client-editor-page">
+    <header class="tdc-head">
+     <div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid fa-building-circle-check"></i></span><div><span class="tdc-kicker">COMERCIAL / CONTAS CRM</span><h1>Nova Conta CRM</h1><p>Cadastre a empresa na operação comercial. Cliente de Vendas, pedidos e financeiro não serão criados nesta etapa.</p></div></div>
+     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients"><i class="fa-solid fa-arrow-left"></i>Voltar para Contas CRM</a></div>
+    </header>
+
+    <?php if($error):?><div class="alert alert-danger"><strong>Nao foi possivel salvar:</strong> <?=e($error)?></div><?php endif;?>
+    <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i> Este fluxo cria somente uma <strong>Conta no CRM</strong>. Depois de conferir, administrador ou supervisor poderá sincronizá-la com o CRM Omie. O Cliente de Vendas fica para outra etapa.</div>
+
+    <div class="tdc-form-layout">
+     <aside class="tdc-steps">
+      <div class="tdc-steps-head"><span>CONTA COMERCIAL</span><strong>Novo relacionamento</strong><small>Organize a carteira primeiro. A identidade de vendas permanece independente.</small></div>
+      <nav class="tdc-step-list"><a class="active" href="#crm-identificacao"><b>1</b><span><strong>Identificação</strong><small>Empresa e contato</small></span></a><a href="#crm-endereco"><b>2</b><span><strong>Localização</strong><small>Endereço da conta</small></span></a><a href="#crm-carteira"><b>3</b><span><strong>Carteira</strong><small>Responsável e perfil</small></span></a><a href="#crm-revisao"><b>4</b><span><strong>Salvar</strong><small>Somente no CRM</small></span></a></nav>
+     </aside>
+     <main>
+      <form method="post" action="<?=APP_URL?>/commercial/accounts" id="clientCreateForm" class="tdc-form">
+       <input type="hidden" name="_token" value="<?=CSRF::token()?>">
+       <section class="tdc-section" id="crm-identificacao">
+        <div class="tdc-section-head"><span class="tdc-section-icon blue"><i class="fa-solid fa-building"></i></span><div><strong>Identificação da Conta CRM</strong><small>Dados usados na carteira e no relacionamento comercial.</small></div><span class="tdc-badge">Não cria Cliente de Vendas</span></div>
+        <div class="tdc-fields">
+         <div class="field span-4"><label>CPF / CNPJ<span class="tdc-required">*</span></label><div class="tdc-lookup"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button type="button" data-cnpj-lookup aria-label="Consultar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="tdc-hint" data-cnpj-status>Ao informar um CNPJ completo, os dados publicos serao consultados.</small></div>
+         <div class="field span-5"><label>Razao social / Nome<span class="tdc-required">*</span></label><input class="form-control" name="legal_name" maxlength="100" value="<?=e((string)($old['legal_name']??''))?>" required></div>
+         <div class="field span-3"><label>Nome fantasia</label><input class="form-control" name="trade_name" maxlength="100" value="<?=e((string)($old['trade_name']??''))?>"></div>
+         <div class="field span-4"><label>E-mail</label><input class="form-control" type="email" name="email" maxlength="200" value="<?=e((string)($old['email']??''))?>"></div>
+         <div class="field span-4"><label>Telefone</label><div class="tdc-phone"><input class="form-control" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" maxlength="2" placeholder="DDD"><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" maxlength="10" placeholder="Numero"></div></div>
+         <div class="field span-4"><label>Website</label><input class="form-control" name="website" maxlength="200" value="<?=e((string)($old['website']??''))?>" placeholder="https://"></div>
+        </div>
+       </section>
+
+       <section class="tdc-section" id="crm-endereco">
+        <div class="tdc-section-head"><span class="tdc-section-icon green"><i class="fa-solid fa-location-dot"></i></span><div><strong>Localizacao</strong><small>Endereco de referencia da Conta CRM.</small></div></div>
+        <div class="tdc-fields">
+         <div class="field span-2"><label>CEP</label><div class="tdc-lookup"><input class="form-control" name="zip_code" data-cep value="<?=e((string)($old['zip_code']??''))?>"><button type="button" data-cep-lookup aria-label="Consultar CEP"><i class="fa-solid fa-location-crosshairs"></i></button></div><small class="tdc-hint" data-cep-status>Busca automatica.</small></div>
+         <div class="field span-5"><label>Endereco</label><input class="form-control" name="address" value="<?=e((string)($old['address']??''))?>"></div>
+         <div class="field span-2"><label>Numero</label><input class="form-control" name="address_number" value="<?=e((string)($old['address_number']??''))?>"></div>
+         <div class="field span-3"><label>Complemento</label><input class="form-control" name="complement" value="<?=e((string)($old['complement']??''))?>"></div>
+         <div class="field span-4"><label>Bairro</label><input class="form-control" name="neighborhood" value="<?=e((string)($old['neighborhood']??''))?>"></div>
+         <div class="field span-6"><label>Cidade</label><input class="form-control" name="city" value="<?=e((string)($old['city']??''))?>"></div>
+         <div class="field span-2"><label>UF</label><input class="form-control text-uppercase" name="uf" maxlength="2" value="<?=e((string)($old['uf']??''))?>"></div>
+        </div>
+       </section>
+
+       <section class="tdc-section" id="crm-carteira">
+        <div class="tdc-section-head"><span class="tdc-section-icon orange"><i class="fa-solid fa-user-tie"></i></span><div><strong>Organização comercial</strong><small>Responsável, classificação e contexto da conta.</small></div></div>
+        <div class="tdc-fields">
+         <div class="field span-5"><label>Responsavel pela Conta CRM<span class="tdc-required">*</span></label><?php if($isSeller):?><input type="hidden" name="crm_user_code" value="<?=e($sellerOwner)?>"><div class="form-control bg-light"><?=e((string)($u['name']??'Vendedor atual'))?></div><small class="tdc-hint">A conta entrara diretamente na sua carteira.</small><?php else:?><select class="form-select" name="crm_user_code" required><option value="">Selecione o responsavel</option><?php foreach($owners as $owner):?><option value="<?=e((string)$owner['omie_code'])?>" <?=((string)($old['crm_user_code']??'')===(string)$owner['omie_code'])?'selected':''?>><?=e((string)$owner['name'])?></option><?php endforeach;?></select><?php endif;?></div>
+         <div class="field span-7"><label>Classificacao comercial</label><div class="d-flex gap-3 flex-wrap pt-2"><label class="form-check"><input class="form-check-input" type="checkbox" name="is_cfc" value="1" <?=!empty($old['is_cfc'])?'checked':''?>><span class="form-check-label">CFC</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="is_reseller" value="1" <?=!empty($old['is_reseller'])?'checked':''?>><span class="form-check-label">Revendedor</span></label></div></div>
+         <div class="field span-12"><label>Tags</label><div class="tdc-tag-editor" data-tag-editor><div data-tag-chips></div><input type="text" data-tag-input placeholder="Digite e pressione Enter"><input type="hidden" name="tags" data-tag-hidden value="<?=e((string)($old['tags']??''))?>"></div></div>
+         <div class="field span-12"><label>Observacoes comerciais</label><textarea class="form-control" name="notes" rows="4" maxlength="500" placeholder="Contexto inicial, origem do contato e proximo passo."><?=e((string)($old['notes']??''))?></textarea></div>
+        </div>
+       </section>
+
+       <section class="tdc-section" id="crm-revisao">
+        <div class="tdc-section-head"><span class="tdc-section-icon green"><i class="fa-solid fa-shield-check"></i></span><div><strong>Salvar na base correta</strong><small>A conta sera criada em Contas CRM e aparecera na carteira do responsavel.</small></div></div>
+        <div class="tdc-review"><div><i class="fa-solid fa-building-circle-check"></i><span><strong>Conta CRM</strong><small>Cadastro comercial local, pendente de sincronização com o CRM Omie.</small></span></div><div><i class="fa-solid fa-ban"></i><span><strong>Sem Cliente de Vendas</strong><small>Nenhum cadastro fiscal ou financeiro será aberto agora.</small></span></div></div>
+        <div class="tdc-form-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients">Cancelar</a><button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="Salvando Conta CRM..."><i class="fa-solid fa-check"></i>Salvar Conta CRM</button></div>
+       </section>
+      </form>
+     </main>
+    </div>
+   </section>
+  <?php break;
+
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$hasClientLink=!empty($account['client_id']);$linked=$hasClientLink&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']);$profile=$profile??[];
+   $localPending=str_starts_with((string)($account['omie_code']??''),'LOCAL-CRM-');
    $canMaintain=!empty($canMaintain);$backUrl=$backUrl??APP_URL.'/my-portfolio';$backLabel=$backLabel??'Voltar para a carteira';$accountFromClients=str_contains((string)$backUrl,'/clients');
-   $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=$canAdminLink||$canSellerLink;
+   $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=!$localPending&&($canAdminLink||$canSellerLink);
    $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
    $contacts=array_values($contacts??[]);
    $activities=array_values($activities??[]);$commercialNotes=array_values($commercialNotes??[]);$audit=array_values($audit??[]);
@@ -1188,7 +1335,13 @@ function render(string $name,array $vars=[]): void{
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <section class="tdf-integration <?=$linked?'linked':($hasClientLink?'historical':'unlinked')?>" data-commercial-client-link>
+    <?php if($localPending):?><section class="tdf-integration unlinked">
+     <div class="tdf-integration-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+     <div class="tdf-integration-copy"><small>CONTA CRM LOCAL</small><strong>Ainda não sincronizada com o CRM Omie</strong><p>Esta conta já está disponível na carteira do responsável. Nenhum Cliente de Vendas, pedido ou registro financeiro foi criado.</p></div>
+     <div class="tdf-integration-manage"><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Enviar esta Conta CRM para a Omie agora? Isso não criará Cliente de Vendas."><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Conta CRM</button></form><?php else:?><span><i class="fa-regular fa-clock"></i>Aguardando supervisão</span><?php endif;?></div>
+    </section><?php endif;?>
+
+    <?php if(!$localPending):?><section class="tdf-integration <?=$linked?'linked':($hasClientLink?'historical':'unlinked')?>" data-commercial-client-link>
      <div class="tdf-integration-icon"><i class="fa-solid <?=$linked?'fa-link':($hasClientLink?'fa-clock-rotate-left':'fa-link-slash')?>"></i></div>
      <div class="tdf-integration-copy">
       <small>INTEGRAÇÃO OMIE · CONTA CRM ↔ CLIENTE GERAL</small>
@@ -1216,12 +1369,12 @@ function render(string $name,array $vars=[]): void{
        <?php endif;?>
       </div>
      <?php endif;?>
-    </section>
+    </section><?php endif;?>
 
     <section class="tdf-ecosystem" aria-label="Integrações deste cliente">
      <article class="ok">
       <span><i class="fa-solid fa-building"></i></span>
-      <div><small>CRM OMIE</small><strong>Conta conectada</strong><p><?=e((string)$account['omie_code'])?> · <?=e((string)($account['owner_name']?:'Sem responsável'))?></p></div>
+      <div><small><?=$localPending?'TECNODATA CRM':'CRM OMIE'?></small><strong><?=$localPending?'Sincronização pendente':'Conta conectada'?></strong><p><?=e((string)$account['omie_code'])?> · <?=e((string)($account['owner_name']?:'Sem responsável'))?></p></div>
      </article>
      <article class="<?=!empty($ecosystem['has_contacts'])?'ok':'empty'?>">
       <span><i class="fa-regular fa-address-book"></i></span>
@@ -1498,18 +1651,19 @@ function render(string $name,array $vars=[]): void{
    </section>
   <?php break;
 
+  case 'sales_clients':
   case 'clients':?>
-   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$crmPortfolioReady=!empty($crmPortfolioReady);$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'supplier'=>0,'carrier'=>0,'crm_inactive'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$crmStatus=$crmStatus??'active';$clientSegment=$clientSegment??'all';$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$sellerFilter=$sellerFilter??'';$classificationFilter=$classificationFilter??'all';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralParams=[];if($clientSegment!=='all')$clientCentralParams['segment']=$clientSegment;if($crmStatus!=='active')$clientCentralParams['crm_status']=$crmStatus;$clientCentralUrl=APP_URL.'/clients'.($clientCentralParams?'?'.http_build_query($clientCentralParams):'');?>
+   <?php $clientStats=$clientStats??['total'=>count($rows),'revenue'=>0,'orders'=>0,'without_seller'=>0,'seller_divergences'=>0,'monthly_overrides'=>0,'pending_sync'=>0];$crmPortfolioReady=!empty($crmPortfolioReady);$baseCounts=$baseCounts??['all'=>0,'general'=>0,'ead_reciclagem'=>0,'suporte_pet'=>0,'supplier'=>0,'carrier'=>0,'crm_inactive'=>0,'inactive'=>0,'stored'=>0];$portfolioMode=!empty($portfolioMode);$crmStatus=$crmStatus??'active';$clientSegment=$clientSegment??'all';$clientSegmentCatalog=$clientSegmentCatalog??client_segment_catalog();$clientSegmentLabel=$clientSegmentLabel??'Todos os clientes';$clientSegmentDescription=$clientSegmentDescription??'Base ativa completa.';$clientBasePath=$clientBasePath??'clients';$salesClientsPage=$clientBasePath==='sales/clients';$sellerFilter=$sellerFilter??'';$classificationFilter=$classificationFilter??'all';$portfolioMonth=$portfolioMonth??date('Y-m');$portfolioMonthLabel=date('m/Y',strtotime($portfolioMonth.'-01'));$clientCentralParams=[];if($clientSegment!=='all')$clientCentralParams['segment']=$clientSegment;if($crmStatus!=='active')$clientCentralParams['crm_status']=$crmStatus;$clientCentralUrl=APP_URL.'/'.$clientBasePath.($clientCentralParams?'?'.http_build_query($clientCentralParams):'');?>
    <section class="tdc-page <?=$portfolioMode?'tdc-portfolio-page':''?>">
     <header class="tdc-head">
      <div class="tdc-head-main">
       <span class="tdc-head-icon"><i class="fa-solid <?=$portfolioMode?'fa-briefcase':'fa-users'?>"></i></span>
-      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / CARTEIRA COMPLETA':'RELACIONAMENTO / CLIENTES'?></span><h1><?=$portfolioMode?'Carteira completa':'Central de clientes'?></h1><p><?=$portfolioMode?($crmPortfolioReady?'Carteira oficial do CRM Omie, priorizada para relacionamento e próxima ação.':'Carteira em modo de transição; o vínculo legado será substituído após a carga do CRM Omie.'):'Uma única base para relacionamento, classificação, saneamento cadastral e integração com a Omie.'?></p></div>
+      <div><span class="tdc-kicker"><?=$portfolioMode?'COMERCIAL / CARTEIRA COMPLETA':'VENDAS / CLIENTES'?></span><h1><?=$portfolioMode?'Carteira completa':'Clientes de Vendas'?></h1><p><?=$portfolioMode?($crmPortfolioReady?'Carteira oficial do CRM Omie, priorizada para relacionamento e próxima ação.':'Carteira em modo de transição; o vínculo legado será substituído após a carga do CRM Omie.'):'Cadastros usados em pedidos, serviços, faturamento e financeiro. As Contas CRM ficam em um módulo separado.'?></p></div>
      </div>
-     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=$portfolioMode?APP_URL.'/my-portfolio':e($clientCentralUrl)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a><?php if($portfolioMode||in_array($clientSegment,['all','general'],true)):?><a class="tdc-btn tdc-btn-primary" href="<?=APP_URL?>/clients/new"><i class="fa-solid fa-user-plus"></i>Novo cliente</a><?php endif;?></div>
+     <div class="tdc-head-actions"><a class="tdc-btn" href="<?=$portfolioMode?APP_URL.'/my-portfolio':e($clientCentralUrl)?>"><i class="fa-solid fa-rotate-right"></i>Atualizar</a></div>
     </header>
 
-    <?php if(!$portfolioMode&&Auth::can('admin','supervisor')):?>
+    <?php if(!$portfolioMode&&Auth::can('admin','supervisor')&&!$salesClientsPage):?>
     <nav class="tdc-hub-nav" aria-label="Central de clientes">
      <a class="<?=$clientSegment==='all'&&$crmStatus==='active'?'active':''?>" href="<?=APP_URL?>/clients"><i class="fa-solid fa-layer-group"></i><span><strong>Todos</strong><small><?=number_format((int)($baseCounts['all']??0),0,',','.')?> ativos</small></span></a>
      <a class="<?=$crmStatus==='inactive'?'active':''?>" href="<?=APP_URL?>/clients?crm_status=inactive"><i class="fa-solid fa-user-slash"></i><span><strong>Inativos CRM</strong><small><?=number_format((int)($baseCounts['crm_inactive']??0),0,',','.')?> ocultos da operação</small></span></a>
@@ -1586,7 +1740,7 @@ function render(string $name,array $vars=[]): void{
      <div class="tdc-table-top"><div><span class="tdc-kicker"><?=$portfolioMode?'ATENDIMENTO PRIORITÁRIO':(Auth::can('seller')?'BASE COMPLETA':'SEGMENTO ATUAL')?></span><h2><?=$portfolioMode?'Clientes da minha carteira':e($clientSegmentLabel)?></h2><p><?=$portfolioMode?($crmPortfolioReady?'Prioridade automática: quem está há mais tempo sem contato aparece primeiro.':'Busque somente entre os clientes do vínculo temporário atual.'):e($clientSegmentDescription).' · '.(in_array($clientSegment,['supplier','carrier'],true)?'Classificação originada das tags sincronizadas da Omie.':'Busque por nome, documento, cidade ou responsável.')?></p></div><div class="tdc-table-legend"><span class="view"><i class="fa-regular fa-eye"></i>Visualizar</span><span class="edit"><i class="fa-regular fa-pen-to-square"></i>Editar</span><?php if(Auth::can('admin','supervisor')):?><span class="local"><i class="fa-solid fa-user-slash"></i>Inativar CRM</span><span class="delete"><i class="fa-regular fa-trash-can"></i>Excluir</span><?php endif;?></div></div>
      <div class="tdc-list-filterbar">
       <div class="tdc-filter-title"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Filtros da consulta</strong><small>Combine estado, tag e vendedor para encontrar exatamente os clientes que deseja revisar.</small></div></div>
-      <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?>">
+      <form method="get" action="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':$clientBasePath?>">
        <?php if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all'):?><input type="hidden" name="segment" value="<?=e($clientSegment)?>"><?php endif;?>
        <?php if(!$portfolioMode&&Auth::can('admin','supervisor','seller')):?><label><span><i class="fa-solid fa-link"></i> Integração comercial</span><select class="form-select" name="identity" onchange="this.form.submit()"><option value="linked" <?=$identityFilter==='linked'?'selected':''?>>CRM + Vendas</option><option value="sales_only" <?=$identityFilter==='sales_only'?'selected':''?>>Somente Vendas</option><option value="historical" <?=$identityFilter==='historical'?'selected':''?>>CRM histórico</option><option value="all" <?=$identityFilter==='all'?'selected':''?>>Todos os Clientes Omie</option></select></label><?php endif;?><?php if(!$portfolioMode&&Auth::can('admin','supervisor')):?><label><span><i class="fa-solid fa-user-shield"></i> Status no CRM</span><select class="form-select" name="crm_status" onchange="this.form.submit()"><option value="active" <?=$crmStatus==='active'?'selected':''?>>Ativos</option><option value="inactive" <?=$crmStatus==='inactive'?'selected':''?>>Inativos no CRM</option><option value="all" <?=$crmStatus==='all'?'selected':''?>>Ativos + inativos CRM</option></select></label><?php endif;?>
        <?php if(Auth::can('admin','supervisor')&&$clientSegment==='general'):?><label><span><i class="fa-regular fa-calendar"></i> Mês da carteira</span><input class="form-control" type="month" name="month" value="<?=e($portfolioMonth)?>" onchange="this.form.submit()"></label><?php else:?><input type="hidden" name="month" value="<?=e($portfolioMonth)?>"><?php endif;?>
@@ -1611,7 +1765,7 @@ function render(string $name,array $vars=[]): void{
        <?php if(!$portfolioMode):?>
         <label><span><i class="fa-solid fa-user-tie"></i> <?=$crmPortfolioReady?'Responsável CRM Omie':'Responsável em '.$portfolioMonthLabel?></span><select class="form-select" name="seller_filter" onchange="this.form.submit()"><option value="">Todos os responsáveis</option><option value="__none__" <?=$sellerFilter==='__none__'?'selected':''?>>⚠ Sem responsável</option><?php foreach($clientSellerFilters??[] as $filterSeller):?><option value="<?=e($filterSeller['omie_code'])?>" <?=$sellerFilter===(string)$filterSeller['omie_code']?'selected':''?>><?=e($filterSeller['name'])?><?=empty($filterSeller['active'])?' (inativo)':''?></option><?php endforeach;?></select></label>
        <?php endif;?>
-       <?php if(!empty($clientUfs)||!empty($clientTagsSelected)||$classificationFilter!=='all'||(!$portfolioMode&&$sellerFilter!=='')||(!$portfolioMode&&$crmStatus!=='active')||(!$portfolioMode&&Auth::can('admin','supervisor')&&$identityFilter!=='linked')||(!$portfolioMode&&Auth::can('seller')&&$identityFilter!=='all')):?><?php $clearParams=[];if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':'clients'?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
+       <?php if(!empty($clientUfs)||!empty($clientTagsSelected)||$classificationFilter!=='all'||(!$portfolioMode&&$sellerFilter!=='')||(!$portfolioMode&&$crmStatus!=='active')||(!$portfolioMode&&Auth::can('admin','supervisor')&&$identityFilter!=='linked')||(!$portfolioMode&&Auth::can('seller')&&$identityFilter!=='all')):?><?php $clearParams=[];if(!$portfolioMode&&Auth::can('admin','supervisor')&&$clientSegment!=='all')$clearParams['segment']=$clientSegment;if(!$portfolioMode&&Auth::can('seller')&&($clientScope??'all')==='unassigned')$clearParams['scope']='unassigned';?><a class="tdc-btn" href="<?=APP_URL?>/<?=$portfolioMode?'my-portfolio':$clientBasePath?><?=$clearParams?'?'.e(http_build_query($clearParams)):''?>"><i class="fa-solid fa-xmark"></i>Limpar filtros</a><?php endif;?>
       </form>
       <small class="tdc-filter-meta"><i class="fa-solid fa-circle-info"></i> <?=$portfolioMode?'A carteira permanece limitada aos seus clientes; Estados e tags apenas refinam a visualização.':count($clientTags??[]).' tags mapeadas nos cadastros ativos'?></small>
      </div>
@@ -1662,7 +1816,7 @@ function render(string $name,array $vars=[]): void{
 
   case 'client_new':$editClient=$editClient??null;$editError=$editError??null;?>
    <section class="tdc-page tdc-client-editor-page">
-    <header class="tdc-head"><div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span><div><span class="tdc-kicker"><?=$editClient?'CLIENTES / EDITAR':'CLIENTES / NOVO'?></span><h1><?=$editClient?'Editar cliente':'Cadastrar cliente'?></h1><p><?=$editClient?'Atualize as informações e mantenha o cadastro alinhado com a Omie.':'Cadastre o cliente com CNPJ e CEP inteligentes e organização comercial completa.'?></p></div></div><div class="tdc-head-actions"><?php if($editClient&&Auth::can('admin','supervisor')):?><button class="tdc-btn tdc-btn-omie-check" type="button" data-client-omie-check data-client-id="<?=(int)$editClient['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i>Consultar Omie</button><?php endif;?><a class="tdc-btn" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a></div></header>
+    <header class="tdc-head"><div class="tdc-head-main"><span class="tdc-head-icon"><i class="fa-solid <?=$editClient?'fa-user-pen':'fa-user-plus'?>"></i></span><div><span class="tdc-kicker"><?=$editClient?'VENDAS / CLIENTE / EDITAR':'VENDAS / CLIENTE / NOVO'?></span><h1><?=$editClient?'Editar Cliente de Vendas':'Cadastrar Cliente de Vendas'?></h1><p><?=$editClient?'Atualize o cadastro fiscal usado em pedidos, faturamento e financeiro.':'Este cadastro pertence ao módulo de Vendas da Omie; não é uma Conta CRM.'?></p></div></div><div class="tdc-head-actions"><?php if($editClient&&Auth::can('admin','supervisor')):?><button class="tdc-btn tdc-btn-omie-check" type="button" data-client-omie-check data-client-id="<?=(int)$editClient['id']?>"><i class="fa-solid fa-cloud-arrow-down"></i>Consultar Omie</button><?php endif;?><a class="tdc-btn" href="<?=$editClient?APP_URL.'/clients/'.(int)$editClient['id']:APP_URL.'/sales/clients'?>"><i class="fa-solid fa-arrow-left"></i>Voltar</a></div></header>
 
     <?php if($editClient&&Auth::can('admin','supervisor')):?><dialog class="tdc-omie-check-modal" data-client-omie-modal data-client-id="<?=(int)$editClient['id']?>" data-csrf="<?=e(CSRF::token())?>">
      <header><span><i class="fa-solid fa-cloud"></i></span><div><small>OMIE / CONFERÊNCIA DE CADASTRO</small><strong>CPF/CNPJ na Omie</strong><p>Compare os cadastros da Omie antes de salvar uma alteração com documento duplicado.</p></div><button type="button" data-client-omie-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
@@ -1676,7 +1830,7 @@ function render(string $name,array $vars=[]): void{
 
     <div class="tdc-form-layout">
      <aside class="tdc-steps">
-      <div class="tdc-steps-head"><span>CADASTRO</span><strong><?=$editClient?'Editar cliente':'Novo cliente'?></strong><small>Preencha os blocos ao lado. Todos os campos são obrigatórios, exceto complemento, vendedor e observações.</small></div>
+      <div class="tdc-steps-head"><span>CLIENTE DE VENDAS</span><strong><?=$editClient?'Editar cadastro':'Novo cadastro fiscal'?></strong><small>Usado em pedidos, faturamento e financeiro. Conta CRM é cadastrada em outro módulo.</small></div>
       <nav class="tdc-step-list"><a class="active" href="#tdc-identificacao"><b>1</b><span><strong>Identificação</strong><small>Documento e contato</small></span></a><a href="#tdc-endereco"><b>2</b><span><strong>Endereço</strong><small>Localização</small></span></a><a href="#tdc-comercial"><b>3</b><span><strong>Comercial</strong><small>Vendedor e tags</small></span></a><a href="#tdc-revisao"><b>4</b><span><strong>Conferência</strong><small>Salvar cadastro</small></span></a></nav>
      </aside>
      <main>
@@ -2717,14 +2871,42 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     <?php endif;?>
    </section>
   <?php break;
-  case 'users':$editing=$edit??null;$activeUsers=0;$sellerUsers=0;$collectorUsers=0;foreach($users as $uu){if(!empty($uu['active']))$activeUsers++;if(($uu['role']??'')==='seller')$sellerUsers++;if(($uu['role']??'')==='collector')$collectorUsers++;}?>
-   <section class="tdsys-page">
-    <header class="tdsys-head"><div class="tdsys-head-main"><span class="tdsys-head-icon"><i class="fa-solid fa-users-gear"></i></span><div><span class="tdsys-kicker">GESTÃO / ACESSOS</span><h1>Usuários e acessos</h1><p>Gerencie perfis, permissões, status e vínculos operacionais da equipe.</p></div></div><?php if($editing):?><a class="tdsys-btn" href="<?=APP_URL?>/users"><i class="fa-solid fa-plus"></i>Novo usuário</a><?php endif;?></header>
-    <div class="tdsys-kpis"><article><span><i class="fa-solid fa-users"></i></span><small>Total</small><strong><?=count($users)?></strong></article><article><span><i class="fa-solid fa-user-check"></i></span><small>Ativos</small><strong><?=$activeUsers?></strong></article><article><span><i class="fa-solid fa-user-tie"></i></span><small>Vendedores</small><strong><?=$sellerUsers?></strong></article><article><span><i class="fa-solid fa-headset"></i></span><small>Cobrança</small><strong><?=$collectorUsers?></strong></article></div>
-    <div class="tdsys-two">
-     <section class="tdsys-card"><div class="tdsys-card-head"><span><i class="fa-solid <?=$editing?'fa-user-pen':'fa-user-plus'?>"></i></span><div><strong><?=$editing?'Editar usuário':'Novo usuário'?></strong><small><?=$editing?'Atualize acesso e vínculo operacional.':'Crie um novo acesso ao CRM.'?></small></div></div><form class="tdsys-form" method="post" action="<?=APP_URL?>/users"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="id" value="<?=(int)($editing['id']??0)?>"><label>Nome</label><input class="form-control" name="name" value="<?=e($editing['name']??'')?>" required><label>E-mail</label><input class="form-control" type="email" name="email" value="<?=e($editing['email']??'')?>" required><label>Perfil</label><select class="form-select" name="role" data-role-select><?php foreach(['seller'=>'Vendedor','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Administrador'] as $rv=>$rl):?><option value="<?=$rv?>" <?=($editing['role']??'seller')===$rv?'selected':''?>><?=$rl?></option><?php endforeach;?></select><div data-seller-field><label>Vendedor Omie</label><select class="form-select" name="seller_omie_code"><option value="">Selecione...</option><?php foreach($sellers as $s):?><option value="<?=e($s['omie_code'])?>" <?=($editing['seller_omie_code']??'')===$s['omie_code']?'selected':''?>><?=e($s['name'])?></option><?php endforeach;?></select></div><div class="tdsys-phone-config"><label>Ramal Baldussi</label><input class="form-control" name="baldussi_extension" inputmode="numeric" maxlength="10" value="<?=e($editing['baldussi_extension']??'')?>" placeholder="Ex.: 1811"><small>Informe apenas o ramal. Não utilize a senha SIP.</small><label class="tdsys-check"><input type="checkbox" name="baldussi_enabled" value="1" <?=!empty($editing['baldussi_enabled'])?'checked':''?>>Permitir ligações pelo CRM</label></div><label>Senha <?=$editing?'<small>(vazia mantém a atual)</small>':''?></label><input class="form-control" type="password" name="password" <?=$editing?'':'required'?>><label class="tdsys-check"><input type="checkbox" name="active" value="1" <?=!$editing||$editing['active']?'checked':''?>>Usuário ativo</label><button class="tdsys-btn tdsys-btn-primary w-100"><i class="fa-solid fa-check"></i><?=$editing?'Salvar alterações':'Criar usuário'?></button></form></section>
-     <section class="tdsys-card"><div class="tdsys-card-head"><span><i class="fa-solid fa-table-list"></i></span><div><strong>Usuários cadastrados</strong><small>10 registros por página com busca e edição rápida.</small></div></div><div class="table-card tdsys-table-wrap"><table class="table tdsys-table" data-page-length="10" data-length-change="1"><thead><tr><th>Usuário</th><th>Perfil</th><th>Vínculo</th><th>Telefonia</th><th>Status</th><th data-dt-order="disable"></th></tr></thead><tbody><?php foreach($users as $row):?><tr><td><strong><?=e($row['name'])?></strong><small><?=e($row['email'])?></small></td><td><?php $roleLabel=['seller'=>'Vendedor','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Administrador'][$row['role']]??$row['role'];?><span class="tdsys-badge role-<?=e($row['role'])?>"><?=e($roleLabel)?></span></td><td><?=e($row['seller_omie_code']??'—')?></td><td><?php if(!empty($row['baldussi_enabled'])&&!empty($row['baldussi_extension'])):?><span class="tdsys-status ok"><i class="fa-solid fa-phone"></i> Ramal <?=e($row['baldussi_extension'])?></span><?php else:?><span class="tdsys-status off">Não configurada</span><?php endif;?></td><td><span class="tdsys-status <?=$row['active']?'ok':'off'?>"><?=$row['active']?'Ativo':'Inativo'?></span></td><td class="text-end"><a class="tdsys-icon-btn" href="<?=APP_URL?>/users?edit=<?=$row['id']?>" title="Editar"><i class="fa-regular fa-pen-to-square"></i></a></td></tr><?php endforeach;?></tbody></table></div></section>
+  case 'users':
+   $editing=$edit??null;$activeUsers=0;$sellerUsers=0;$collectorUsers=0;$phoneUsers=0;
+   $sellerNames=[];foreach($sellers as $sellerRow)$sellerNames[(string)$sellerRow['omie_code']]=(string)$sellerRow['name'];
+   foreach($users as $userRow){if(!empty($userRow['active']))$activeUsers++;if(($userRow['role']??'')==='seller')$sellerUsers++;if(($userRow['role']??'')==='collector')$collectorUsers++;if(!empty($userRow['baldussi_enabled'])&&!empty($userRow['baldussi_extension']))$phoneUsers++;}
+   $roleLabels=['seller'=>'Vendedor','collector'=>'Cobrança','supervisor'=>'Supervisor','admin'=>'Administrador'];
+   $roleDescriptions=['seller'=>'Carteira e operação comercial','collector'=>'Cobrança e negociações financeiras','supervisor'=>'Gestão da equipe e acompanhamento','admin'=>'Acesso completo ao sistema'];
+   ?>
+   <link rel="stylesheet" href="<?=APP_URL?>/assets/users-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/users-center-v1.css')?filemtime(APP_ROOT.'/public/assets/users-center-v1.css'):time()?>">
+   <section class="usrhub">
+    <header class="usrhub-head">
+     <div><span class="usrhub-head-icon"><i class="fa-solid fa-users-gear"></i></span><div><small>ADMINISTRAÇÃO / SEGURANÇA</small><h1>Usuários e acessos</h1><p>Controle identidade, perfil, telefonia e disponibilidade da equipe.</p></div></div>
+     <div class="usrhub-head-actions"><a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i>Configurações</a><button class="primary" type="button" data-user-open><i class="fa-solid fa-user-plus"></i>Novo usuário</button></div>
+    </header>
+    <?php if(!empty($flash)):?><div class="alert alert-<?=e((string)($flash['type']??'info'))?>"><?=e((string)($flash['message']??''))?></div><?php endif;?>
+
+    <div class="usrhub-summary" aria-label="Resumo dos acessos"><span><strong><?=count($users)?></strong><small>cadastrados</small></span><i></i><span><strong><?=$activeUsers?></strong><small>ativos</small></span><i></i><span><strong><?=$sellerUsers?></strong><small>vendedores</small></span><i></i><span><strong><?=$collectorUsers?></strong><small>cobrança</small></span><i></i><span><strong><?=$phoneUsers?></strong><small>com telefonia</small></span></div>
+
+    <div class="usrhub-layout">
+     <main class="usrhub-directory">
+      <header><div><small>DIRETÓRIO DE ACESSOS</small><h2>Equipe cadastrada</h2><p>Use a busca da tabela para localizar nome, e-mail, perfil ou ramal.</p></div><button type="button" data-user-open><i class="fa-solid fa-plus"></i>Adicionar pessoa</button></header>
+      <div class="usrhub-table-wrap"><table class="table usrhub-table" data-datatable data-page-length="10" data-length-change="1"><thead><tr><th>Pessoa</th><th>Perfil de acesso</th><th>Identidade comercial</th><th>Telefonia</th><th>Status</th><th data-dt-order="disable">Ação</th></tr></thead><tbody><?php foreach($users as $row):$role=(string)($row['role']??'seller');$linkedCode=trim((string)($row['seller_omie_code']??''));$editPayload=e(json_encode(['id'=>(int)$row['id'],'name'=>(string)$row['name'],'email'=>(string)$row['email'],'role'=>$role,'baldussi_extension'=>(string)($row['baldussi_extension']??''),'baldussi_enabled'=>!empty($row['baldussi_enabled']),'active'=>!empty($row['active']),'seller_name'=>$linkedCode!==''?($sellerNames[$linkedCode]??$linkedCode):''],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));?><tr class="<?=empty($row['active'])?'is-inactive':''?>"><td><div class="usrhub-person"><span><?=e(mb_strtoupper(mb_substr((string)$row['name'],0,1)))?></span><div><strong><?=e((string)$row['name'])?></strong><small><?=e((string)$row['email'])?></small></div></div></td><td><span class="usrhub-role role-<?=e($role)?>"><i class="fa-solid <?=e($role==='admin'?'fa-shield-halved':($role==='supervisor'?'fa-chart-line':($role==='collector'?'fa-hand-holding-dollar':'fa-user-tie')))?>"></i><?=e($roleLabels[$role]??$role)?></span></td><td><?php if($linkedCode!==''):?><span class="usrhub-link"><i class="fa-solid fa-link"></i><span><strong><?=e($sellerNames[$linkedCode]??'Vendedor Omie')?></strong><small>Código <?=e($linkedCode)?></small></span></span><?php else:?><span class="usrhub-muted">Não se aplica</span><?php endif;?></td><td><?php if(!empty($row['baldussi_enabled'])&&!empty($row['baldussi_extension'])):?><span class="usrhub-phone"><i class="fa-solid fa-phone"></i>Ramal <?=e((string)$row['baldussi_extension'])?></span><?php else:?><span class="usrhub-muted">Desativada</span><?php endif;?></td><td><span class="usrhub-access <?=!empty($row['active'])?'on':'off'?>"><i></i><?=!empty($row['active'])?'Ativo':'Inativo'?></span></td><td><button class="usrhub-edit" type="button" data-user-edit="<?=$editPayload?>"><i class="fa-regular fa-pen-to-square"></i>Editar</button></td></tr><?php endforeach;?></tbody></table></div>
+     </main>
     </div>
+
+    <dialog class="usrhub-dialog" data-user-dialog <?=$editing?'data-auto-open="1"':''?>>
+     <section class="usrhub-editor">
+      <header><span><i class="fa-solid <?=$editing?'fa-user-pen':'fa-user-plus'?>" data-user-dialog-icon></i></span><div><small data-user-dialog-kicker><?=$editing?'EDIÇÃO DE ACESSO':'NOVO ACESSO'?></small><h2 data-user-dialog-title><?=$editing?'Editar usuário':'Adicionar usuário'?></h2><p data-user-dialog-description><?=$editing?'Atualize os dados e salve as alterações.':'Preencha a identidade e defina as permissões.'?></p></div><button type="button" data-user-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button></header>
+      <form method="post" action="<?=APP_URL?>/users" data-user-editor><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="id" value="<?=(int)($editing['id']??0)?>">
+       <fieldset><legend>Identidade</legend><label><span>Nome completo</span><div><i class="fa-regular fa-user"></i><input class="form-control" name="name" value="<?=e((string)($editing['name']??''))?>" autocomplete="name" required></div></label><label><span>E-mail corporativo</span><div><i class="fa-regular fa-envelope"></i><input class="form-control" type="email" name="email" value="<?=e((string)($editing['email']??''))?>" autocomplete="email" required></div></label></fieldset>
+       <fieldset><legend>Acesso ao CRM</legend><label><span>Perfil</span><select class="form-select" name="role" data-user-role><?php foreach($roleLabels as $roleValue=>$roleLabel):?><option value="<?=$roleValue?>" <?=($editing['role']??'seller')===$roleValue?'selected':''?>><?=$roleLabel?></option><?php endforeach;?></select><small data-user-role-description><?=e($roleDescriptions[$editing['role']??'seller'])?></small></label><label><span>Senha <em data-user-password-help><?=$editing?'opcional na edição':''?></em></span><div><i class="fa-solid fa-key"></i><input class="form-control" type="password" name="password" autocomplete="new-password" data-user-password <?=$editing?'':'required'?>></div></label><div class="usrhub-identity-note" data-user-seller-note><i class="fa-solid fa-circle-nodes"></i><span><strong>Vínculo Omie automático</strong><small data-user-seller-copy>Para vendedores, o CRM relaciona Vendas e CRM Omie pelo mesmo e-mail corporativo.<?php if($editing&&!empty($editing['seller_omie_code'])):?> Vínculo atual: <?=e($sellerNames[(string)$editing['seller_omie_code']]??(string)$editing['seller_omie_code'])?>.<?php endif;?></small></span></div></fieldset>
+       <fieldset><legend>Telefonia</legend><label><span>Ramal Baldussi</span><div><i class="fa-solid fa-phone"></i><input class="form-control" name="baldussi_extension" inputmode="numeric" maxlength="10" value="<?=e((string)($editing['baldussi_extension']??''))?>" placeholder="Ex.: 1811"></div><small>Use somente o número do ramal; senha SIP não é necessária.</small></label><label class="usrhub-switch"><input type="checkbox" name="baldussi_enabled" value="1" <?=!empty($editing['baldussi_enabled'])?'checked':''?>><span><i></i></span><b>Permitir ligações pelo CRM</b></label></fieldset>
+       <fieldset class="usrhub-state"><legend>Disponibilidade</legend><label class="usrhub-switch"><input type="checkbox" name="active" value="1" <?=!$editing||!empty($editing['active'])?'checked':''?>><span><i></i></span><b>Usuário ativo no sistema</b></label></fieldset>
+       <footer><button class="cancel" type="button" data-user-close>Cancelar</button><button type="submit"><i class="fa-solid fa-floppy-disk"></i><span data-user-submit-text><?=$editing?'Salvar alterações':'Criar usuário'?></span></button></footer>
+      </form>
+     </section>
+    </dialog>
    </section>
   <?php break;
   case 'goals':
@@ -3001,126 +3183,77 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
   case 'settings':
    $activeTaskResults=count(array_filter($taskResults??[],static fn($item)=>!empty($item['active'])));
    $activeContactChannels=count(array_filter($contactChannels??[],static fn($item)=>!empty($item['active'])));
-   $flowActive=sales_flow_enabled();
+   $activeTaskTypes=count(array_filter($taskTypes??[],static fn($item)=>!empty($item['active'])));
+   $visibleMonitorCount=$monitorConfigured?count($monitorIds??[]):count($monitorUsers??[]);
    ?>
-   <section class="tdcfg-page">
-    <header class="tdcfg-head">
-     <div class="tdcfg-title"><span class="tdcfg-title-icon"><i class="fa-solid fa-gears"></i></span><div><span class="tdcfg-kicker">SISTEMA / CONFIGURAÇÕES</span><h1>Configurações</h1><p>Gerencie regras, preferências e integrações do CRM em um só lugar.</p></div></div>
-     <div class="tdcfg-health"><i class="fa-solid fa-circle-check"></i><div><strong>Sistema operacional</strong><small>As configurações essenciais estão disponíveis.</small></div></div>
+   <link rel="stylesheet" href="<?=APP_URL?>/assets/settings-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-center-v1.css')?filemtime(APP_ROOT.'/public/assets/settings-center-v1.css'):time()?>">
+   <section class="crmset" data-settings-shell>
+    <header class="crmset-topbar">
+     <div><span class="crmset-mark"><i class="fa-solid fa-sliders"></i></span><span><small>ADMINISTRAÇÃO DO CRM</small><h1>Configurações</h1><p>Escolha uma área e altere somente o que precisa.</p></span></div>
+     <a href="<?=APP_URL?>/<?=$settingsAdmin?'admin':''?>"><i class="fa-solid fa-arrow-left"></i><?=$settingsAdmin?'Centro administrativo':'Painel principal'?></a>
     </header>
-
     <?php if(!empty($flash)):?><div class="alert alert-<?=e((string)($flash['type']??'info'))?>"><?=e((string)($flash['message']??''))?></div><?php endif;?>
 
-    <nav class="tdcfg-categories" aria-label="Áreas de configuração">
-     <a class="active" href="#geral"><span class="blue"><i class="fa-solid fa-sliders"></i></span><strong>Geral</strong><small>Preferências operacionais</small></a>
-     <a href="<?=APP_URL?>/sales-flow-settings"><span class="green"><i class="fa-solid fa-filter-circle-dollar"></i></span><strong>Fluxo comercial</strong><small>Funil e oportunidades</small></a>
-     <a href="#contact-channels"><span class="red"><i class="fa-regular fa-calendar-check"></i></span><strong>Agenda e tarefas</strong><small>Canais, tipos e resultados</small></a>
-     <a href="<?=APP_URL?>/sync"><span class="blue"><i class="fa-solid fa-link"></i></span><strong>Integrações</strong><small>Omie e sincronização</small></a>
-     <a href="#acompanhamento"><span class="yellow"><i class="fa-solid fa-bell"></i></span><strong>Acompanhamento</strong><small>Usuários monitorados</small></a>
-     <?php if($settingsAdmin):?><a href="<?=APP_URL?>/users"><span class="orange"><i class="fa-solid fa-shield-halved"></i></span><strong>Segurança</strong><small>Usuários e acessos</small></a><?php endif;?>
-    </nav>
-
-    <div class="tdcfg-layout">
-     <div class="tdcfg-main">
-      <section class="tdcfg-card" id="acompanhamento">
-       <header><span class="blue"><i class="fa-solid fa-headset"></i></span><div><strong>Participantes do acompanhamento</strong><small>Escolha quem deve aparecer nos indicadores de acompanhamento comercial e cobrança.</small></div><b class="tdcfg-state <?=$monitorConfigured?'ok':'neutral'?>"><?=$monitorConfigured?'Regra ativa':'Padrão automático'?></b></header>
-       <form method="post" action="<?=APP_URL?>/settings/contact-monitoring" class="tdcfg-monitor"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
-        <div class="tdcfg-info"><i class="fa-solid fa-circle-info"></i><span><?=$monitorConfigured?'Somente os participantes selecionados entram nessa visão.':'Sem regra específica: o CRM considera os usuários operacionais ativos.'?></span></div>
-        <div class="tdcfg-users"><?php foreach($monitorUsers??[] as $monitorUser):?><label><input type="checkbox" name="monitor_user_ids[]" value="<?=(int)$monitorUser['id']?>" <?=in_array((int)$monitorUser['id'],$monitorIds??[],true)?'checked':''?>><span class="avatar <?=$monitorUser['role']==='collector'?'collection':''?>"><?=e(mb_strtoupper(mb_substr((string)$monitorUser['name'],0,1)))?></span><span><strong><?=e($monitorUser['name'])?></strong><small><?=$monitorUser['role']==='collector'?'Cobrança':'Vendas'?> · <?=e($monitorUser['email'])?></small></span><i class="fa-solid fa-check"></i></label><?php endforeach;?><?php if(empty($monitorUsers)):?><div class="tdcfg-empty">Nenhum usuário operacional disponível.</div><?php endif;?></div>
-        <?php if(!empty($monitorUsers)):?><footer><span>Selecionados: <b data-monitor-selected><?=count($monitorIds??[])?></b></span><button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-check"></i>Salvar acompanhamento</button></footer><?php endif;?>
-       </form>
-      </section>
-
-       <section class="tdcfg-card" id="contact-channels">
-        <header><span class="green"><i class="fa-solid fa-headset"></i></span><div><strong>Canais de atendimento</strong><small>Defina os canais disponíveis em Registrar contato e nas movimentações de cobrança.</small></div><b class="tdcfg-state ok"><?=$activeContactChannels?> ativos</b></header>
-        <form method="post" action="<?=APP_URL?>/settings/contact-channels" class="tdcfg-result-create">
-         <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-         <label><span>Nome do canal</span><input class="form-control" name="label" maxlength="80" placeholder="Ex.: Visita presencial" required></label>
-         <fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked> Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked> Cobrança</label></fieldset>
-         <button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar canal</button>
-        </form>
-        <div class="tdcfg-result-list"><?php foreach($contactChannels??[] as $channelItem):?><div class="<?=!empty($channelItem['active'])?'active':'inactive'?>"><span><strong><?=e($channelItem['label'])?></strong><small><?=in_array('sales',(array)$channelItem['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$channelItem['contexts'],true)&&in_array('collection',(array)$channelItem['contexts'],true)?' · ':''?><?=in_array('collection',(array)$channelItem['contexts'],true)?'Cobrança':''?><?=!empty($channelItem['system'])?' · padrão do sistema':''?></small></span><form method="post" action="<?=APP_URL?>/settings/contact-channels/<?=e($channelItem['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="tdcfg-toggle <?=!empty($channelItem['active'])?'on':'off'?>"><i class="fa-solid <?=!empty($channelItem['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($channelItem['active'])?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></div>
-       </section>
-
-       <section class="tdcfg-card" id="task-types">
-        <header><span class="blue"><i class="fa-solid fa-list-check"></i></span><div><strong>Tipos padronizados de tarefa</strong><small>O supervisor define os tipos; vendedores e cobrança apenas selecionam no modal Nova tarefa.</small></div><b class="tdcfg-state ok"><?=count(array_filter($taskTypes??[],static fn($item)=>!empty($item['active'])))?> ativos</b></header>
-        <form method="post" action="<?=APP_URL?>/settings/task-types" class="tdcfg-result-create">
-         <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-         <label><span>Nome do tipo</span><input class="form-control" name="label" maxlength="80" placeholder="Ex.: Visita presencial" required></label>
-         <fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked> Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked> Cobrança</label></fieldset>
-         <button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar tipo</button>
-        </form>
-        <div class="tdcfg-result-list"><?php foreach($taskTypes??[] as $taskType):?><div class="<?=!empty($taskType['active'])?'active':'inactive'?>"><span><strong><?=e($taskType['label'])?></strong><small><?=in_array('sales',(array)$taskType['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$taskType['contexts'],true)&&in_array('collection',(array)$taskType['contexts'],true)?' · ':''?><?=in_array('collection',(array)$taskType['contexts'],true)?'Cobrança':''?><?=!empty($taskType['system'])?' · padrão do sistema':''?></small></span><form method="post" action="<?=APP_URL?>/settings/task-types/<?=e($taskType['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="tdcfg-toggle <?=!empty($taskType['active'])?'on':'off'?>"><i class="fa-solid <?=!empty($taskType['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($taskType['active'])?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></div>
-       </section>
-
-      <section class="tdcfg-card" id="task-results">
-       <header><span class="red"><i class="fa-solid fa-flag-checkered"></i></span><div><strong>Resultados dos atendimentos</strong><small>Padronize o que aconteceu depois do contato. Isso é diferente do tipo da tarefa.</small></div><b class="tdcfg-state ok"><?=$activeTaskResults?> ativos</b></header>
-       <form method="post" action="<?=APP_URL?>/settings/task-results" class="tdcfg-result-create">
-        <input type="hidden" name="_token" value="<?=CSRF::token()?>">
-        <label><span>Nome do resultado</span><input class="form-control" name="label" maxlength="80" placeholder="Ex.: Retornar na próxima semana" required></label>
-        <fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked> Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked> Cobrança</label></fieldset>
-        <button class="tdcfg-btn primary" type="submit"><i class="fa-solid fa-plus"></i>Adicionar</button>
-       </form>
-       <div class="tdcfg-result-list"><?php foreach($taskResults??[] as $resultItem):?><div class="<?=!empty($resultItem['active'])?'active':'inactive'?>"><span><strong><?=e($resultItem['label'])?></strong><small><?=in_array('sales',(array)$resultItem['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$resultItem['contexts'],true)&&in_array('collection',(array)$resultItem['contexts'],true)?' · ':''?><?=in_array('collection',(array)$resultItem['contexts'],true)?'Cobrança':''?><?=!empty($resultItem['system'])?' · padrão do sistema':''?></small></span><form method="post" action="<?=APP_URL?>/settings/task-results/<?=e($resultItem['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="tdcfg-toggle <?=!empty($resultItem['active'])?'on':'off'?>"><i class="fa-solid <?=!empty($resultItem['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($resultItem['active'])?'Ativo':'Inativo'?></button></form></div><?php endforeach;?></div>
-      </section>
-
-      <?php if($settingsAdmin):?>
-      <form method="post" action="<?=APP_URL?>/settings" class="tdcfg-admin-form"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
-       <section class="tdcfg-card" id="geral">
-        <header><span class="blue"><i class="fa-solid fa-receipt"></i></span><div><strong>Padrões operacionais do pedido</strong><small>Valores iniciais usados na criação de pedidos. O vendedor ainda pode ajustar durante o atendimento.</small></div></header>
-        <div class="tdcfg-fields"><?php $fields=[['stage','Etapa',$stages,'code','name'],['category','Categoria',$categories,'code','description'],['account','Conta corrente',$accounts,'omie_code','name'],['payment_term','Condição de pagamento',$terms,'code','description'],['payment_method','Meio de pagamento',$methods,'code','description'],['document_type','Tipo documento',$documents,'code','description'],['tax_scenario','Cenário fiscal',$taxes,'omie_code','name'],['stock_location','Local estoque',$stocks,'omie_code','name']];foreach($fields as [$key,$label,$list,$vk,$lk]):?><label><span><?=$label?></span><select class="form-select" name="<?=$key?>"><option value="">Selecione</option><?php foreach($list as $row):?><option value="<?=e($row[$vk])?>" <?=($defaults[$key]??'')===(string)$row[$vk]?'selected':''?>><?=e($row[$lk])?></option><?php endforeach;?></select></label><?php endforeach;?>
-         <label><span>Frete padrão</span><select class="form-select" name="freight_mode" data-freight-default-autosave><?php foreach(['9'=>'Sem frete','0'=>'CIF','1'=>'FOB','2'=>'Terceiros','3'=>'Próprio remetente','4'=>'Próprio destinatário'] as $k=>$vv):?><option value="<?=$k?>" <?=($defaults['freight_mode']??'9')===$k?'selected':''?>><?=$vv?></option><?php endforeach;?></select><small data-freight-default-status>Salvamento automático</small></label>
-         <label><span>Consumidor final</span><select class="form-select" name="consumer_final"><option value="S">Sim</option><option value="N" <?=($defaults['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></label>
-         <label class="tdcfg-check"><input type="checkbox" name="send_email" value="1" <?=($defaults['send_email']??'N')==='S'?'checked':''?>><span><strong>Enviar e-mail pela Omie</strong><small>Permite o disparo conforme o fluxo do pedido.</small></span></label>
-        </div>
-       </section>
-
-       <div class="tdcfg-two">
-        <section class="tdcfg-card">
-         <header><span class="blue"><i class="fa-solid fa-truck-fast"></i></span><div><strong>Transportadoras</strong><small>Defina quais transportadoras estarão disponíveis no pedido.</small></div></header>
-         <?php if(!empty($carriers)):?><div class="tdcfg-options"><?php foreach($carriers as $carrier):?><label><input type="checkbox" name="carrier_codes[]" value="<?=e((string)$carrier['omie_code'])?>" <?=!empty($carrier['selected'])?'checked':''?>><span><strong><?=e((string)$carrier['name'])?></strong><small><?=!empty($carrier['city'])?e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):'Omie '.e((string)$carrier['omie_code'])?></small></span></label><?php endforeach;?></div><?php else:?><div class="tdcfg-empty">Nenhuma transportadora encontrada. Sincronize os clientes após configurar a tag na Omie.</div><?php endif;?>
-        </section>
-        <section class="tdcfg-card">
-         <header><span class="green"><i class="fa-solid fa-building-columns"></i></span><div><strong>Contas da cobrança</strong><small>Escolha as contas financeiras que entram na operação de cobrança.</small></div></header>
-         <div class="tdcfg-options"><?php foreach($accounts as $row):?><label><input type="checkbox" name="collection_accounts[]" value="<?=e($row['omie_code'])?>" <?=$row['selected']?'checked':''?>><span><strong><?=e($row['name'])?></strong><small><?=e($row['omie_code'])?></small></span></label><?php endforeach;?></div>
-        </section>
-       </div>
-       <div class="tdcfg-save"><span><i class="fa-solid fa-lightbulb"></i>Revise os padrões antes de salvar. Eles serão usados como ponto de partida nos novos pedidos.</span><button class="tdcfg-btn primary"><i class="fa-solid fa-floppy-disk"></i>Salvar configurações</button></div>
-      </form>
-
-      <section class="tdcfg-card">
-       <header><span class="orange"><i class="fa-solid fa-layer-group"></i></span><div><strong>Perfis operacionais de pedido</strong><small>Crie comportamentos específicos para estoque, financeiro e NF-e sem alterar o fluxo padrão.</small></div></header>
-       <div class="tdcfg-profiles"><?php foreach($profiles as $profile):?><article><div><strong><?=e($profile['name'])?></strong><small><?=e($profile['description']??'')?></small></div><div><?php if($profile['default_no_stock']==='S'):?><b>Sem estoque</b><?php endif;?><?php if($profile['default_no_finance']==='S'):?><b>Sem financeiro</b><?php endif;?><?php if($profile['default_no_total']==='S'):?><b>Fora total NF-e</b><?php endif;?><?php if($profile['default_reserve_stock']==='S'):?><b>Reserva</b><?php endif;?></div></article><?php endforeach;?></div>
-       <form class="tdcfg-profile-form" method="post" action="<?=APP_URL?>/settings/order-profile"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Código<input class="form-control" name="code" placeholder="EX: VENDA_ESPECIAL" required></label><label>Nome<input class="form-control" name="name" required></label><label class="wide">Descrição<input class="form-control" name="description"></label><label class="tdcfg-check compact"><input type="checkbox" name="default_no_stock" value="1"><span>Não movimentar estoque</span></label><label class="tdcfg-check compact"><input type="checkbox" name="default_no_finance" value="1"><span>Não gerar financeiro</span></label><label class="tdcfg-check compact"><input type="checkbox" name="default_no_total" value="1"><span>Não somar na NF-e</span></label><label class="tdcfg-check compact"><input type="checkbox" name="default_reserve_stock" value="1"><span>Reservar estoque</span></label><input type="hidden" name="active" value="1"><button class="tdcfg-btn"><i class="fa-solid fa-plus"></i>Criar perfil</button></form>
-      </section>
-      <?php endif;?>
-     </div>
-
-     <aside class="tdcfg-side">
-      <section class="tdcfg-side-card">
-       <header><span class="green"><i class="fa-solid fa-diagram-project"></i></span><div><strong>Fluxo comercial</strong><small>Oportunidades e funil</small></div></header>
-       <div class="tdcfg-big-state <?=$flowActive?'ok':'off'?>"><i class="fa-solid <?=$flowActive?'fa-circle-check':'fa-circle-pause'?>"></i><div><strong><?=$flowActive?'Ativado':'Desativado'?></strong><span><?=$flowActive?'O módulo está disponível para a equipe comercial.':'O CRM segue no fluxo tradicional atual.'?></span></div></div>
-       <a class="tdcfg-link" href="<?=APP_URL?>/sales-flow-settings">Configurar fluxo <i class="fa-solid fa-arrow-right"></i></a>
-      </section>
-
-      <section class="tdcfg-side-card">
-       <header><span class="blue"><i class="fa-solid fa-plug"></i></span><div><strong>Integrações</strong><small>Dados e sincronização</small></div></header>
-       <div class="tdcfg-integration"><i class="fa-solid fa-arrows-rotate"></i><div><strong>Omie</strong><span>Clientes, pedidos, serviços e financeiro.</span></div><b>Integrado</b></div>
-       <div class="tdcfg-integration"><i class="fa-solid fa-phone-volume"></i><div><strong>Baldussi</strong><span>PABX, ramais e chamadas de teste.</span></div><b>Laboratório</b></div>
-       <a class="tdcfg-link" href="<?=APP_URL?>/sync">Gerenciar sincronização <i class="fa-solid fa-arrow-right"></i></a>
-       <a class="tdcfg-link" href="<?=APP_URL?>/settings/baldussi">Testar telefonia Baldussi <i class="fa-solid fa-arrow-right"></i></a>
-      </section>
-
-      <?php if($settingsAdmin):?>
-      <section class="tdcfg-side-card">
-       <header><span class="orange"><i class="fa-solid fa-shield-halved"></i></span><div><strong>Usuários e segurança</strong><small>Perfis e permissões</small></div></header>
-       <p>Gerencie administradores, supervisores, vendedores e cobrança em uma tela própria de acessos.</p>
-       <a class="tdcfg-link" href="<?=APP_URL?>/users">Gerenciar acessos <i class="fa-solid fa-arrow-right"></i></a>
-      </section>
-      <?php endif;?>
-
-      <section class="tdcfg-tip"><i class="fa-solid fa-lightbulb"></i><div><strong>Dica</strong><span>Mantenha as configurações simples. Ative somente os recursos que sua operação realmente utiliza.</span></div></section>
+    <div class="crmset-shell">
+     <aside class="crmset-rail">
+      <div class="crmset-rail-title"><span>CRM</span><div><strong>Central de ajustes</strong><small><?=e((string)($u['name']??'Usuário'))?></small></div></div>
+      <nav data-settings-nav>
+       <small>OPERAÇÃO</small>
+       <button class="active" type="button" data-settings-filter="monitoring" aria-pressed="true"><i class="fa-solid fa-users-viewfinder"></i><span>Equipe monitorada</span><b><?=number_format($visibleMonitorCount,0,',','.')?></b></button>
+       <button type="button" data-settings-filter="activities" aria-pressed="false"><i class="fa-solid fa-comments"></i><span>Atendimentos</span><b><?=$activeContactChannels+$activeTaskTypes+$activeTaskResults?></b></button>
+       <?php if($settingsAdmin):?><button type="button" data-settings-filter="orders" aria-pressed="false"><i class="fa-solid fa-receipt"></i><span>Pedidos</span><i class="fa-solid fa-chevron-right"></i></button><button type="button" data-settings-filter="profiles" aria-pressed="false"><i class="fa-solid fa-layer-group"></i><span>Perfis de pedido</span><i class="fa-solid fa-chevron-right"></i></button><?php endif;?>
+       <small>CONEXÕES E ACESSOS</small>
+       <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-filter-circle-dollar"></i><span>Fluxo comercial</span><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+       <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Integração Omie</span><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+       <a href="<?=APP_URL?>/settings/baldussi"><i class="fa-solid fa-phone-volume"></i><span>Telefonia</span><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+       <?php if($settingsAdmin):?><a href="<?=APP_URL?>/users"><i class="fa-solid fa-user-shield"></i><span>Usuários e acessos</span><i class="fa-solid fa-arrow-up-right-from-square"></i></a><?php endif;?>
+      </nav>
+      <footer><i class="fa-solid fa-circle-check"></i><span><strong>Sistema disponível</strong><small>Alterações protegidas por permissão</small></span></footer>
      </aside>
+
+     <main class="crmset-workspace">
+      <section class="crmset-panel" data-settings-panel="monitoring">
+       <header class="crmset-panel-head"><div><span><i class="fa-solid fa-users-viewfinder"></i></span><div><small>ACOMPANHAMENTO</small><h2>Equipe monitorada</h2><p>Defina quem participa dos indicadores comerciais e de cobrança.</p></div></div><b class="crmset-status <?=$monitorConfigured?'on':'auto'?>"><?=$monitorConfigured?'Regra personalizada':'Seleção automática'?></b></header>
+       <form class="crmset-monitor tdset-monitor-form" method="post" action="<?=APP_URL?>/settings/contact-monitoring"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
+        <div class="crmset-note"><i class="fa-solid fa-circle-info"></i><span><?=$monitorConfigured?'Apenas as pessoas marcadas entram nos indicadores.':'Enquanto nenhuma regra for salva, todos os usuários operacionais ativos são considerados.'?></span></div>
+        <div class="crmset-people"><?php foreach($monitorUsers??[] as $monitorUser):?><label><input type="checkbox" name="monitor_user_ids[]" value="<?=(int)$monitorUser['id']?>" <?=in_array((int)$monitorUser['id'],$monitorIds??[],true)?'checked':''?>><span class="crmset-avatar <?=$monitorUser['role']==='collector'?'collector':''?>"><?=e(mb_strtoupper(mb_substr((string)$monitorUser['name'],0,1)))?></span><span><strong><?=e((string)$monitorUser['name'])?></strong><small><?=$monitorUser['role']==='collector'?'Cobrança':'Vendas'?> · <?=e((string)$monitorUser['email'])?></small></span><i class="fa-solid fa-check"></i></label><?php endforeach;?><?php if(empty($monitorUsers)):?><p class="crmset-empty">Nenhum usuário operacional disponível.</p><?php endif;?></div>
+        <?php if(!empty($monitorUsers)):?><footer class="crmset-actionbar"><span><b data-monitor-selected><?=count($monitorIds??[])?></b> selecionados</span><button class="crmset-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i>Salvar equipe</button></footer><?php endif;?>
+       </form>
+      </section>
+
+      <section class="crmset-panel" data-settings-panel="activities" hidden>
+       <header class="crmset-panel-head"><div><span><i class="fa-solid fa-comments"></i></span><div><small>PADRONIZAÇÃO</small><h2>Atendimentos e tarefas</h2><p>Gerencie os valores que sua equipe seleciona durante os registros.</p></div></div></header>
+       <nav class="crmset-tabs" data-settings-subnav><button class="active" type="button" data-settings-subfilter="channels" aria-pressed="true">Canais <b><?=$activeContactChannels?></b></button><button type="button" data-settings-subfilter="types" aria-pressed="false">Tipos de tarefa <b><?=$activeTaskTypes?></b></button><button type="button" data-settings-subfilter="results" aria-pressed="false">Resultados <b><?=$activeTaskResults?></b></button></nav>
+
+       <?php $catalogSections=[
+        'channels'=>['title'=>'Canais de atendimento','description'=>'Meios usados nos contatos e nas movimentações de cobrança.','placeholder'=>'Ex.: Visita presencial','action'=>'contact-channels','button'=>'Adicionar canal','items'=>$contactChannels??[]],
+        'types'=>['title'=>'Tipos de tarefa','description'=>'Tipos disponíveis no modal de criação de tarefas.','placeholder'=>'Ex.: Reunião de proposta','action'=>'task-types','button'=>'Adicionar tipo','items'=>$taskTypes??[]],
+        'results'=>['title'=>'Resultados dos atendimentos','description'=>'Classificações aplicadas após a conclusão de um contato.','placeholder'=>'Ex.: Retornar na próxima semana','action'=>'task-results','button'=>'Adicionar resultado','items'=>$taskResults??[]]
+       ];foreach($catalogSections as $catalogKey=>$catalog):?>
+       <div class="crmset-catalog" data-settings-subpanel="<?=$catalogKey?>" <?=$catalogKey==='channels'?'':'hidden'?>>
+        <aside><small>NOVO ITEM</small><h3><?=e($catalog['title'])?></h3><p><?=e($catalog['description'])?></p><form method="post" action="<?=APP_URL?>/settings/<?=e($catalog['action'])?>"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><label>Nome<input class="form-control" name="label" maxlength="80" placeholder="<?=e($catalog['placeholder'])?>" required></label><fieldset><legend>Disponível em</legend><label><input type="checkbox" name="contexts[]" value="sales" checked>Comercial</label><label><input type="checkbox" name="contexts[]" value="collection" checked>Cobrança</label></fieldset><button class="crmset-primary" type="submit"><i class="fa-solid fa-plus"></i><?=e($catalog['button'])?></button></form></aside>
+        <div class="crmset-catalog-list"><header><strong>Itens cadastrados</strong><span><?=count($catalog['items'])?> no total</span></header><?php foreach($catalog['items'] as $catalogItem):?><article class="<?=!empty($catalogItem['active'])?'active':'inactive'?>"><span><i class="fa-solid <?=!empty($catalogItem['active'])?'fa-circle-check':'fa-circle-pause'?>"></i></span><div><strong><?=e((string)$catalogItem['label'])?></strong><small><?=in_array('sales',(array)$catalogItem['contexts'],true)?'Comercial':''?><?=in_array('sales',(array)$catalogItem['contexts'],true)&&in_array('collection',(array)$catalogItem['contexts'],true)?' · ':''?><?=in_array('collection',(array)$catalogItem['contexts'],true)?'Cobrança':''?><?=!empty($catalogItem['system'])?' · item do sistema':''?></small></div><form method="post" action="<?=APP_URL?>/settings/<?=e($catalog['action'])?>/<?=e((string)$catalogItem['code'])?>/toggle"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" class="<?=!empty($catalogItem['active'])?'on':'off'?>"><i class="fa-solid <?=!empty($catalogItem['active'])?'fa-toggle-on':'fa-toggle-off'?>"></i><?=!empty($catalogItem['active'])?'Ativo':'Inativo'?></button></form></article><?php endforeach;?></div>
+       </div>
+       <?php endforeach;?>
+      </section>
+
+      <?php if($settingsAdmin):?>
+      <section class="crmset-panel" data-settings-panel="orders" hidden>
+       <header class="crmset-panel-head"><div><span><i class="fa-solid fa-receipt"></i></span><div><small>OPERAÇÃO COMERCIAL</small><h2>Padrões de pedido</h2><p>Valores iniciais aplicados aos novos pedidos da equipe.</p></div></div></header>
+       <form class="crmset-orders" method="post" action="<?=APP_URL?>/settings"><input type="hidden" name="_token" value="<?=CSRF::token()?>">
+        <section><h3>Valores padrão</h3><div class="crmset-fields"><?php $fields=[['stage','Etapa',$stages,'code','name'],['category','Categoria',$categories,'code','description'],['account','Conta corrente',$accounts,'omie_code','name'],['payment_term','Condição de pagamento',$terms,'code','description'],['payment_method','Meio de pagamento',$methods,'code','description'],['document_type','Tipo documento',$documents,'code','description'],['tax_scenario','Cenário fiscal',$taxes,'omie_code','name'],['stock_location','Local estoque',$stocks,'omie_code','name']];foreach($fields as [$key,$label,$list,$vk,$lk]):?><label><span><?=$label?></span><select class="form-select" name="<?=$key?>"><option value="">Selecione</option><?php foreach($list as $row):?><option value="<?=e($row[$vk])?>" <?=($defaults[$key]??'')===(string)$row[$vk]?'selected':''?>><?=e($row[$lk])?></option><?php endforeach;?></select></label><?php endforeach;?><label><span>Frete padrão</span><select class="form-select" name="freight_mode" data-freight-default-autosave><?php foreach(['9'=>'Sem frete','0'=>'CIF','1'=>'FOB','2'=>'Terceiros','3'=>'Próprio remetente','4'=>'Próprio destinatário'] as $k=>$vv):?><option value="<?=$k?>" <?=($defaults['freight_mode']??'9')===$k?'selected':''?>><?=$vv?></option><?php endforeach;?></select><small data-freight-default-status>Salvamento automático</small></label><label><span>Consumidor final</span><select class="form-select" name="consumer_final"><option value="S">Sim</option><option value="N" <?=($defaults['consumer_final']??'S')==='N'?'selected':''?>>Não</option></select></label></div><label class="crmset-option"><input type="checkbox" name="send_email" value="1" <?=($defaults['send_email']??'N')==='S'?'checked':''?>><span><strong>Enviar e-mail pela Omie</strong><small>Permite o disparo conforme o fluxo do pedido.</small></span></label></section>
+        <div class="crmset-order-lists"><section><h3>Transportadoras disponíveis</h3><div><?php if(!empty($carriers)):foreach($carriers as $carrier):?><label><input type="checkbox" name="carrier_codes[]" value="<?=e((string)$carrier['omie_code'])?>" <?=!empty($carrier['selected'])?'checked':''?>><span><strong><?=e((string)$carrier['name'])?></strong><small><?=!empty($carrier['city'])?e((string)$carrier['city']).(!empty($carrier['uf'])?' / '.e((string)$carrier['uf']):''):'Omie '.e((string)$carrier['omie_code'])?></small></span></label><?php endforeach;else:?><p class="crmset-empty">Nenhuma transportadora encontrada.</p><?php endif;?></div></section><section><h3>Contas da cobrança</h3><div><?php foreach($accounts as $row):?><label><input type="checkbox" name="collection_accounts[]" value="<?=e($row['omie_code'])?>" <?=$row['selected']?'checked':''?>><span><strong><?=e($row['name'])?></strong><small><?=e($row['omie_code'])?></small></span></label><?php endforeach;?></div></section></div>
+        <footer class="crmset-actionbar"><span>Esses valores serão sugeridos nos novos pedidos.</span><button class="crmset-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i>Salvar padrões</button></footer>
+       </form>
+      </section>
+
+      <section class="crmset-panel" data-settings-panel="profiles" hidden>
+       <header class="crmset-panel-head"><div><span><i class="fa-solid fa-layer-group"></i></span><div><small>COMPORTAMENTO DO PEDIDO</small><h2>Perfis operacionais</h2><p>Crie regras especiais de estoque, financeiro e NF-e.</p></div></div></header>
+       <div class="crmset-profiles"><?php foreach($profiles as $profile):?><article><span><i class="fa-solid fa-cube"></i></span><div><strong><?=e($profile['name'])?></strong><small><?=e($profile['description']??'Sem descrição')?></small><p><?php if($profile['default_no_stock']==='S'):?><b>Sem estoque</b><?php endif;?><?php if($profile['default_no_finance']==='S'):?><b>Sem financeiro</b><?php endif;?><?php if($profile['default_no_total']==='S'):?><b>Fora da NF-e</b><?php endif;?><?php if($profile['default_reserve_stock']==='S'):?><b>Reserva</b><?php endif;?></p></div></article><?php endforeach;?></div>
+       <form class="crmset-profile-create" method="post" action="<?=APP_URL?>/settings/order-profile"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><header><small>NOVO PERFIL</small><h3>Criar comportamento operacional</h3></header><div class="crmset-fields"><label><span>Código</span><input class="form-control" name="code" placeholder="VENDA_ESPECIAL" required></label><label><span>Nome</span><input class="form-control" name="name" required></label><label class="wide"><span>Descrição</span><input class="form-control" name="description"></label></div><div class="crmset-check-grid"><label><input type="checkbox" name="default_no_stock" value="1">Não movimentar estoque</label><label><input type="checkbox" name="default_no_finance" value="1">Não gerar financeiro</label><label><input type="checkbox" name="default_no_total" value="1">Não somar na NF-e</label><label><input type="checkbox" name="default_reserve_stock" value="1">Reservar estoque</label></div><input type="hidden" name="active" value="1"><button class="crmset-primary" type="submit"><i class="fa-solid fa-plus"></i>Criar perfil</button></form>
+      </section>
+      <?php endif;?>
+     </main>
     </div>
    </section>
   <?php break;
@@ -3144,7 +3277,7 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      </section>
      <section class="tdb-card">
       <header><div><span class="tdb-step">2</span><strong>Ligação controlada</strong><small>O PABX chama primeiro o ramal; após atender, disca para o destino.</small></div></header>
-      <form class="tdb-call-form" method="post" action="<?=APP_URL?>/settings/baldussi/dial" data-baldussi-dial-form><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="crm_account_code" value="" data-baldussi-account-code><label><span>Seu ramal</span><input class="form-control tdb-fixed-extension" value="<?=e($userExtension?:'Não configurado')?>" readonly><small class="tdb-field-note"><i class="fa-solid fa-lock"></i> Definido pelo administrador no cadastro do usuário</small></label><label><span>Telefone de destino</span><input class="form-control" name="destination" inputmode="tel" autocomplete="off" maxlength="15" placeholder="(41) 99999-9999" data-brazil-phone required><small class="tdb-field-note"><i class="fa-solid fa-circle-info"></i> Digite DDD + telefone. O sistema adapta chamadas locais e de longa distância.</small></label><label class="tdb-account-field"><span>Cliente ou Conta CRM <em>opcional</em></span><input class="form-control" type="search" autocomplete="off" placeholder="Digite nome, CNPJ ou CPF" data-baldussi-account-search><div class="tdb-account-results" data-baldussi-account-results></div><small class="tdb-field-note" data-baldussi-account-selected><i class="fa-solid fa-circle-info"></i> Selecione a conta para habilitar o registro da ligação no histórico.</small></label><label class="tdb-confirm"><input type="checkbox" name="confirm_call" value="1" required><span>Confirmo que o número informado está autorizado a receber esta ligação.</span></label><button class="tdb-btn call" type="submit" <?=empty($bc['configured'])||$userExtension===''?'disabled':''?>><i class="fa-solid fa-phone"></i>Iniciar ligação</button><?php if($userExtension===''):?><p class="tdb-admin-only"><i class="fa-solid fa-lock"></i> Seu usuário não possui um ramal ativo. Solicite a configuração ao administrador.</p><?php endif;?></form>
+      <form class="tdb-call-form" method="post" action="<?=APP_URL?>/settings/baldussi/dial" data-baldussi-dial-form><input type="hidden" name="_token" value="<?=CSRF::token()?>"><input type="hidden" name="return_to" value="/settings/baldussi"><input type="hidden" name="crm_account_code" value="" data-baldussi-account-code><label><span>Seu ramal</span><input class="form-control tdb-fixed-extension" value="<?=e($userExtension?:'Não configurado')?>" readonly><small class="tdb-field-note"><i class="fa-solid fa-lock"></i> Definido pelo administrador no cadastro do usuário</small></label><label><span>Telefone de destino</span><input class="form-control" name="destination" inputmode="tel" autocomplete="off" maxlength="15" placeholder="(41) 99999-9999" data-brazil-phone required><small class="tdb-field-note"><i class="fa-solid fa-circle-info"></i> Digite DDD + telefone. O sistema adapta chamadas locais e de longa distância.</small></label><label class="tdb-account-field"><span>Cliente ou Conta CRM <em>opcional</em></span><input class="form-control" type="search" autocomplete="off" placeholder="Digite nome, CNPJ ou CPF" data-baldussi-account-search><div class="tdb-account-results" data-baldussi-account-results></div><small class="tdb-field-note" data-baldussi-account-selected><i class="fa-solid fa-circle-info"></i> Selecione a conta para habilitar o registro da ligação no histórico.</small></label><label class="tdb-confirm"><input type="checkbox" name="confirm_call" value="1" required><span>Confirmo que o número informado está autorizado a receber esta ligação.</span></label><button class="tdb-btn call" type="submit" <?=empty($bc['configured'])||$userExtension===''?'disabled':''?>><i class="fa-solid fa-phone"></i>Iniciar ligação</button><?php if($userExtension===''):?><p class="tdb-admin-only"><i class="fa-solid fa-lock"></i> Seu usuário não possui um ramal ativo. Solicite a configuração ao administrador.</p><?php endif;?></form>
       <?php if($lastCall):?><div class="tdb-last-call <?=$lastCall['ok']?'ok':'error'?>"><i class="fa-solid <?=$lastCall['ok']?'fa-circle-check':'fa-circle-xmark'?>"></i><div><strong><?=$lastCall['ok']?'Solicitação aceita':'Solicitação recusada'?></strong><span>Ramal <?=e((string)$lastCall['origin'])?> → <?=e((string)$lastCall['destination_masked'])?> · <?=date('d/m/Y H:i',strtotime((string)$lastCall['at']))?></span><small><?=e((string)($lastCall['route_label']??''))?><?=!empty($lastCall['route_label'])?' · ':''?><?=e((string)$lastCall['message'])?></small></div></div><?php endif;?>
      </section>
     </div>
@@ -3174,37 +3307,37 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
    $modeLabels=['manual_period'=>'Período escolhido','forced_last_5_days'=>'Últimos 5 dias','incremental_5_days'=>'Últimos 5 dias','catchup_missing_period'=>'Atualizar lacuna','initial_current_year'=>'Carga inicial','manual_full_current_year'=>'Carga completa','products_full'=>'Catálogo completo','products_incremental'=>'Novos e alterados','clients_reconcile'=>'Reconciliação completa','initial'=>'Carga inicial','incremental'=>'Incremental'];
    $lastSuccessLabel=$summary['last_success']?date('d/m/Y H:i',strtotime($summary['last_success'])):'Nenhuma execução concluída';
    ?>
-   <section class="tdsync2-page">
-    <header class="tdsync2-head">
-     <div class="tdsync2-head-main">
-      <span class="tdsync2-head-icon"><i class="fa-solid fa-arrows-rotate"></i></span>
-      <div><span class="tdsync2-kicker">SISTEMA / OMIE</span><h1>Sincronização Omie</h1><p>Gerencie os dados trazidos da Omie com leitura clara de status, volume local e última execução de cada módulo.</p></div>
-     </div>
-     <div class="tdsync2-head-status <?=$summary['errors']>0?'attention':'ok'?>">
-      <span><i class="fa-solid <?=$summary['errors']>0?'fa-triangle-exclamation':'fa-circle-check'?>"></i></span>
-      <div><small>Saúde da integração</small><strong><?=$summary['errors']>0?(int)$summary['errors'].' módulo(s) com atenção':'Sem erros registrados'?></strong><em><?=$lastSuccessLabel?></em></div>
+   <section class="tdsync5-page">
+    <header class="tdsync5-command-head">
+     <div class="tdsync5-command-title"><span><i class="fa-solid fa-wave-square"></i></span><div><small>SISTEMA / CENTRAL DE DADOS</small><h1>Controle de sincronização</h1><p>Execute, acompanhe e recupere integrações Omie em um único ambiente.</p></div></div>
+     <div class="tdsync5-live <?=$summary['errors']>0?'attention':'ok'?>"><i></i><span><small>STATUS DA CONEXÃO</small><strong><?=$summary['errors']>0?'Requer atenção':'Operação normal'?></strong><em>Último sucesso: <?=$lastSuccessLabel?></em></span></div>
+     <div class="tdsync5-summary-strip">
+      <article><small>Módulos</small><strong><?=(int)$summary['modules']?></strong><span>configurados</span></article>
+      <article><small>Concluídos</small><strong><?=(int)$summary['synced']?></strong><span>processados</span></article>
+      <article class="<?=$summary['errors']>0?'danger':''?>"><small>Alertas</small><strong><?=(int)$summary['errors']?></strong><span>registrados</span></article>
+      <article><small>Base local</small><strong><?=number_format((int)$summary['local_total'],0,',','.')?></strong><span>registros</span></article>
      </div>
     </header>
 
-    <div class="tdsync2-kpis">
-     <article><span class="blue"><i class="fa-solid fa-puzzle-piece"></i></span><div><small>Módulos configurados</small><strong><?=(int)$summary['modules']?></strong><em>integrações disponíveis</em></div></article>
-     <article><span class="green"><i class="fa-solid fa-circle-check"></i></span><div><small>Com execução concluída</small><strong><?=(int)$summary['synced']?></strong><em>módulos já processados</em></div></article>
-     <article class="<?=$summary['errors']>0?'has-alert':''?>"><span class="red"><i class="fa-solid fa-triangle-exclamation"></i></span><div><small>Com erro registrado</small><strong><?=(int)$summary['errors']?></strong><em><?=$summary['errors']>0?'requerem revisão':'nenhuma pendência técnica'?></em></div></article>
-     <article><span class="yellow"><i class="fa-solid fa-database"></i></span><div><small>Registros locais</small><strong><?=number_format((int)$summary['local_total'],0,',','.')?></strong><em>soma das bases sincronizadas</em></div></article>
-    </div>
+    <div class="tdsync5-layout">
+     <aside class="tdsync5-sidebar">
+      <header><small>MÓDULOS</small><strong>Escolha o que deseja operar</strong></header>
+      <nav data-sync-module-nav>
+       <button class="active" type="button" data-sync-module-filter="all" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i><span><strong>Visão geral</strong><small>Todos os módulos</small></span></button>
+       <button type="button" data-sync-module-filter="quick" aria-pressed="false"><i class="fa-solid fa-user-plus"></i><span><strong>Cliente individual</strong><small>Sincronização pontual</small></span></button>
+       <?php foreach($syncGroups as $groupKey=>$group):?>
+        <span class="tdsync5-nav-group"><?=e($group['label'])?></span>
+        <?php foreach($group['keys'] as $moduleKey):if(empty($items[$moduleKey]))continue;$moduleItem=$items[$moduleKey];?>
+         <button type="button" data-sync-module-filter="<?=e($moduleKey)?>" aria-pressed="false"><i class="fa-solid <?=e($icons[$moduleKey]??'fa-arrows-rotate')?>"></i><span><strong><?=e($moduleItem['label'])?></strong><small><?=number_format((int)$moduleItem['local_count'],0,',','.')?> registros</small></span></button>
+        <?php endforeach;?>
+       <?php endforeach;?>
+      </nav>
+      <section class="tdsync5-safety"><i class="fa-solid fa-shield-halved"></i><div><strong>Execução protegida</strong><p>Prefira atualizações incrementais. Ações destrutivas sempre exigem confirmação.</p></div></section>
+      <div class="tdsync5-sidebar-links"><a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i>Pendências</a><a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i>Base de clientes</a></div>
+     </aside>
 
-    <section class="tdsync2-control-center">
-     <div class="tdsync2-control-copy">
-      <span class="tdsync2-control-icon"><i class="fa-solid fa-shield-halved"></i></span>
-      <div><small>OPERAÇÃO SEGURA</small><strong>Atualize somente o que precisa</strong><p>Prefira sincronizações pontuais e incrementais. Use carga completa ou “Zerar” apenas quando houver necessidade técnica real.</p></div>
-     </div>
-     <div class="tdsync2-control-links">
-      <a href="<?=APP_URL?>/clients-sync"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Pendências de clientes</strong><small>Revisar antes de enviar</small></span></a>
-      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-users"></i><span><strong>Base de clientes</strong><small>Consultar cadastros</small></span></a>
-     </div>
-    </section>
-
-    <section class="tdsync2-quick-client" data-sync-one-client>
+     <main class="tdsync5-workspace">
+    <section class="tdsync2-quick-client" id="sync-quick" data-sync-one-client>
      <div class="tdsync2-quick-client-copy">
       <span><i class="fa-solid fa-user-magnifying-glass"></i></span>
       <div><small>CLIENTES / AÇÃO RÁPIDA</small><strong>Puxar um único cliente da Omie</strong><p>Evite sincronizar a base inteira. Informe o código Omie ou CPF/CNPJ e atualize somente aquele cadastro.</p></div>
@@ -3217,10 +3350,10 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
     </section>
 
     <?php foreach($syncGroups as $groupKey=>$group):?>
-     <section class="tdsync2-section <?=$groupKey==='movement'?'movement':''?>">
+     <section class="tdsync2-section <?=$groupKey==='movement'?'movement':''?>" id="sync-<?=e($groupKey)?>" data-sync-group-section="<?=e($groupKey)?>">
       <header class="tdsync2-section-head">
        <div><span><i class="fa-solid <?=$group['icon']?>"></i></span><div><small><?=strtoupper($groupKey==='base'?'BASE LOCAL':($groupKey==='references'?'ESTRUTURA OMIE':'OPERAÇÃO'))?></small><strong><?=$group['label']?></strong><p><?=$group['description']?></p></div></div>
-       <b><?=count($group['keys'])?> módulo<?=count($group['keys'])===1?'':'s'?></b>
+       <b data-sync-group-count data-total="<?=count($group['keys'])?>"><?=count($group['keys'])?> módulo<?=count($group['keys'])===1?'':'s'?></b>
       </header>
 
       <div class="tdsync2-grid <?=$groupKey==='movement'?'featured':''?>">
@@ -3294,12 +3427,14 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
      </section>
     <?php endforeach;?>
 
-    <section class="tdsync2-help">
+    <section class="tdsync2-help" data-sync-help>
      <div><span class="green"><i class="fa-solid fa-arrows-rotate"></i></span><p><strong>Sincronizar agora</strong> Busca alterações sem apagar a base local.</p></div>
      <div><span class="blue"><i class="fa-solid fa-forward-step"></i></span><p><strong>Atualizar lacuna</strong> Recupera o intervalo faltante de pedidos e serviços.</p></div>
      <div><span class="yellow"><i class="fa-solid fa-play"></i></span><p><strong>Retomar</strong> Continua uma execução interrompida.</p></div>
      <div class="danger"><span class="red"><i class="fa-solid fa-trash-can"></i></span><p><strong>Zerar</strong> Remove dados locais do módulo. Use somente para reconstrução controlada.</p></div>
     </section>
+     </main>
+    </div>
    </section>
   <?php break;
  }
@@ -3310,12 +3445,15 @@ window.ORDER_META=<?=json_encode(['categories'=>$categories,'taxes'=>$taxes,'sto
 function layout(string $body,?array $u,string $page=''): void{
  $pageMeta=[
   'dashboard'=>['Dashboard','Visão geral da operação','fa-chart-line'],
-  'clients'=>['Clientes','Central de clientes','fa-users'],
-  'client_audit'=>['Clientes','Central de clientes','fa-users'],
-  'client_sync'=>['Clientes','Sincronização com a Omie','fa-cloud-arrow-up'],
+  'clients'=>['Contas CRM','Relacionamento comercial','fa-building'],
+  'sales_clients'=>['Vendas','Clientes de Vendas','fa-address-card'],
+  'commercial_account'=>['Contas CRM','Ficha comercial','fa-building'],
+  'commercial_account_new'=>['Contas CRM','Nova conta comercial','fa-building-circle-check'],
+  'client_audit'=>['Clientes de Vendas','Auditoria de vínculos','fa-users'],
+  'client_sync'=>['Clientes de Vendas','Sincronização com a Omie','fa-cloud-arrow-up'],
   'products'=>['Produtos','Catálogo comercial','fa-boxes-stacked'],
-  'client_new'=>['Clientes','Cadastro de cliente','fa-user-plus'],
-  'client'=>['Clientes','Detalhes do cliente','fa-address-card'],
+  'client_new'=>['Clientes de Vendas','Cadastro fiscal e de vendas','fa-user-plus'],
+  'client'=>['Clientes de Vendas','Detalhes fiscais e financeiros','fa-address-card'],
   'contact_monitoring'=>['Comercial','Contatos e retornos','fa-headset'],
   'orders'=>['Pedidos','Operação comercial','fa-receipt'],
   'order_detail'=>['Pedidos','Detalhes do pedido','fa-file-invoice'],
@@ -3331,10 +3469,12 @@ function layout(string $body,?array $u,string $page=''): void{
   'admin_center'=>['Administração','Centro administrativo','fa-table-cells-large'],
   'settings'=>['Sistema','Configurações do CRM','fa-gears'],
   'baldussi_test'=>['Comercial','Telefonia Baldussi','fa-phone-volume'],
+  'design_preview'=>['Design','Modelos de interface','fa-palette'],
   'test_data'=>['Sistema','Ferramentas técnicas','fa-flask'],
   'sync'=>['Sistema','Sincronização com Omie','fa-arrows-rotate'],
   'commercial_home'=>['Comercial','Minha Home','fa-house'],
   'commercial_home_concept'=>['Comercial','Minha Home unificada','fa-house-laptop'],
+  'crm_hub'=>['CRM','Resumo do módulo','fa-building'],
   'commercial_portfolio'=>['Comercial','Minha Carteira','fa-briefcase'],
   'commercial_account'=>['Comercial','Conta CRM','fa-building'],
   'commercial_partners'=>['Comercial','Parceiros EAD','fa-people-group'],
@@ -3348,6 +3488,7 @@ function layout(string $body,?array $u,string $page=''): void{
  ];
  $pageInfo=$pageMeta[$page]??['Tecnodata CRM','Operação','fa-graduation-cap'];
  ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($GLOBALS['config']['app']['name']??'Tecnodata CRM')?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.datatables.net/3.0.3/css/dataTables.bootstrap5.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="<?=APP_URL?>/assets/app.css?v=<?=is_file(APP_ROOT.'/public/assets/app.css')?filemtime(APP_ROOT.'/public/assets/app.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/premium.css?v=<?=is_file(APP_ROOT.'/public/assets/premium.css')?filemtime(APP_ROOT.'/public/assets/premium.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/clients-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/clients-v2.css')?filemtime(APP_ROOT.'/public/assets/clients-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-intelligence-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-intelligence-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-intelligence-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/client-audit-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/client-audit-v1.css')?filemtime(APP_ROOT.'/public/assets/client-audit-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/dashboard-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/dashboard-v2.css')?filemtime(APP_ROOT.'/public/assets/dashboard-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/results-v2.css')?filemtime(APP_ROOT.'/public/assets/results-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/orders-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/orders-v2.css')?filemtime(APP_ROOT.'/public/assets/orders-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/order-new-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/order-new-v2.css')?filemtime(APP_ROOT.'/public/assets/order-new-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/services-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/services-v2.css')?filemtime(APP_ROOT.'/public/assets/services-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/collection-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/collection-v2.css')?filemtime(APP_ROOT.'/public/assets/collection-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/agenda-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/agenda-v2.css')?filemtime(APP_ROOT.'/public/assets/agenda-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/contact-monitoring-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/contact-monitoring-v2.css')?filemtime(APP_ROOT.'/public/assets/contact-monitoring-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/final-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/final-v2.css')?filemtime(APP_ROOT.'/public/assets/final-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/visual-polish.css?v=<?=is_file(APP_ROOT.'/public/assets/visual-polish.css')?filemtime(APP_ROOT.'/public/assets/visual-polish.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/results-models-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/results-models-v3.css')?filemtime(APP_ROOT.'/public/assets/results-models-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/opportunities-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/opportunities-v1.css')?filemtime(APP_ROOT.'/public/assets/opportunities-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/admin-center-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/admin-center-v1.css')?filemtime(APP_ROOT.'/public/assets/admin-center-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/settings-v3.css?v=<?=is_file(APP_ROOT.'/public/assets/settings-v3.css')?filemtime(APP_ROOT.'/public/assets/settings-v3.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/design-system-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/design-system-v4.css')?filemtime(APP_ROOT.'/public/assets/design-system-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/management-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/management-v4.css')?filemtime(APP_ROOT.'/public/assets/management-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/goals-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/goals-v1.css')?filemtime(APP_ROOT.'/public/assets/goals-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/workspace-v4.css?v=<?=is_file(APP_ROOT.'/public/assets/workspace-v4.css')?filemtime(APP_ROOT.'/public/assets/workspace-v4.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/sync-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/sync-v2.css')?filemtime(APP_ROOT.'/public/assets/sync-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-master-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-master-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-master-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/crm-palette-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/crm-palette-v1.css')?filemtime(APP_ROOT.'/public/assets/crm-palette-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-workspace-v2.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-workspace-v2.css')?filemtime(APP_ROOT.'/public/assets/commercial-workspace-v2.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-home-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-home-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-home-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-activity-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-activity-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-activity-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-account-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-account-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-account-v1.css'):time()?>"><link rel="stylesheet" href="<?=APP_URL?>/assets/commercial-operations-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/commercial-operations-v1.css')?filemtime(APP_ROOT.'/public/assets/commercial-operations-v1.css'):time()?>"></head><body data-page="<?=e($page)?>"><?php if(!$u){echo $body;}else{?>
+ <?php if($page==='design_preview'):?><link rel="stylesheet" href="<?=APP_URL?>/assets/design-preview-v1.css?v=<?=is_file(APP_ROOT.'/public/assets/design-preview-v1.css')?filemtime(APP_ROOT.'/public/assets/design-preview-v1.css'):time()?>"><?php endif;?>
  <div class="tdcrm-shell">
   <aside class="tdcrm-sidebar" id="appSidebar" aria-label="Navegação principal">
    <div class="tdcrm-brand">
@@ -3360,16 +3501,28 @@ function layout(string $body,?array $u,string $page=''): void{
    <nav class="tdcrm-nav">
     <?php if($u['role']==='seller'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Minha Home</span></a>
-     <a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira</span></a>
-     <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-address-book"></i><span>Base de clientes</span></a>
-     <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a>
-     <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
-     <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?>
-     <a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
-     <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a>
-     <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
-     <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a>
-     <a href="<?=APP_URL?>/settings/baldussi"><i class="fa-solid fa-phone-volume"></i><span>Telefonia</span></a>
+     <div class="tdcrm-nav-group" data-nav-group="seller-crm" data-default-open="1">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-building"></i>CRM</span><i class="fa-solid fa-chevron-down"></i></button>
+     <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/crm"><i class="fa-solid fa-table-columns"></i><span>Resumo do CRM</span></a>
+       <a href="<?=APP_URL?>/my-portfolio"><i class="fa-solid fa-briefcase"></i><span>Minha carteira CRM</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-building"></i><span>Contas CRM</span></a>
+       <a href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-building-circle-check"></i><span>Nova Conta CRM</span></a>
+       <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades CRM</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
+       <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Agenda e retornos CRM</span></a>
+      </div>
+     </div>
+     <div class="tdcrm-nav-group" data-nav-group="seller-sales" data-default-open="1">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button>
+      <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/sales/clients"><i class="fa-solid fa-address-card"></i><span>Clientes de Vendas</span></a>
+       <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Registro de vendas</span></a>
+       <a href="<?=APP_URL?>/orders/new"><i class="fa-solid fa-circle-plus"></i><span>Novo pedido</span></a>
+       <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Meus pedidos</span></a>
+       <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
+      </div>
+     </div>
     <?php elseif($u['role']==='collector'):?>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-house"></i><span>Meu painel</span></a>
      <div class="tdcrm-nav-group" data-nav-group="collector-collection" data-default-open="1"><button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-hand-holding-dollar"></i>Cobrança</span><i class="fa-solid fa-chevron-down"></i></button><div class="tdcrm-nav-group-links"><a href="<?=APP_URL?>/collection"><i class="fa-solid fa-circle-dollar-to-slot"></i><span>Carteira de cobrança</span></a><a href="<?=APP_URL?>/collection/report"><i class="fa-solid fa-chart-column"></i><span>Relatório de cobranças</span></a><a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Minha agenda</span></a></div></div>
@@ -3383,26 +3536,40 @@ function layout(string $body,?array $u,string $page=''): void{
 
      <div class="tdcrm-supervisor-quick" aria-label="Atalhos da supervisão">
       <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span><b>Carteira</b><small>Equipe comercial</small></span></a>
-      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-database"></i><span><b>Base CRM</b><small>Todos os clientes</small></span></a>
+      <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-building"></i><span><b>Contas CRM</b><small>Relacionamento comercial</small></span></a>
       <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span><b>Agenda</b><small>Equipe e retornos</small></span></a>
      </div>
 
-     <div class="tdcrm-nav-section-label">OPERAÇÃO COMERCIAL</div>
-     <div class="tdcrm-supervisor-list">
-      <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
-      <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Vendas</span></a>
-      <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
-      <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades</span></a><?php endif;?>
-      <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
-      <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
-      <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
+     <div class="tdcrm-nav-section-label">MÓDULOS</div>
+     <div class="tdcrm-nav-group" data-nav-group="supervisor-crm" data-default-open="1">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-building"></i>CRM</span><i class="fa-solid fa-chevron-down"></i></button>
+     <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/crm"><i class="fa-solid fa-table-columns"></i><span>Resumo do CRM</span></a>
+       <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span>Carteira CRM da equipe</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-building"></i><span>Contas CRM</span></a>
+       <a href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-building-circle-check"></i><span>Nova Conta CRM</span></a>
+       <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
+       <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades CRM</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Tarefas e agenda CRM</span></a>
+       <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
+      </div>
+     </div>
+     <div class="tdcrm-nav-group" data-nav-group="supervisor-sales">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button>
+      <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/sales/clients"><i class="fa-solid fa-address-card"></i><span>Clientes de Vendas</span></a>
+       <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Registro de vendas</span></a>
+       <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
+       <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
+       <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
+       <a href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-solid fa-arrows-rotate"></i><span>Clientes de Vendas / Omie</span></a>
+      </div>
      </div>
 
      <div class="tdcrm-nav-section-label">MANUTENÇÃO</div>
      <div class="tdcrm-supervisor-list tdcrm-supervisor-maintenance">
-      <a href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-solid fa-arrows-rotate"></i><span>Pendentes de sincronização</span></a>
       <a href="<?=APP_URL?>/clients-duplicates"><i class="fa-solid fa-clone"></i><span>Duplicados</span></a>
-      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-shield-halved"></i><span>Auditoria de clientes</span></a>
+      <a href="<?=APP_URL?>/clients-audit"><i class="fa-solid fa-shield-halved"></i><span>Auditoria de vínculos</span></a>
      </div>
 
      <div class="tdcrm-nav-section-label">COBRANÇA</div>
@@ -3416,8 +3583,9 @@ function layout(string $body,?array $u,string $page=''): void{
      <div class="tdcrm-supervisor-list tdcrm-supervisor-management">
       <a href="<?=APP_URL?>/commercial-management"><i class="fa-solid fa-chart-pie"></i><span>Gestão comercial</span></a>
       <a href="<?=APP_URL?>/goals"><i class="fa-solid fa-bullseye"></i><span>Metas da equipe</span></a>
-      <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Funil de vendas</span></a>
-      <a href="<?=APP_URL?>/settings/baldussi"><i class="fa-solid fa-phone-volume"></i><span>Telefonia Baldussi</span></a>
+       <a href="<?=APP_URL?>/sales-flow-settings"><i class="fa-solid fa-diagram-project"></i><span>Funil de vendas</span></a>
+       <a href="<?=APP_URL?>/design-preview"><i class="fa-solid fa-palette"></i><span>Modelos de interface</span></a>
+       <a href="<?=APP_URL?>/settings/baldussi"><i class="fa-solid fa-phone-volume"></i><span>Telefonia Baldussi</span></a>
       <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-sliders"></i><span>Configurações da operação</span></a>
      </div>
     <?php else:?>
@@ -3427,20 +3595,31 @@ function layout(string $body,?array $u,string $page=''): void{
      </div>
      <a class="tdcrm-nav-home" href="<?=APP_URL?>/"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
 
-     <div class="tdcrm-nav-section-label">OPERAÇÃO</div>
+     <div class="tdcrm-nav-section-label">MÓDULOS</div>
 
-     <div class="tdcrm-nav-group" data-nav-group="commercial" data-default-open="1">
-      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-handshake"></i>Comercial</span><i class="fa-solid fa-chevron-down"></i></button>
-      <div class="tdcrm-nav-group-links">
-       <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-chart-column"></i><span>Oportunidades</span></a><?php endif;?>
-       <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span>Carteira comercial</span></a>
-       <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
-       <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-cart-shopping"></i><span>Vendas</span></a>
-       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-database"></i><span><?=$u['role']==='admin'?'Central geral de clientes':'Base de clientes CRM'?></span></a>
-       <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
+     <div class="tdcrm-nav-group" data-nav-group="crm" data-default-open="1">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="true"><span><i class="fa-solid fa-building"></i>CRM</span><i class="fa-solid fa-chevron-down"></i></button>
+     <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/crm"><i class="fa-solid fa-table-columns"></i><span>Resumo do CRM</span></a>
+       <a href="<?=APP_URL?>/commercial-portfolio"><i class="fa-solid fa-briefcase"></i><span>Carteira CRM</span></a>
+       <a href="<?=APP_URL?>/clients"><i class="fa-solid fa-building"></i><span>Contas CRM</span></a>
+       <a href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-building-circle-check"></i><span>Nova Conta CRM</span></a>
        <a href="<?=APP_URL?>/contact-monitoring"><i class="fa-solid fa-headset"></i><span>Contatos e retornos</span></a>
+       <?php if(sales_flow_enabled()):?><a href="<?=APP_URL?>/opportunities"><i class="fa-solid fa-arrow-trend-up"></i><span>Oportunidades CRM</span></a><?php endif;?>
+       <a href="<?=APP_URL?>/agenda"><i class="fa-regular fa-calendar-check"></i><span>Tarefas e agenda CRM</span></a>
+       <a href="<?=APP_URL?>/commercial-partners"><i class="fa-solid fa-people-group"></i><span>Parceiros EAD</span></a>
+      </div>
+     </div>
+
+     <div class="tdcrm-nav-group" data-nav-group="sales">
+      <button class="tdcrm-nav-group-toggle" type="button" aria-expanded="false"><span><i class="fa-solid fa-cart-shopping"></i>Vendas</span><i class="fa-solid fa-chevron-down"></i></button>
+      <div class="tdcrm-nav-group-links">
+       <a href="<?=APP_URL?>/sales/clients"><i class="fa-solid fa-address-card"></i><span>Clientes de Vendas</span></a>
+       <a href="<?=APP_URL?>/commercial-sales"><i class="fa-solid fa-chart-column"></i><span>Registro de vendas</span></a>
        <a href="<?=APP_URL?>/orders"><i class="fa-regular fa-rectangle-list"></i><span>Pedidos</span></a>
        <a href="<?=APP_URL?>/services"><i class="fa-solid fa-screwdriver-wrench"></i><span>Serviços</span></a>
+       <a href="<?=APP_URL?>/products"><i class="fa-solid fa-boxes-stacked"></i><span>Produtos</span></a>
+       <a href="<?=APP_URL?>/clients-sync?status=pending"><i class="fa-solid fa-arrows-rotate"></i><span>Clientes de Vendas / Omie</span></a>
       </div>
      </div>
 
@@ -3474,8 +3653,9 @@ function layout(string $body,?array $u,string $page=''): void{
        <div class="tdcrm-nav-group-links">
         <a href="<?=APP_URL?>/admin"><i class="fa-solid fa-table-cells-large"></i><span>Centro administrativo</span></a>
         <a href="<?=APP_URL?>/sync"><i class="fa-solid fa-arrows-rotate"></i><span>Sincronização com Omie</span></a>
-        <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações do CRM</span></a>
-        <a href="<?=APP_URL?>/settings/baldussi"><i class="fa-solid fa-phone-volume"></i><span>Telefonia Baldussi</span></a>
+         <a href="<?=APP_URL?>/settings"><i class="fa-solid fa-gear"></i><span>Configurações do CRM</span></a>
+         <a href="<?=APP_URL?>/design-preview"><i class="fa-solid fa-palette"></i><span>Modelos de interface</span></a>
+         <a href="<?=APP_URL?>/settings/baldussi"><i class="fa-solid fa-phone-volume"></i><span>Telefonia Baldussi</span></a>
         <a href="<?=APP_URL?>/test-data"><i class="fa-solid fa-flask"></i><span>Ferramentas técnicas</span></a>
        </div>
       </div>
@@ -3709,8 +3889,18 @@ function layout(string $body,?array $u,string $page=''): void{
     <footer><button class="tdcrm-task-btn" type="button" data-global-task-close>Cancelar</button><button class="tdcrm-task-btn primary" type="submit"><i class="fa-solid fa-calendar-check"></i>Criar tarefa</button></footer>
    </form>
   </dialog>
- <?php $floatingCall=is_array($_SESSION['baldussi_test_state']['last_call']??null)?$_SESSION['baldussi_test_state']['last_call']:null;if($floatingCall&&!empty($floatingCall['active'])&&!empty($floatingCall['ok'])&&(int)($floatingCall['requested_by']??0)===(int)($u['id']??0)):$floatingStartedAt=strtotime((string)($floatingCall['started_at']??$floatingCall['at']??'now'));$floatingActivityNotes='Ligação iniciada pelo CRM em '.date('d/m/Y',$floatingStartedAt).' às '.date('H:i',$floatingStartedAt).', via telefonia Baldussi (ramal '.(string)$floatingCall['origin'].').';?>
-  <aside class="tdb-call-dock" data-baldussi-call-dock data-started-at="<?=e((string)$floatingStartedAt)?>" data-finish-url="<?=APP_URL?>/settings/baldussi/finish-tracking" data-account-code="<?=e((string)($floatingCall['crm_account_code']??''))?>" data-account-name="<?=e((string)($floatingCall['account_name']??'Cliente'))?>" data-account-owner="<?=e((string)($floatingCall['account_owner']??'Sem responsável'))?>" data-account-type="<?=e((string)($floatingCall['account_type']??'Cliente'))?>" data-client-id="<?=(int)($floatingCall['client_id']??0)?>" data-activity-notes="<?=e($floatingActivityNotes)?>" aria-live="polite">
+ <?php
+ $floatingCall=is_array($_SESSION['baldussi_test_state']['last_call']??null)?$_SESSION['baldussi_test_state']['last_call']:null;
+ $floatingStartedAt=$floatingCall?strtotime((string)($floatingCall['started_at']??$floatingCall['at']??'now')):0;
+ $floatingExpiresAt=$floatingCall?strtotime((string)($floatingCall['expires_at']??'')):0;
+ if($floatingCall&&!empty($floatingCall['active'])&&$floatingStartedAt>0&&time()-$floatingStartedAt>=7200){
+  $floatingCall['active']=false;$floatingCall['finished_at']=date('Y-m-d H:i:s');$floatingCall['finished_reason']='timeout';
+  $_SESSION['baldussi_test_state']['last_call']=$floatingCall;
+ }
+ if($floatingCall&&!empty($floatingCall['active'])&&!empty($floatingCall['ok'])&&(int)($floatingCall['requested_by']??0)===(int)($u['id']??0)):
+  if($floatingExpiresAt<=0)$floatingExpiresAt=$floatingStartedAt+7200;
+  $floatingActivityNotes='Ligação iniciada pelo CRM em '.date('d/m/Y',$floatingStartedAt).' às '.date('H:i',$floatingStartedAt).', via telefonia Baldussi (ramal '.(string)$floatingCall['origin'].').';?>
+  <aside class="tdb-call-dock" popover="manual" data-baldussi-call-dock data-started-at="<?=e((string)$floatingStartedAt)?>" data-expires-at="<?=e((string)$floatingExpiresAt)?>" data-finish-url="<?=APP_URL?>/settings/baldussi/finish-tracking" data-account-code="<?=e((string)($floatingCall['crm_account_code']??''))?>" data-account-name="<?=e((string)($floatingCall['account_name']??'Cliente'))?>" data-account-owner="<?=e((string)($floatingCall['account_owner']??'Sem responsável'))?>" data-account-type="<?=e((string)($floatingCall['account_type']??'Cliente'))?>" data-client-id="<?=(int)($floatingCall['client_id']??0)?>" data-activity-notes="<?=e($floatingActivityNotes)?>" aria-live="polite">
    <header data-baldussi-call-drag>
     <div><span class="tdb-call-live"><i></i>CHAMADA</span><strong>Acompanhamento da ligação</strong></div>
     <button type="button" data-baldussi-call-minimize title="Minimizar" aria-label="Minimizar acompanhamento"><i class="fa-solid fa-minus"></i></button>
