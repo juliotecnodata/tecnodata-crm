@@ -1122,7 +1122,7 @@ $router->post('/commercial/accounts',function(){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  try{
   $account=CommercialAccountService::createLocal($_POST,Auth::user());
-  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Conta salva no CRM Tecnodata. Nenhum Cliente Geral/Vendas foi criado. A sincronizacao com o CRM Omie e uma etapa separada.'];
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Conta CRM e contato principal salvos localmente. Ambos ficaram pendentes de sincronização com os módulos correspondentes da Omie. Nenhum Cliente Geral/Vendas foi criado.'];
   redirect('/commercial/accounts/'.rawurlencode((string)$account['omie_code']).'?from=clients');
  }catch(Throwable $e){
   $_SESSION['crm_account_create_error']=$e->getMessage();$_SESSION['crm_account_create_old']=$_POST;
@@ -1134,7 +1134,7 @@ $router->post('/commercial/accounts/{code}/omie-sync',function($p){
  Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
  try{
   $result=CommercialAccountService::syncLocalWithOmie($code,Auth::user());
-  $_SESSION['commercial_flash']=['type'=>'success','message'=>(string)$result['message'].' O cadastro de Cliente Geral/Vendas permanece separado.'];
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>(string)$result['message'].' Conta CRM e contatos foram tratados nos módulos CRM da Omie; Cliente Geral/Vendas permanece separado.'];
   redirect('/commercial/accounts/'.rawurlencode((string)$result['account_code']).'?from=clients');
  }catch(Throwable $e){
   $_SESSION['commercial_flash']=['type'=>'danger','message'=>'Nao foi possivel sincronizar a Conta CRM com a Omie: '.$e->getMessage()];
