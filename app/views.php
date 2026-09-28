@@ -1180,9 +1180,11 @@ function render(string $name,array $vars=[]): void{
          <div class="field span-4"><label>CPF / CNPJ<span class="tdc-required">*</span></label><div class="tdc-lookup"><input class="form-control" name="document" data-document value="<?=e((string)($old['document']??''))?>" inputmode="numeric" required><button type="button" data-cnpj-lookup aria-label="Consultar CNPJ"><i class="fa-solid fa-magnifying-glass"></i></button></div><small class="tdc-hint" data-cnpj-status>Ao informar um CNPJ completo, os dados publicos serao consultados.</small></div>
          <div class="field span-5"><label>Razao social / Nome<span class="tdc-required">*</span></label><input class="form-control" name="legal_name" maxlength="100" value="<?=e((string)($old['legal_name']??''))?>" required></div>
          <div class="field span-3"><label>Nome fantasia</label><input class="form-control" name="trade_name" maxlength="100" value="<?=e((string)($old['trade_name']??''))?>"></div>
-         <div class="field span-4"><label>E-mail</label><input class="form-control" type="email" name="email" maxlength="200" value="<?=e((string)($old['email']??''))?>"></div>
-         <div class="field span-4"><label>Telefone</label><div class="tdc-phone"><input class="form-control" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" maxlength="2" placeholder="DDD"><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" maxlength="10" placeholder="Numero"></div></div>
-         <div class="field span-4"><label>Website</label><input class="form-control" name="website" maxlength="200" value="<?=e((string)($old['website']??''))?>" placeholder="https://"></div>
+         <div class="field span-4"><label>E-mail da conta</label><input class="form-control" type="email" name="email" maxlength="200" value="<?=e((string)($old['email']??''))?>"></div>
+         <div class="field span-4"><label>Telefone da conta</label><div class="tdc-phone"><input class="form-control" name="phone_ddd" data-phone-ddd value="<?=e((string)($old['phone_ddd']??''))?>" maxlength="2" placeholder="DDD"><input class="form-control" name="phone_number" data-phone-number value="<?=e((string)($old['phone_number']??''))?>" maxlength="10" placeholder="Numero"></div></div>
+         <div class="field span-4"><label>Website</label><input class="form-control" name="website" maxlength="100" value="<?=e((string)($old['website']??''))?>" placeholder="https://"></div>
+         <div class="field span-6"><label>Contato principal<span class="tdc-required">*</span></label><input class="form-control" name="contact_name" maxlength="60" value="<?=e((string)($old['contact_name']??''))?>" placeholder="Nome da pessoa de contato" required><small class="tdc-hint">Será criado como Contato CRM separado e vinculado a esta conta.</small></div>
+         <div class="field span-6"><label>Cargo do contato</label><input class="form-control" name="contact_position" maxlength="60" value="<?=e((string)($old['contact_position']??''))?>" placeholder="Ex.: Proprietário, Diretor, Financeiro"></div>
         </div>
        </section>
 
@@ -1211,7 +1213,7 @@ function render(string $name,array $vars=[]): void{
 
        <section class="tdc-section" id="crm-revisao">
         <div class="tdc-section-head"><span class="tdc-section-icon green"><i class="fa-solid fa-shield-check"></i></span><div><strong>Salvar na base correta</strong><small>A conta sera criada em Contas CRM e aparecera na carteira do responsavel.</small></div></div>
-        <div class="tdc-review"><div><i class="fa-solid fa-building-circle-check"></i><span><strong>Conta CRM</strong><small>Cadastro comercial local, pendente de sincronização com o CRM Omie.</small></span></div><div><i class="fa-solid fa-ban"></i><span><strong>Sem Cliente de Vendas</strong><small>Nenhum cadastro fiscal ou financeiro será aberto agora.</small></span></div></div>
+        <div class="tdc-review"><div><i class="fa-solid fa-building-circle-check"></i><span><strong>Conta CRM + Contato</strong><small>A conta e o contato principal serão gravados localmente e ficarão pendentes de sincronização com os módulos correspondentes do CRM Omie.</small></span></div><div><i class="fa-solid fa-ban"></i><span><strong>Sem Cliente de Vendas</strong><small>Nenhum cadastro fiscal ou financeiro será aberto agora.</small></span></div></div>
         <div class="tdc-form-actions"><a class="tdc-btn" href="<?=APP_URL?>/clients">Cancelar</a><button class="tdc-btn tdc-btn-primary" type="submit" data-submit-loading="Salvando Conta CRM..."><i class="fa-solid fa-check"></i>Salvar Conta CRM</button></div>
        </section>
       </form>
@@ -1227,6 +1229,7 @@ function render(string $name,array $vars=[]): void{
    $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=!$localPending&&($canAdminLink||$canSellerLink);
    $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
    $contacts=array_values($contacts??[]);
+   $pendingContactCount=count(array_filter($contacts,static fn($contact)=>str_starts_with((string)($contact['omie_code']??''),'LOCAL-CRM-CONT-')));
    $activities=array_values($activities??[]);$commercialNotes=array_values($commercialNotes??[]);$audit=array_values($audit??[]);
    $activityCount=count($activities);$noteCount=count($commercialNotes);
    $isCfc=!empty($profile['is_cfc']);$isReseller=!empty($profile['is_reseller']);
@@ -1337,8 +1340,8 @@ function render(string $name,array $vars=[]): void{
 
     <?php if($localPending):?><section class="tdf-integration unlinked">
      <div class="tdf-integration-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-     <div class="tdf-integration-copy"><small>CONTA CRM LOCAL</small><strong>Ainda não sincronizada com o CRM Omie</strong><p>Esta conta já está disponível na carteira do responsável. Nenhum Cliente de Vendas, pedido ou registro financeiro foi criado.</p></div>
-     <div class="tdf-integration-manage"><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Enviar esta Conta CRM para a Omie agora? Isso não criará Cliente de Vendas."><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Conta CRM</button></form><?php else:?><span><i class="fa-regular fa-clock"></i>Aguardando supervisão</span><?php endif;?></div>
+     <div class="tdf-integration-copy"><small>CONTA CRM LOCAL</small><strong>Conta e contato aguardando sincronização com o CRM Omie</strong><p>Esta conta já está disponível na carteira do responsável<?= $pendingContactCount>0?' e possui '.$pendingContactCount.' contato(s) local(is) vinculado(s)':''?>. Cliente de Vendas, pedidos e financeiro continuam separados.</p></div>
+     <div class="tdf-integration-manage"><?php if(Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Sincronizar esta Conta CRM e seus contatos pendentes com os módulos correspondentes da Omie? Isso não criará Cliente de Vendas."><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Conta + Contatos</button></form><?php else:?><span><i class="fa-regular fa-clock"></i>Aguardando supervisão</span><?php endif;?></div>
     </section><?php endif;?>
 
     <?php if(!$localPending):?><section class="tdf-integration <?=$linked?'linked':($hasClientLink?'historical':'unlinked')?>" data-commercial-client-link>
@@ -1378,7 +1381,7 @@ function render(string $name,array $vars=[]): void{
      </article>
      <article class="<?=!empty($ecosystem['has_contacts'])?'ok':'empty'?>">
       <span><i class="fa-regular fa-address-book"></i></span>
-      <div><small>CONTATOS CRM</small><strong><?=number_format((int)($ecosystem['contacts_count']??count($contacts)),0,',','.')?> contato(s)</strong><p><?=!empty($ecosystem['has_contacts'])?'Sincronizados com a Conta CRM':'Nenhum contato retornado pelo CRM Omie'?></p></div>
+      <div><small>CONTATOS CRM</small><strong><?=number_format((int)($ecosystem['contacts_count']??count($contacts)),0,',','.')?> contato(s)</strong><p><?=$pendingContactCount>0?$pendingContactCount.' pendente(s) de sincronização':(!empty($ecosystem['has_contacts'])?'Vinculados à Conta CRM':'Nenhum contato cadastrado')?></p></div>
      </article>
      <article class="<?=!empty($ecosystem['has_sales_client'])?'ok':'warning'?>">
       <span><i class="fa-solid fa-cart-shopping"></i></span>
