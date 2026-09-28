@@ -1347,13 +1347,7 @@ final class CommercialAccountService {
 
   $omie=new OmieClient();$document=crm_digits((string)($account['document']??''));$remoteCode=$isLocal?'':$accountCode;$remoteRow=null;$created=false;
   if($isLocal){
-   try{
-    $listed=$omie->call('crm_accounts','ListarContas',['pagina'=>1,'registros_por_pagina'=>10,'apenas_importado_api'=>'N','cDoc'=>$document]);
-   }catch(Throwable $e){
-    $normalizedError=crm_normalize_key($e->getMessage());
-    if(str_contains($normalizedError,'nao existem registros para a pagina'))$listed=['cadastros'=>[],'total_de_paginas'=>0];
-    else throw $e;
-   }
+   $listed=$omie->call('crm_accounts','ListarContas',['pagina'=>1,'registros_por_pagina'=>10,'apenas_importado_api'=>'N','cDoc'=>$document]);
    foreach((array)($listed['cadastros']??[]) as $candidate){
     $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
     if(crm_digits((string)($ident['cDoc']??''))===$document){$remoteCode=trim((string)($ident['nCod']??''));$remoteRow=$candidate;break;}
@@ -1379,10 +1373,24 @@ final class CommercialAccountService {
    if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou a alteração da Conta CRM.'));
   }
 
+  $confirmedAccount=$omie->call('crm_accounts','ConsultarConta',['nCod'=>(int)$remoteCode]);
+  $confirmedIdent=is_array($confirmedAccount['identificacao']??null)?$confirmedAccount['identificacao']:[];
+  $confirmedCode=trim((string)($confirmedIdent['nCod']??''));
+  if($confirmedCode===''||$confirmedCode!==trim((string)$remoteCode))throw new RuntimeException('A Omie processou a Conta CRM, mas a consulta de confirmação não retornou o mesmo nCod.');
+  $confirmedDocument=crm_digits((string)($confirmedIdent['cDoc']??''));
+  if($document!==''&&$confirmedDocument!==''&&$confirmedDocument!==$document)throw new RuntimeException('A Omie confirmou a Conta CRM com CPF/CNPJ diferente do cadastro enviado. Sincronização interrompida por segurança.');
+
   $contactSync=self::syncPendingContactsWithOmie($accountCode,$remoteCode,$account,$omie);
-  $remoteRaw=$remoteRow??['identificacao'=>$request['identificacao']??[],'endereco'=>$request['endereco']??[],'telefone_email'=>$request['telefone_email']??[],'informacoesAdicionais'=>$request['informacoesAdicionais']??[],'tags'=>$request['tags']??[]];
+  $remoteRaw=$confirmedAccount;
   if(isset($remoteRaw['identificacao'])&&is_array($remoteRaw['identificacao']))$remoteRaw['identificacao']['nCod']=$remoteCode;
-  $remoteRaw['_tecnodata']=['sales_draft'=>(array)($raw['sales_draft']??[]),'source'=>'tecnodata_synced','omie_status'=>'synced','created_by'=>(int)($raw['created_by']??0),'created_at'=>(string)($raw['created_at']??date(DATE_ATOM)),'updated_by'=>(int)($user['id']??0),'synced_at'=>date(DATE_ATOM),'contacts_synced'=>count($contactSync)];
+  $remoteRaw['_tecnodata']=[
+   'request'=>$request,
+   'sales_draft'=>(array)($raw['sales_draft']??$raw['_tecnodata']['sales_draft']??[]),
+   'source'=>'tecnodata_synced','omie_status'=>'synced',
+   'created_by'=>(int)($raw['created_by']??$raw['_tecnodata']['created_by']??0),
+   'created_at'=>(string)($raw['created_at']??$raw['_tecnodata']['created_at']??date(DATE_ATOM)),
+   'updated_by'=>(int)($user['id']??0),'synced_at'=>date(DATE_ATOM),'contacts_synced'=>count($contactSync)
+  ];
   $pdo=DB::conn();$own=!$pdo->inTransaction();if($own)$pdo->beginTransaction();
   try{
    if($isLocal){
@@ -1456,15 +1464,11 @@ final class CommercialAccountService {
   if(!$contacts)return [];
   $remoteContacts=[];$page=1;
   do{
-   try{
-    $listed=$omie->call('crm_contacts','ListarContatos',['pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_obs'=>'S','filtrar_por_conta'=>(int)$remoteAccountCode]);
-   }catch(Throwable $e){
-    $normalizedError=crm_normalize_key($e->getMessage());
-    if(str_contains($normalizedError,'nao existem registros para a pagina')){$listed=['cadastros'=>[],'total_de_paginas'=>0];break;}
-    throw $e;
-   }
+   $listed=$omie->call('crm_contacts','ListarContatos',['pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_obs'=>'S','filtrar_por_conta'=>(int)$remoteAccountCode]);
    foreach((array)($listed['cadastros']??[]) as $candidate)if(is_array($candidate))$remoteContacts[]=$candidate;
-   $total=max(1,(int)($listed['total_de_paginas']??1));$page++;
+   $total=(int)($listed['total_de_paginas']??0);
+   if($total<=0)break;
+   $page++;
   }while($page<=$total&&$page<=100);
 
   $results=[];
@@ -1518,11 +1522,22 @@ final class CommercialAccountService {
     if($remoteCode==='')throw new RuntimeException('A Omie localizou o contato, mas não retornou o código.');
    }
 
-   $remote['_tecnodata']=['source'=>$created?'tecnodata_contact_created':($localContact?'tecnodata_contact_linked':'tecnodata_contact_updated'),'omie_status'=>'synced','local_code'=>(string)$contact['omie_code'],'synced_at'=>date(DATE_ATOM)];
-   if($response!==null)$remote['_tecnodata']['response']=$response;
+   $confirmedContact=$omie->call('crm_contacts','ConsultarContato',['nCod'=>(int)$remoteCode]);
+   $confirmedContactIdent=is_array($confirmedContact['identificacao']??null)?$confirmedContact['identificacao']:[];
+   $confirmedContactCode=trim((string)($confirmedContactIdent['nCod']??''));
+   if($confirmedContactCode===''||$confirmedContactCode!==trim((string)$remoteCode))throw new RuntimeException('A Omie processou o contato, mas a consulta de confirmação não retornou o mesmo nCod.');
+   $confirmedAccountCode=trim((string)($confirmedContactIdent['nCodConta']??''));
+   if($confirmedAccountCode!==''&&$confirmedAccountCode!==trim((string)$remoteAccountCode))throw new RuntimeException('A Omie confirmou o contato vinculado a uma Conta CRM diferente da esperada.');
+
+   $confirmedContact['_tecnodata']=[
+    'request'=>$request,
+    'source'=>$created?'tecnodata_contact_created':($localContact?'tecnodata_contact_linked':'tecnodata_contact_updated'),
+    'omie_status'=>'synced','local_code'=>(string)$contact['omie_code'],'synced_at'=>date(DATE_ATOM)
+   ];
+   if($response!==null)$confirmedContact['_tecnodata']['response']=$response;
    $results[]=[
     'local_code'=>(string)$contact['omie_code'],'remote_code'=>$remoteCode,'integration_code'=>$integrationCode,
-    'crm_user_code'=>(string)($account['crm_user_code']??''),'raw'=>$remote,'created'=>$created
+    'crm_user_code'=>(string)($account['crm_user_code']??''),'raw'=>$confirmedContact,'created'=>$created
    ];
   }
   return $results;
