@@ -1514,7 +1514,7 @@ final class CommercialAccountService {
     'nCodConta'=>$accountCode
    ],
    'endereco'=>[
-    'cEndereco'=>mb_substr(trim(trim((string)($input['address']??'')).(trim((string)($input['address_number']??''))!==''?', '.trim((string)$input['address_number']):'')),0,200),
+    'cEndereco'=>mb_substr(trim(trim((string)($input['address']??'')).(trim((string)($input['address_number']??''))!==''?', '.trim((string)($input['address_number']??'')):'')),0,200),
     'cCompl'=>mb_substr(trim((string)($input['complement']??'')),0,200),
     'cCEP'=>crm_digits((string)($input['zip_code']??'')),
     'cBairro'=>mb_substr(trim((string)($input['neighborhood']??'')),0,60),
