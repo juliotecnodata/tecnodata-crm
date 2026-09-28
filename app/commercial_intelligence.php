@@ -1466,33 +1466,6 @@ final class CommercialAccountService {
    return is_array($raw)&&in_array((string)($raw['omie_status']??''),['pending','pending_update','error'],true);
   }));
   if(!$contacts)return [];
-  $remoteContacts=[];$page=1;
-  do{
-   try{
-    $listed=$omie->call('crm_contacts','ListarContatos',[
-     'pagina'=>$page,
-     'registros_por_pagina'=>50,
-     'apenas_importado_api'=>'N',
-     'exibir_obs'=>'S',
-     'filtrar_por_conta'=>(int)$remoteAccountCode
-    ]);
-   }catch(Throwable $e){
-    // A Omie responde 5113 / "Não existem registros para a página" quando
-    // a Conta CRM ainda não possui contatos. Para este fluxo isso significa
-    // lista vazia e devemos seguir para IncluirContato.
-    $msg=crm_normalize_key($e->getMessage());
-    if(str_contains($msg,'nao existem registros para a pagina')||str_contains($msg,'nao existem registros')){
-     $listed=['cadastros'=>[],'pagina'=>0,'registros'=>0,'total_de_paginas'=>0,'total_de_registros'=>0,'_omie_empty_result'=>true];
-    }else{
-     throw $e;
-    }
-   }
-   foreach((array)($listed['cadastros']??[]) as $candidate)if(is_array($candidate))$remoteContacts[]=$candidate;
-   $total=(int)($listed['total_de_paginas']??0);
-   if($total<=0)break;
-   $page++;
-  }while($page<=$total&&$page<=100);
-
   $results=[];
   foreach($contacts as $contact){
    $raw=json_decode((string)($contact['raw_json']??''),true);if(!is_array($raw))$raw=[];
@@ -1504,25 +1477,24 @@ final class CommercialAccountService {
    $request['identificacao']['nCodVend']=(int)($account['crm_user_code']??0);
 
    $remote=null;
-   foreach($remoteContacts as $candidate){
-    $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
-    if($integrationCode!==''&&trim((string)($ident['cCodInt']??''))===$integrationCode){$remote=$candidate;break;}
-   }
-   if(!$remote){
-    $wantedName=crm_normalize_key((string)($request['identificacao']['cNome']??''));
-    $wantedEmail=mb_strtolower(trim((string)($request['telefone_email']['cEmail']??'')),'UTF-8');
-    $wantedPhone=crm_digits((string)($request['telefone_email']['cDDDTel']??'').(string)($request['telefone_email']['cNumTel']??''));
-    foreach($remoteContacts as $candidate){
-     $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
-     $tel=is_array($candidate['telefone_email']??null)?$candidate['telefone_email']:[];
-     $sameName=$wantedName!==''&&crm_normalize_key((string)($ident['cNome']??''))===$wantedName;
-     $sameEmail=$wantedEmail!==''&&mb_strtolower(trim((string)($tel['cEmail']??'')),'UTF-8')===$wantedEmail;
-     $samePhone=$wantedPhone!==''&&crm_digits((string)($tel['cDDDTel']??'').(string)($tel['cNumTel']??''))===$wantedPhone;
-     if($sameName&&($sameEmail||$samePhone)){$remote=$candidate;break;}
+   $created=false;$response=null;$localContact=str_starts_with((string)$contact['omie_code'],'LOCAL-CRM-CONT-');
+
+   // Para contatos locais, o cCodInt é gerado por nós e é único.
+   // Consultamos diretamente por ele, evitando ListarContatos/5113.
+   if($localContact&&$integrationCode!==''){
+    try{
+     $candidate=$omie->call('crm_contacts','ConsultarContato',['cCodInt'=>$integrationCode]);
+     $candidateIdent=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
+     if(trim((string)($candidateIdent['nCod']??''))!=='')$remote=$candidate;
+    }catch(Throwable $e){
+     $msg=crm_normalize_key($e->getMessage());
+     $notFound=str_contains($msg,'nao cadastrado')||
+               str_contains($msg,'nao encontrado')||
+               str_contains($msg,'nao existem registros')||
+               str_contains($msg,'codigo de integracao');
+     if(!$notFound)throw $e;
     }
    }
-
-   $created=false;$response=null;$localContact=str_starts_with((string)$contact['omie_code'],'LOCAL-CRM-CONT-');
    if(!$localContact){
     $remoteCode=(string)$contact['omie_code'];
     $request['identificacao']['nCod']=(int)$remoteCode;
@@ -1536,7 +1508,6 @@ final class CommercialAccountService {
     if($remoteCode==='')throw new RuntimeException('A Omie confirmou o contato, mas não retornou o código do contato.');
     $created=true;
     $remote=['identificacao'=>array_merge((array)$request['identificacao'],['nCod'=>$remoteCode]),'endereco'=>$request['endereco']??[],'telefone_email'=>$request['telefone_email']??[],'cObs'=>$request['cObs']??''];
-    $remoteContacts[]=$remote;
    }else{
     $ident=is_array($remote['identificacao']??null)?$remote['identificacao']:[];
     $remoteCode=trim((string)($ident['nCod']??''));
