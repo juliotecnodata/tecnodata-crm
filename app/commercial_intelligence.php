@@ -1468,7 +1468,25 @@ final class CommercialAccountService {
   if(!$contacts)return [];
   $remoteContacts=[];$page=1;
   do{
-   $listed=$omie->call('crm_contacts','ListarContatos',['pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_obs'=>'S','filtrar_por_conta'=>(int)$remoteAccountCode]);
+   try{
+    $listed=$omie->call('crm_contacts','ListarContatos',[
+     'pagina'=>$page,
+     'registros_por_pagina'=>50,
+     'apenas_importado_api'=>'N',
+     'exibir_obs'=>'S',
+     'filtrar_por_conta'=>(int)$remoteAccountCode
+    ]);
+   }catch(Throwable $e){
+    // A Omie responde 5113 / "Não existem registros para a página" quando
+    // a Conta CRM ainda não possui contatos. Para este fluxo isso significa
+    // lista vazia e devemos seguir para IncluirContato.
+    $msg=crm_normalize_key($e->getMessage());
+    if(str_contains($msg,'nao existem registros para a pagina')||str_contains($msg,'nao existem registros')){
+     $listed=['cadastros'=>[],'pagina'=>0,'registros'=>0,'total_de_paginas'=>0,'total_de_registros'=>0,'_omie_empty_result'=>true];
+    }else{
+     throw $e;
+    }
+   }
    foreach((array)($listed['cadastros']??[]) as $candidate)if(is_array($candidate))$remoteContacts[]=$candidate;
    $total=(int)($listed['total_de_paginas']??0);
    if($total<=0)break;
