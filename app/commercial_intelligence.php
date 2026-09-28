@@ -1357,6 +1357,11 @@ final class CommercialAccountService {
     $status=(string)($response['cCodStatus']??$response['codigo_status']??'0');
     if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou a inclusão da Conta CRM.'));
     $remoteCode=trim((string)($response['nCod']??$response['codigo_conta']??''));$created=true;
+   }else{
+    $request['identificacao']['nCod']=(int)$remoteCode;
+    $response=$omie->call('crm_accounts','AlterarConta',$request);
+    $status=(string)($response['cCodStatus']??$response['codigo_status']??'0');
+    if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou a atualização da Conta CRM já existente.'));
    }
    if($remoteCode==='')throw new RuntimeException('A Omie não retornou o código da Conta CRM.');
    if((int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=?",[$remoteCode])??0)>0)throw new RuntimeException('A Conta CRM já existe localmente com o código Omie '.$remoteCode.'. Abra o cadastro existente para evitar duplicidade.');
