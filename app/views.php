@@ -1236,6 +1236,9 @@ function render(string $name,array $vars=[]): void{
   case 'commercial_account':
    $display=trim((string)($account['trade_name']??''))?:trim((string)($account['name']??''));$hasClientLink=!empty($account['client_id']);$linked=$hasClientLink&&(int)($account['client_active']??0)===1&&empty($account['crm_inactive']);$profile=$profile??[];
    $localPending=str_starts_with((string)($account['omie_code']??''),'LOCAL-CRM-');
+   $accountRaw=json_decode((string)($account['raw_json']??''),true);if(!is_array($accountRaw))$accountRaw=[];
+   $accountSyncStatus=(string)($accountRaw['omie_status']??($accountRaw['_tecnodata']['omie_status']??''));
+   $accountSyncPending=$localPending||in_array($accountSyncStatus,['pending','pending_update','error'],true);
    $canMaintain=!empty($canMaintain);$backUrl=$backUrl??APP_URL.'/my-portfolio';$backLabel=$backLabel??'Voltar para a carteira';$accountFromClients=str_contains((string)$backUrl,'/clients');
    $canAdminLink=Auth::can('admin','supervisor');$canSellerLink=(string)($u['role']??'')==='seller'&&!empty($canWork)&&!$hasClientLink;$canCreateLink=!$localPending&&($canAdminLink||$canSellerLink);
    $ecosystem=is_array($ecosystem??null)?$ecosystem:[];
@@ -1349,10 +1352,10 @@ function render(string $name,array $vars=[]): void{
 
     <?php if($flash):?><div class="alert alert-<?=e($flash['type']??'success')?>"><?=e($flash['message']??'')?></div><?php endif;?>
 
-    <?php if($localPending):?><section class="tdf-integration unlinked">
+    <?php if($accountSyncPending):?><section class="tdf-integration unlinked">
      <div class="tdf-integration-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-     <div class="tdf-integration-copy"><small>CONTA CRM LOCAL</small><strong>Conta e contato aguardando sincronização com o CRM Omie</strong><p>Esta conta já está disponível na carteira do responsável<?= $pendingContactCount>0?' e possui '.$pendingContactCount.' contato(s) local(is) vinculado(s)':''?>. Cliente de Vendas, pedidos e financeiro continuam separados.</p></div>
-     <div class="tdf-integration-manage"><?php if($canWork||Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Sincronizar esta Conta CRM e seus contatos pendentes com os módulos correspondentes da Omie? Isso não criará Cliente de Vendas."><i class="fa-solid fa-cloud-arrow-up"></i>Sincronizar Conta + Contatos</button></form><?php else:?><span><i class="fa-solid fa-lock"></i>Somente o responsável pode sincronizar</span><?php endif;?></div>
+     <div class="tdf-integration-copy"><small><?=$localPending?'CONTA CRM LOCAL':'ALTERAÇÕES PENDENTES'?></small><strong><?=$localPending?'Conta e contato aguardando sincronização com o CRM Omie':'Cadastro alterado no CRM e aguardando envio para a Omie'?></strong><p><?=$localPending?'Esta conta já está disponível na carteira do responsável'.($pendingContactCount>0?' e possui '.$pendingContactCount.' contato(s) local(is) vinculado(s)':'').'. Cliente de Vendas, pedidos e financeiro continuam separados.':'As alterações feitas nesta Conta CRM e no contato principal ainda não foram confirmadas pela Omie.'?></p></div>
+     <div class="tdf-integration-manage"><?php if($canWork||Auth::can('admin','supervisor')):?><form method="post" action="<?=APP_URL?>/commercial/accounts/<?=rawurlencode((string)$account['omie_code'])?>/omie-sync"><input type="hidden" name="_token" value="<?=CSRF::token()?>"><button type="submit" data-confirm="Sincronizar esta Conta CRM e seus contatos com os módulos correspondentes da Omie agora?"><i class="fa-solid fa-cloud-arrow-up"></i><?=$localPending?'Sincronizar Conta + Contatos':'Sincronizar alterações'?></button></form><?php else:?><span><i class="fa-solid fa-lock"></i>Somente o responsável pode sincronizar</span><?php endif;?></div>
     </section><?php endif;?>
 
     <?php if(!$localPending):?><section class="tdf-integration <?=$linked?'linked':($hasClientLink?'historical':'unlinked')?>" data-commercial-client-link>
