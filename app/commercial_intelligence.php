@@ -1229,7 +1229,7 @@ final class CommercialAccountService {
   $address=is_array($request['endereco']??null)?$request['endereco']:[];
   $tel=is_array($request['telefone_email']??null)?$request['telefone_email']:[];
   $additional=is_array($request['informacoesAdicionais']??null)?$request['informacoesAdicionais']:[];
-  $draft=is_array($raw['sales_draft']??null)?$raw['sales_draft']:[];
+  $draft=is_array($raw['sales_draft']??null)?$raw['sales_draft']:(is_array($raw['_tecnodata']['sales_draft']??null)?$raw['_tecnodata']['sales_draft']:[]);
   $contact=DB::one("SELECT * FROM crm_contacts WHERE crm_account_code=? AND active=1 ORDER BY updated_at DESC,omie_code LIMIT 1",[$accountCode]);
   $contactName=trim((string)($contact['name']??'').' '.(string)($contact['last_name']??''));
   $tags=[];foreach((array)($request['tags']??[]) as $tag){$value=trim((string)($tag['tag']??$tag));if($value!=='')$tags[]=$value;}
