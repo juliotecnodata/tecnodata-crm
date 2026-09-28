@@ -714,10 +714,14 @@ $router->post('/clients/save-local',function(){
 });
 
 $router->post('/clients/{id}/omie-sync',function($p){
- Auth::requireRole('admin','supervisor');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
+ Auth::requireRole('admin','supervisor','seller');ClientSegmentPolicy::ensureSchema();CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$id=(int)$p['id'];$u=Auth::user();
  try{
   $operational=DB::one("SELECT id FROM clients WHERE id=? AND active=1 AND crm_inactive=0",[$id]);if(!$operational)throw new RuntimeException('Cliente inativo no CRM. Reative o cadastro antes de sincronizar com a Omie.');
   if((string)($u['role']??'')==='supervisor'&&!client_central_crm_accessible($id))throw new RuntimeException('Este cadastro não pertence à base CRM ativa.');
+  if((string)($u['role']??'')==='seller'){
+   $accountCode=trim((string)(DB::scalar("SELECT l.crm_account_code FROM crm_account_links l JOIN crm_accounts a ON a.omie_code=l.crm_account_code AND a.active=1 WHERE l.client_id=? ORDER BY l.is_primary DESC,l.updated_at DESC LIMIT 1",[$id])??''));
+   if($accountCode===''||!CommercialAccountService::canWork($u,$accountCode))throw new RuntimeException('Você só pode sincronizar clientes vinculados a uma Conta CRM da sua própria carteira.');
+  }
   $result=ClientService::syncLocalWithOmie($id,$u);
   $_SESSION['client_flash']=['type'=>'success','message'=>$result['message']];
  }catch(Throwable $e){
@@ -3432,8 +3436,8 @@ $router->get('/api/commercial/accounts/datatable',function(){
   $lastPurchase=!empty($row['last_purchase_at'])?strtotime((string)$row['last_purchase_at']):false;
   $isLate=$nextAt&&date('Y-m-d',$nextAt)<date('Y-m-d');
   $accountHref=APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']);
-  $editHref=$linked?APP_URL.'/clients/'.(int)$row['client_id'].'/edit':'';
-  $classHref=$linked?$editHref:$accountHref.'?from=clients&classify=1';
+  $editHref=$accountHref.'/edit';
+  $classHref=$accountHref.'?from=clients&classify=1';
   $linkHref=$accountHref.'?from=clients&link=1';
   $badges='';
   if(!empty($row['is_cfc']))$badges.='<span class="cfc">CFC</span>';
@@ -3447,13 +3451,14 @@ $router->get('/api/commercial/accounts/datatable',function(){
   $next='<div class="tdcentral-metric"><i class="fa-regular fa-square-check"></i><span><strong class="'.($isLate?'danger':'').'">'.($nextAt?($isLate?'Atrasado '.date('d/m',$nextAt):date('d/m/Y H:i',$nextAt)):'Sem retorno').'</strong><em>'.($nextAt?'Retorno comercial agendado':'Defina a próxima ação').'</em></span></div>';
   $purchase='<div class="tdcentral-metric"><i class="fa-solid fa-chart-simple"></i><span><strong>'.($lastPurchase?date('d/m/Y',$lastPurchase):'—').'</strong><em>'.money((float)($row['revenue_12m']??0)).' em 12m</em></span></div>';
   $actions='<div class="tdcentral-actions"><a href="'.$accountHref.'" title="Ficha rápida"><i class="fa-regular fa-address-card"></i><span>Ficha rápida</span></a>';
-  $actions.=$linked?'<a href="'.$editHref.'" title="Editar cadastro"><i class="fa-solid fa-pen"></i><span>Editar</span></a>':'<span class="disabled" title="Vincule um Cliente Geral antes de editar"><i class="fa-solid fa-pen"></i><span>Editar</span></span>';
+  $actions.=$canMaintain?'<a href="'.$editHref.'" data-no-client-modal title="Editar Conta CRM"><i class="fa-solid fa-pen"></i><span>Editar</span></a>':'<span class="disabled" title="Conta fora da sua carteira"><i class="fa-solid fa-pen"></i><span>Editar</span></span>';
   if(!$linked&&$canMaintain)$actions.='<a href="'.$linkHref.'" data-no-client-modal title="Vincular Cliente Geral"><i class="fa-solid fa-link"></i><span>Vincular</span></a>';
   elseif($linked)$actions.='<span class="disabled" title="Conta já vinculada"><i class="fa-solid fa-link"></i><span>Vinculado</span></span>';
   else $actions.='<span class="disabled" title="Vínculo indisponível para este perfil"><i class="fa-solid fa-link"></i><span>Vincular</span></span>';
-  if($linked&&Auth::can('admin','supervisor'))$actions.='<form method="post" action="'.APP_URL.'/clients/'.(int)$row['client_id'].'/omie-sync"><input type="hidden" name="_token" value="'.e(CSRF::token()).'"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form>';
-  elseif($linked)$actions.='<span class="disabled" title="A sincronização é executada por supervisor ou administrador"><i class="fa-regular fa-clock"></i><span>Pendente</span></span>';
-  else $actions.='<span class="disabled" title="Sem Cliente Geral vinculado"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span>';
+  if($linked&&$canMaintain)$actions.='<form method="post" action="'.APP_URL.'/clients/'.(int)$row['client_id'].'/omie-sync"><input type="hidden" name="_token" value="'.e(CSRF::token()).'"><button type="submit" title="Sincronizar Cliente Geral com a Omie"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></button></form>';
+  elseif(!$linked&&str_starts_with((string)$row['omie_code'],'LOCAL-CRM-')&&$canMaintain)$actions.='<form method="post" action="'.APP_URL.'/commercial/accounts/'.rawurlencode((string)$row['omie_code']).'/omie-sync"><input type="hidden" name="_token" value="'.e(CSRF::token()).'"><button type="submit" title="Sincronizar Conta CRM com a Omie"><i class="fa-solid fa-cloud-arrow-up"></i><span>Sincronizar</span></button></form>';
+  elseif($linked)$actions.='<span class="disabled" title="Conta fora da sua carteira"><i class="fa-solid fa-lock"></i><span>Bloqueado</span></span>';
+  else $actions.='<span class="disabled" title="Nenhuma alteração pendente para sincronizar"><i class="fa-solid fa-rotate"></i><span>Sincronizar</span></span>';
   $actions.='<a href="'.$classHref.'" '.($linked?'':'data-no-client-modal').' title="Classificar cliente"><i class="fa-solid fa-tag"></i><span>Classificar</span></a><a class="more" href="'.$accountHref.'?from=clients" data-no-client-modal title="Abrir ficha completa"><i class="fa-solid fa-ellipsis"></i></a></div>';
   $rows[]=[$client,$owner,$last,$next,$purchase,$actions];
  }
