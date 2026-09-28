@@ -1108,12 +1108,17 @@ $router->get('/crm',function(){
 });
 
 $router->get('/commercial/accounts/new',function(){
- Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();$u=Auth::user();
+ Auth::requireRole('admin','supervisor','seller');$u=Auth::user();
  $old=$_SESSION['crm_account_create_old']??[];$error=$_SESSION['crm_account_create_error']??null;
  unset($_SESSION['crm_account_create_old'],$_SESSION['crm_account_create_error']);
+ $owners=DB::all("SELECT DISTINCT u.crm_user_omie_code omie_code,u.name,u.email
+                  FROM users u
+                  WHERE u.active=1 AND u.role='seller'
+                    AND u.crm_user_omie_code IS NOT NULL AND TRIM(u.crm_user_omie_code)<>''
+                  ORDER BY u.name");
  render('commercial_account_new',[
-  'old'=>$old,'error'=>$error,
-  'owners'=>DB::all("SELECT DISTINCT cu.omie_code,cu.name,cu.email FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.active=1 ORDER BY cu.name"),
+  'old'=>$old,'error'=>$error,'owners'=>$owners,
+  'ownerWarning'=>!$owners&&((string)($u['role']??'')!=='seller')?'Nenhum vendedor ativo está vinculado a um Usuário CRM Omie. O formulário foi carregado, mas vincule pelo menos um vendedor antes de salvar a conta.':null,
   'sellerOwner'=>(string)($u['crm_user_omie_code']??'')
  ]);
 });
