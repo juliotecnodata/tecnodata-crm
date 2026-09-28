@@ -1004,7 +1004,7 @@ function render(string $name,array $vars=[]): void{
      </div>
      <div class="tdcentral-head-actions">
       <a class="tdcentral-btn primary" href="<?=$portfolioUrl(['page'=>1])?>"><i class="fa-solid fa-rotate"></i><?=$centralIsSeller?'Atualizar lista':'Atualizar CRM'?></a>
-      <a class="tdcentral-btn success" href="<?=APP_URL?>/commercial/accounts/new"><i class="fa-solid fa-building-circle-check"></i>Nova Conta CRM</a>
+      <a class="tdcentral-btn success" href="<?=APP_URL?>/commercial/accounts/new" data-no-client-modal><i class="fa-solid fa-building-circle-check"></i>Nova Conta CRM</a>
       <?php if(!$centralIsSeller):?><a class="tdcentral-btn warning" href="<?=APP_URL?>/clients?q=LOCAL-CRM-"><i class="fa-regular fa-clock"></i>Contas CRM pendentes<?php if($centralPending>0):?><b><?=number_format($centralPending,0,',','.')?></b><?php endif;?></a><?php elseif($centralPending>0):?><span class="tdcentral-btn warning disabled" title="A sincronização é executada pela supervisão ou administração"><i class="fa-regular fa-clock"></i><?=$centralPending?> Conta CRM pendente<?=$centralPending===1?'':'s'?> para supervisão</span><?php endif;?>
      </div>
     </header>
