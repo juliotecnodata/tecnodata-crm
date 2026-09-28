@@ -1476,60 +1476,41 @@ final class CommercialAccountService {
    $request['identificacao']['nCodConta']=(int)$remoteAccountCode;
    $request['identificacao']['nCodVend']=(int)($account['crm_user_code']??0);
 
-   $remote=null;
    $created=false;$response=null;$localContact=str_starts_with((string)$contact['omie_code'],'LOCAL-CRM-CONT-');
-
-   // Para contatos locais, o cCodInt é gerado por nós e é único.
-   // Consultamos diretamente por ele, evitando ListarContatos/5113.
-   if($localContact&&$integrationCode!==''){
-    try{
-     $candidate=$omie->call('crm_contacts','ConsultarContato',['cCodInt'=>$integrationCode]);
-     $candidateIdent=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
-     if(trim((string)($candidateIdent['nCod']??''))!=='')$remote=$candidate;
-    }catch(Throwable $e){
-     $msg=crm_normalize_key($e->getMessage());
-     $notFound=str_contains($msg,'nao cadastrado')||
-               str_contains($msg,'nao encontrado')||
-               str_contains($msg,'nao existem registros')||
-               str_contains($msg,'codigo de integracao');
-     if(!$notFound)throw $e;
-    }
-   }
    if(!$localContact){
     $remoteCode=(string)$contact['omie_code'];
     $request['identificacao']['nCod']=(int)$remoteCode;
     unset($request['identificacao']['cCodInt']);
     $response=$omie->call('crm_contacts','AlterarContato',$request);
-   }elseif(!$remote){
-    $response=$omie->call('crm_contacts','IncluirContato',$request);
-    $status=(string)($response['cCodStatus']??$response['codigo_status']??'0');
-    if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou a inclusão do contato.'));
-    $remoteCode=trim((string)($response['nCod']??$response['codigo_contato']??''));
-    if($remoteCode==='')throw new RuntimeException('A Omie confirmou o contato, mas não retornou o código do contato.');
-    $created=true;
-    $remote=['identificacao'=>array_merge((array)$request['identificacao'],['nCod'=>$remoteCode]),'endereco'=>$request['endereco']??[],'telefone_email'=>$request['telefone_email']??[],'cObs'=>$request['cObs']??''];
    }else{
-    $ident=is_array($remote['identificacao']??null)?$remote['identificacao']:[];
-    $remoteCode=trim((string)($ident['nCod']??''));
-    if($remoteCode==='')throw new RuntimeException('A Omie localizou o contato, mas não retornou o código.');
-    // O contato já existia na Omie: vincular o nCod não basta.
-    // Aplicamos os dados locais pelo método oficial AlterarContato.
-    $request['identificacao']['nCod']=(int)$remoteCode;
-    unset($request['identificacao']['cCodInt']);
-    $response=$omie->call('crm_contacts','AlterarContato',$request);
+    if($integrationCode==='')throw new RuntimeException('O contato local "'.((string)($contact['name']??'sem nome')).'" nao possui codigo de integracao para sincronizar com a Omie.');
+    // UpsertContato resolve criacao e recuperacao pelo mesmo cCodInt sem gerar
+    // ConsultarContato/5094 antes da inclusao quando o contato ainda nao existe.
+    $response=$omie->call('crm_contacts','UpsertContato',$request);
+    $status=(string)($response['cCodStatus']??$response['codigo_status']??'0');
+    if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou o upsert do contato.'));
+    $remoteCode=trim((string)($response['nCod']??$response['codigo_contato']??''));
+    if($remoteCode===''){
+     $candidate=$omie->call('crm_contacts','ConsultarContato',['cCodInt'=>$integrationCode]);
+     $candidateIdent=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
+     $remoteCode=trim((string)($candidateIdent['nCod']??''));
+    }
+    if($remoteCode==='')throw new RuntimeException('A Omie processou o UpsertContato, mas nao retornou o codigo do contato.');
+    $created=true;
    }
 
    $confirmedContact=$omie->call('crm_contacts','ConsultarContato',['nCod'=>(int)$remoteCode]);
    $confirmedContactIdent=is_array($confirmedContact['identificacao']??null)?$confirmedContact['identificacao']:[];
    $confirmedContactCode=trim((string)($confirmedContactIdent['nCod']??''));
-   if($confirmedContactCode===''||$confirmedContactCode!==trim((string)$remoteCode))throw new RuntimeException('A Omie processou o contato, mas a consulta de confirmação não retornou o mesmo nCod.');
+   if($confirmedContactCode===''||$confirmedContactCode!==trim((string)$remoteCode))throw new RuntimeException('A Omie processou o contato, mas a consulta de confirmacao nao retornou o mesmo nCod.');
    $confirmedAccountCode=trim((string)($confirmedContactIdent['nCodConta']??''));
    if($confirmedAccountCode!==''&&$confirmedAccountCode!==trim((string)$remoteAccountCode))throw new RuntimeException('A Omie confirmou o contato vinculado a uma Conta CRM diferente da esperada.');
    $canonicalContactIntegration=trim((string)($confirmedContactIdent['cCodInt']??''));
+   if($canonicalContactIntegration==='')$canonicalContactIntegration=$integrationCode;
 
    $confirmedContact['_tecnodata']=[
     'request'=>$request,
-    'source'=>$created?'tecnodata_contact_created':'tecnodata_contact_updated',
+    'source'=>$localContact?'tecnodata_contact_upserted':'tecnodata_contact_updated',
     'omie_status'=>'synced','local_code'=>(string)$contact['omie_code'],'synced_at'=>date(DATE_ATOM)
    ];
    if($response!==null)$confirmedContact['_tecnodata']['response']=$response;
