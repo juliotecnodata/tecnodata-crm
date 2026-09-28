@@ -1134,7 +1134,8 @@ $router->post('/commercial/accounts/{code}/omie-sync',function($p){
  Auth::requireRole('admin','supervisor');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);$code=trim((string)$p['code']);
  try{
   $result=CommercialAccountService::syncLocalWithOmie($code,Auth::user());
-  $_SESSION['commercial_flash']=['type'=>'success','message'=>(string)$result['message'].' Conta CRM e contatos foram tratados nos módulos CRM da Omie; Cliente Geral/Vendas permanece separado.'];
+  $pendingCharacteristics=(int)(DB::scalar("SELECT COUNT(*) FROM sync_outbox WHERE entity_type='crm_account_classification' AND entity_id=? AND status IN('pending','error')",[(string)$result['account_code']])??0);
+  $_SESSION['commercial_flash']=['type'=>'success','message'=>(string)$result['message'].' Conta CRM e contatos foram tratados nos módulos CRM da Omie; Cliente Geral/Vendas permanece separado.'.($pendingCharacteristics>0?' A classificação CFC/Revendedor ficou na fila do módulo Características da Conta.':'')];
   redirect('/commercial/accounts/'.rawurlencode((string)$result['account_code']).'?from=clients');
  }catch(Throwable $e){
   $_SESSION['commercial_flash']=['type'=>'danger','message'=>'Nao foi possivel sincronizar a Conta CRM com a Omie: '.$e->getMessage()];
