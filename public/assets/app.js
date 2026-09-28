@@ -3379,7 +3379,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   formatCanonicalEditorValues();
   editModal.showModal();
  };
- editButton?.addEventListener('click',populateEdit);
+ editButton?.addEventListener('click',()=>{
+  const client=currentPayload?.client||{};
+  if(!client.can_edit)return;
+  if(client.source==='crm_account'&&client.edit_url){location.href=client.edit_url;return;}
+  populateEdit();
+ });
  editModal?.querySelectorAll('[data-client-quick-edit-close]').forEach(button=>button.addEventListener('click',editClose));
  editModal?.addEventListener('click',event=>{if(event.target===editModal)editClose();});
  editForm?.addEventListener('submit',async event=>{
