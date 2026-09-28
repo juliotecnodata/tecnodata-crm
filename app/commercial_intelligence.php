@@ -729,7 +729,7 @@ final class CommercialPortfolioService {
     [$code,$ident['cCodInt']??null,$accountCode,$ident['nCodVend']??null,$ident['cNome']??null,$ident['cSobrenome']??null,$ident['cCargo']??null,$tel['cEmail']??null,$phone!==''?$phone:null,$mobile!==''?$mobile:null,json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$syncToken]);
   }
   $total=max(1,(int)($data['total_de_paginas']??1));$done=$page>=$total;
-  if($done)DB::exec("UPDATE crm_contacts SET active=0 WHERE last_seen_token IS NULL OR last_seen_token<>?",[$syncToken]);
+  if($done)DB::exec("UPDATE crm_contacts SET active=0 WHERE omie_code NOT LIKE 'LOCAL-CRM-CONT-%' AND (last_seen_token IS NULL OR last_seen_token<>?)",[$syncToken]);
   self::saveState('crm_contacts',$page,$total,count($items),$done,['sync_token'=>$syncToken]);
   return ['module'=>'crm_contacts','page'=>$page,'total_pages'=>$total,'count'=>count($items),'done'=>$done,'sync_token'=>$syncToken];
  }
@@ -1171,14 +1171,22 @@ final class CommercialAccountService {
   $role=(string)($user['role']??'');
   $ownerCode=$role==='seller'?trim((string)($user['crm_user_omie_code']??'')):trim((string)($input['crm_user_code']??''));
   if($ownerCode==='')throw new RuntimeException($role==='seller'?'Seu usuario ainda nao esta vinculado a um usuario do CRM Omie. Solicite o ajuste ao administrador.':'Selecione o responsavel comercial da conta.');
-  if(!(int)(DB::scalar("SELECT COUNT(*) FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.omie_code=? AND cu.active=1",[$ownerCode])??0))throw new RuntimeException('O responsavel selecionado nao esta vinculado a um vendedor ativo do sistema.');
+  if(!(int)(DB::scalar("SELECT COUNT(*) FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.omie_code=? AND cu.active=1 AND u.role='seller'",[$ownerCode])??0))throw new RuntimeException('O responsavel selecionado nao esta vinculado a um vendedor ativo do sistema.');
+
+  $contactName=trim((string)($input['contact_name']??''));
+  $contactPosition=trim((string)($input['contact_position']??''));
+  if($contactName==='')throw new RuntimeException('Informe o nome do contato principal da Conta CRM.');
 
   $integrationCode='TDCRM-CTA-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
   $localCode='LOCAL-CRM-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
+  $contactIntegrationCode='TDCRM-CONT-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
+  $localContactCode='LOCAL-CRM-CONT-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));
   $tags=[];foreach(preg_split('/[,;\r\n]+/',(string)($input['tags']??''))?:[] as $tag){$tag=trim($tag);if($tag!==''&&!in_array($tag,$tags,true))$tags[]=mb_substr($tag,0,60);if(count($tags)>=20)break;}
   $request=self::accountRequest($input,$ownerCode,$integrationCode,$name,$tradeName,$document,$tags);
-  $salesDraft=[];foreach(['email','contact_name','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','notes'] as $field)$salesDraft[$field]=trim((string)($input[$field]??''));
+  $contactRequest=self::contactRequest($input,$ownerCode,$contactIntegrationCode,0,$contactName,$contactPosition);
+  $salesDraft=[];foreach(['email','contact_name','contact_position','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','notes'] as $field)$salesDraft[$field]=trim((string)($input[$field]??''));
   $raw=['request'=>$request,'sales_draft'=>$salesDraft,'source'=>'tecnodata_local','omie_status'=>'pending','created_by'=>(int)($user['id']??0),'created_at'=>date(DATE_ATOM)];
+  $contactRaw=['request'=>$contactRequest,'source'=>'tecnodata_local','omie_status'=>'pending','created_by'=>(int)($user['id']??0),'created_at'=>date(DATE_ATOM)];
   $notes=trim((string)($input['notes']??''));
   $pdo=DB::conn();$own=!$pdo->inTransaction();if($own)$pdo->beginTransaction();
   try{
@@ -1187,6 +1195,15 @@ final class CommercialAccountService {
    ]);
    DB::exec("INSERT INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,strategic_notes,classification_source,updated_by_user_id,updated_at) VALUES(?,?,?,?, 'tecnodata',?,NOW())",[
     $localCode,!empty($input['is_cfc'])?1:0,!empty($input['is_reseller'])?1:0,$notes!==''?$notes:null,(int)($user['id']??0)?:null
+   ]);
+   $contactTel=(array)($contactRequest['telefone_email']??[]);
+   $contactPhone=trim(trim((string)($contactTel['cDDDTel']??'')).' '.trim((string)($contactTel['cNumTel']??'')));
+   $contactMobile=trim(trim((string)($contactTel['cDDDCel1']??'')).' '.trim((string)($contactTel['cNumCel1']??'')));
+   DB::exec("INSERT INTO crm_contacts(omie_code,integration_code,crm_account_code,crm_user_code,name,last_name,position_name,email,phone,mobile,active,raw_json,last_seen_token,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,?,1,?,NULL,NOW())",[
+    $localContactCode,$contactIntegrationCode,$localCode,$ownerCode,$contactName,null,$contactPosition!==''?$contactPosition:null,
+    trim((string)($contactTel['cEmail']??''))?:null,$contactPhone!==''?$contactPhone:null,$contactMobile!==''?$contactMobile:null,
+    json_encode($contactRaw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
    ]);
    if($own)$pdo->commit();
   }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
@@ -1217,17 +1234,33 @@ final class CommercialAccountService {
   if($remoteCode==='')throw new RuntimeException('A Omie nao retornou o codigo da Conta CRM.');
   if((int)(DB::scalar("SELECT COUNT(*) FROM crm_accounts WHERE omie_code=?",[$remoteCode])??0)>0)throw new RuntimeException('A Conta CRM ja existe localmente com o codigo Omie '.$remoteCode.'. Abra o cadastro existente para evitar duplicidade.');
 
+  $contactSync=self::syncPendingContactsWithOmie($accountCode,$remoteCode,$account,$omie);
   $remoteRaw=$remoteRow??['identificacao'=>$request['identificacao']??[],'endereco'=>$request['endereco']??[],'telefone_email'=>$request['telefone_email']??[],'tags'=>$request['tags']??[]];
   if(isset($remoteRaw['identificacao'])&&is_array($remoteRaw['identificacao']))$remoteRaw['identificacao']['nCod']=$remoteCode;
-  $remoteRaw['_tecnodata']=['sales_draft'=>(array)($raw['sales_draft']??[]),'source'=>'tecnodata_synced','created_by'=>(int)($raw['created_by']??0),'created_at'=>(string)($raw['created_at']??date(DATE_ATOM))];
+  $remoteRaw['_tecnodata']=['sales_draft'=>(array)($raw['sales_draft']??[]),'source'=>'tecnodata_synced','omie_status'=>'synced','created_by'=>(int)($raw['created_by']??0),'created_at'=>(string)($raw['created_at']??date(DATE_ATOM)),'contacts_synced'=>count($contactSync)];
   $pdo=DB::conn();$own=!$pdo->inTransaction();if($own)$pdo->beginTransaction();
   try{
    DB::exec("UPDATE crm_accounts SET omie_code=?,raw_json=?,last_seen_token=NULL,updated_at=NOW() WHERE omie_code=?",[$remoteCode,json_encode($remoteRaw,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$accountCode]);
    foreach(['crm_account_commercial_profiles','crm_account_commercial_audit','crm_contacts','activities','tasks','commercial_partner_work','commercial_sales','crm_account_notes'] as $table)DB::exec("UPDATE ".$table." SET crm_account_code=? WHERE crm_account_code=?",[$remoteCode,$accountCode]);
+   foreach($contactSync as $contactResult){
+    $localContactCode=(string)($contactResult['local_code']??'');$remoteContactCode=(string)($contactResult['remote_code']??'');
+    if($localContactCode===''||$remoteContactCode==='')continue;
+    $existingRemote=DB::one("SELECT omie_code FROM crm_contacts WHERE omie_code=? AND omie_code<>? LIMIT 1",[$remoteContactCode,$localContactCode]);
+    if($existingRemote){
+     DB::exec("DELETE FROM crm_contacts WHERE omie_code=?",[$localContactCode]);
+     continue;
+    }
+    DB::exec("UPDATE crm_contacts SET omie_code=?,integration_code=?,crm_account_code=?,crm_user_code=?,raw_json=?,last_seen_token=NULL,active=1,updated_at=NOW() WHERE omie_code=?",[
+     $remoteContactCode,(string)($contactResult['integration_code']??''),$remoteCode,(string)($contactResult['crm_user_code']??'')?:null,
+     json_encode((array)($contactResult['raw']??[]),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$localContactCode
+    ]);
+   }
    DB::exec("UPDATE sync_outbox SET entity_id=?,payload_json=REPLACE(payload_json,?,?) WHERE entity_type='crm_account_classification' AND entity_id=?",[$remoteCode,$accountCode,$remoteCode,$accountCode]);
    if($own)$pdo->commit();
   }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
-  return ['account_code'=>$remoteCode,'created'=>$created,'message'=>$created?'Conta CRM criada e sincronizada com a Omie.':'A conta ja existia na Omie e foi vinculada ao cadastro local.'];
+  $contactCount=count($contactSync);
+  $contactMessage=$contactCount>0?' '.($contactCount===1?'Contato principal sincronizado.':$contactCount.' contatos sincronizados.'):'';
+  return ['account_code'=>$remoteCode,'created'=>$created,'contacts_synced'=>$contactCount,'message'=>($created?'Conta CRM criada e sincronizada com a Omie.':'A conta ja existia na Omie e foi vinculada ao cadastro local.').$contactMessage];
  }
 
  public static function promoteToSalesClient(string $accountCode,array $input,array $user): array{
@@ -1258,6 +1291,102 @@ final class CommercialAccountService {
    if($own)$pdo->commit();
    return ['client_id'=>$clientId,'created'=>$created,'message'=>$created?'Cliente de Vendas criado localmente e vinculado. Ele agora aguarda a sincronização própria com a Omie.':'O CPF/CNPJ já existia na base de Vendas; o vínculo foi realizado sem duplicar o cliente.'];
   }catch(Throwable $e){if($own&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
+ }
+
+ private static function syncPendingContactsWithOmie(string $localAccountCode,string $remoteAccountCode,array $account,OmieClient $omie): array{
+  $contacts=DB::all("SELECT * FROM crm_contacts WHERE crm_account_code=? AND active=1 AND omie_code LIKE 'LOCAL-CRM-CONT-%' ORDER BY updated_at,omie_code",[$localAccountCode]);
+  if(!$contacts)return [];
+  $remoteContacts=[];$page=1;
+  do{
+   $listed=$omie->call('crm_contacts','ListarContatos',['pagina'=>$page,'registros_por_pagina'=>50,'apenas_importado_api'=>'N','exibir_obs'=>'S','filtrar_por_conta'=>(int)$remoteAccountCode]);
+   foreach((array)($listed['cadastros']??[]) as $candidate)if(is_array($candidate))$remoteContacts[]=$candidate;
+   $total=max(1,(int)($listed['total_de_paginas']??1));$page++;
+  }while($page<=$total&&$page<=100);
+
+  $results=[];
+  foreach($contacts as $contact){
+   $raw=json_decode((string)($contact['raw_json']??''),true);if(!is_array($raw))$raw=[];
+   $request=is_array($raw['request']??null)?$raw['request']:[];
+   if(!$request)throw new RuntimeException('O contato local "'.((string)($contact['name']??'sem nome')).'" nao possui payload para sincronizacao.');
+   $integrationCode=trim((string)($contact['integration_code']??$request['identificacao']['cCodInt']??''));
+   $request['identificacao']['cCodInt']=$integrationCode;
+   $request['identificacao']['nCodConta']=(int)$remoteAccountCode;
+   $request['identificacao']['nCodVend']=(int)($account['crm_user_code']??0);
+
+   $remote=null;
+   foreach($remoteContacts as $candidate){
+    $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
+    if($integrationCode!==''&&trim((string)($ident['cCodInt']??''))===$integrationCode){$remote=$candidate;break;}
+   }
+   if(!$remote){
+    $wantedName=crm_normalize_key((string)($request['identificacao']['cNome']??''));
+    $wantedEmail=mb_strtolower(trim((string)($request['telefone_email']['cEmail']??'')),'UTF-8');
+    $wantedPhone=crm_digits((string)($request['telefone_email']['cDDDTel']??'').(string)($request['telefone_email']['cNumTel']??''));
+    foreach($remoteContacts as $candidate){
+     $ident=is_array($candidate['identificacao']??null)?$candidate['identificacao']:[];
+     $tel=is_array($candidate['telefone_email']??null)?$candidate['telefone_email']:[];
+     $sameName=$wantedName!==''&&crm_normalize_key((string)($ident['cNome']??''))===$wantedName;
+     $sameEmail=$wantedEmail!==''&&mb_strtolower(trim((string)($tel['cEmail']??'')),'UTF-8')===$wantedEmail;
+     $samePhone=$wantedPhone!==''&&crm_digits((string)($tel['cDDDTel']??'').(string)($tel['cNumTel']??''))===$wantedPhone;
+     if($sameName&&($sameEmail||$samePhone)){$remote=$candidate;break;}
+    }
+   }
+
+   $created=false;$response=null;
+   if(!$remote){
+    $response=$omie->call('crm_contacts','IncluirContato',$request);
+    $status=(string)($response['cCodStatus']??$response['codigo_status']??'0');
+    if($status!==''&&$status!=='0')throw new RuntimeException((string)($response['cDesStatus']??$response['descricao_status']??'A Omie recusou a inclusao do contato.'));
+    $remoteCode=trim((string)($response['nCod']??$response['codigo_contato']??''));
+    if($remoteCode==='')throw new RuntimeException('A Omie confirmou o contato, mas nao retornou o codigo do contato.');
+    $created=true;
+    $remote=['identificacao'=>array_merge((array)$request['identificacao'],['nCod'=>$remoteCode]),'endereco'=>$request['endereco']??[],'telefone_email'=>$request['telefone_email']??[],'cObs'=>$request['cObs']??''];
+    $remoteContacts[]=$remote;
+   }else{
+    $ident=is_array($remote['identificacao']??null)?$remote['identificacao']:[];
+    $remoteCode=trim((string)($ident['nCod']??''));
+    if($remoteCode==='')throw new RuntimeException('A Omie localizou o contato, mas nao retornou o codigo.');
+   }
+
+   $remote['_tecnodata']=['source'=>$created?'tecnodata_contact_created':'tecnodata_contact_linked','omie_status'=>'synced','local_code'=>(string)$contact['omie_code'],'synced_at'=>date(DATE_ATOM)];
+   if($response!==null)$remote['_tecnodata']['response']=$response;
+   $results[]=[
+    'local_code'=>(string)$contact['omie_code'],'remote_code'=>$remoteCode,'integration_code'=>$integrationCode,
+    'crm_user_code'=>(string)($account['crm_user_code']??''),'raw'=>$remote,'created'=>$created
+   ];
+  }
+  return $results;
+ }
+
+ private static function contactRequest(array $input,string $ownerCode,string $integrationCode,int $accountCode,string $contactName,string $contactPosition=''): array{
+  $ddd=crm_digits((string)($input['phone_ddd']??''));$phone=crm_digits((string)($input['phone_number']??''));
+  $request=[
+   'identificacao'=>[
+    'cCodInt'=>$integrationCode,
+    'cNome'=>mb_substr(trim($contactName),0,60),
+    'cSobrenome'=>'',
+    'cCargo'=>mb_substr(trim($contactPosition),0,60),
+    'nCodVend'=>(int)$ownerCode,
+    'nCodConta'=>$accountCode
+   ],
+   'endereco'=>[
+    'cEndereco'=>mb_substr(trim((string)($input['address']??'')),0,200),
+    'cCompl'=>mb_substr(trim((string)($input['complement']??'')),0,200),
+    'cCEP'=>crm_digits((string)($input['zip_code']??'')),
+    'cBairro'=>mb_substr(trim((string)($input['neighborhood']??'')),0,60),
+    'cCidade'=>mb_substr(trim((string)($input['city']??'')),0,50),
+    'cUF'=>strtoupper(mb_substr(trim((string)($input['uf']??'')),0,2)),
+    'cPais'=>'BRASIL'
+   ],
+   'telefone_email'=>[
+    'cDDDTel'=>$ddd,
+    'cNumTel'=>$phone,
+    'cEmail'=>mb_substr(trim((string)($input['email']??'')),0,200),
+    'cWebsite'=>mb_substr(trim((string)($input['website']??'')),0,100)
+   ]
+  ];
+  $notes=trim((string)($input['notes']??''));if($notes!=='')$request['cObs']=mb_substr($notes,0,2000);
+  return $request;
  }
 
  private static function accountRequest(array $input,string $ownerCode,string $integrationCode,string $name,string $tradeName,string $document,array $tags): array{
