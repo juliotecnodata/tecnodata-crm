@@ -1266,7 +1266,8 @@ $router->post('/commercial/accounts/{code}/client-link',function($p){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  $code=trim((string)$p['code']);$u=Auth::user();$isSeller=(string)($u['role']??'')==='seller';
  try{
-  if(!CommercialAccountService::canView($u,$code))throw new RuntimeException('Esta Conta CRM não pertence à base ativa.');
+  $canLink=$isSeller?CommercialAccountService::canWork($u,$code):CommercialAccountService::canView($u,$code);
+  if(!$canLink)throw new RuntimeException('Esta Conta CRM não pertence à sua operação comercial.');
   if($isSeller&&(int)(DB::scalar("SELECT COUNT(*) FROM crm_account_links WHERE crm_account_code=?",[$code])??0)>0)throw new RuntimeException('A troca de um vínculo existente deve ser validada pelo supervisor.');
   $clientId=(int)($_POST['client_id']??0);
   if($isSeller){
@@ -1359,7 +1360,8 @@ $router->post('/commercial/accounts/{code}/note',function($p){
 $router->post('/commercial/accounts/{code}/profile',function($p){
  Auth::requireRole('admin','supervisor','seller');CommercialSchema::ensure();CSRF::require($_POST['_token']??null);
  $u=Auth::user();$code=trim((string)$p['code']);
- if(!CommercialAccountService::canView($u,$code)){http_response_code(403);exit('Sem permissão para alterar esta Conta CRM.');}
+ $canChange=(string)($u['role']??'')==='seller'?CommercialAccountService::canWork($u,$code):CommercialAccountService::canView($u,$code);
+ if(!$canChange){http_response_code(403);exit('Sem permissão para alterar esta Conta CRM.');}
  CommercialAccountService::updateProfile($code,!empty($_POST['is_cfc']),!empty($_POST['is_reseller']),(int)$u['id'],trim((string)($_POST['strategic_notes']??'')));
  $_SESSION['commercial_flash']=['type'=>'success','message'=>'Perfil comercial atualizado. A alteração foi auditada e entrou na fila de sincronização do Omie.'];
  if((string)($_POST['return_to']??'')==='clients')redirect('/clients');
