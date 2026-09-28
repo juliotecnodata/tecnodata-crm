@@ -59,13 +59,19 @@ final class OmieClient {
   $collectCode($data['codigo']??null);
   $collectCode($data['codigo_status']??null);
   $collectCode($data['cCodigoStatus']??null);
+  $collectCode($data['cCodStatus']??null);
   $collectCode($data['faultcode']??null);
-  foreach((array)($data['errors']??$data['erros']??[]) as $omieError){
+
+  $omieErrors=(array)($data['errors']??$data['erros']??$data['ERROS']??[]);
+  $firstBusinessError='';
+  foreach($omieErrors as $omieError){
    if(!is_array($omieError))continue;
    $collectCode($omieError['CODIGO']??$omieError['codigo']??$omieError['code']??null);
+   if($firstBusinessError==='')$firstBusinessError=trim((string)($omieError['MENSAGEM']??$omieError['mensagem']??$omieError['description']??$omieError['descricao']??''));
   }
-  $faultMessage=(string)($data['faultstring']??$data['message']??$data['MENSAGEM']??'');
+  $faultMessage=trim((string)($data['faultstring']??$data['message']??$data['MENSAGEM']??''));
   if($faultMessage!==''&&str_contains(self::normalizeErrorText($faultMessage),'nao existem registros para a pagina'))$errorCodes[]=5113;
+  if($firstBusinessError!==''&&str_contains(self::normalizeErrorText($firstBusinessError),'nao existem registros para a pagina'))$errorCodes[]=5113;
 
   if($isListCall&&in_array(5113,$errorCodes,true)){
    if(!isset($data['cadastros'])||!is_array($data['cadastros']))$data['cadastros']=[];
@@ -78,13 +84,21 @@ final class OmieClient {
    return $data;
   }
 
-  if($http>=400||isset($data['faultstring']))throw new RuntimeException((string)($data['faultstring']??$data['message']??('Erro Omie HTTP '.$http)));
-  // Algumas operações da Omie retornam HTTP 200 mesmo quando o processamento falha.
-  // Nesses casos codigo_status/cCodigoStatus > 0 representa erro de negócio.
-  $statusRaw=$data['codigo_status']??$data['cCodigoStatus']??null;
-  if($statusRaw!==null&&$statusRaw!==''&&(string)$statusRaw!=='0'){
-   $description=(string)($data['descricao_status']??$data['cDesStatus']??$data['message']??('Erro Omie código '.$statusRaw));
-   throw new RuntimeException($description.' (Omie status '.$statusRaw.')');
+  $context='Omie '.$endpoint.'/'.$call.': ';
+  if($http>=400||isset($data['faultstring'])){
+   throw new RuntimeException($context.(string)($data['faultstring']??$data['message']??('HTTP '.$http)));
+  }
+  if($firstBusinessError!==''){
+   $code=$errorCodes[0]??null;
+   throw new RuntimeException($context.$firstBusinessError.($code!==null?' (código '.$code.')':''));
+  }
+
+  // Os serviços Omie usam variações como codigo_status, cCodigoStatus e,
+  // no CRM, principalmente cCodStatus/cDesStatus.
+  $statusRaw=$data['codigo_status']??$data['cCodigoStatus']??$data['cCodStatus']??null;
+  if($statusRaw!==null&&$statusRaw!==''&&(int)$statusRaw!==0){
+   $description=trim((string)($data['descricao_status']??$data['cDesStatus']??$data['message']??('Erro código '.$statusRaw)));
+   throw new RuntimeException($context.$description.' (status '.$statusRaw.')');
   }
   return $data;
  }
