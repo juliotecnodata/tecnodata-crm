@@ -1171,7 +1171,7 @@ final class CommercialAccountService {
   $role=(string)($user['role']??'');
   $ownerCode=$role==='seller'?trim((string)($user['crm_user_omie_code']??'')):trim((string)($input['crm_user_code']??''));
   if($ownerCode==='')throw new RuntimeException($role==='seller'?'Seu usuario ainda nao esta vinculado a um usuario do CRM Omie. Solicite o ajuste ao administrador.':'Selecione o responsavel comercial da conta.');
-  if(!(int)(DB::scalar("SELECT COUNT(*) FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.omie_code=? AND cu.active=1 AND u.role='seller'",[$ownerCode])??0))throw new RuntimeException('O responsavel selecionado nao esta vinculado a um vendedor ativo do sistema.');
+  if(!(int)(DB::scalar("SELECT COUNT(*) FROM crm_users cu JOIN users u ON u.crm_user_omie_code=cu.omie_code AND u.active=1 AND u.role='seller' WHERE cu.omie_code=? AND cu.active=1",[$ownerCode])??0))throw new RuntimeException('O responsavel selecionado nao esta vinculado a um vendedor ativo do sistema.');
 
   $contactName=trim((string)($input['contact_name']??''));
   $contactPosition=trim((string)($input['contact_position']??''));
@@ -1184,7 +1184,7 @@ final class CommercialAccountService {
   $tags=[];foreach(preg_split('/[,;\r\n]+/',(string)($input['tags']??''))?:[] as $tag){$tag=trim($tag);if($tag!==''&&!in_array($tag,$tags,true))$tags[]=mb_substr($tag,0,60);if(count($tags)>=20)break;}
   $request=self::accountRequest($input,$ownerCode,$integrationCode,$name,$tradeName,$document,$tags);
   $contactRequest=self::contactRequest($input,$ownerCode,$contactIntegrationCode,0,$contactName,$contactPosition);
-  $salesDraft=[];foreach(['email','contact_name','contact_position','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','tags','notes'] as $field)$salesDraft[$field]=trim((string)($input[$field]??''));
+  $salesDraft=[];foreach(['email','contact_name','contact_position','phone_ddd','phone_number','zip_code','address','address_number','complement','neighborhood','city','uf','employee_count','revenue_band','cnae','tax_regime','tags','notes'] as $field)$salesDraft[$field]=trim((string)($input[$field]??''));
   $raw=['request'=>$request,'sales_draft'=>$salesDraft,'source'=>'tecnodata_local','omie_status'=>'pending','created_by'=>(int)($user['id']??0),'created_at'=>date(DATE_ATOM)];
   $contactRaw=['request'=>$contactRequest,'source'=>'tecnodata_local','omie_status'=>'pending','created_by'=>(int)($user['id']??0),'created_at'=>date(DATE_ATOM)];
   $notes=trim((string)($input['notes']??''));
@@ -1196,6 +1196,16 @@ final class CommercialAccountService {
    DB::exec("INSERT INTO crm_account_commercial_profiles(crm_account_code,is_cfc,is_reseller,strategic_notes,classification_source,updated_by_user_id,updated_at) VALUES(?,?,?,?, 'tecnodata',?,NOW())",[
     $localCode,!empty($input['is_cfc'])?1:0,!empty($input['is_reseller'])?1:0,$notes!==''?$notes:null,(int)($user['id']??0)?:null
    ]);
+   $initialClassification=['cfc'=>!empty($input['is_cfc']),'reseller'=>!empty($input['is_reseller'])];
+   if($initialClassification['cfc']||$initialClassification['reseller']){
+    DB::exec("INSERT INTO crm_account_commercial_audit(crm_account_code,actor_user_id,field_name,previous_value,new_value,source,sync_status,created_at)
+              VALUES(?,?,'classification',?,?,'tecnodata','pending',NOW())",[
+     $localCode,(int)($user['id']??0)?:null,
+     json_encode(['cfc'=>false,'reseller'=>false],JSON_UNESCAPED_UNICODE),
+     json_encode($initialClassification,JSON_UNESCAPED_UNICODE)
+    ]);
+    self::enqueueProfile($localCode,$initialClassification);
+   }
    $contactTel=(array)($contactRequest['telefone_email']??[]);
    $contactPhone=trim(trim((string)($contactTel['cDDDTel']??'')).' '.trim((string)($contactTel['cNumTel']??'')));
    $contactMobile=trim(trim((string)($contactTel['cDDDCel1']??'')).' '.trim((string)($contactTel['cNumCel1']??'')));
@@ -1370,7 +1380,7 @@ final class CommercialAccountService {
     'nCodConta'=>$accountCode
    ],
    'endereco'=>[
-    'cEndereco'=>mb_substr(trim((string)($input['address']??'')),0,200),
+    'cEndereco'=>mb_substr(trim(trim((string)($input['address']??'')).(trim((string)($input['address_number']??''))!==''?', '.trim((string)$input['address_number']):'')),0,200),
     'cCompl'=>mb_substr(trim((string)($input['complement']??'')),0,200),
     'cCEP'=>crm_digits((string)($input['zip_code']??'')),
     'cBairro'=>mb_substr(trim((string)($input['neighborhood']??'')),0,60),
@@ -1393,10 +1403,16 @@ final class CommercialAccountService {
   $ddd=crm_digits((string)($input['phone_ddd']??''));$phone=crm_digits((string)($input['phone_number']??''));
   $address=trim((string)($input['address']??''));$number=trim((string)($input['address_number']??''));if($number!=='')$address=trim($address.', '.$number);
   $request=[
-   'identificacao'=>['cCodInt'=>$integrationCode,'cNome'=>mb_substr($name,0,100),'cNomeFantasia'=>mb_substr($tradeName!==''?$tradeName:$name,0,100),'cDoc'=>$document,'nCodVend'=>(int)$ownerCode,'cObs'=>mb_substr(trim((string)($input['notes']??'')),0,500)],
-   'endereco'=>['cEndereco'=>mb_substr($address,0,100),'cCompl'=>mb_substr(trim((string)($input['complement']??'')),0,100),'cCEP'=>crm_digits((string)($input['zip_code']??'')),'cBairro'=>mb_substr(trim((string)($input['neighborhood']??'')),0,60),'cCidade'=>mb_substr(trim((string)($input['city']??'')),0,60),'cUF'=>strtoupper(mb_substr(trim((string)($input['uf']??'')),0,2)),'cPais'=>'BRASIL'],
-   'telefone_email'=>['cDDDTel'=>$ddd,'cNumTel'=>$phone,'cEmail'=>mb_substr(trim((string)($input['email']??'')),0,200),'cWebsite'=>mb_substr(trim((string)($input['website']??'')),0,200)]
+   'identificacao'=>['cCodInt'=>$integrationCode,'cNome'=>mb_substr($name,0,100),'cNomeFantasia'=>mb_substr($tradeName!==''?$tradeName:$name,0,100),'cDoc'=>$document,'nCodVend'=>(int)$ownerCode,'cObs'=>trim((string)($input['notes']??''))],
+   'endereco'=>['cEndereco'=>mb_substr($address,0,200),'cCompl'=>mb_substr(trim((string)($input['complement']??'')),0,200),'cCEP'=>crm_digits((string)($input['zip_code']??'')),'cBairro'=>mb_substr(trim((string)($input['neighborhood']??'')),0,60),'cCidade'=>mb_substr(trim((string)($input['city']??'')),0,50),'cUF'=>strtoupper(mb_substr(trim((string)($input['uf']??'')),0,2)),'cPais'=>'BRASIL'],
+   'telefone_email'=>['cDDDTel'=>$ddd,'cNumTel'=>$phone,'cEmail'=>mb_substr(trim((string)($input['email']??'')),0,200),'cWebsite'=>mb_substr(trim((string)($input['website']??'')),0,100)]
   ];
+  $additional=[];
+  $employees=max(0,(int)($input['employee_count']??0));if($employees>0)$additional['nNumFunc']=$employees;
+  $revenueBand=trim((string)($input['revenue_band']??''));if($revenueBand!=='')$additional['nFaixaFat']=mb_substr($revenueBand,0,100);
+  $cnae=trim((string)($input['cnae']??''));if($cnae!=='')$additional['cCnae']=$cnae;
+  $taxRegime=trim((string)($input['tax_regime']??''));if($taxRegime!=='')$additional['cRegTrib']=$taxRegime;
+  if($additional)$request['informacoesAdicionais']=$additional;
   if($tags)$request['tags']=array_map(static fn($tag)=>['tag'=>$tag],$tags);
   return $request;
  }
@@ -2431,7 +2447,12 @@ final class CommercialOutboxService {
   $rows=DB::all("SELECT * FROM sync_outbox WHERE status IN('pending','error') AND (next_attempt_at IS NULL OR next_attempt_at<=NOW()) ORDER BY id LIMIT ".$limit);
   $done=0;$errors=0;
   foreach($rows as $row){
-   $id=(int)$row['id'];DB::exec("UPDATE sync_outbox SET status='processing',attempts=attempts+1,updated_at=NOW() WHERE id=?",[$id]);
+   $id=(int)$row['id'];
+   if((string)$row['entity_type']==='crm_account_classification'&&str_starts_with((string)$row['entity_id'],'LOCAL-CRM-')){
+    DB::exec("UPDATE sync_outbox SET status='pending',next_attempt_at=DATE_ADD(NOW(),INTERVAL 15 MINUTE),last_error=NULL,updated_at=NOW() WHERE id=?",[$id]);
+    continue;
+   }
+   DB::exec("UPDATE sync_outbox SET status='processing',attempts=attempts+1,updated_at=NOW() WHERE id=?",[$id]);
    try{
     $payload=json_decode((string)$row['payload_json'],true);if(!is_array($payload))throw new RuntimeException('Payload inválido.');
     if($row['operation']==='upsert_omie_crm_characteristics')self::pushClassification($payload);
